@@ -1,28 +1,14 @@
-import type { DragSource, DropTarget } from '@/lib/sidebar/workspaceGroups'
+import type { DragSource } from '@/lib/sidebar/workspaceGroups'
 import { canMoveTabTo, workspaceOfTab } from '@/lib/workspaces/tabWorkspaceMove'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import type { RailTarget } from '@/stores/workspaces/railDragStore'
 
 export const WORKSPACE_DND = 'application/x-ostia-workspace'
 export const GROUP_DND = 'application/x-ostia-workspace-group'
 
-type RailTarget = DropTarget | { kind: 'merge'; id: string }
-
-export interface RailDrag {
-  source: DragSource
-  target: RailTarget | null
-  mergeable: ReadonlySet<string>
-}
-
 export function isRailDrag(e: React.DragEvent): boolean {
   const types = e.dataTransfer.types
   return types.includes(WORKSPACE_DND) || types.includes(GROUP_DND)
-}
-
-export function sameTarget(a: RailTarget | null, b: RailTarget): boolean {
-  if (!a || a.kind !== b.kind) return false
-  if (a.kind === 'end' || b.kind === 'end') return true
-  if (a.kind === 'merge' || b.kind === 'merge') return a.id === b.id
-  return a.id === b.id && a.place === b.place
 }
 
 export function dragFraction(e: React.DragEvent): number {
@@ -38,7 +24,6 @@ export function upperHalf(e: React.DragEvent): boolean {
 export interface DragHandlers {
   start: (source: DragSource) => void
   over: (target: RailTarget) => void
-  drop: () => void
   end: () => void
 }
 

@@ -150,7 +150,10 @@ export function registerPaneLifecycleIpc({
       }
       services.extensionHost?.slots.clearPaneChips(event.paneId)
       releaseMovingPane(event.paneId)
-      if (services.managerService?.isManagerPane(event.paneId)) killPty(event.paneId, 'closed')
+      if (services.managerService?.isManagerPane(event.paneId)) {
+        killPty(event.paneId, 'closed')
+        services.managerService.paneClosed(event.paneId)
+      }
       if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
       dropRestoredScrollback(event.paneId)
       services.histories?.drop(event.paneId)

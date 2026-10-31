@@ -33,7 +33,7 @@ import { getByPaneId } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
 import type { RedactText } from '../privacy/redactionTargets'
 import { clipboardItemData } from '../windows/clipboardEdits'
-import { ownedGuest, resolveGuest } from './browseGuests'
+import { type CaptureGuestOf, resolveGuest } from './browseGuests'
 import type { ConsoleEntry } from './browseMethod'
 import { failedRequestsFor } from './guestNetwork'
 
@@ -298,9 +298,14 @@ export async function readPageSelection(
 const writeToClipboard = (capture: ClipboardCapture): Promise<void> =>
   clipboard.write([new ClipboardItem(clipboardItemData(capture))])
 
-export function registerPickIpc(deps: PickDeps, reaches: OriginReach, redact: RedactText): void {
+export function registerPickIpc(
+  deps: PickDeps,
+  guestOf: CaptureGuestOf,
+  reaches: OriginReach,
+  redact: RedactText,
+): void {
   ipcMain.handle('browser:pick-start', (e, paneId: string, theme?: unknown) => {
-    const guest = ownedGuest(deps.browserPanes, paneId, String(e.sender.id))
+    const guest = guestOf(paneId, String(e.sender.id))
     if (!guest) return { ok: false, error: 'browser-not-ready' } satisfies PickOutcome
     return runPick(deps, guest, paneId, {
       theme: sanitizeTheme(theme),
@@ -315,7 +320,7 @@ export function registerPickIpc(deps: PickDeps, reaches: OriginReach, redact: Re
     copyPick(paneId, captureId, String(e.sender.id), writeToClipboard),
   )
   ipcMain.handle('browser:page-selection', (e, paneId: string) => {
-    const guest = ownedGuest(deps.browserPanes, paneId, String(e.sender.id))
+    const guest = guestOf(paneId, String(e.sender.id))
     return guest ? readPageSelection(guest) : null
   })
   ipcMain.handle('browser:pick-send', (e, req: PickSendRequest) =>

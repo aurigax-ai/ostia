@@ -4,7 +4,7 @@ export type ControlEvent =
   | { type: 'output'; pane: string; data: string }
   | { type: 'reply'; ok: boolean; lines: string[] }
   | { type: 'subscription'; name: string; pane: string; value: string }
-  | { type: 'exit' }
+  | { type: 'exit'; reason: string }
 
 const BACKSLASH = 0x5c
 const NEWLINE = 0x0a
@@ -99,7 +99,7 @@ export class ControlModeParser {
         lines: [],
       }
     } else if (words[0] === '%exit') {
-      this.emit({ type: 'exit' })
+      this.emit({ type: 'exit', reason: words.slice(1).join(' ') })
     } else if (words[0] === '%subscription-changed') {
       const colon = text.indexOf(' : ')
       if (colon === -1) return

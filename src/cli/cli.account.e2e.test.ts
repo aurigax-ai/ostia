@@ -56,17 +56,29 @@ beforeAll(() => {
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
+      usage: {
+        run: () => {},
+        usageOf: (id) =>
+          id === WORK
+            ? {
+                session: { percent: 42.4, resetsAt: Date.now() + 3_600_000 },
+                weekly: { percent: 18, resetsAt: Date.now() + 86_400_000 * 3 },
+                checkedAt: Date.now(),
+              }
+            : null,
+      },
       syncProfile: async () => {},
       agentRunning: () => false,
       paneOf: (id) => id,
       openLoginTab: async () => null,
       onChange: () => {},
     }),
-    agentResumes: { subscribe: () => {} } as never,
+    accountMoves: { switched: async () => {} },
     workspaceSandboxes: { isEnabled: () => false },
     scratchFolders: { isScratch: () => false },
     workspaceWindowId: () => '7',
     execCommand: async () => ({ ok: true }) as CommandResult,
+    trustForStart: async () => false,
     windowIds: () => ['7'],
   })
 })
@@ -95,14 +107,28 @@ afterAll(() => {
 })
 
 describe('ostia account (the real CLI against a live control server)', () => {
-  it('lists every account with its number, email and the current one', async () => {
+  it('lists every account with its number, email, the current one and its checked usage', async () => {
     const res = await ostia(['account', 'list'])
     expect(res.code).toBe(0)
-    expect(res.stdout).toBe('1\tme@example.com\tcurrent\n2\twork@example.com\t\n')
+    expect(res.stdout).toBe('1\tme@example.com\tcurrent\t\t\n2\twork@example.com\t\t42%\t18%\n')
     const json = JSON.parse((await ostia(['account', 'list', '--json'])).stdout)
     expect(json.accounts).toEqual([
-      { number: 1, email: 'me@example.com', current: true },
-      { number: 2, email: 'work@example.com', current: false },
+      {
+        number: 1,
+        email: 'me@example.com',
+        current: true,
+        enabled: true,
+        session: null,
+        weekly: null,
+      },
+      {
+        number: 2,
+        email: 'work@example.com',
+        current: false,
+        enabled: true,
+        session: 42,
+        weekly: 18,
+      },
     ])
   })
 
@@ -117,6 +143,19 @@ describe('ostia account (the real CLI against a live control server)', () => {
     expect(store.current()).toBe('default')
   })
 
+  it('marks an account that is turned off and refuses to switch to it', async () => {
+    store.setEnabled(WORK, false)
+    try {
+      expect((await ostia(['account', 'list'])).stdout).toContain('2\twork@example.com\toff\t')
+      const res = await ostia(['account', 'switch', '2'])
+      expect(res.code).not.toBe(0)
+      expect(res.stderr).toContain('ostia account switch: account-off')
+      expect(res.stderr).toContain('Settings › Claude accounts')
+    } finally {
+      store.setEnabled(WORK, true)
+    }
+  })
+
   it('names an unknown account and the command to list them', async () => {
     const res = await ostia(['account', 'switch', '9'])
     expect(res.code).not.toBe(0)
@@ -124,11 +163,11 @@ describe('ostia account (the real CLI against a live control server)', () => {
     expect(res.stderr).toContain('ostia account list')
   })
 
-  it('answers a Claude start with the profile folder of the current account, and nothing for the default', async () => {
-    expect((await ostia(['claude-account', 'start', '--', '--help'])).stdout).toBe('')
+  it('answers a Claude start with the profile folder of the current account and the Default home, and nothing for the default', async () => {
+    expect((await ostia(['claude-account', 'start'])).stdout).toBe('')
     store.use(WORK)
-    const res = await ostia(['claude-account', 'start', '--', '--model', 'opus'])
-    expect(res.stdout).toBe(`${join(base, 'profiles', WORK)}\n`)
+    const res = await ostia(['claude-account', 'start'])
+    expect(res.stdout).toBe(`${join(base, 'profiles', WORK)}\n${join(base, 'home')}\n`)
     store.use('default')
   })
 })

@@ -2,7 +2,10 @@ export const agentEn = {
   agentPane: {
     addToPane: 'Add to Agent pane',
     emptyBody:
-      'Runs on {model}. Only what you add here is sent. Every file edit and command waits for your OK.',
+      'Runs on {model}. Only what you add here is sent. The mode below decides what waits for your OK.',
+    modeAllow: 'Allow',
+    modeAllowDesc:
+      'Acts without asking, except the actions on the always-ask list in Settings › Agents.',
     newSession: 'New session',
     noProvider: 'Add a model server under agent.providers in settings.json to use the Agent.',
     paneTitle: 'Agent',
@@ -13,7 +16,6 @@ export const agentEn = {
     sandboxed: 'The Agent is not available in a sandboxed workspace.',
   },
   claudeAccounts: {
-    actionsFor: 'Actions for {account}',
     active: 'Active',
     add: 'Add',
     addNoWorkspace:
@@ -21,24 +23,37 @@ export const agentEn = {
     addNotOpened: 'Could not open a terminal tab to sign in.',
     adding:
       'Sign in to the account in the new terminal tab. It is added here when the sign-in is done.',
-    broughtBack: 'Brought back {count} accounts that were still signed in.',
+    broughtBackMany: 'Brought back {count} accounts that were still signed in.',
+    broughtBackOne: 'Brought back 1 account that was still signed in.',
     cancel: 'Cancel',
+    checkUsage: 'Check usage',
+    checkUsageDesc:
+      "Ask Anthropic for each account's session and weekly usage, at most every 10 minutes per account, with the sign-in Claude saved. {product} never renews a sign-in.",
     damaged:
       'The list of Claude accounts could not be read, so nothing was changed and every sign-in is kept. The old file is kept beside it. Start fresh to add accounts again; the accounts that are still signed in come back.',
     damagedFresh: 'Start fresh',
     defaultAccount: 'Default account',
     defaultLabel: 'Default',
     duplicate: '{email} is already added.',
+    enabledCurrent:
+      'New sessions use this account, so it stays on. Switch to another account first.',
+    enabledDefault: 'The Default account is always on.',
+    enabledFor: 'Use {account}',
     listLabel: 'Claude accounts',
     loginTitle: 'Add Claude account',
     manage: 'Manage accounts…',
     menuLabel: 'Claude accounts',
+    noAccounts: 'No Claude accounts.',
+    off: 'Off',
     recoverBack: 'Bring back',
-    recoverable:
+    recoverableMany:
       '{count} signed-in accounts are on this computer but not in the list. Bring them back to use them again.',
+    recoverableOne:
+      '1 signed-in account is on this computer but not in the list. Bring it back to use it again.',
     remove: 'Remove',
     removeBody:
       '{product} forgets this account and deletes its sign-in from this computer. It does not sign you out of Claude anywhere else.',
+    removeFor: 'Remove {account}',
     removeRunning:
       'A Claude session is still running on this account. Close it, then remove the account.',
     removeTitle: 'Remove {account}?',
@@ -62,8 +77,14 @@ export const agentEn = {
     signInWaiting: 'Waiting for the browser…',
     signInWorking: 'Signing in…',
     signedOut: 'Signed out',
-    switchTo: 'Switch to',
+    switchTo: 'Switch to {account}',
     title: 'Claude accounts',
     titleDesc: 'Sign in with more than one Claude account and choose which one new sessions use.',
+    usageChecked: 'Usage checked {ago}',
+    usagePace: 'pace {percent}%',
+    usageResets: 'resets {when}',
+    usageSession: 'Session {percent}%',
+    usageTitle: 'Usage',
+    usageWeekly: 'Weekly {percent}%',
   },
 }

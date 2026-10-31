@@ -4,6 +4,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { AgentActTool } from '@shared/agent/agentCoreTools'
 import { type AgentHostSettings, DEFAULT_AGENT_SETTINGS } from '@shared/agent/agentSettings'
 import { type AgentHooks, DEFAULT_AGENT_HOOKS } from '@shared/agents/agentHooks'
 import { DEFAULT_MANAGER_SETTINGS, type ManagerSettings } from '@shared/agents/managerSettings'
@@ -36,6 +37,7 @@ import {
   type RedactionSettings,
 } from '@shared/privacy/redaction'
 import type { TelemetrySettings } from '@shared/privacy/telemetry'
+import type { SyncKinds } from '@shared/profileSync/syncKinds'
 import type { SandboxGlobals } from '@shared/sandbox/sandbox'
 import { keyboardPlatform } from '@/lib/keyboard/keyboardPresets'
 import type { TerminalKeyMap, TerminalSend } from '@/lib/keyboard/terminalKeys'
@@ -173,6 +175,13 @@ export const INPUT_MODES: readonly InputMode[] = ['terminal', 'editor']
 export const inputMode = (v: unknown): InputMode =>
   INPUT_MODES.includes(v as InputMode) ? (v as InputMode) : 'terminal'
 
+export type InputEscape = 'clear' | 'menus'
+
+export const INPUT_ESCAPES: readonly InputEscape[] = ['clear', 'menus']
+
+export const inputEscape = (v: unknown): InputEscape =>
+  INPUT_ESCAPES.includes(v as InputEscape) ? (v as InputEscape) : 'clear'
+
 export interface Behavior {
   cursorStyle: CursorStyle
   cursorBlink: boolean
@@ -183,6 +192,8 @@ export interface Behavior {
   copyOnSelect: boolean
   inputMode: InputMode
   inputEditorVim: boolean
+  inputEscape: InputEscape
+  liveFileSuggestions: boolean
   historySuggestions: boolean
   checkForUpdates: boolean
   updateChannel: UpdateChannel
@@ -232,6 +243,7 @@ type SyncMethodChoice = 'folder' | 'server'
 export interface SyncSettings {
   dir: string
   method?: 'server'
+  kinds?: Partial<SyncKinds>
 }
 
 export interface Persisted {
@@ -295,6 +307,8 @@ export const DEFAULTS: Persisted = {
     copyOnSelect: false,
     inputMode: 'terminal',
     inputEditorVim: false,
+    inputEscape: 'clear',
+    liveFileSuggestions: true,
     historySuggestions: true,
     checkForUpdates: true,
     updateChannel: DEFAULT_UPDATE_CHANNEL,
@@ -385,6 +399,7 @@ export interface SettingsState extends Persisted {
   setAutoResume: (autoResume: boolean) => void
   setTrustWorkspaceFolders: (trustWorkspaceFolders: boolean) => void
   setAgentHooks: (patch: Partial<AgentHooks>) => void
+  setAgentAlwaysAsk: (tool: AgentActTool, ask: boolean) => void
   setChatHistory: (chatHistory: boolean) => void
   setChatTools: (patch: Partial<ChatToolSettings>) => Promise<void>
   setAssistModels: (patch: Partial<AssistModelSettings>) => Promise<void>
@@ -394,6 +409,7 @@ export interface SettingsState extends Persisted {
   unsetByPath: (path: string) => SettingChange
   setSyncDir: (dir: string) => Promise<void>
   setSyncMethod: (method: SyncMethodChoice) => Promise<void>
+  setSyncKinds: (kinds: SyncKinds) => Promise<void>
   setApprovalMode: (mode: ApprovalMode) => void
   setWindowTitle: (template: string) => void
   trustAction: (fingerprint: string) => void

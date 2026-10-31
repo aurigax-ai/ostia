@@ -1,36 +1,27 @@
 import { skillDirective } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
-import coordinatorText from './playbooks/coordinator.md?raw'
+import { ONBOARD_FILES, ONBOARD_TEXT, type PlaybookExtraFile } from './onboardPlaybook'
 import handoffText from './playbooks/handoff.md?raw'
-import reviewText from './playbooks/review.md?raw'
-import workerText from './playbooks/worker.md?raw'
 
 export interface BuiltinPlaybook {
   id: string
   description: string
   text: string
+  files: readonly PlaybookExtraFile[]
 }
 
 export const BUILTIN_PLAYBOOKS: readonly BuiltinPlaybook[] = [
   {
-    id: 'coordinator',
-    description: 'Plan, dispatch, review and merge; write no code yourself.',
-    text: coordinatorText,
-  },
-  {
-    id: 'worker',
-    description: 'Scout, build, test and open a PR; report to the coordinator.',
-    text: workerText,
-  },
-  {
-    id: 'review',
-    description: 'One focused review of a PR against its issue.',
-    text: reviewText,
+    id: 'onboard',
+    description: 'Learn the manager, worker and review workflow, one step at a time.',
+    text: ONBOARD_TEXT,
+    files: ONBOARD_FILES,
   },
   {
     id: 'handoff',
     description: 'Start a clean new session on one topic, beside this one.',
     text: handoffText,
+    files: [],
   },
 ]
 
@@ -235,6 +226,7 @@ export interface ResolvedPlaybook {
   builtin: boolean
   description: string
   text: string
+  files: readonly PlaybookExtraFile[]
   defaultText: string | null
   enabled: boolean
   edited: boolean
@@ -252,6 +244,7 @@ export function resolvePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[
       builtin: true,
       description: p.description,
       text: accepted ? edit.text : p.text,
+      files: p.files,
       defaultText: p.text,
       enabled: settings.enabled[p.id] ?? false,
       edited: accepted,
@@ -265,6 +258,7 @@ export function resolvePlaybooks(settings: PlaybooksSettings): ResolvedPlaybook[
       builtin: false,
       description: p.description,
       text: p.text,
+      files: [],
       defaultText: null,
       enabled: settings.enabled[id] ?? false,
       edited: false,

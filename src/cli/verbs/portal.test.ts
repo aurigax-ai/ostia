@@ -252,6 +252,83 @@ describe('runPortalCommand', () => {
     expect(String(stderr.read())).toContain('detached; the manager keeps running')
   })
 
+  it('PIM-C17 bare ostia opens the pi session, sends the typed line as a prompt, prints the streamed reply and detaches on Ctrl+\\ with exit 0', async () => {
+    const path = socketPath()
+    const asked: unknown[] = []
+    const link: { conn?: ReturnType<typeof createMessageConnection> } = {}
+    server = createServer((socket) => {
+      const connection = createMessageConnection(
+        new StreamMessageReader(socket),
+        new StreamMessageWriter(socket),
+      )
+      link.conn = connection
+      connection.onRequest('portal.open', (params: unknown) => {
+        asked.push(params)
+        return { paneId: 'p', agent: 'pi', created: true, session: true }
+      })
+      connection.onRequest('portal.prompt', (params: unknown) => {
+        asked.push(params)
+        return { ok: true }
+      })
+      connection.listen()
+    })
+    await new Promise<void>((resolve) => server?.listen(path, resolve))
+
+    const { stdin, stdout } = fakeTty()
+    const stderr = new PassThrough()
+    let shown = ''
+    stdout.on('data', (data: Buffer) => {
+      shown += data.toString()
+    })
+    const run = runPortalCommand(
+      [],
+      { stdin, stdout, stderr, env: { OSTIA_PORTAL_SOCKET: path }, cwd: '/home/u' },
+      LINUX,
+    )
+    await vi.waitFor(() => expect(shown).toContain('connected to the manager session'))
+    expect(asked[0]).toMatchObject({ agent: 'pi', cwd: '/home/u' })
+    stdin.write('what is running?\r')
+    await vi.waitFor(() => expect(asked[1]).toEqual({ text: 'what is running?' }))
+    await link.conn?.sendNotification('session.events', {
+      events: [
+        { type: 'tool', turn: 't1', id: 'c1', kind: 'other', name: 'ostia_workspaces' },
+        { type: 'text', turn: 't1', id: 'x', text: 'You have 1 workspace.' },
+        { type: 'turn.ended', turn: 't1', status: 'done' },
+      ],
+    })
+    await vi.waitFor(() =>
+      expect(shown).toContain('  ostia_workspaces\nYou have 1 workspace.\n\n> '),
+    )
+    stdin.write('\x1c')
+    await expect(run).resolves.toBe(0)
+    expect(String(stderr.read())).toContain('detached; the manager session keeps running')
+  })
+
+  it('PIM-C17 exits non-zero with a message when the manager session ends', async () => {
+    const path = socketPath()
+    server = createServer((socket) => {
+      const connection = createMessageConnection(
+        new StreamMessageReader(socket),
+        new StreamMessageWriter(socket),
+      )
+      connection.onRequest('portal.open', async () => {
+        setTimeout(() => void connection.sendNotification('session.ended', {}), 30)
+        return { paneId: 'p', agent: 'pi', created: true, session: true }
+      })
+      connection.listen()
+    })
+    await new Promise<void>((resolve) => server?.listen(path, resolve))
+    const { stdin, stdout } = fakeTty()
+    const stderr = new PassThrough()
+    const run = runPortalCommand(
+      ['pi'],
+      { stdin, stdout, stderr, env: { OSTIA_PORTAL_SOCKET: path }, cwd: '/home/u' },
+      LINUX,
+    )
+    await expect(run).resolves.toBe(1)
+    expect(String(stderr.read())).toContain('the manager session ended')
+  })
+
   it('MGR-C11 an ostia <agent> run from an Ostia pane is refused even with the socket variables unset', async () => {
     const path = socketPath()
     const panes: string[] = []
@@ -267,9 +344,11 @@ describe('runPortalCommand', () => {
           panes.push(req.agent)
           return 'p'
         },
+        adopt: () => true,
         spawn: () => true,
       }),
       attachMirror: () => null,
+      attachSession: () => null,
     })
     await portal.start()
     try {

@@ -34,13 +34,13 @@ const { createReach } = await import('./reach')
 const {
   checkScriptToken,
   createScriptToken,
+  findScriptToken,
   listScriptTokens,
   recordCreatedWorkspace,
   registerScriptTokenMethods,
   revokeScriptToken,
   scriptTokenScope,
   updateScriptToken,
-  verifyScriptToken,
 } = await import('./scriptTokens')
 const { setUserPresenceCheck } = await import('./scriptTokenConfirm')
 const { parseTokenRequest } = await import('./scriptTokenRequests')
@@ -139,13 +139,15 @@ describe('script token store', () => {
     const raw = readFileSync(storeFile, 'utf8')
     expect(raw).not.toContain(created.token)
     expect(statSync(storeFile).mode & 0o777).toBe(0o600)
-    expect(verifyScriptToken(storeFile, created.token)).toMatchObject({
+    expect(checkScriptToken({ path: storeFile }, created.token)).toMatchObject({
       id: created.id,
       caps: ['read-board', 'type-other-pane'],
     })
     const last = created.token.endsWith('0') ? '1' : '0'
-    expect(verifyScriptToken(storeFile, `${created.token.slice(0, -1)}${last}`)).toBeUndefined()
-    expect(verifyScriptToken(storeFile, created.token.slice(6))).toBeUndefined()
+    expect(
+      checkScriptToken({ path: storeFile }, `${created.token.slice(0, -1)}${last}`),
+    ).toBeUndefined()
+    expect(checkScriptToken({ path: storeFile }, created.token.slice(6))).toBeUndefined()
   })
 
   it('lists tokens without their values and revokes them', () => {
@@ -166,7 +168,7 @@ describe('script token store', () => {
     expect(JSON.stringify(listScriptTokens(storeFile))).not.toContain('hash')
     expect(revokeScriptToken(storeFile, created.id)).toBe(true)
     expect(revokeScriptToken(storeFile, created.id)).toBe(false)
-    expect(verifyScriptToken(storeFile, created.token)).toBeUndefined()
+    expect(checkScriptToken({ path: storeFile }, created.token)).toBeUndefined()
   })
 
   it('drops capabilities a script token may not hold when the file was edited by hand', () => {
@@ -174,7 +176,7 @@ describe('script token store', () => {
     const store = JSON.parse(readFileSync(storeFile, 'utf8'))
     store[created.id].caps = ['read-board', 'destructive', 'settings-write']
     writeFileSync(storeFile, JSON.stringify(store))
-    expect(verifyScriptToken(storeFile, created.token)?.caps).toEqual(['read-board'])
+    expect(checkScriptToken({ path: storeFile }, created.token)?.caps).toEqual(['read-board'])
   })
 
   it('refuses bad names and capabilities outside the script set', () => {
@@ -991,7 +993,7 @@ describe('script token expiry', () => {
     const created = createScriptToken(storeFile, 'old', ['read-board'], {
       expiresAt: new Date(Date.now() - 1000).toISOString(),
     })
-    expect(verifyScriptToken(storeFile, created.token)).toBeUndefined()
+    expect(() => checkScriptToken({ path: storeFile }, created.token)).toThrow('token-expired')
     const socket = createConnection(socketPath)
     const conn = createMessageConnection(
       new StreamMessageReader(socket),
@@ -1069,7 +1071,7 @@ describe('token.update', () => {
       ).rejects.toThrow('confirmNeverExpires')
       expect(request).not.toHaveBeenCalled()
       expect(check).not.toHaveBeenCalled()
-      expect(verifyScriptToken(storeFile, created.token)?.id).toBe(created.id)
+      expect(checkScriptToken({ path: storeFile }, created.token)?.id).toBe(created.id)
 
       const updated = await admin.sendRequest<{ token?: string; expiresAt: string | null }>(
         'token.update',
@@ -1077,7 +1079,7 @@ describe('token.update', () => {
       )
       expect(updated.expiresAt).toBeNull()
       expect(updated.token).toMatch(/^ostia_/)
-      expect(verifyScriptToken(storeFile, created.token)).toBeUndefined()
+      expect(checkScriptToken({ path: storeFile }, created.token)).toBeUndefined()
     },
   )
 
@@ -1089,7 +1091,7 @@ describe('token.update', () => {
     await expect(
       admin.sendRequest('token.update', { id: created.id, name: 'forever-2' }),
     ).resolves.toMatchObject({ name: 'forever-2' })
-    expect(verifyScriptToken(storeFile, created.token)?.name).toBe('forever-2')
+    expect(checkScriptToken({ path: storeFile }, created.token)?.id).toBe(created.id)
   })
 
   it.each<[string, Record<string, unknown>]>([
@@ -1152,7 +1154,7 @@ describe('token.update', () => {
     await expect(script.sendRequest('test.scriptsOpen')).resolves.toEqual({ kind: 'script' })
     const again = await client(created.token)
     await expect(again.sendRequest('test.scriptsOpen')).resolves.toEqual({ kind: 'script' })
-    expect(verifyScriptToken(storeFile, created.token)?.name).toBe('ostia-ceo')
+    expect(checkScriptToken({ path: storeFile }, created.token)?.id).toBe(created.id)
   })
 
   it('asks the human with the new capabilities before regenerating', async () => {
@@ -1161,7 +1163,7 @@ describe('token.update', () => {
     await expect(
       admin.sendRequest('token.update', { id: created.id, caps: ['type-other-pane'], scope: ALL }),
     ).rejects.toThrow('denied: settings-write, type-other-pane, all-workspaces')
-    expect(verifyScriptToken(storeFile, created.token)?.caps).toEqual(['read-board'])
+    expect(checkScriptToken({ path: storeFile }, created.token)?.caps).toEqual(['read-board'])
   })
 
   it.each<PresenceFailure>(['cancelled', 'failed', 'timeout', 'unavailable'])(
@@ -1183,7 +1185,9 @@ describe('token.update', () => {
       await expect(
         admin.sendRequest('token.update', { id: created.id, expires: '7d', caps: ['notify'] }),
       ).rejects.toThrow(`presence-${code}: could not confirm it is you to regenerate`)
-      expect(verifyScriptToken(storeFile, created.token)).toMatchObject({ caps: ['read-board'] })
+      expect(checkScriptToken({ path: storeFile }, created.token)).toMatchObject({
+        caps: ['read-board'],
+      })
       await expect(script.sendRequest('test.scriptsOpen')).resolves.toEqual({ kind: 'script' })
       expect(check.mock.calls).toEqual([
         [{ action: 'generate', name: 'x' }],
@@ -1231,7 +1235,7 @@ describe('token.update', () => {
     const created = createScriptToken(storeFile, 'ceo', ['read-board'])
     await admin.sendRequest('token.update', { id: created.id, name: 'renamed' })
     expect(check).not.toHaveBeenCalled()
-    expect(verifyScriptToken(storeFile, created.token)?.name).toBe('renamed')
+    expect(findScriptToken(storeFile, created.id).name).toBe('renamed')
   })
 
   it('refuses an update with nothing to change, or a name two tokens share', async () => {
@@ -1269,7 +1273,11 @@ describe('token.update', () => {
     await expect(
       admin.sendRequest('token.update', { id: raced.id, name: 'renamed' }),
     ).rejects.toThrow('conflict: the script token "raced"')
-    expect(verifyScriptToken(storeFile, other)).toMatchObject({ name: 'raced', expiresAt: null })
+    expect(checkScriptToken({ path: storeFile }, other)).toMatchObject({
+      id: raced.id,
+      expiresAt: null,
+    })
+    expect(findScriptToken(storeFile, raced.id).name).toBe('raced')
   })
 
   it('needs confirmNeverExpires for a token that never expires, and warns on the card', async () => {
@@ -1401,7 +1409,7 @@ describe('without a user presence check', () => {
         admin.sendRequest('token.update', { id: created.id, expires: '7d' }),
       ).rejects.toThrow('presence-unavailable: could not confirm it is you to regenerate')
       expect(tokens.listScriptTokens(storeFile).map((t) => t.name)).toEqual(['ceo'])
-      expect(tokens.verifyScriptToken(storeFile, created.token)).toBeDefined()
+      expect(tokens.checkScriptToken({ path: storeFile }, created.token)).toBeDefined()
       expect(request).toHaveBeenCalledTimes(2)
     } finally {
       server.stopControlServer()

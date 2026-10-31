@@ -13,6 +13,11 @@ describe('mailPending', () => {
     expect(mailPending(undefined, on)).toBe('no-agent')
   })
 
+  it('says agent-pane for an Agent pane, never no-agent, even with no agent state', () => {
+    expect(mailPending({ kind: 'agent' }, on)).toBe('agent-pane')
+    expect(mailPending({ kind: 'agent', hibernated: true }, on)).toBe('hibernated')
+  })
+
   it('says hooks-off when the human switched that agent’s hooks off', () => {
     expect(mailPending({ agent: 'codex' }, (agent) => agent !== 'codex')).toBe('hooks-off')
   })

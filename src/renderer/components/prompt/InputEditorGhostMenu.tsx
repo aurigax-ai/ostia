@@ -3,14 +3,17 @@ import { MenuCheckboxItem, MenuContent, MenuItem } from '@/components/common/Men
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { useDict } from '@/lib/app/useDict'
 import { type AssistFeatureRef, setAssistFeature } from '@/lib/assist/assistFeatures'
+import { copyTextConfirmed } from '@/lib/capture/copyConfirm'
 import { planDraftPaste } from '@/lib/keyboard/pasteGate'
 
 export function InputEditorGhostMenu({
+  paneId,
   ghostFeature,
   selectedText,
   typeAtCaret,
   field,
 }: {
+  paneId: string
   ghostFeature: AssistFeatureRef | null
   selectedText: string
   typeAtCaret: (chunk: string) => void
@@ -24,7 +27,7 @@ export function InputEditorGhostMenu({
         <MenuItem
           icon={CopyIcon}
           disabled={!selectedText}
-          onClick={() => void navigator.clipboard.writeText(selectedText)}
+          onClick={() => void copyTextConfirmed(paneId, selectedText)}
         >
           {d.terminalGhost.copy}
         </MenuItem>

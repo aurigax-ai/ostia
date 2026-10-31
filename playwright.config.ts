@@ -2,12 +2,14 @@ import { defineConfig } from '@playwright/test'
 import { activeEntries, announce, playwrightFilter } from './test/quarantine.mjs'
 
 const benchmarks = process.env.OSTIA_E2E_BENCH === '1'
+const flows = process.env.OSTIA_E2E_BENCH === 'flows'
 const quarantined = activeEntries().filter((entry) => entry.file.startsWith('e2e/'))
 if (!process.env.TEST_WORKER_INDEX) announce(quarantined, 'playwright')
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: benchmarks ? '**/*.bench.ts' : '**/*.spec.ts',
+  testMatch: benchmarks || flows ? '**/*.bench.ts' : '**/*.spec.ts',
+  testIgnore: benchmarks ? '**/flows/**' : undefined,
   ...playwrightFilter(quarantined),
   timeout: 30_000,
   expect: { timeout: 10_000 },

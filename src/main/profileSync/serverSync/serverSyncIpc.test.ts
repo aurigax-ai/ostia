@@ -11,25 +11,7 @@ vi.mock('electron', () => ({
 
 import { registerServerSyncIpc } from './serverSyncIpc'
 
-const attention = {
-  delay: vi.fn(() => 1000),
-  touch: vi.fn(),
-  scan: vi.fn(async () => [
-    { kind: 'changed' as const, id: 'c', deviceId: 'd', name: 'x', until: 1 },
-  ]),
-}
-
-const STATUS = {
-  state: 'ready' as const,
-  host: 'h',
-  linking: false,
-  linkApproved: false,
-  linkCodes: [],
-  joins: [],
-  recoveryStale: false,
-  wrapRefused: null,
-  changedDevices: [],
-}
+const STATUS = { state: 'ready' as const, host: 'h' }
 const OK: ServerSyncResult = { ok: true, status: STATUS }
 const window = { sender: { getType: () => 'window' } }
 const webview = { sender: { getType: () => 'webview' } }
@@ -39,13 +21,7 @@ const service = {
   setup: vi.fn(async () => OK),
   unlock: vi.fn(async () => OK),
   recover: vi.fn(async () => OK),
-  linkStart: vi.fn(async () => OK),
-  linkStop: vi.fn(async () => OK),
-  approveJoin: vi.fn(async () => OK),
-  linkConfirm: vi.fn(async () => OK),
-  removeDevice: vi.fn(async () => OK),
-  rotate: vi.fn(async () => OK),
-  newRecoveryKey: vi.fn(async () => OK),
+  changePassphrase: vi.fn(async () => OK),
 }
 const run = vi.fn(async () => undefined)
 const broadcast = vi.fn()
@@ -58,7 +34,6 @@ beforeEach(() => {
   handlers.clear()
   registerServerSyncIpc({
     service: service as unknown as Parameters<typeof registerServerSyncIpc>[0]['service'],
-    attention,
     run,
     broadcast,
   })
@@ -68,13 +43,10 @@ describe('syncServer owner IPC', () => {
   it('SSY-C110 refuses every channel from anything but a top-level window', async () => {
     for (const channel of handlers.keys()) {
       const res = await call(channel, webview, 'x', 'y', 'z')
-      if (channel === 'syncServer:attention') expect(res).toEqual([])
-      else
-        expect(res).toMatchObject(
-          channel === 'syncServer:status' ? { state: 'signed-out' } : { ok: false },
-        )
+      expect(res).toMatchObject(
+        channel === 'syncServer:status' ? { state: 'signed-out' } : { ok: false },
+      )
     }
-    expect(attention.scan).not.toHaveBeenCalled()
     for (const fn of Object.values(service)) expect(fn).not.toHaveBeenCalled()
     expect(run).not.toHaveBeenCalled()
   })
@@ -86,15 +58,12 @@ describe('syncServer owner IPC', () => {
       error: 'invalid-input',
     })
     expect(await call('syncServer:unlock', window)).toMatchObject({ error: 'invalid-input' })
-    expect(await call('syncServer:approve-join', window, 'x'.repeat(129), 'c')).toMatchObject({
-      error: 'invalid-input',
-    })
-    expect(await call('syncServer:approve-join', window, '', 'c')).toMatchObject({
+    expect(await call('syncServer:recover', window, 'AAAA', 'pw')).toMatchObject({
       error: 'invalid-input',
     })
     expect(service.setup).not.toHaveBeenCalled()
     expect(service.unlock).not.toHaveBeenCalled()
-    expect(service.approveJoin).not.toHaveBeenCalled()
+    expect(service.recover).not.toHaveBeenCalled()
   })
 
   it('SSY-C112 syncs after a key change, announces the status and returns no secret', async () => {
@@ -103,25 +72,12 @@ describe('syncServer owner IPC', () => {
     expect(run).toHaveBeenCalledTimes(1)
     expect(broadcast).toHaveBeenCalledWith('syncServer:status', STATUS)
     expect(JSON.stringify(res)).not.toContain('a long passphrase')
-    await call('syncServer:new-recovery-key', window)
-    expect(run).toHaveBeenCalledTimes(1)
   })
 
-  it('SSY-C113 passes the removal inputs through in order', async () => {
-    await call('syncServer:remove-device', window, 'd2', 'pass phrase 1', 'AAAA-BBBB')
-    expect(service.removeDevice).toHaveBeenCalledWith('d2', 'pass phrase 1', 'AAAA-BBBB')
-  })
-
-  it('SSY-C114 passes the device id and the code the human saw to approve and confirm', async () => {
-    await call('syncServer:approve-join', window, 'd2', 'AAAAA-BBBBB')
-    expect(service.approveJoin).toHaveBeenCalledWith('d2', 'AAAAA-BBBBB')
-    await call('syncServer:link-confirm', window, 'AAAAA-BBBBB')
-    expect(service.linkConfirm).toHaveBeenCalledWith('AAAAA-BBBBB')
-  })
-
-  it('SSY-C115 returns the attention list to a window', async () => {
-    expect(await call('syncServer:attention', window)).toEqual([
-      { kind: 'changed', id: 'c', deviceId: 'd', name: 'x', until: 1 },
-    ])
+  it('SSY-C113 passes the passphrase change and the recovery inputs through in order', async () => {
+    await call('syncServer:change-passphrase', window, 'old phrase', 'new phrase', 'new phrase')
+    expect(service.changePassphrase).toHaveBeenCalledWith('old phrase', 'new phrase', 'new phrase')
+    await call('syncServer:recover', window, 'AAAA-BBBB', 'new phrase', 'new phrase')
+    expect(service.recover).toHaveBeenCalledWith('AAAA-BBBB', 'new phrase', 'new phrase')
   })
 })

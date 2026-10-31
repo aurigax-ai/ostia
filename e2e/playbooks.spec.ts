@@ -17,9 +17,10 @@ test.describe.configure({ timeout: 120_000 })
 const FAKE_CLAUDE = [
   '#!/bin/sh',
   'for arg; do [ "$prev" = --plugin-dir ] && [ -z "$plugin" ] && plugin=$arg; prev=$arg; done',
-  'printf "playbooks:"; for n in coordinator worker review handoff; do [ -f "$plugin/skills/$n/SKILL.md" ] && printf "%s," "$n"; done; echo',
-  'echo "edited:$(cat "$plugin/skills/coordinator/SKILL.md" 2>/dev/null | grep -c E2E-EDIT)"',
-  'echo "human-only:$(cat "$plugin/skills/coordinator/SKILL.md" 2>/dev/null | grep -c "^disable-model-invocation: true$")"',
+  'printf "playbooks:"; for n in onboard handoff; do [ -f "$plugin/skills/$n/SKILL.md" ] && printf "%s," "$n"; done; echo',
+  'echo "edited:$(cat "$plugin/skills/onboard/SKILL.md" 2>/dev/null | grep -c E2E-EDIT)"',
+  'echo "human-only:$(cat "$plugin/skills/onboard/SKILL.md" 2>/dev/null | grep -c "^disable-model-invocation: true$")"',
+  '[ -f "$plugin/skills/onboard/steps/pr.md" ] && echo "steps:1"',
   '',
 ].join('\n')
 
@@ -43,8 +44,8 @@ test('a playbook turned on and edited in Settings reaches the next terminal’s 
     await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
     const settings = win.getByRole('region', { name: 'Settings' })
     await settings.getByRole('button', { name: 'Playbooks' }).click()
-    await settings.getByRole('switch', { name: '/coordinator' }).click()
-    const prompt = settings.getByRole('textbox', { name: '/coordinator prompt' })
+    await settings.getByRole('switch', { name: '/onboard' }).click()
+    const prompt = settings.getByRole('textbox', { name: '/onboard prompt' })
     await prompt.click()
     await prompt.press('Control+End')
     await win.keyboard.type('\nE2E-EDIT')
@@ -65,14 +66,15 @@ test('a playbook turned on and edited in Settings reaches the next terminal’s 
     await expect
       .poll(async () => occurrences((await rows.textContent()) ?? '', 'human-only:0'))
       .toBe(2)
-    expect(occurrences((await rows.textContent()) ?? '', 'playbooks:coordinator,')).toBe(0)
+    expect(occurrences((await rows.textContent()) ?? '', 'playbooks:onboard,')).toBe(0)
 
     await addTab(win)
     await runInTerminal(win, 'claude', shownTerminal(win))
     const fresh = win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()
-    await expect(fresh).toContainText('playbooks:coordinator,', { timeout: 30_000 })
+    await expect(fresh).toContainText('playbooks:onboard,', { timeout: 30_000 })
     await expect(fresh).toContainText('edited:1')
     await expect(fresh).toContainText('human-only:1')
+    await expect(fresh).toContainText('steps:1')
   } finally {
     await quitApp(app)
   }

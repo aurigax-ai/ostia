@@ -172,6 +172,7 @@ export function wireExtensionBridge(): void {
   })
   api.onSidebar((items) => store.setSidebar(items))
   api.onPanelToolbars((entries) => usePanelToolbarStore.getState().setEntries(entries))
+  void api.panelToolbars().then((entries) => usePanelToolbarStore.getState().setEntries(entries))
   api.onInbox((entries) => useInboxStore.getState().setEntries(entries))
   void api.inboxEntries().then((entries) => useInboxStore.getState().setEntries(entries))
   api.onPaneChips((chips) => store.setChips(chips))

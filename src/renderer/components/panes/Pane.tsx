@@ -1,4 +1,5 @@
 import { commands } from '@/commands/registry'
+import { useSessionStaysStatus } from '@/components/agents/SessionStaysStatus'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { PaneChips } from '@/components/extensions/ExtensionChips'
 import { ArtifactChip } from '@/components/files/ArtifactChip'
@@ -13,6 +14,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { FileDropCover } from './FileDropCover'
 import { FoldedSplitTab } from './FoldedSplitTab'
+import { useKeptLinkStatus } from './KeptLinkStatus'
 import { PaneActions } from './PaneActions'
 import { PaneTab } from './PaneTab'
 import { useParkStatus } from './ParkStatus'
@@ -58,7 +60,9 @@ export function Pane({
   const attention = useAttentionStore((s) => s.byPane[shown.id])
   const prompt = usePanePrompt(shown)
   const phoneStatus = usePhoneSizeStatus(shown.id)
+  const keptLinkStatus = useKeptLinkStatus(shown.id)
   const parkStatus = useParkStatus(shown.id, workspaceId, activePaneId)
+  const staysStatus = useSessionStaysStatus(shown.id)
   const unread = attention?.unread ?? false
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
   const hideTabClose = useSettingsStore((s) => s.panes.hideTabClose)
@@ -153,7 +157,9 @@ export function Pane({
           ),
         )}
         <NoticeSlot key={shown.id}>
-          {shownTab.type === 'pane' ? (parkStatus ?? phoneStatus) : null}
+          {shownTab.type === 'pane'
+            ? (keptLinkStatus ?? parkStatus ?? staysStatus ?? phoneStatus)
+            : null}
         </NoticeSlot>
         <NoticeSlot key={`${shown.id}:prompt`}>
           {shownTab.type === 'pane' ? prompt : null}

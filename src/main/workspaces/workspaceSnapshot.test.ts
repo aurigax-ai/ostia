@@ -14,7 +14,6 @@ import {
   SCROLLBACK_CAP_BYTES,
   saveScrollback,
   scrollbackPath,
-  stashedScreen,
   stashScrollback,
   takeRestoredScrollback,
   trimScrollback,
@@ -302,6 +301,21 @@ describe('parseSnapshot', () => {
     expect(
       rootOf({ resume: { agent: 'claude', id: 'abc-1' }, agentRunning: 'yes' }),
     ).not.toHaveProperty('agentRunning')
+  })
+
+  it('keeps a kept-awake mark only on a pane that has a resume token', () => {
+    const pane = snap().workspaces[0].root
+    const rootOf = (extra: object) =>
+      parseSnapshot(
+        snap({ workspaces: [{ ...snap().workspaces[0], root: { ...pane, ...extra } as never }] }),
+      )?.workspaces[0].root
+    expect(rootOf({ resume: { agent: 'claude', id: 'abc-1' }, keepAwake: true })).toMatchObject({
+      keepAwake: true,
+    })
+    expect(rootOf({ keepAwake: true })).not.toHaveProperty('keepAwake')
+    expect(
+      rootOf({ resume: { agent: 'claude', id: 'abc-1' }, keepAwake: 'yes' }),
+    ).not.toHaveProperty('keepAwake')
   })
 
   it('RSM-C17 keeps a failed resume token as data, never running and only without a live token', () => {
@@ -847,26 +861,11 @@ describe('saveScrollback / takeRestoredScrollback', () => {
     expect(takeRestoredScrollback('pane-1')).toBeNull()
   })
 
-  it('shows a stashed screen to its own window without consuming its one-shot replay', () => {
-    stashScrollback('pane-peek', 'asleep output')
-    expect(stashedScreen('pane-peek', 'w1', 'w1')).toBe('asleep output')
-    expect(stashedScreen('pane-peek', 'w1', 'w1')).toBe('asleep output')
-    expect(takeRestoredScrollback('pane-peek')).toBe('asleep output')
-    expect(stashedScreen('pane-peek', 'w1', 'w1')).toBeNull()
-  })
-
-  it('a hibernated pane shows its saved screen after a restart', async () => {
+  it('a hibernated pane keeps its saved output across a restart', async () => {
     stashScrollback('pane-asleep', 'frozen-screen-381 up')
     await saveScrollback(pendingRestoredScrollback())
     loadRestoredScrollback()
-    expect(stashedScreen('pane-asleep', 'w1', 'w1')).toBe('frozen-screen-381 up')
-  })
-
-  it('refuses a stashed screen to a window that does not own the pane', () => {
-    stashScrollback('pane-other', 'secret output')
-    expect(stashedScreen('pane-other', 'w2', 'w1')).toBeNull()
-    expect(stashedScreen('pane-other', 'w2', undefined)).toBeNull()
-    expect(takeRestoredScrollback('pane-other')).toBe('secret output')
+    expect(takeRestoredScrollback('pane-asleep')).toBe('frozen-screen-381 up')
   })
 
   it('returns null for a pane with no saved output', async () => {

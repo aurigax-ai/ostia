@@ -19,6 +19,15 @@ export function registerAgentIpc(sessions: () => AgentSessions | null): void {
   ipcMain.handle('agent:close', (e: IpcMainInvokeEvent, sessionId: unknown) => {
     return sessions()?.close(e.sender, sessionId) ?? unavailable
   })
+  ipcMain.handle(
+    'agent:core-call',
+    (e: IpcMainInvokeEvent, sessionId: unknown, callId: unknown) => {
+      return sessions()?.coreCall(e.sender, sessionId, callId) ?? unavailable
+    },
+  )
+  ipcMain.on('agent:tool-waiting', (e: IpcMainEvent, callId: unknown, on: unknown) => {
+    sessions()?.noteWaiting(e.sender, callId, on)
+  })
   ipcMain.on('agent:tool-result', (e: IpcMainEvent, callId: unknown, reply: unknown) => {
     sessions()?.answerTool(e.sender, callId, reply)
   })

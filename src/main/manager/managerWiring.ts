@@ -1,7 +1,9 @@
 import { rmSync } from 'node:fs'
+import { MANAGER_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import { managerAgents } from '../../shared/agents/managerSettings'
-import { getByPaneId } from '../control/idRegistry'
+import { setCaps } from '../approvals/capabilityStore'
+import { getByPaneId, markManager } from '../control/idRegistry'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import type { PtyIo } from '../terminal/pty/ptyIo'
 import { ManagerService } from './manager'
@@ -52,6 +54,11 @@ export function startManager({
     },
     agents: () => managerAgents(managerSettings()),
     createPane: createManagerPane,
+    adopt: (paneId) => {
+      const identity = markManager(paneId)
+      if (identity) setCaps(identity.externalId, MANAGER_CAPABILITIES)
+      return identity !== undefined
+    },
     spawn: spawnManagerPty,
   })
   startPortal()

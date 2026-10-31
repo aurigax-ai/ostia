@@ -68,6 +68,8 @@ describe('parseTerminalSettings', () => {
       prompt: DEFAULT_TERMINAL_SETTINGS.prompt,
       clipboardKeys: 'shift',
       linkClick: 'app',
+      askBeforeOpeningApps: true,
+      allowedAppSchemes: [],
       theme: 'match',
       shell: '',
       osc52Write: true,
@@ -76,6 +78,15 @@ describe('parseTerminalSettings', () => {
       macOptionIsMeta: false,
       renderer: 'xterm',
     })
+  })
+
+  it('keeps only valid app link schemes and treats a non-boolean question as on', () => {
+    const parsed = parseTerminalSettings({
+      askBeforeOpeningApps: 'no',
+      allowedAppSchemes: ['obsidian', 'javascript', 7],
+    })
+    expect(parsed.askBeforeOpeningApps).toBe(true)
+    expect(parsed.allowedAppSchemes).toEqual(['obsidian'])
   })
 
   it('keeps history on disk off, unlimited or a whole number of MiB', () => {

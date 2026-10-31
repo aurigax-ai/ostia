@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import {
   AGENT_HOOK_EVENTS,
   AGENT_SKILL_ENTRY,
@@ -105,6 +105,10 @@ export const CLAUDE_FOLD_MANIFEST = {
 export function writePlaybookFile(dir: string, playbook: PlaybookFile): void {
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, AGENT_SKILL_ENTRY), playbook.skill, 'utf8')
+  for (const file of playbook.files) {
+    mkdirSync(dirname(join(dir, file.path)), { recursive: true })
+    writeFileSync(join(dir, file.path), file.text, 'utf8')
+  }
 }
 
 export function writeSkillFiles(dir: string, skill: LoadedAgentSkill): void {
@@ -172,12 +176,15 @@ export function claudeWrapper(): string {
     '    fi',
     '  }',
     '  claude() {',
-    "    local IFS=$'\\037' account=",
+    "    local IFS=$'\\037' account= answer= memory=",
     `    if [ -z "\${CLAUDE_CONFIG_DIR-}" ] && ${IN_PANE}; then`,
-    `      account=$(${CLI_RUN} claude-account start -- "$@" 2>/dev/null)`,
+    `      answer=$(${CLI_RUN} claude-account start 2>/dev/null)`,
+    "      account=${answer%%$'\\n'*}",
+    '      memory=${answer#"$account"}',
+    "      memory=${memory#$'\\n'}",
     '    fi',
     '    if [ -n "$account" ]; then',
-    '      CLAUDE_CONFIG_DIR="$account" __ostia_claude "$@"',
+    '      CLAUDE_CONFIG_DIR="$account" CLAUDE_CODE_REMOTE_MEMORY_DIR="$memory" __ostia_claude "$@"',
     '    else',
     '      __ostia_claude "$@"',
     '    fi',

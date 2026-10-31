@@ -53,6 +53,7 @@ beforeEach(() => {
     loginState: async () => 'signed-in',
     writeLogin: async () => true,
     signIn: null,
+    usage: null,
     syncProfile: async (dir) => {
       synced.push(dir)
     },
@@ -81,6 +82,110 @@ describe('state', () => {
     expect(state.accounts.map((a) => a.email)).toEqual(['me@example.com', 'work@example.com'])
     expect(state.current).toBe('default')
     expect(state.adding).toBe(false)
+  })
+})
+
+describe('usage', () => {
+  const WORK_ID = 'a'.repeat(16)
+  const OUT_ID = 'b'.repeat(16)
+  const checked = {
+    session: { percent: 42, resetsAt: 2 },
+    weekly: { percent: 18, resetsAt: 3 },
+    checkedAt: 1,
+  }
+
+  function withUsage() {
+    const runs: boolean[] = []
+    const usage = {
+      run: (on: boolean) => runs.push(on),
+      usageOf: (id: string) => (id === WORK_ID ? checked : null),
+    }
+    const withPoller = new ClaudeAccounts({
+      store,
+      root,
+      defaultHome: () => home,
+      defaultEmail: async () => defaultEmail,
+      profileEmail: async () => null,
+      loginState: async (dir) => (dir.endsWith(OUT_ID) ? 'signed-out' : 'signed-in'),
+      writeLogin: async () => true,
+      signIn: null,
+      usage,
+      syncProfile: async () => {},
+      agentRunning: () => false,
+      paneOf: (id) => id,
+      openLoginTab: async () => null,
+      onChange: (state) => published.push(state),
+    })
+    return { withPoller, runs }
+  }
+
+  it('is unavailable without a poller, as on macOS, and cannot be turned on', async () => {
+    expect(await accounts.setCheckUsage(true)).toBe(false)
+    expect(await accounts.state()).toMatchObject({ checkUsage: false, usageAvailable: false })
+  })
+
+  it('starts the poller at boot only when the human left the check on', async () => {
+    const { withPoller, runs } = withUsage()
+    await withPoller.boot()
+    expect(runs).toEqual([false])
+    store.setCheckUsage(true)
+    await withPoller.boot()
+    expect(runs).toEqual([false, true])
+  })
+
+  it('turns the check on, publishes it and shows each account’s last answer', async () => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+    const { withPoller, runs } = withUsage()
+    expect(await withPoller.setCheckUsage(true)).toBe(true)
+    expect(runs).toEqual([true])
+    const state = published.at(-1)
+    expect(state).toMatchObject({ checkUsage: true, usageAvailable: true })
+    expect(state?.accounts.map((a) => a.usage)).toEqual([null, checked])
+  })
+
+  it('checks the default and every signed-in account, never a signed-out one', async () => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+    store.add({ id: OUT_ID, email: 'out@example.com', addedAt: 1 })
+    const { withPoller } = withUsage()
+    expect(await withPoller.usageTargets()).toEqual([
+      { id: 'default', dir: home },
+      { id: WORK_ID, dir: join(root, WORK_ID) },
+    ])
+  })
+
+  it('never checks an account that is turned off, and shows no usage for it', async () => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+    const { withPoller } = withUsage()
+    expect(await withPoller.setEnabled(WORK_ID, false)).toBe('done')
+    expect(await withPoller.usageTargets()).toEqual([{ id: 'default', dir: home }])
+    const work = (await withPoller.state()).accounts[1]
+    expect(work).toMatchObject({ enabled: false, usage: null })
+  })
+})
+
+describe('turning an account off', () => {
+  const WORK_ID = 'a'.repeat(16)
+
+  beforeEach(() => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+  })
+
+  it('keeps the account listed and signed in, and publishes it off', async () => {
+    expect(await accounts.setEnabled(WORK_ID, false)).toBe('done')
+    expect(published.at(-1)?.accounts.map((a) => [a.email, a.enabled, a.signedOut])).toEqual([
+      ['me@example.com', true, false],
+      ['work@example.com', false, false],
+    ])
+    expect(await accounts.use(WORK_ID)).toBe(false)
+    expect(await accounts.setEnabled(WORK_ID, true)).toBe('done')
+    expect(await accounts.use(WORK_ID)).toBe(true)
+  })
+
+  it('refuses the default account, the current one and an unknown id', async () => {
+    expect(await accounts.setEnabled('default', false)).toBe('default')
+    await accounts.use(WORK_ID)
+    expect(await accounts.setEnabled(WORK_ID, false)).toBe('current')
+    expect(await accounts.setEnabled('c'.repeat(16), false)).toBe('unknown')
   })
 })
 
@@ -132,6 +237,7 @@ describe('adding an account', () => {
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
+      usage: null,
       syncProfile: async () => {},
       agentRunning: () => false,
       paneOf: (id) => id,
@@ -206,7 +312,7 @@ describe('removing and choosing an account', () => {
   it('refuses while a pane runs Claude on the account, and removes it once that ends', async () => {
     const id = await addWork()
     store.use(id)
-    await accounts.startDirectory([], 'pane-1')
+    await accounts.startDirectory('pane-1')
     running.add('pane-1')
     expect(await accounts.remove(id)).toBe('running')
     expect(existsSync(join(root, id))).toBe(true)
@@ -217,7 +323,7 @@ describe('removing and choosing an account', () => {
 
   it('ignores a running pane that is on another account', async () => {
     const id = await addWork()
-    await accounts.startDirectory([], 'pane-1')
+    await accounts.startDirectory('pane-1')
     running.add('pane-1')
     expect(await accounts.remove(id)).toBe('removed')
   })
@@ -244,6 +350,7 @@ describe('boot', () => {
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
+      usage: null,
       syncProfile: async () => {},
       agentRunning: () => false,
       paneOf: (id) => id,
@@ -372,7 +479,7 @@ describe('a Claude still running after Ostia restarted', () => {
     await vi.advanceTimersByTimeAsync(1000)
     const id = store.accounts()[0].id
     store.use(id)
-    await accounts.startDirectory([], 'pane-kept')
+    await accounts.startDirectory('pane-kept')
     const restarted = new ClaudeAccounts({
       store: new ClaudeAccountsStore(join(base, 'claude-accounts.json')),
       root,
@@ -382,6 +489,7 @@ describe('a Claude still running after Ostia restarted', () => {
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
+      usage: null,
       syncProfile: async () => {},
       agentRunning: (paneId) => paneId === 'pane-kept',
       paneOf: (id) => id,
@@ -401,46 +509,30 @@ describe('which profile a Claude starts on', () => {
   })
 
   it('answers no folder while the default account is current, and syncs nothing', async () => {
-    expect(await accounts.startDirectory([], 'pane-1')).toBe('')
-    expect(accounts.configDirFor(null)).toBeUndefined()
+    expect(await accounts.startDirectory('pane-1')).toBe('')
+    expect(accounts.configDir()).toBeUndefined()
     expect(synced).toEqual([])
   })
 
-  it('answers the current account’s folder for a new session, after copying the default’s settings into it', async () => {
+  it('answers the current account’s folder, after copying the default’s settings into it', async () => {
     store.use(WORK)
-    expect(await accounts.startDirectory(['--model', 'opus'], 'pane-1')).toBe(join(root, WORK))
+    expect(await accounts.startDirectory('pane-1')).toBe(join(root, WORK))
     expect(synced).toEqual([join(root, WORK)])
-    expect(accounts.configDirFor(null)).toBe(join(root, WORK))
+    expect(accounts.configDir()).toBe(join(root, WORK))
   })
 
-  it('starts a resumed or forked session on the account it ran on, whatever is current now', async () => {
-    store.rememberSession('old-session', WORK)
-    store.rememberSession('default-session', 'default')
+  it('CLA-M5 starts a resumed or woken session on the current account, whatever it ran on before', async () => {
     store.use(WORK)
-    expect(await accounts.startDirectory(['--resume', 'default-session'], 'pane-1')).toBe('')
+    expect(await accounts.startDirectory('pane-1')).toBe(join(root, WORK))
     store.use('default')
-    expect(
-      await accounts.startDirectory(['--resume', 'old-session', '--fork-session'], 'pane-1'),
-    ).toBe(join(root, WORK))
-    expect(accounts.configDirFor('old-session')).toBe(join(root, WORK))
+    expect(await accounts.startDirectory('pane-1')).toBe('')
+    expect(store.accountOfPane('pane-1')).toBe('default')
   })
 
-  it('falls back to the current account when the remembered one was removed', async () => {
-    store.rememberSession('old-session', WORK)
-    await accounts.remove(WORK)
-    expect(await accounts.startDirectory(['--resume', 'old-session'], 'pane-1')).toBe('')
-  })
-
-  it('remembers the account a pane started on with the session id it then reports', async () => {
+  it('remembers the account each pane started on', async () => {
     store.use(WORK)
-    await accounts.startDirectory([], 'pane-1')
+    await accounts.startDirectory('pane-1')
     store.use('default')
-    accounts.sessionStarted('pane-1', 'fresh-session')
-    expect(store.accountOfSession('fresh-session')).toBe(WORK)
-  })
-
-  it('remembers nothing for a pane Ostia never chose an account for', () => {
-    accounts.sessionStarted('pane-unknown', 'typed-by-hand')
-    expect(store.accountOfSession('typed-by-hand')).toBeUndefined()
+    expect(store.accountOfPane('pane-1')).toBe(WORK)
   })
 })

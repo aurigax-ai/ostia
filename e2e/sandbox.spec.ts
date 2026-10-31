@@ -1,9 +1,9 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, openWorkspace, runInTerminal } from './helpers'
+import { openWorkspace, PROMPT, runInTerminal } from './helpers'
 import { sandboxedShell, setSandbox } from './sandboxShell'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 test.describe.configure({ timeout: 90_000 })
 
@@ -103,6 +103,26 @@ test('with Unix sockets off the shell still starts and blocks show', async () =>
 
     await restartShell(win, 'nosock')
     await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
+  } finally {
+    await app.close()
+  }
+})
+
+test('SBX-C101 a plugin keeps its state in the sandbox own plugins folder while the real one stays read-only', async () => {
+  const { app, win, home, project } = await launch()
+  try {
+    mkdirSync(join(home, '.claude/plugins/data/codex/state'), { recursive: true })
+    await sandboxedShell(win)
+    await runInTerminal(
+      win,
+      'D=$CLAUDE_CODE_PLUGIN_CACHE_DIR; { mkdir -p $D/data/codex/state/ws/jobs; echo own=$?; touch ~/.claude/plugins/data/codex/state/x; echo real=$?; } > plugin-data.txt 2>&1; echo plugin_data_done',
+    )
+    await expect(win.locator('.xterm-rows').first()).toContainText('plugin_data_done', {
+      timeout: 20_000,
+    })
+    const out = readFileSync(join(project, 'plugin-data.txt'), 'utf8')
+    expect(out).toContain('own=0')
+    expect(out).toContain('real=1')
   } finally {
     await app.close()
   }

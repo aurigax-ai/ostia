@@ -1,13 +1,16 @@
 import { type LocaleCatalogs, type Translate, translatorFor } from '../contract/extensionLocales'
 import {
+  VIEWER_APPENDS_QUERY,
   VIEWER_CHANGED_EVENT,
   VIEWER_DOCUMENT_PATH,
   VIEWER_EVENTS_PATH,
   VIEWER_META_PATH,
   VIEWER_PORTABLE_PATH,
   VIEWER_SELECTION_CLEARED_EVENT,
+  type ViewerChange,
   type ViewerDocumentMeta,
   type ViewerPortableTables,
+  viewerChangeOf,
 } from '../contract/fileKinds'
 import { watchScrolling } from '../contract/scrollbar'
 import {
@@ -35,7 +38,7 @@ export class ViewerDocumentError extends Error {
 
 export interface ViewerDocument extends ViewerDocumentMeta {
   bytes: () => Promise<Uint8Array>
-  onDidChange: (listener: () => void) => () => void
+  onDidChange: (listener: (change: ViewerChange) => void, follows?: 'appends') => () => void
 }
 
 function problemOf(status: number): ViewerDocumentProblem {
@@ -58,9 +61,15 @@ export async function openViewerDocument(): Promise<ViewerDocument> {
         Number.isFinite(size) && size > 0 ? size : undefined,
       )
     },
-    onDidChange: (listener) => {
-      const events = new EventSource(VIEWER_EVENTS_PATH)
-      events.addEventListener(VIEWER_CHANGED_EVENT, () => listener())
+    onDidChange: (listener, follows) => {
+      const events = new EventSource(
+        follows === 'appends'
+          ? `${VIEWER_EVENTS_PATH}?${VIEWER_APPENDS_QUERY}`
+          : VIEWER_EVENTS_PATH,
+      )
+      events.addEventListener(VIEWER_CHANGED_EVENT, (event) =>
+        listener(viewerChangeOf((event as MessageEvent).data)),
+      )
       return () => events.close()
     },
   }
@@ -123,10 +132,48 @@ export interface LoadedViewerBytes {
   bytes: ArrayBuffer
 }
 
+function followDocument(
+  doc: ViewerDocument,
+  onAppend: ((bytes: ArrayBuffer) => Promise<boolean>) | undefined,
+): void {
+  if (!onAppend) {
+    doc.onDidChange(() => location.reload())
+    return
+  }
+  let following = false
+  let again = false
+  const follow = async (): Promise<void> => {
+    if (following) {
+      again = true
+      return
+    }
+    following = true
+    try {
+      do {
+        again = false
+        const bytes = await doc.bytes()
+        if (!(await onAppend(bytes.slice().buffer))) {
+          location.reload()
+          return
+        }
+      } while (again)
+    } catch {
+      location.reload()
+    } finally {
+      following = false
+    }
+  }
+  doc.onDidChange((change) => {
+    if (change === 'appended') void follow()
+    else location.reload()
+  }, 'appends')
+}
+
 export async function loadViewerBytes(options: {
   root: HTMLElement
   catalogs: LocaleCatalogs
   tooLarge?: (t: Translate, size: number, locale: string) => string
+  onAppend?: (bytes: ArrayBuffer) => Promise<boolean>
 }): Promise<LoadedViewerBytes | null> {
   const { root, catalogs } = options
   const doc = await openViewerDocument().catch(() => null)
@@ -135,7 +182,7 @@ export async function loadViewerBytes(options: {
     showViewerMessage(root, t('unreadable'))
     return null
   }
-  doc.onDidChange(() => location.reload())
+  followDocument(doc, options.onAppend)
   showViewerMessage(root, t('loading'))
   try {
     const bytes = await doc.bytes()
@@ -189,12 +236,23 @@ export function onSelectionPublished(listener: (published: boolean) => void): ()
   return () => selectionListeners.delete(listener)
 }
 
+const clearedListeners = new Set<() => void>()
+
+export function onSelectionCleared(listener: () => void): () => void {
+  listenForClearedSelection()
+  clearedListeners.add(listener)
+  return () => clearedListeners.delete(listener)
+}
+
 let clearedEvents: EventSource | null = null
 
 function listenForClearedSelection(): void {
   if (clearedEvents) return
   clearedEvents = new EventSource(VIEWER_EVENTS_PATH)
-  clearedEvents.addEventListener(VIEWER_SELECTION_CLEARED_EVENT, () => setSelectionPublished(false))
+  clearedEvents.addEventListener(VIEWER_SELECTION_CLEARED_EVENT, () => {
+    setSelectionPublished(false)
+    for (const listener of clearedListeners) listener()
+  })
 }
 
 export async function publishSelection(selection: ViewerSelection): Promise<boolean> {

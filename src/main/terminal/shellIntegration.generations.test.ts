@@ -19,6 +19,7 @@ const playbook = (id: string, body = 'Body.'): PlaybookFile => ({
   id,
   description: `About ${id}.`,
   skill: `---\nname: ${id}\ndescription: "About ${id}."\ndisable-model-invocation: true\n---\n\n${body}\n`,
+  files: [],
 })
 
 const spawnDir = (): string => shellIntegrationSpawnOptions('/bin/bash', {}).agentDir ?? ''

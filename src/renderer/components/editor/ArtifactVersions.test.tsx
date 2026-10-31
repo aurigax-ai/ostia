@@ -188,7 +188,6 @@ describe('artifact versions', () => {
     )
     expect(screen.getByTestId('preview-errors')).toHaveTextContent('boom')
     expect(screen.queryByRole('button', { name: 'Send Error to Agent' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Capture region' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Copy errors' })).toBeInTheDocument()
   })
 })

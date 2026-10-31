@@ -7,6 +7,9 @@
         "update.tools.apt",
         "update.tools.brew",
         "agentSession.claude",
+        "remote.agentClaude",
+        "remote.agentCodex",
+        "remote.jobAgentShell",
         "agentSession.codex",
         "browserSettings.google",
         "browserSettings.duckduckgo",
@@ -16,7 +19,9 @@
         "settings.rendererGhostty",
         "settings.remoteTailscale",
         "git.title",
-        "server.providerGithub"
+        "server.providerGithub",
+        "settings.remoteMethodRelay",
+        "settings.remoteMethodTailscale"
       ],
       "protocol and key names": [
         "keyboard.modifierTargets.*",

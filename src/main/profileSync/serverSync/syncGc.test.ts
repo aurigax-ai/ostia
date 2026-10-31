@@ -4,16 +4,14 @@ import { ServerError } from '../../server/serverClient'
 import { collectAfterPush } from './syncGc'
 import type { RemoteContext } from './syncRemote'
 
-function context(opts: { bound?: boolean; due?: boolean; fails?: ServerError } = {}) {
+function context(opts: { due?: boolean; fails?: ServerError } = {}) {
   const gc = vi.fn(async (..._args: unknown[]) => {
     if (opts.fails) throw opts.fails
     return { deleted: 1 }
   })
-  const info = vi.fn(async () => (opts.bound ? { syncGCBound: true } : {}))
   const authed = vi.fn(
-    async (
-      work: (token: string, routes: { info: typeof info; gc: typeof gc }) => Promise<unknown>,
-    ) => work('token', { info, gc }),
+    async (work: (token: string, routes: { gc: typeof gc }) => Promise<unknown>) =>
+      work('token', { gc }),
   )
   const signed = vi.fn(
     async (
@@ -40,25 +38,18 @@ function context(opts: { bound?: boolean; due?: boolean; fails?: ServerError } =
 
 describe('automatic server clean-up', () => {
   it('SYA-C140 does nothing when it ran within the day', async () => {
-    const { ctx, gc, keyring } = context({ bound: true, due: false })
+    const { ctx, gc, keyring } = context({ due: false })
     await collectAfterPush(ctx, ['a'], 3)
     expect(gc).not.toHaveBeenCalled()
     expect(keyring.gcDone).not.toHaveBeenCalled()
   })
 
-  it('SYA-C141 signs the version of the pushed manifest and the exact body for a server that binds clean-up to it', async () => {
-    const { ctx, gc, signed, keyring } = context({ bound: true })
+  it('SYA-C141 signs the version of the pushed manifest and the exact body', async () => {
+    const { ctx, gc, signed, keyring } = context()
     await collectAfterPush(ctx, ['a', 'b'], 7)
     const json = JSON.stringify({ keep: ['a', 'b'] })
     expect(signed).toHaveBeenCalledWith('syncGc', expect.any(Function), ['7', digestOf(json)])
     expect(gc).toHaveBeenCalledWith('token', json, '7', { 'X-Device-Signature': 'sig' })
-    expect(keyring.gcDone).toHaveBeenCalledTimes(1)
-  })
-
-  it('SYA-C142 never calls the unbound route on a server that does not advertise syncGCBound', async () => {
-    const { ctx, gc, keyring } = context({ bound: false })
-    await collectAfterPush(ctx, ['a'], 7)
-    expect(gc).not.toHaveBeenCalled()
     expect(keyring.gcDone).toHaveBeenCalledTimes(1)
   })
 
@@ -69,7 +60,7 @@ describe('automatic server clean-up', () => {
   ])(
     'SYA-C143 counts a %s answer as the day’s attempt and does not ask again',
     async (status, error) => {
-      const { ctx, gc, keyring } = context({ bound: true, fails: new ServerError(status, error) })
+      const { ctx, gc, keyring } = context({ fails: new ServerError(status, error) })
       await expect(collectAfterPush(ctx, ['a'], 7)).resolves.toBeUndefined()
       expect(gc).toHaveBeenCalledTimes(1)
       expect(keyring.gcDone).toHaveBeenCalledTimes(1)

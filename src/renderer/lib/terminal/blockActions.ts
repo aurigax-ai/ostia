@@ -1,3 +1,4 @@
+import { copyTextConfirmed } from '@/lib/capture/copyConfirm'
 import { releasePhoneHold } from '@/lib/terminal/phoneHold'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import {
@@ -51,8 +52,7 @@ export async function copyBlock(
     part !== 'command' && isSpilled(block)
       ? partText(block.command, await spilledBlockOutput(paneId, block), part)
       : blockText(term, block, part)
-  await navigator.clipboard.writeText(text)
-  return true
+  return copyTextConfirmed(paneId, text)
 }
 
 export function selectedBlockOutput(paneId: string): { command: string; output: string } | null {

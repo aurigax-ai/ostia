@@ -24,7 +24,6 @@ interface UIState {
   settingsExtensionRow: boolean
   settingsQuery: string | null
   browseExtensionsOpen: boolean
-  dashboardActive: boolean
   filesOpen: boolean
   filesSearchOpen: boolean
   filesSearchFocus: boolean
@@ -45,8 +44,6 @@ interface UIState {
   closeBrowseExtensions: () => void
   closeSettings: () => void
   showWorkspaces: () => void
-  openDashboard: () => void
-  toggleDashboard: () => void
   toggleFiles: () => void
   showFiles: () => void
   searchFiles: (query?: string) => void
@@ -67,7 +64,6 @@ export const useUIStore = create<UIState>((set, get) => ({
   settingsExtensionRow: false,
   settingsQuery: null,
   browseExtensionsOpen: false,
-  dashboardActive: false,
   filesOpen: false,
   filesSearchOpen: false,
   filesSearchFocus: false,
@@ -97,7 +93,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({
       settingsTabOpen: true,
       settingsActive: true,
-      dashboardActive: false,
       settingsSection: target.section,
       settingsExtension: target.extension,
       settingsExtensionRow: options.extensionRow ?? false,
@@ -109,7 +104,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     set((s) => ({
       settingsTabOpen: true,
       settingsActive: true,
-      dashboardActive: false,
       settingsWorkspaceId: workspaceId,
       settingsRequest: s.settingsRequest + 1,
     })),
@@ -119,10 +113,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
   closeBrowseExtensions: () => set({ browseExtensionsOpen: false }),
   closeSettings: () => set({ settingsTabOpen: false, settingsActive: false }),
-  showWorkspaces: () => set({ settingsActive: false, dashboardActive: false }),
-  openDashboard: () => set({ dashboardActive: true, settingsActive: false }),
-  toggleDashboard: () =>
-    set((s) => ({ dashboardActive: !s.dashboardActive, settingsActive: false })),
+  showWorkspaces: () => set({ settingsActive: false }),
   toggleFiles: () =>
     set((s) => ({
       filesOpen: !s.filesOpen,
@@ -143,9 +134,3 @@ export const useUIStore = create<UIState>((set, get) => ({
   filesSearchFocused: () => set({ filesSearchFocus: false, filesSearchQuery: null }),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))
-
-export function coversWorkspaces(
-  state: Pick<UIState, 'settingsActive' | 'dashboardActive'>,
-): boolean {
-  return state.settingsActive || state.dashboardActive
-}

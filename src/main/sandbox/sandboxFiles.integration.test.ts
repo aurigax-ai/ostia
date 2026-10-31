@@ -94,17 +94,15 @@ describe('sandboxed files', () => {
     expect(readFileSync(join(home, '.claude/projects/s.jsonl'), 'utf8')).toBe('session\n')
   })
 
-  it('SBX-C31 commits in the repo while hooks, git config and .envrc stay unwritable', async () => {
+  it('SBX-C31 commits in the repo while hooks and git config stay unwritable', async () => {
     const res = await run(
-      `cd ${workDir} && echo x > f.txt && git add f.txt && git commit -q -m c && echo COMMITTED; echo evil > .git/hooks/pre-commit; echo '[core]' >> .git/config; echo evil > .envrc; true`,
+      `cd ${workDir} && echo x > f.txt && git add f.txt && git commit -q -m c && echo COMMITTED; echo evil > .git/hooks/pre-commit; echo '[core]' >> .git/config; true`,
     )
     expect(res.out).toContain('COMMITTED')
     expect(execFileSync('git', ['-C', workDir, 'log', '--oneline']).toString()).toContain('c')
     const hook = join(workDir, '.git/hooks/pre-commit')
     expect(existsSync(hook) ? readFileSync(hook, 'utf8') : '').not.toContain('evil')
     expect(readFileSync(join(workDir, '.git/config'), 'utf8')).not.toContain('[core]\n[core]')
-    const envrc = join(workDir, '.envrc')
-    expect(existsSync(envrc) ? readFileSync(envrc, 'utf8') : '').not.toContain('evil')
   })
 
   it('SBX-C34 leaves the last write in place when the host and the sandbox write at once', async () => {

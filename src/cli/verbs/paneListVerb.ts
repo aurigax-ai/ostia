@@ -61,6 +61,7 @@ export interface ListedPane {
   running: boolean
   agentState?: string
   hibernated?: true
+  keepAwake?: true
   waking?: true
 }
 
@@ -80,6 +81,7 @@ export function paneLine(pane: ListedPane): string {
     listedState(pane),
     pane.title,
     ...(pane.name ? [pane.name, ...(pane.description ? [pane.description] : [])] : []),
+    ...(pane.keepAwake ? ['keep-awake'] : []),
   ])
 }
 

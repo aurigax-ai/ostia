@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -120,5 +120,15 @@ describe('WorkspaceSandboxes temp folders', () => {
     )
     expect(config.network.allowUnixSockets).toContain(socket)
     expect(config.filesystem.allowWrite).toContain(sandboxes.tmp.tmpDir(workspaceId))
+  })
+
+  it('keeps a private plugins folder beside the temp folder and removes it with the sandbox', () => {
+    const sandboxes = instance(101)
+    sandboxes.config('ws')
+    const plugins = sandboxes.tmp.pluginsDir('ws')
+    expect(plugins).not.toBe(sandboxes.tmp.tmpDir('ws'))
+    expect(readlinkSync(join(plugins, 'data'))).toBe(sandboxes.tmp.pluginsData('ws'))
+    sandboxes.tmp.remove('ws')
+    expect(existsSync(plugins)).toBe(false)
   })
 })

@@ -3,7 +3,8 @@ import { pathToFileURL } from 'node:url'
 
 const USAGE = 'usage: node scripts/releaseNotes.mjs <tag>'
 
-const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
+const git = (cwd, args) =>
+  execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 
 export function previousTag(tag, cwd = process.cwd()) {
   const exclude = tag.includes('-') ? '*-main.*' : '*-*'

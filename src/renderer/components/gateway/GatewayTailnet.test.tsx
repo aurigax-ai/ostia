@@ -45,8 +45,7 @@ function remoteOn(
   vi.mocked(window.ostia.gateway.status).mockResolvedValue(status)
 }
 
-const pairButton = (): Promise<HTMLElement> =>
-  screen.findByRole('button', { name: 'Show pairing code' })
+const pairButton = (): Promise<HTMLElement> => screen.findByRole('button', { name: 'Show QR' })
 
 describe('Settings → Remote over the tailnet', () => {
   it('TSN-C11 asks to sign in to Tailscale and offers no pairing before sign-in', async () => {
@@ -93,69 +92,71 @@ describe('Settings → Remote over the tailnet', () => {
   })
 
   it('TSN-C43 lists 127.0.0.1 for this computer only and each local address, and saves the pick while off', async () => {
-    remoteOn({ state: 'off' }, TAILNET_ROUTE, false)
+    remoteOn({ state: 'off' }, LOOPBACK_ROUTE, false)
     vi.mocked(window.ostia.gateway.bindAddresses).mockResolvedValue([
       { address: '127.0.0.1', iface: 'lo', loopback: true },
       { address: '192.168.2.108', iface: 'wlan0', loopback: false },
     ])
     const user = userEvent.setup()
     render(<GatewaySection />)
-    const choice = await screen.findByRole('combobox', { name: 'Bind address' })
+    const choice = await screen.findByRole('combobox', { name: 'Listen address' })
     await waitFor(() => expect(choice).toHaveTextContent('127.0.0.1 · this computer only'))
     await user.click(choice)
     await user.click(await screen.findByRole('option', { name: 'wlan0 · 192.168.2.108' }))
     expect(window.ostia.gateway.setRoute).toHaveBeenCalledWith({
-      ...TAILNET_ROUTE,
+      ...LOOPBACK_ROUTE,
       bindAddress: '192.168.2.108',
     })
   })
 
-  it('TSN-C38 locks the bind address, the node switch and the phone address while remote access is on', async () => {
+  it('TSN-C38 locks the method, the listen address and the public address while remote access is on', async () => {
     remoteOn({ state: 'off' }, LOOPBACK_ROUTE)
     render(<GatewaySection />)
-    expect(await screen.findByRole('combobox', { name: 'Bind address' })).toBeDisabled()
-    expect(screen.getByRole('switch', { name: 'Use Ostia’s Tailscale node' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    )
-    expect(screen.getByRole('textbox', { name: 'Address the phone uses' })).toBeDisabled()
+    expect(await screen.findByRole('combobox', { name: 'Listen address' })).toBeDisabled()
+    expect(screen.getByRole('combobox', { name: 'Connection method' })).toBeDisabled()
+    expect(screen.getByRole('textbox', { name: 'Public address' })).toBeDisabled()
   })
 
   it('TSN-C45 with the node off hides Tailscale, warns about a network address and allows pairing', async () => {
     remoteOn({ state: 'off' }, LAN_ROUTE)
     render(<GatewaySection />)
     expect(await screen.findByText(/Listens on 192\.168\.2\.108/)).toBeInTheDocument()
-    expect(screen.getByRole('switch', { name: 'Use Ostia’s Tailscale node' })).not.toBeChecked()
+    expect(screen.getByRole('combobox', { name: 'Connection method' })).toHaveTextContent(
+      'Network address',
+    )
     expect(screen.queryByRole('button', { name: 'Sign in to Tailscale' })).not.toBeInTheDocument()
     expect(screen.queryByText('Not signed in')).not.toBeInTheDocument()
     expect(await pairButton()).toBeEnabled()
   })
 
-  it('RDS-C35 says phones on other networks need Tailscale or a tunnel, only under a local bind', async () => {
-    const info =
-      'Phones on other networks reach this computer only through Tailscale or your own tunnel.'
+  it('RDS-C35 shows Local network discovery and the addresses only for Network address', async () => {
     remoteOn({ state: 'off' }, LAN_ROUTE)
     const first = render(<GatewaySection />)
-    expect(await screen.findByText(info)).toBeInTheDocument()
+    expect(
+      await screen.findByRole('switch', { name: 'Local network discovery' }),
+    ).toBeInTheDocument()
     first.unmount()
-    remoteOn({ state: 'off' }, LOOPBACK_ROUTE)
+    remoteOn({ state: 'running', ip: '100.64.0.1', dnsName: 'ostia-x.example.ts.net' })
     render(<GatewaySection />)
-    await screen.findByRole('combobox', { name: 'Bind address' })
-    expect(screen.queryByText(info)).not.toBeInTheDocument()
+    await screen.findByText(/ostia-x\.example\.ts\.net/)
+    expect(screen.queryByRole('switch', { name: 'Local network discovery' })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: 'Listen address' })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'Public address' })).toBeNull()
   })
 
-  it('TSN-C45 turns the node off from its own switch, keeping the bind address', async () => {
+  it('TSN-C45 switches from Tailscale to Network address with one method on', async () => {
     remoteOn({ state: 'off' }, TAILNET_ROUTE, false)
     const user = userEvent.setup()
     render(<GatewaySection />)
-    await user.click(await screen.findByRole('switch', { name: 'Use Ostia’s Tailscale node' }))
+    await user.click(await screen.findByRole('combobox', { name: 'Connection method' }))
+    await user.click(await screen.findByRole('option', { name: 'Network address' }))
     expect(window.ostia.gateway.setRoute).toHaveBeenCalledWith({ ...TAILNET_ROUTE, tailnet: false })
   })
 
   it('TSN-C43 does not warn for 127.0.0.1', async () => {
     remoteOn({ state: 'off' }, LOOPBACK_ROUTE, false)
     render(<GatewaySection />)
-    await screen.findByRole('textbox', { name: 'Address the phone uses' })
+    await screen.findByRole('textbox', { name: 'Public address' })
     expect(screen.queryByText(/Listens on/)).not.toBeInTheDocument()
   })
 
@@ -186,7 +187,7 @@ describe('Settings → Remote over the tailnet', () => {
     remoteOn({ state: 'off' }, LOOPBACK_ROUTE, false)
     const user = userEvent.setup()
     render(<GatewaySection />)
-    const field = await screen.findByRole('textbox', { name: 'Address the phone uses' })
+    const field = await screen.findByRole('textbox', { name: 'Public address' })
     await user.type(field, 'desk.example.ts.net:443{Enter}')
     expect(window.ostia.gateway.setRoute).toHaveBeenLastCalledWith({
       bindAddress: '127.0.0.1',
@@ -201,7 +202,7 @@ describe('Settings → Remote over the tailnet', () => {
     remoteOn({ state: 'off' }, LOOPBACK_ROUTE, false)
     const user = userEvent.setup()
     render(<GatewaySection />)
-    const field = await screen.findByRole('textbox', { name: 'Address the phone uses' })
+    const field = await screen.findByRole('textbox', { name: 'Public address' })
     for (const text of ['https://desk.example:443', 'desk.example', 'desk.example:443/path']) {
       await user.clear(field)
       await user.type(field, `${text}{Enter}`)
@@ -226,11 +227,15 @@ describe('Settings → Remote over the tailnet', () => {
     render(<GatewaySection />)
     await user.click(await pairButton())
     expect(await screen.findByText('ABCD-1234')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hide QR' })).toBeInTheDocument()
     expect(screen.getByText('100.64.0.1:8722')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Connection details' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Connection details' }))
     const details = screen.getByRole('textbox', { name: 'Connection details' })
     expect((details as HTMLTextAreaElement).value).toContain('"pairCode": "ABCD1234"')
+    await user.click(screen.getByRole('button', { name: 'Hide QR' }))
+    expect(screen.queryByText('ABCD-1234')).not.toBeInTheDocument()
+    expect(await pairButton()).toBeEnabled()
   })
 
   it('TSN-C31 keeps pairing disabled while the node has no tailnet IPv4', async () => {

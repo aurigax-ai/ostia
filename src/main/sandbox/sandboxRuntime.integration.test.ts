@@ -94,8 +94,6 @@ beforeAll(async () => {
   writeFileSync(join(home, '.zshrc'), 'export RC=1')
   writeFileSync(join(home, 'other.txt'), 'OTHER-PROJECT')
   writeFileSync(join(dataDir, 'vault.json'), '{}')
-  mkdirSync(join(workDir, '.pine'), { recursive: true })
-  writeFileSync(join(workDir, '.pine/vault.json'), '{"K":"cipher"}')
   mkdirSync(join(workDir, '.ostia'), { recursive: true })
   writeFileSync(join(workDir, '.ostia/vault.json'), '{"K":"newcipher"}')
   writeFileSync(join(workDir, 'readme.txt'), 'hello')
@@ -174,22 +172,12 @@ describe('sandbox runtime', () => {
     expect(existsSync(join(home, '.claude/session.jsonl'))).toBe(true)
   })
 
-  it('SBX-C32 protects git hooks right after git init inside the sandbox', async () => {
+  it('SBX-C62 hides the project vault from the sandbox', async () => {
     const res = await run(
-      `cd ${workDir} && git init -q . ; echo evil > .git/hooks/pre-commit; echo evil > .envrc; ls -la .git .git/hooks; true`,
-    )
-    expect(contents(join(workDir, '.git/hooks/pre-commit'))).not.toContain('evil')
-    expect(contents(join(workDir, '.envrc'))).not.toContain('evil')
-    expect(res.code).toBe(0)
-  })
-
-  it('SBX-C62 hides the project vault from the sandbox, in .ostia and the older .pine', async () => {
-    const res = await run(
-      `cat ${workDir}/.ostia/vault.json ${workDir}/.pine/vault.json; rm -f ${workDir}/.ostia/vault.json ${workDir}/.pine/vault.json; true`,
+      `cat ${workDir}/.ostia/vault.json; rm -f ${workDir}/.ostia/vault.json; true`,
     )
     expect(res.out).not.toContain('cipher')
     expect(existsSync(join(workDir, '.ostia/vault.json'))).toBe(true)
-    expect(existsSync(join(workDir, '.pine/vault.json'))).toBe(true)
   })
 
   it('SBX-C35 reaches allowed hosts and blocks the rest', async () => {

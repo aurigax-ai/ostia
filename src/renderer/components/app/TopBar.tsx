@@ -11,7 +11,6 @@ import {
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { ClaudeAccountsMenu } from '@/components/agents/ClaudeAccountsMenu'
-import { DashboardButton } from '@/components/agents/DashboardButton'
 import { NotificationCenter } from '@/components/agents/NotificationCenter'
 import { AssistantMenu } from '@/components/assist/AssistantMenu'
 import { Hint } from '@/components/common/Hint'
@@ -25,6 +24,7 @@ import { Kbd } from '@/components/ui/kbd'
 import { useDict } from '@/lib/app/useDict'
 import { useChordLabel } from '@/lib/keyboard/chords'
 import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
+import { useRemoteStore } from '@/lib/remote/remoteStore'
 import { startNewWorkspace, startScratchWorkspace } from '@/lib/workspaces/newWorkspace'
 import {
   listSshHosts,
@@ -50,7 +50,6 @@ export function TopBar(): JSX.Element {
   const toggleFiles = useUIStore((s) => s.toggleFiles)
   const paletteKeys = useChordLabel('palette.toggle', isMac)
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const dashboardActive = useUIStore((s) => s.dashboardActive)
 
   return (
     <header className="topbar drag-region">
@@ -85,7 +84,6 @@ export function TopBar(): JSX.Element {
         />
         <ClaudeAccountsMenu />
         <PanelToggles />
-        <DashboardButton />
       </div>
 
       <div className="topbar-center">
@@ -104,7 +102,7 @@ export function TopBar(): JSX.Element {
       </div>
 
       <div className="topbar-right">
-        <WorkspaceChips workspaceId={dashboardActive ? null : activeWorkspaceId} />
+        <WorkspaceChips workspaceId={activeWorkspaceId} />
         <ZoomReset />
         <UpdateNotice />
         <IconButton
@@ -165,6 +163,15 @@ function NewWorkspaceMenu(): JSX.Element {
       {ssh ? (
         <>
           <ContextMenuSeparator />
+          <MenuItem
+            icon={PlugsConnectedIcon}
+            onClick={() => {
+              showWorkspaces()
+              useRemoteStore.getState().openNew()
+            }}
+          >
+            {d.remote.menu}
+          </MenuItem>
           <ContextMenuSub>
             <MenuSubTrigger icon={PlugsConnectedIcon}>{d.scratch.ssh}</MenuSubTrigger>
             <MenuSubContent className="max-h-96 max-w-80 overflow-y-auto">

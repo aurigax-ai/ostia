@@ -112,7 +112,7 @@ describe('workspace activity + attention', () => {
     expect(isPaneVisible(second)).toBe(false)
   })
 
-  it('re-renders a pane hook when its tab or the dashboard hides or shows it', () => {
+  it('re-renders a pane hook when its tab or Settings hides or shows it', () => {
     const workspaceId = homeWorkspaceId()
     useLayoutStore.getState().ensure(workspaceId)
     const first = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
@@ -125,7 +125,7 @@ describe('workspace activity + attention', () => {
 
     act(() => useLayoutStore.getState().focusPane(workspaceId, first))
     expect(result.current).toBe(true)
-    act(() => useUIStore.getState().openDashboard())
+    act(() => useUIStore.getState().openSettings())
     expect(result.current).toBe(false)
     act(() => useUIStore.getState().showWorkspaces())
     expect(result.current).toBe(true)
@@ -137,7 +137,7 @@ describe('workspace activity + attention', () => {
     unmount()
   })
 
-  it('treats panes as not viewed while the dashboard covers them, and views the active one after', () => {
+  it('treats panes as not viewed while Settings covers them, and views the active one after', () => {
     vi.spyOn(document, 'hasFocus').mockReturnValue(true)
     const stop = startAttentionSync()
     const workspaceId = homeWorkspaceId()
@@ -145,7 +145,7 @@ describe('workspace activity + attention', () => {
     const pane = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
     expect(isPaneViewed(pane)).toBe(true)
 
-    useUIStore.getState().openDashboard()
+    useUIStore.getState().openSettings()
     expect(isPaneVisible(pane)).toBe(false)
     signalPane(pane, { type: 'notify', message: 'build finished', waiting: false, at: 1 })
     expect(useAttentionStore.getState().byPane[pane]?.unread).toBe(true)

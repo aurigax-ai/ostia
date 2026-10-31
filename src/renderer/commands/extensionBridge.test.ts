@@ -1,4 +1,8 @@
-import type { ExtensionInfo, PaneChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type {
+  ExtensionInfo,
+  PaneChip,
+  PanelToolbarEntry,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ExtensionSettingsStored } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
@@ -11,6 +15,7 @@ import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { usePanelToolbarStore } from '@/stores/extensions/panelToolbarStore'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -281,6 +286,15 @@ describe('extensionBridge', () => {
     const chip: PaneChip = { extId: 'demo', id: 'c', paneId: 'p1', text: 'x', tone: 'ok' }
     sink.push?.([chip])
     expect(useExtensionsStore.getState().chips).toEqual([chip])
+  })
+
+  it('loads the current panel toolbars once when the window starts', async () => {
+    const entry: PanelToolbarEntry = { extId: 'demo', workspaceId: 'w1', state: { tab: 'a' } }
+    window.ostia.extensions.panelToolbars = vi.fn().mockResolvedValue([entry])
+    onTestFinished(() => usePanelToolbarStore.setState({ entries: [] }))
+    wireExtensionBridge()
+    await vi.waitFor(() => expect(usePanelToolbarStore.getState().entries).toEqual([entry]))
+    expect(window.ostia.extensions.panelToolbars).toHaveBeenCalledTimes(1)
   })
 
   it('persists settings an extension changed for itself into the settings store', () => {

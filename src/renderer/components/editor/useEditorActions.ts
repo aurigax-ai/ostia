@@ -1,8 +1,13 @@
 import type { Dict } from '@shared/app/dict'
 import { type MutableRefObject, useEffect } from 'react'
-import type { SelectionSend } from '@/components/agents/SelectionSend'
 import { lineReference } from '@/lib/agents/fileReference'
-import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import {
+  closeCapture,
+  openCapture,
+  registerCaptureOpener,
+  setCaptureStatus,
+} from '@/lib/capture/captureSession'
+import { selectionAdapter } from '@/lib/capture/selectionAdapter'
 import { registerEditorPosition } from '@/lib/files/editorPositions'
 import { useAskSelectionAction, useAssistCompletionsAction } from '@/lib/monaco/assistAction'
 import { useLiveEditorSelection } from '@/lib/monaco/liveSelection'
@@ -13,7 +18,7 @@ import type { Blocked } from './useEditorFile'
 interface SendSelectionParams {
   pathRef: MutableRefObject<string | undefined>
   blocked: Blocked | null
-  selectionSend: Pick<SelectionSend, 'open' | 'notify'>
+  paneId: string
   d: Dict
   editorRef: MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
 }
@@ -21,7 +26,7 @@ interface SendSelectionParams {
 export function sendSelection({
   pathRef,
   blocked,
-  selectionSend,
+  paneId,
   d,
   editorRef,
 }: SendSelectionParams): void {
@@ -31,24 +36,27 @@ export function sendSelection({
   const model = editor?.getModel()
   const sel = editor?.getSelection()
   if (!model || !sel || sel.isEmpty()) {
-    selectionSend.notify(d.viewer.noSelection)
+    setCaptureStatus(paneId, d.viewer.noSelection)
     return
   }
-  selectionSend.open(
-    {
-      kind: 'text',
-      file,
-      view: 'source',
-      range: {
-        startLine: sel.startLineNumber,
-        startColumn: sel.startColumn,
-        endLine: sel.endLineNumber,
-        endColumn: sel.endColumn,
+  openCapture(
+    paneId,
+    selectionAdapter({
+      paneId,
+      capture: {
+        kind: 'text',
+        file,
+        view: 'source',
+        range: {
+          startLine: sel.startLineNumber,
+          startColumn: sel.startColumn,
+          endLine: sel.endLineNumber,
+          endColumn: sel.endColumn,
+        },
+        text: model.getValueInRange(sel),
       },
-      text: model.getValueInRange(sel),
-    },
-    undefined,
-    editor ? editorSelectionAnchor(editor) : undefined,
+      anchor: editor ? (editorSelectionAnchor(editor) ?? null) : null,
+    }),
   )
 }
 
@@ -114,12 +122,14 @@ export function useEditorActions({
         void navigator.clipboard.writeText(lineReference(file, sel.startLineNumber, endLine))
       },
     })
-    const unregisterSender = registerSelectionSender(paneId, () => sendSelectionRef.current())
+    const scroll = editor.onDidScrollChange(() => closeCapture(paneId, 'scroll'))
+    const unregisterSender = registerCaptureOpener(paneId, () => sendSelectionRef.current())
     return () => {
       action.dispose()
       sendAction.dispose()
       copyLinesAction.dispose()
       unregisterSender()
+      scroll.dispose()
       unregister()
     }
   }, [

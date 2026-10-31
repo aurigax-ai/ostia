@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { readPreviewFile, readRegularFile, resolvePreviewFile } from './previewFiles'
+import { readRegularFile, resolvePreviewFile } from './previewFiles'
 
 let base: string
 let folder: string
@@ -72,14 +72,19 @@ describe('resolvePreviewFile', () => {
   })
 })
 
-describe('readPreviewFile', () => {
+describe('reading a resolved preview file', () => {
   const source = (): { file: string; root: string | null } => ({ file: page, root: folder })
 
+  async function readPreview(pathname: string, maxBytes: number) {
+    const found = resolvePreviewFile(source(), pathname)
+    return found.ok ? readRegularFile(found.path, maxBytes) : found
+  }
+
   it('reads the file it resolved, within what is left of the load', async () => {
-    const read = await readPreviewFile(source(), '/data.json', 100)
+    const read = await readPreview('/data.json', 100)
     expect(read.ok && read.body.toString()).toBe('{"a":1}')
-    expect(await readPreviewFile(source(), '/data.json', 6)).toEqual({ ok: false, status: 413 })
-    expect(await readPreviewFile(source(), '/../outside.txt', 100)).toEqual({
+    expect(await readPreview('/data.json', 6)).toEqual({ ok: false, status: 413 })
+    expect(await readPreview('/../outside.txt', 100)).toEqual({
       ok: false,
       status: 404,
     })
@@ -89,7 +94,7 @@ describe('readPreviewFile', () => {
     const pipe = join(folder, 'pipe.json')
     execFileSync('mkfifo', [pipe])
     const started = Date.now()
-    expect(await readPreviewFile(source(), '/pipe.json', 100)).toEqual({ ok: false, status: 404 })
+    expect(await readPreview('/pipe.json', 100)).toEqual({ ok: false, status: 404 })
     expect(await readRegularFile(pipe, 100)).toEqual({ ok: false, status: 404 })
     expect(Date.now() - started).toBeLessThan(2000)
   })
@@ -97,7 +102,7 @@ describe('readPreviewFile', () => {
   it('refuses a page that became a symlink after the preview was opened', async () => {
     rmSync(page)
     symlinkSync(join(base, 'outside.txt'), page)
-    expect(await readPreviewFile(source(), '/', 100)).toEqual({ ok: false, status: 404 })
+    expect(await readPreview('/', 100)).toEqual({ ok: false, status: 404 })
   })
 
   it('refuses a file whose folder was replaced by a symlink to somewhere else', async () => {
@@ -106,7 +111,7 @@ describe('readPreviewFile', () => {
     writeFileSync(join(elsewhere, 'app.js'), 'secret')
     rmSync(join(folder, 'assets'), { recursive: true })
     symlinkSync(elsewhere, join(folder, 'assets'))
-    expect(await readPreviewFile(source(), '/assets/app.js', 100)).toEqual({
+    expect(await readPreview('/assets/app.js', 100)).toEqual({
       ok: false,
       status: 404,
     })

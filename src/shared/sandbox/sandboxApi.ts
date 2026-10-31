@@ -7,6 +7,7 @@ import type {
   SandboxEnableResult,
   SandboxExposeResult,
   SandboxFixedPolicy,
+  SandboxLeftBehind,
   SandboxPathKind,
   SandboxPortRow,
   SandboxSwitches,
@@ -61,6 +62,7 @@ interface SandboxApi {
     workspaceId: string,
     policy: PortsPolicy | undefined,
   ) => Promise<WorkspaceSandbox | null>
+  onLeftBehind: (cb: (leftBehind: SandboxLeftBehind) => void) => () => void
   onBlocked: (
     cb: (blocked: { workspaceId: string; report: RequirementsReport }) => void,
   ) => () => void

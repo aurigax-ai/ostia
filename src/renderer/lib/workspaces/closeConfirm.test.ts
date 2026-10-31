@@ -31,6 +31,7 @@ import {
   quitLosses,
   requestCloseOtherTabs,
   requestClosePane,
+  requestCloseSplitTab,
   requestCloseWorkspace,
 } from './closeConfirm'
 
@@ -634,6 +635,60 @@ describe('what a quit loses', () => {
       seedWorkspace(terminal('p1', false))
       await requestCloseOtherTabs('w1', 'p1')
       expect(left()).toEqual(['p1'])
+    })
+  })
+
+  describe('closing a split tab', () => {
+    const workers = (...children: PaneNode[]): LayoutNode => ({
+      type: 'tabs',
+      id: 't1',
+      activeId: 'p9',
+      children: [
+        {
+          type: 'split',
+          id: 's1',
+          direction: 'horizontal',
+          children,
+          sizes: children.map(() => 1),
+        },
+        terminal('p9', false),
+      ],
+    })
+    const left = (): string[] => {
+      const root = useLayoutStore.getState().byWorkspace.w1?.root
+      return root ? paneIds(root) : []
+    }
+
+    it('closes every pane in the split tab and keeps the other tabs', async () => {
+      seedWorkspace(workers(terminal('p1', false), terminal('p2', false), terminal('p3', false)))
+      await requestCloseSplitTab('w1', 's1')
+      expect(left()).toEqual(['p9'])
+    })
+
+    it('asks first when a pane in it runs a command, and closes nothing on Cancel', async () => {
+      seedWorkspace(workers(terminal('p1', false), terminal('p2', false)))
+      run('p2', 'npm run dev')
+      const done = requestCloseSplitTab('w1', 's1')
+      await vi.waitFor(() => {
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.commands).toEqual([
+          'npm run dev',
+        ])
+      })
+      useCloseConfirmStore.getState().answer(false)
+      await done
+      expect(left()).toEqual(['p1', 'p2', 'p9'])
+    })
+
+    it('leaves a locked pane open', async () => {
+      seedWorkspace(workers(terminal('p1', false), { ...terminal('p2', false), locked: true }))
+      await requestCloseSplitTab('w1', 's1')
+      expect(left()).toEqual(['p2', 'p9'])
+    })
+
+    it('does nothing for an id that is not a split tab', async () => {
+      seedWorkspace(workers(terminal('p1', false), terminal('p2', false)))
+      await requestCloseSplitTab('w1', 'p9')
+      expect(left()).toEqual(['p1', 'p2', 'p9'])
     })
   })
 })

@@ -6,6 +6,7 @@ import { createExtensionIpc } from '../extensions/extensionWiring'
 import { createMarketplaceIpc } from '../extensions/marketplace/marketplaceIpc'
 import { createCoreBoards } from '../git/coreBoards'
 import { createManagerPanes } from '../manager/managerPanes'
+import { createSessionAttacher } from '../manager/managerSession'
 import { createEncryptedStores } from '../secrets/encryptedStores'
 import { isHiddenLaunch } from '../windows/tray'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
@@ -91,6 +92,10 @@ export function createFeatureServices(ctx: WindowShellContext) {
     services,
     ptys,
     attachMirror,
+    attachSession: createSessionAttacher({
+      sessions: () => services.agentSessions,
+      manager: () => services.managerService,
+    }),
   })
 
   app.on('second-instance', (_event, argv) => {

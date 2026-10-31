@@ -134,4 +134,14 @@ describe('one focus indicator', () => {
       '[data-slot="input-group"]:has(.input-group-control:focus-visible):not( [data-slot="combobox-content"] * )',
     ])
   })
+
+  it('the manager composer is the one place that hides the ring', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/renderer/index.css'), 'utf8')
+    const hiders = [...css.matchAll(/([^{}]+)\{\s*outline:\s*none;\s*\}/g)]
+      .map((match) => match[1].replace(/\s+/g, ' ').trim())
+      .filter((selector) => /\S :focus-visible$/.test(selector))
+    expect(hiders).toEqual([
+      '.manager-agent .chat-view form [data-slot="input-group"], .manager-agent .chat-view form :focus-visible',
+    ])
+  })
 })

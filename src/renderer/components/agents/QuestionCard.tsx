@@ -11,11 +11,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
+import { isLongContext, type PaneWhere } from '@/lib/agents/needsYou'
 import { useAgoText } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useNow } from '@/lib/app/useNow'
 import { revealPane } from '@/lib/attention/workspaceActivity'
-import { isLongContext, type PaneWhere } from '@/lib/sidebar/dashboard'
 import { questionPromptKey, useHiddenPromptsStore } from '@/stores/agents/hiddenPromptsStore'
 import { EMPTY_DRAFT, type QuestionDraft, useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -29,7 +29,7 @@ function toggled(choices: readonly number[], index: number, on: boolean): number
 
 function questionTitle(d: Dict, question: QuestionRequest): string {
   if (!question.permission) return question.question
-  return fmt(d.dashboard.permissionTitle, {
+  return fmt(d.inbox.permissionTitle, {
     agent: d.agentSession[question.permission.agent],
     tool: question.permission.tool,
   })
@@ -66,12 +66,12 @@ function PermissionActions({
           onClick={() => revealPane(question.paneId)}
         >
           <ArrowSquareOutIcon data-icon="inline-start" />
-          {d.dashboard.goToPane}
+          {d.inbox.goToPane}
         </Button>
       ) : null}
-      <Hint label={d.dashboard.permissionInTerminalHint}>
+      <Hint label={d.inbox.permissionInTerminalHint}>
         <Button variant="ghost" size="sm" onClick={() => void dismiss(question.id)}>
-          {d.dashboard.permissionInTerminal}
+          {d.inbox.permissionInTerminal}
         </Button>
       </Hint>
       {(question.choices as PermissionChoice[]).map((choice, index) => (
@@ -132,7 +132,7 @@ function QuestionHeader({
       </time>
       {question.expiresAt !== undefined ? (
         <span className="tabular-nums">
-          {fmt(d.dashboard.waitsUntil, { time: clock.format(new Date(question.expiresAt)) })}
+          {fmt(d.inbox.waitsUntil, { time: clock.format(new Date(question.expiresAt)) })}
         </span>
       ) : null}
     </header>
@@ -150,7 +150,7 @@ function QuestionContext({ question }: { question: QuestionRequest }): JSX.Eleme
       {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: the label names the block for screen readers and tests; a role would change how it is announced */}
       <p
         id={`${ids}-context`}
-        aria-label={d.dashboard.context}
+        aria-label={d.inbox.context}
         className={`whitespace-pre-wrap text-fg-muted text-ui-sm [overflow-wrap:anywhere] ${
           question.permission ? 'font-mono' : ''
         } ${longContext && !expanded ? 'line-clamp-4' : ''}`}
@@ -165,7 +165,7 @@ function QuestionContext({ question }: { question: QuestionRequest }): JSX.Eleme
           aria-controls={`${ids}-context`}
           onClick={() => setExpanded((on) => !on)}
         >
-          {expanded ? d.dashboard.showLess : d.dashboard.showMore}
+          {expanded ? d.inbox.showLess : d.inbox.showMore}
         </TextLink>
       ) : null}
     </div>
@@ -205,9 +205,9 @@ function AnswerForm({
     <>
       {question.mode === 'single' ? (
         <fieldset className="flex min-w-0 flex-col gap-1">
-          <legend className="mb-1 text-fg-muted text-ui-xs">{d.dashboard.chooseOne}</legend>
+          <legend className="mb-1 text-fg-muted text-ui-xs">{d.inbox.chooseOne}</legend>
           <RadioGroup
-            aria-label={d.dashboard.chooseOne}
+            aria-label={d.inbox.chooseOne}
             value={draft.choices[0] ?? null}
             onValueChange={(value) => update({ choices: [value as number] })}
             className="flex flex-col gap-0"
@@ -229,7 +229,7 @@ function AnswerForm({
               className="h-auto self-start p-0 px-2 text-ui-xs"
               onClick={() => update({ choices: [] })}
             >
-              {d.dashboard.clearChoice}
+              {d.inbox.clearChoice}
             </TextLink>
           ) : null}
         </fieldset>
@@ -237,7 +237,7 @@ function AnswerForm({
 
       {question.mode === 'multi' ? (
         <fieldset className="flex min-w-0 flex-col gap-0">
-          <legend className="mb-1 text-fg-muted text-ui-xs">{d.dashboard.chooseAny}</legend>
+          <legend className="mb-1 text-fg-muted text-ui-xs">{d.inbox.chooseAny}</legend>
           {question.choices.map((choice, index) => (
             <label
               key={choice}
@@ -259,12 +259,12 @@ function AnswerForm({
 
       <div className="flex flex-col gap-1">
         <Label htmlFor={`${ids}-reply`} className="font-normal text-fg-muted text-ui-xs">
-          {hasChoices ? d.dashboard.comment : d.dashboard.reply}
+          {hasChoices ? d.inbox.comment : d.inbox.reply}
         </Label>
         <Textarea
           id={`${ids}-reply`}
           value={draft.text}
-          placeholder={hasChoices ? d.dashboard.commentPlaceholder : d.dashboard.replyPlaceholder}
+          placeholder={hasChoices ? d.inbox.commentPlaceholder : d.inbox.replyPlaceholder}
           onChange={(e) => update({ text: e.target.value })}
           onKeyDown={onReplyKey}
           className="min-h-9 text-ui-sm"
@@ -280,16 +280,16 @@ function AnswerForm({
             onClick={() => revealPane(question.paneId)}
           >
             <ArrowSquareOutIcon data-icon="inline-start" />
-            {d.dashboard.goToPane}
+            {d.inbox.goToPane}
           </Button>
         ) : null}
-        <Hint label={d.dashboard.dismissHint}>
+        <Hint label={d.inbox.dismissHint}>
           <Button variant="ghost" size="sm" onClick={() => void dismiss(question.id)}>
-            {d.dashboard.dismiss}
+            {d.inbox.dismiss}
           </Button>
         </Hint>
         <Button size="sm" disabled={!canSend} onClick={send}>
-          {d.dashboard.send}
+          {d.inbox.send}
         </Button>
       </div>
     </>
@@ -310,9 +310,9 @@ export function QuestionCard({
   const d = useDict()
   return (
     <article
-      aria-label={fmt(d.dashboard.question, { pane: where?.pane ?? d.attention.closedPane })}
+      aria-label={fmt(d.inbox.question, { pane: where?.pane ?? d.attention.closedPane })}
       data-question={question.id}
-      className="dashboard-card flex flex-col gap-2 rounded-md border border-line bg-surface-1 p-3 text-fg text-ui-base"
+      className="flex flex-col gap-2 rounded-md border border-line bg-surface-1 p-3 text-fg text-ui-base"
     >
       <QuestionHeader question={question} where={where} compact={compact} />
 
@@ -325,7 +325,7 @@ export function QuestionCard({
       {sent ? (
         <output className="flex items-center gap-1.5 text-ok text-ui-sm">
           <CheckCircleIcon size={16} aria-hidden />
-          {d.dashboard.sent}
+          {d.inbox.sent}
         </output>
       ) : question.permission ? (
         <PermissionActions question={question} where={where} />
@@ -342,10 +342,10 @@ export function QuestionPrompt({ question }: { question: QuestionRequest }): JSX
   return (
     <PromptCard
       icon={ChatCircleTextIcon}
-      label={d.dashboard.questionNotice}
+      label={d.inbox.questionNotice}
       data-question={question.id}
       title={questionTitle(d, question)}
-      dismissLabel={d.dashboard.decideLater}
+      dismissLabel={d.inbox.decideLater}
       onDismiss={() => hide(questionPromptKey(question.id))}
     >
       <div className="flex flex-col gap-2 text-fg">

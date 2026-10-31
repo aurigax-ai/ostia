@@ -1,3 +1,4 @@
+import { leadsWithFlag } from '../../shared/agents/agentLaunch'
 import { plainBlock } from '../../shared/agents/questions'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 
@@ -56,7 +57,7 @@ export function phoneAgentCommand(agent: PhoneAgent, raw: string): string | null
   const prompt = plainBlock(raw)
   const words = prompt.split(/\s+/)
   const first = words[0]?.toLowerCase() ?? ''
-  if (words.length < 2 || /^[-+]/.test(prompt) || SUBCOMMANDS.has(first)) return null
+  if (words.length < 2 || leadsWithFlag(prompt) || SUBCOMMANDS.has(first)) return null
   const command = quoteArgv([agent, prompt])
   return command.length > COMMAND_MAX ? null : command
 }

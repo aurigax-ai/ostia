@@ -239,15 +239,6 @@ export function revokeScriptToken(path: string, id: string): boolean {
   return true
 }
 
-export function verifyScriptToken(
-  path: string,
-  token: string,
-  now = new Date(),
-): ScriptToken | undefined {
-  const stored = matching(Object.values(load(path)), token)
-  return stored && !expired(stored, now) ? publicView(stored) : undefined
-}
-
 export function scriptTokenScope(path: string, id: string): ScriptTokenScopeView | undefined {
   const stored = load(path)[id]
   return stored ? { scope: stored.scope, created: [...stored.created] } : undefined

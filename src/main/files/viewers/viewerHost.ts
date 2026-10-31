@@ -6,6 +6,7 @@ import {
   PORTABLE_TABLES_BYTES_MAX,
   PORTABLE_TABLES_MAX,
   type PortableTable,
+  VIEWER_APPENDS_QUERY,
   VIEWER_CHANGED_EVENT,
   VIEWER_DOCUMENT_PATH,
   VIEWER_EVENTS_PATH,
@@ -28,6 +29,7 @@ import {
 import type { SelectionCapture } from '../../../shared/browser/selection'
 import { externalHref } from '../../../shared/common/externalLinks'
 import type {
+  ViewerCopied,
   ViewerDocumentText,
   ViewerEditSource,
   ViewerLinkTarget,
@@ -39,8 +41,9 @@ import type {
 } from '../../../shared/files/filesApi'
 import type { ClipboardCapture } from '../../../shared/keyboard/clipboardCapture'
 import type { FsRangeResult } from '../fsRange'
+import { type DocumentFingerprint, fingerprintOf, onlyAppended } from './viewerAppend'
 import { readBoundedBody } from './viewerBody'
-import { clipboardOf, copyStatus, type ViewerCopyStrings } from './viewerClipboard'
+import { clipboardOf, copyLabel, type ViewerCopyStrings } from './viewerClipboard'
 import { parseByteRange } from './viewerRanges'
 import { acceptGuestSelection, type StoredSelection, selectionState } from './viewerSelection'
 import {
@@ -69,6 +72,7 @@ interface ViewerStat {
 
 export type ViewerEvent =
   | { type: 'selection'; payload: ViewerSelectionEvent }
+  | { type: 'copied'; payload: ViewerCopied }
   | { type: 'open-link'; payload: ViewerOpenLink }
   | { type: 'edit-source'; payload: ViewerEditSource }
 
@@ -114,7 +118,11 @@ interface Live {
   portable: ViewerPortableTables | 'too-large' | null
   selection: StoredSelection | null
   selectionSeq: number
+  selectionBase: DocumentFingerprint | null
   documentText: string | null
+  served: DocumentFingerprint | null
+  followsAppends: boolean
+  settling: Promise<void>
   rangeStreams: Set<() => void>
   rangeSlots: number
   pointerAt: number | null
@@ -216,7 +224,11 @@ export class ViewerHost {
       portable: null,
       selection: null,
       selectionSeq: 0,
+      selectionBase: null,
       documentText: null,
+      served: null,
+      followsAppends: false,
+      settling: Promise.resolve(),
       rangeStreams: new Set(),
       rangeSlots: 0,
       pointerAt: null,
@@ -270,24 +282,39 @@ export class ViewerHost {
   private forgetSelection(live: Live): boolean {
     if (!live.selection) return false
     live.selection = null
+    live.selectionBase = null
     this.pushSelection(live)
     return true
   }
 
-  changed(owner: string): void {
-    if (!owner.startsWith(OWNER_PREFIX)) return
+  changed(owner: string): Promise<void> {
+    if (!owner.startsWith(OWNER_PREFIX)) return Promise.resolve()
     const live = this.byToken.get(owner.slice(OWNER_PREFIX.length))
-    if (!live) return
-    this.forgetSelection(live)
-    this.announceChange(live)
+    if (!live) return Promise.resolve()
+    live.settling = live.settling.then(() => this.settleChange(live))
+    return live.settling
   }
 
-  private announceChange(live: Live): void {
-    this.announce(live, VIEWER_CHANGED_EVENT)
+  private async settleChange(live: Live): Promise<void> {
+    const appended = await this.onlyAppended(live)
+    if (this.byToken.get(live.token) !== live) return
+    if (!appended) this.forgetSelection(live)
+    this.announce(live, VIEWER_CHANGED_EVENT, appended ? 'appended' : 'replaced')
   }
 
-  private announce(live: Live, event: string): void {
-    const message = encoder.encode(`event: ${event}\ndata: 1\n\n`)
+  private async onlyAppended(live: Live): Promise<boolean> {
+    const served = live.selection ? live.selectionBase : live.served
+    if (!live.followsAppends || !served || live.documentText !== null) return false
+    try {
+      const read = await this.deps.readDocument(live.path)
+      return read.ok && onlyAppended(served, read.body)
+    } catch {
+      return false
+    }
+  }
+
+  private announce(live: Live, event: string, data = '1'): void {
+    const message = encoder.encode(`event: ${event}\ndata: ${data}\n\n`)
     for (const stream of live.streams) {
       try {
         stream.enqueue(message)
@@ -325,19 +352,16 @@ export class ViewerHost {
     })
   }
 
-  private async copyStored(stored: StoredSelection): Promise<string> {
+  private async copyStored(stored: StoredSelection): Promise<string | null> {
     const copied = clipboardOf(stored)
-    const strings = this.deps.copyStrings()
-    if (copied.text === undefined && copied.html === undefined && !copied.png) {
-      return strings.nothing
-    }
+    if (copied.text === undefined && copied.html === undefined && !copied.png) return null
     await this.deps.writeClipboard(copied)
-    return copyStatus(copied, strings, stored.capture)
+    return copyLabel(copied, this.deps.copyStrings(), stored.capture)
   }
 
-  async copySelection(windowId: string, paneId: unknown): Promise<string> {
+  async copySelection(windowId: string, paneId: unknown): Promise<string | null> {
     const stored = this.liveOfPane(windowId, paneId)?.selection
-    return stored ? this.copyStored(stored) : this.deps.copyStrings().nothing
+    return stored ? this.copyStored(stored) : null
   }
 
   ownsFindKeys(guest: { getURL: () => string }): boolean {
@@ -345,9 +369,18 @@ export class ViewerHost {
   }
 
   copyForGuest(guest: { getURL: () => string }): boolean {
-    const stored = this.liveOf(guest.getURL())?.selection
-    if (!stored) return false
-    void this.copyStored(stored).catch(() => undefined)
+    const live = this.liveOf(guest.getURL())
+    const stored = live?.selection
+    if (!live || !stored) return false
+    void this.copyStored(stored).then(
+      (label) =>
+        label &&
+        this.deps.emit(live.windowId, {
+          type: 'copied',
+          payload: { paneId: live.paneId, label },
+        }),
+      () => undefined,
+    )
     return true
   }
 
@@ -370,7 +403,7 @@ export class ViewerHost {
     const next = tooLarge ? null : text
     if (live.documentText === next) return
     live.documentText = next
-    this.announceChange(live)
+    this.announce(live, VIEWER_CHANGED_EVENT, 'replaced')
   }
 
   acceptsAttach(partition: string | undefined, src: string | undefined, windowId: string): boolean {
@@ -463,7 +496,7 @@ export class ViewerHost {
     if (!this.deps.viewer(live.extId, live.viewType, live.path)) {
       return new Response(null, { status: 410 })
     }
-    const { pathname } = new URL(request.url)
+    const { pathname, search } = new URL(request.url)
     if (pathname === VIEWER_PORTABLE_PATH && request.method === 'POST') {
       return this.receivePortable(live, request)
     }
@@ -486,7 +519,7 @@ export class ViewerHost {
     if (request.method !== 'GET') return new Response(null, { status: 405 })
     if (pathname === VIEWER_META_PATH) return this.meta(live)
     if (pathname === VIEWER_DOCUMENT_PATH) return this.document(live, request)
-    if (pathname === VIEWER_EVENTS_PATH) return this.events(live)
+    if (pathname === VIEWER_EVENTS_PATH) return this.events(live, search)
     return this.extensionFile(live, pathname)
   }
 
@@ -522,6 +555,7 @@ export class ViewerHost {
     }
     const read = await this.deps.readDocument(live.path)
     if (read.ok) {
+      live.served = fingerprintOf(read.body)
       return new Response(new Uint8Array(read.body), {
         headers: this.headers(live, 'application/octet-stream', { 'accept-ranges': 'bytes' }),
       })
@@ -608,7 +642,8 @@ export class ViewerHost {
     })
   }
 
-  private events(live: Live): Response {
+  private events(live: Live, query: string): Response {
+    if (query === `?${VIEWER_APPENDS_QUERY}`) live.followsAppends = true
     let controller: ReadableStreamDefaultController<Uint8Array> | null = null
     const stream = new ReadableStream<Uint8Array>({
       start: (c) => {
@@ -649,6 +684,7 @@ export class ViewerHost {
     if (!stored) return new Response(null, { status: 400 })
     live.selectionSeq = stored.seq
     live.selection = stored
+    live.selectionBase = live.served
     this.pushSelection(live)
     return new Response(null, { status: 204 })
   }

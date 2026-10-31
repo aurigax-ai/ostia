@@ -124,7 +124,7 @@ async function run(cwd: string, args: string[], hooks = false): Promise<RunResul
   })
 }
 
-async function runOk(cwd: string, args: string[], hooks = false): Promise<Buffer> {
+export async function runOk(cwd: string, args: string[], hooks = false): Promise<Buffer> {
   const res = await run(cwd, args, hooks)
   if (res.code !== 0)
     throw new RepoError(

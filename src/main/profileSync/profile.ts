@@ -2,6 +2,7 @@ import { lstatSync, readdirSync, readFileSync, type Stats, unlinkSync } from 'no
 import { join } from 'node:path'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { PROGRAM_SETTINGS } from '../../shared/permissions/programSettings'
+import type { SyncKind } from '../../shared/profileSync/syncKinds'
 import { SPEC_COMMAND_PATTERN, SPEC_FILE_MAX_BYTES } from '../../shared/terminal/completionSpec'
 import { VIEW_FILE_MAX_BYTES, VIEW_FILES_MAX, VIEW_NAME } from '../../shared/views/views'
 import { normalizeMarketplaceUrl } from '../extensions/marketplace/marketplaceSources'
@@ -33,6 +34,7 @@ const LOCAL_ONLY_ROOTS: readonly string[] = [
 
 export interface ProfileFolder {
   name: string
+  kind: SyncKind
   accepts: (file: string) => boolean
   maxBytes: number
   maxFiles: number
@@ -44,18 +46,21 @@ const stemOf = (file: string, ext: string): string | null =>
 export const PROFILE_FOLDERS: readonly ProfileFolder[] = [
   {
     name: 'snippets',
+    kind: 'snippets',
     accepts: (file) => /^[A-Za-z0-9][A-Za-z0-9._ -]*\.ya?ml$/i.test(file),
     maxBytes: SNIPPET_FILE_MAX_BYTES,
     maxFiles: SNIPPET_FILES_MAX,
   },
   {
     name: 'completions',
+    kind: 'completions',
     accepts: (file) => SPEC_COMMAND_PATTERN.test(stemOf(file, '.json') ?? ''),
     maxBytes: SPEC_FILE_MAX_BYTES,
     maxFiles: COMPLETION_FILES_MAX,
   },
   {
     name: 'views',
+    kind: 'views',
     accepts: (file) => VIEW_NAME.test(stemOf(file, '.json') ?? ''),
     maxBytes: VIEW_FILE_MAX_BYTES,
     maxFiles: VIEW_FILES_MAX,
@@ -120,6 +125,12 @@ function parseSyncedExtensions(raw: unknown): SyncedExtension[] {
 export function offerable(entry: SyncedExtension, builtinIds: readonly string[]): boolean {
   if (builtinIds.includes(entry.id)) return false
   return normalizeMarketplaceUrl(entry.marketplace) === entry.marketplace
+}
+
+export function kindOfPath(path: string): SyncKind | null {
+  if (path === SETTINGS_FILE) return 'settings'
+  if (path === EXTENSIONS_FILE) return 'extensions'
+  return folderOf(path)?.kind ?? null
 }
 
 export interface Profile {

@@ -1,3 +1,4 @@
+import type { AgentSessions } from '../agent/agentSessions'
 import { registerCredentials } from '../browser/credentials'
 import { registerExtensionMcp } from '../chat/extensionMcp'
 import type { McpHost } from '../chat/mcpHost'
@@ -16,6 +17,7 @@ interface ApprovalsWiringDeps {
   revealWindow: AppWindows['revealWindow']
   settingsChanged: WindowSend['settingsChanged']
   services: {
+    agentSessions: AgentSessions | null
     extensionHost: ExtensionHost | null
     mcpHost: McpHost | null
     telemetry: Telemetry | null
@@ -35,6 +37,7 @@ export function registerApprovalsWiring({
       approvalCaps.set(request.id, request.caps)
       for (const cap of request.caps) services.telemetry?.count('agents', 'approval_shown', cap)
       askHub.approvalOpened(request)
+      services.agentSessions?.approvalOpened(request.paneId, request.id)
     },
     settled: (id, outcome) => {
       const caps = approvalCaps.get(id) ?? []
@@ -43,6 +46,7 @@ export function registerApprovalsWiring({
         for (const cap of caps) services.telemetry?.count('agents', 'approval_answered', cap)
       }
       askHub.settled(id, outcome)
+      services.agentSessions?.approvalSettled(id)
     },
   })
   registerQuestions({

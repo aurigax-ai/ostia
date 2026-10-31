@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildVersion,
+  isLocalInstall,
   mainBuildRun,
   nextPatch,
   telemetryStamp,
 } from '../../../scripts/buildVersion.mjs'
-import { parseBuildInfo, parseTelemetryStamp, releaseVersion } from './buildInfo'
+import { isDirtyBuild, parseBuildInfo, parseTelemetryStamp, releaseVersion } from './buildInfo'
 import { isMainChannelVersion, isNewerVersion, parseVersion } from './releases'
 
 describe('buildVersion', () => {
@@ -41,6 +42,41 @@ describe('buildVersion', () => {
 
   it('falls back to the package version without git', () => {
     expect(buildVersion('0.5.9', null)).toBe('0.5.9')
+  })
+})
+
+describe('local installs', () => {
+  const clean = { tags: [], commit: '1a2b3c', dirty: false }
+
+  it('end with .dirty on a clean checkout', () => {
+    expect(buildVersion('0.5.9-rc.2', clean, null, true)).toBe('0.5.9-rc.2+sha.1a2b3c.dirty')
+  })
+
+  it('end with .dirty at the release tag', () => {
+    expect(buildVersion('0.5.9', { ...clean, tags: ['v0.5.9'] }, null, true)).toBe(
+      '0.5.9+sha.1a2b3c.dirty',
+    )
+  })
+
+  it('carry one .dirty when the checkout is already dirty', () => {
+    expect(buildVersion('0.5.9', { ...clean, dirty: true }, null, true)).toBe(
+      '0.5.9+sha.1a2b3c.dirty',
+    )
+  })
+
+  it('leave every other build as it was', () => {
+    expect(buildVersion('0.5.9', clean, null, false)).toBe('0.5.9+sha.1a2b3c')
+    expect(buildVersion('0.5.9', { ...clean, tags: ['v0.5.9'] })).toBe('0.5.9')
+  })
+
+  it('keep the part before the plus', () => {
+    expect(releaseVersion(buildVersion('0.5.9-rc.2', clean, null, true))).toBe('0.5.9-rc.2')
+  })
+
+  it('are read from OSTIA_LOCAL_INSTALL=1 only', () => {
+    expect(isLocalInstall({ OSTIA_LOCAL_INSTALL: '1' })).toBe(true)
+    expect(isLocalInstall({ OSTIA_LOCAL_INSTALL: '' })).toBe(false)
+    expect(isLocalInstall({})).toBe(false)
   })
 })
 
@@ -133,5 +169,14 @@ describe('telemetryStamp', () => {
     })
     expect(parseTelemetryStamp({ key: '', host: 'https://h' })).toBeNull()
     expect(parseTelemetryStamp('x')).toBeNull()
+  })
+})
+
+describe('isDirtyBuild', () => {
+  it('is true only for a version ending with .dirty', () => {
+    expect(isDirtyBuild('0.5.13-rc.2+sha.b7a0e3.dirty')).toBe(true)
+    expect(isDirtyBuild('0.5.13-rc.2+sha.b7a0e3')).toBe(false)
+    expect(isDirtyBuild('0.5.13')).toBe(false)
+    expect(isDirtyBuild('')).toBe(false)
   })
 })

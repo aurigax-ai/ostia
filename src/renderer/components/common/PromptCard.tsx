@@ -33,7 +33,7 @@ export function PromptCard({
   return (
     <section
       aria-label={label}
-      className="motion-enter absolute bottom-3 left-3 z-20 flex w-[calc(100%-1.5rem)] max-h-[calc(100%-1.5rem)] max-w-[560px] origin-bottom flex-col overflow-y-auto gap-2 rounded-lg bg-surface-3 p-3 text-fg text-ui-sm shadow-md ring-1 ring-foreground/10"
+      className="motion-enter absolute right-3 bottom-3 z-20 flex w-[calc(100%-1.5rem)] max-h-[calc(100%-1.5rem)] max-w-[560px] origin-bottom-right flex-col overflow-y-auto gap-2 rounded-lg bg-surface-3 p-3 text-fg text-ui-sm shadow-md ring-1 ring-foreground/10"
       {...rest}
     >
       <div className="flex items-start gap-2">

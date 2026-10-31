@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { AssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
@@ -27,6 +27,7 @@ describe('a built-in assist extension starts on demand', () => {
   beforeAll(() => {
     dir = mkdtempSync(join(tmpdir(), 'ostia-ext-on-demand-'))
     const socketPath = join(dir, 'control.sock')
+    writeFileSync(join(dir, 'extension-launches.json'), JSON.stringify(['echo']))
     host = new ExtensionHost({
       sandboxDomains: () => null,
       isSandboxed: () => false,
@@ -35,6 +36,7 @@ describe('a built-in assist extension starts on demand', () => {
         { dir: assistFixtures, builtin: true },
       ],
       store: new ExtensionStore(join(dir, 'extensions.json')),
+      launches: new ExtensionLaunches(join(dir, 'extension-launches.json')),
       socketPath: () => socketPath,
       nodePath: process.execPath,
       workDirForWorkspace: (sid) => (sid ? `/w/${sid}` : undefined),
@@ -72,7 +74,7 @@ describe('a built-in assist extension starts on demand', () => {
     expect(status('switchboard')).toBe('idle')
   })
 
-  it('starts a built-in extension with window items with the window', async () => {
+  it('starts a built-in extension that asked to start with the window', async () => {
     await vi.waitUntil(() => status('echo') === 'running', POLL)
   })
 
@@ -117,8 +119,9 @@ describe('a built-in assist extension starts on demand', () => {
 })
 
 describe('the real built-in extensions', () => {
-  it('start no extension host with the window, so the branch, the diff stats and the Git panel run without one', async () => {
+  async function startedWithWindow(remembered: string[]): Promise<string[]> {
     const dir = mkdtempSync(join(tmpdir(), 'ostia-ext-builtins-'))
+    writeFileSync(join(dir, 'extension-launches.json'), JSON.stringify(remembered))
     const host = new ExtensionHost({
       sandboxDomains: () => null,
       isSandboxed: () => false,
@@ -141,15 +144,21 @@ describe('the real built-in extensions', () => {
       )
       host.processes.startEager()
       await new Promise((r) => setTimeout(r, 300))
-      expect(
-        host
-          .list()
-          .filter((e) => e.status !== 'idle')
-          .map((e) => e.id),
-      ).toEqual([])
+      return host
+        .list()
+        .filter((e) => e.status !== 'idle')
+        .map((e) => e.id)
     } finally {
       host.processes.stopAll()
       rmSync(dir, { recursive: true, force: true })
     }
+  }
+
+  it('start no extension host with the window, so the branch, the diff stats and the Git panel run without one', async () => {
+    expect(await startedWithWindow([])).toEqual([])
+  })
+
+  it('start only the extension that asked to, so ssh runs at launch only while a remote workspace exists', async () => {
+    expect(await startedWithWindow(['ssh'])).toEqual(['ssh'])
   })
 })

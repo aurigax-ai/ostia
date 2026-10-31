@@ -3,6 +3,7 @@ import type { PreviewEvent, PreviewOpened } from '@shared/artifacts/htmlPreview'
 import { act, cleanup, fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { paneBrowserProfile } from '@/lib/layout/paneFields'
 import { findPane } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -285,24 +286,33 @@ describe('HtmlPreview', () => {
     useSettingsStore.setState(settingsInit, true)
   })
 
-  it('PRT-C55 captures nothing for a tiny drag or a stopped preview, and hands a crop to the bar', async () => {
-    const sendRegion = vi.fn()
-    vi.mocked(window.ostia.preview.capture).mockResolvedValue({
-      image: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
-      region: { x: 10, y: 20, width: 100, height: 50 },
+  it('PRT-C55 captures nothing for a tiny drag or a stopped preview, and keeps the crop box while the bar is open', async () => {
+    vi.mocked(window.ostia.browser.regionCapture).mockResolvedValue({
+      ok: true,
+      capture: {
+        id: 'region-1',
+        url: 'ostia-preview://load1/',
+        title: 'page',
+        rect: { x: 10, y: 20, width: 100, height: 50 },
+        imageWidth: 100,
+        imageHeight: 50,
+        capturedAt: '2026-10-23T00:00:00.000Z',
+      },
     })
     const view = await renderSettled(
-      <HtmlPreview
-        workspaceId="s1"
-        paneId="p1"
-        filePath={FILE}
-        visible
-        onSendErrors={sendErrors}
-        onSendRegion={sendRegion}
-      />,
+      <>
+        <HtmlPreview
+          workspaceId="s1"
+          paneId="p1"
+          filePath={FILE}
+          visible
+          onSendErrors={sendErrors}
+        />
+        <CaptureLayer workspaceId="s1" paneId="p1" />
+      </>,
     )
     const box = { left: 0, top: 0, right: 400, bottom: 300, width: 400, height: 300, x: 0, y: 0 }
-    const crop = () => screen.getByRole('button', { name: 'Capture region' })
+    const crop = () => screen.getByRole('button', { name: /^(Capture|Stop capturing) region/ })
     const layer = () => screen.queryByRole('application', { name: /drag over the page/i })
     const drag = async (from: [number, number], to: [number, number]): Promise<void> => {
       await userEvent.click(crop())
@@ -317,34 +327,33 @@ describe('HtmlPreview', () => {
         clientY: from[1],
         pointerId: 1,
       })
-      fireEvent.pointerUp(overlay, { clientX: to[0], clientY: to[1], pointerId: 1 })
+      await act(async () => {
+        fireEvent.pointerUp(overlay, { clientX: to[0], clientY: to[1], pointerId: 1 })
+      })
     }
     expect(crop()).toHaveAttribute('aria-pressed', 'false')
     await drag([10, 10], [12, 12])
-    expect(window.ostia.preview.capture).not.toHaveBeenCalled()
+    expect(window.ostia.browser.regionCapture).not.toHaveBeenCalled()
     fireEvent.keyDown(await screen.findByRole('application', { name: /drag over the page/i }), {
       key: 'Escape',
     })
     expect(layer()).toBeNull()
     await drag([10, 20], [110, 70])
-    await vi.waitFor(() => expect(sendRegion).toHaveBeenCalledTimes(1))
+    await screen.findByRole('toolbar', { name: 'Selection actions' })
     expect(layer()).toBeNull()
-    expect(window.ostia.preview.capture).toHaveBeenCalledWith('load1', {
-      x: 10,
-      y: 20,
-      width: 100,
-      height: 50,
+    expect(window.ostia.browser.regionCapture).toHaveBeenCalledWith('p1', {
+      rect: { x: 10, y: 20, width: 100, height: 50 },
+      view: { width: 400, height: 300 },
     })
-    expect(sendRegion.mock.calls[0][0]).toEqual({
-      kind: 'preview-region',
-      file: FILE,
-      viewWidth: 400,
-      viewHeight: 300,
-      region: { x: 10, y: 20, width: 100, height: 50 },
-      version: null,
+    const held = () => document.querySelector('.region-crop-box') as HTMLElement | null
+    expect(held()?.style.width).toBe('100px')
+    expect(held()?.style.height).toBe('50px')
+    fireEvent.keyDown(screen.getByRole('toolbar', { name: 'Selection actions' }), {
+      key: 'Escape',
     })
+    await vi.waitFor(() => expect(held()).toBeNull())
     await fire({ id: 'load1', type: 'stopped', reason: 'human' })
-    expect(screen.queryByRole('button', { name: 'Capture region' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /region/i })).toBeNull()
     view.unmount()
   })
 })

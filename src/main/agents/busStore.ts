@@ -34,6 +34,8 @@ export interface Mail {
   failedAt?: string
   reason?: string
   dismissed?: true
+  route?: string
+  origin?: string
 }
 
 export type HandoffState = 'submitted' | 'claimed' | 'completed' | 'failed'
@@ -77,6 +79,9 @@ export interface BusObservation {
 }
 
 export interface MailDraft {
+  id?: string
+  route?: string
+  origin?: string
   from: string
   to: string
   text: string
@@ -114,8 +119,14 @@ interface Waiter {
 
 const waiters = new Map<string, Set<Waiter>>()
 
+let pathOverride: string | undefined
+
+export function setBusPath(path: string): void {
+  pathOverride = path
+}
+
 function busPath(): string {
-  return storePath('bus', 'global')
+  return pathOverride ?? storePath('bus', 'global')
 }
 
 function store(): BusData {
@@ -252,6 +263,80 @@ function pruneHistory(now: number): boolean {
   return changed
 }
 
+const receiving = new Map<string, Promise<'stored' | 'full'>>()
+
+export function receive(
+  draft: MailDraft & { id: string; origin: string },
+): Promise<'stored' | 'full'> {
+  const key = `${draft.origin}\0${draft.id}`
+  const running = receiving.get(key)
+  if (running) return running
+  const work = persistAndPlace(draft).finally(() => receiving.delete(key))
+  receiving.set(key, work)
+  return work
+}
+
+async function persistAndPlace(
+  draft: MailDraft & { id: string; origin: string },
+): Promise<'stored' | 'full'> {
+  if (store().mail.some((mail) => mail.origin === draft.origin && mail.id === draft.id)) {
+    return 'stored'
+  }
+  if (inboxFull(draft.to)) return 'full'
+  const mail = newMail({ ...draft, origin: draft.origin })
+  await saveJsonAsync(busPath(), { ...store(), mail: [...store().mail, mail] }, { secure: true })
+  place(mail)
+  await flushBus()
+  return 'stored'
+}
+
+export function queuedOnRoute(route: string): Mail[] {
+  sweepBus()
+  return store()
+    .mail.filter((mail) => mail.route === route && mail.state === 'queued')
+    .map(snapshot)
+}
+
+export function failedOnRoute(route: string, since: string): number {
+  return store().mail.filter(
+    (mail) => mail.route === route && mail.state === 'failed' && (mail.failedAt ?? '') >= since,
+  ).length
+}
+
+export function storedOnRoute(route: string, id: string): boolean {
+  const mail = store().mail.find((item) => item.id === id && item.route === route)
+  if (!mail) return false
+  if (mail.state === 'queued') {
+    deliverMail(mail, 'remote', new Date().toISOString())
+    markBusDirty()
+  }
+  return true
+}
+
+export function refusedOnRoute(route: string, id: string, reason: string): boolean {
+  const mail = store().mail.find((item) => item.id === id && item.route === route)
+  if (!mail) return false
+  if (mail.state === 'queued') {
+    failMail(mail, reason, new Date().toISOString())
+    markBusDirty()
+  }
+  return true
+}
+
+export function hasMailed(from: string, to: string): boolean {
+  return store().mail.some((mail) => mail.from === from && mail.to === to)
+}
+
+export function peersOfRoute(route: string): string[] {
+  const prefix = `${route}:`
+  const peers = new Set<string>()
+  for (const mail of store().mail) {
+    if (mail.to.startsWith(prefix)) peers.add(mail.from)
+    else if (mail.from.startsWith(prefix)) peers.add(mail.to)
+  }
+  return [...peers]
+}
+
 export function sweepBus(now = Date.now()): void {
   let changed = false
   const at = new Date(now).toISOString()
@@ -276,10 +361,9 @@ export function inboxFull(to: string): boolean {
   return store().mail.filter((mail) => mail.to === to && undelivered(mail)).length >= INBOX_MAX
 }
 
-export function enqueue(draft: MailDraft): Mail {
-  sweepBus()
-  const mail: Mail = {
-    id: randomUUID(),
+function newMail(draft: MailDraft): Mail {
+  return {
+    id: draft.id ?? randomUUID(),
     kind: draft.kind ?? 'message',
     from: draft.from,
     to: draft.to,
@@ -290,21 +374,32 @@ export function enqueue(draft: MailDraft): Mail {
     ...(draft.task ? { task: true as const } : {}),
     ...(draft.quiet ? { quiet: true as const } : {}),
     ...(draft.wakes ? { wakes: true as const } : {}),
+    ...(draft.route ? { route: draft.route } : {}),
+    ...(draft.origin ? { origin: draft.origin } : {}),
   }
+}
+
+export function enqueue(draft: MailDraft): Mail {
+  sweepBus()
+  const mail = newMail(draft)
+  place(mail)
+  return mail
+}
+
+function place(mail: Mail): void {
   store().mail.push(mail)
   observe(mail, 'queued')
-  const parked = waiters.get(draft.to)
+  const parked = waiters.get(mail.to)
   const matching = parked ? [...parked].filter((waiter) => waiter.pick(mail)) : []
   const first = matching.find((waiter) => waiter.priority) ?? matching[0]
   if (parked && first) {
     parked.delete(first)
-    if (parked.size === 0) waiters.delete(draft.to)
-    const handed = leaseMail(draft.to, 'read', (item) => item.id === mail.id)
+    if (parked.size === 0) waiters.delete(mail.to)
+    const handed = leaseMail(mail.to, 'read', (item) => item.id === mail.id)
     if (handed) first.resolve(handed)
   }
   markBusDirty()
   announceQueued(mail)
-  return mail
 }
 
 export function claimWake(externalId: string, now: number, max: number, windowMs: number): boolean {
@@ -476,19 +571,6 @@ export function dismissFailed(to: string): void {
     }
   }
   if (changed) markBusDirty()
-}
-
-export function takeMail(to: string, via: MailVia, pick: (mail: Mail) => boolean): Mail[] {
-  sweepBus()
-  const at = new Date().toISOString()
-  const taken: Mail[] = []
-  for (const mail of store().mail) {
-    if (mail.to !== to || mail.state !== 'queued' || !pick(mail)) continue
-    taken.push(snapshot(mail))
-    deliverMail(mail, via, at)
-  }
-  if (taken.length > 0) markBusDirty()
-  return taken
 }
 
 export function leaseMail(

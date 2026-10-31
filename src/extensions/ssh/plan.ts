@@ -103,6 +103,14 @@ export function planHelper(
   return [...sshArgv(plan, ['-T']), helper.commands[kind]]
 }
 
+export function planRemote(
+  plan: ConnectPlan,
+  command: string,
+  options: string[] = ['-T'],
+): string[] {
+  return [...sshArgv(plan, options), command]
+}
+
 export function hostKey(plan: ConnectPlan): string {
   return plan.port === undefined ? plan.destination : `${plan.destination}:${plan.port}`
 }

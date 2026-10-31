@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -39,12 +39,17 @@ const {
   watchesOf,
   setBusObserver,
   setPending,
-  takeMail,
 } = store
 
 const observed = vi.fn()
 const mailJournal = { mail: vi.fn(), leaseTimeout: vi.fn() }
 const all = () => true
+
+function deliver(...args: Parameters<typeof leaseMail>) {
+  const handed = leaseMail(...args)
+  if (handed) ackMail(args[0], handed.lease)
+  return handed?.messages ?? []
+}
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
@@ -72,9 +77,9 @@ describe('mail states', () => {
     const mail = send('build is green')
     expect(getMail(mail.id)).toMatchObject({ state: 'queued', text: 'build is green' })
 
-    const first = takeMail('b', 'read', all)
+    const first = deliver('b', 'read', all)
     expect(first.map((m) => m.text)).toEqual(['build is green'])
-    expect(takeMail('b', 'read', all)).toEqual([])
+    expect(deliver('b', 'read', all)).toEqual([])
 
     const after = getMail(mail.id)
     expect(after).toMatchObject({ state: 'delivered', via: 'read', preview: 'build is green' })
@@ -84,8 +89,8 @@ describe('mail states', () => {
 
   it('hands each message to exactly one of two takes in a row', () => {
     for (let i = 0; i < 5; i++) send(`m${i}`)
-    const one = takeMail('b', 'prompt', all)
-    const two = takeMail('b', 'read', all)
+    const one = deliver('b', 'prompt', all)
+    const two = deliver('b', 'read', all)
     expect(one).toHaveLength(5)
     expect(two).toEqual([])
     expect(new Set(one.map((m) => m.id)).size).toBe(5)
@@ -94,7 +99,7 @@ describe('mail states', () => {
   it('takes only what the picker allows and only for that receiver', () => {
     const keep = send('keep')
     send('other pane', 'c')
-    const taken = takeMail('b', 'read', (m) => m.id !== keep.id)
+    const taken = deliver('b', 'read', (m) => m.id !== keep.id)
     expect(taken).toEqual([])
     expect(getMail(keep.id)?.state).toBe('queued')
     expect(inboxOf('c')).toHaveLength(1)
@@ -104,7 +109,7 @@ describe('mail states', () => {
     send('one')
     send('two')
     send('three')
-    expect(takeMail('b', 'read', all).map((m) => m.text)).toEqual(['one', 'two', 'three'])
+    expect(deliver('b', 'read', all).map((m) => m.text)).toEqual(['one', 'two', 'three'])
   })
 
   it('lists a sender only its own non-quiet mail, newest last', () => {
@@ -121,7 +126,7 @@ describe('leases', () => {
     const lease = leaseMail('b', 'prompt', all)
     expect(lease?.messages.map((m) => m.id)).toEqual([mail.id])
     expect(getMail(mail.id)?.state).toBe('leased')
-    expect(takeMail('b', 'read', all)).toEqual([])
+    expect(deliver('b', 'read', all)).toEqual([])
     expect(inboxOf('b')).toHaveLength(1)
 
     expect(ackMail('c', lease?.lease ?? '')).toEqual([])
@@ -137,7 +142,7 @@ describe('leases', () => {
     vi.setSystemTime(Date.now() + LEASE_MS + 1)
     expect(getMail(mail.id)?.state).toBe('queued')
     expect(ackMail('b', lease?.lease ?? '')).toEqual([])
-    expect(takeMail('b', 'read', all).map((m) => m.id)).toEqual([mail.id])
+    expect(deliver('b', 'read', all).map((m) => m.id)).toEqual([mail.id])
   })
 
   it('leases nothing when there is nothing queued', () => {
@@ -153,7 +158,7 @@ describe('expiry and closing', () => {
     expect(getMail(mail.id)?.state).toBe('queued')
     vi.setSystemTime(Date.now() + 2000)
     expect(getMail(mail.id)).toMatchObject({ state: 'failed', reason: 'expired:hibernated' })
-    expect(takeMail('b', 'read', all)).toEqual([])
+    expect(deliver('b', 'read', all)).toEqual([])
   })
 
   it('names an expiry without a known reason as queued', () => {
@@ -164,7 +169,7 @@ describe('expiry and closing', () => {
 
   it('does not expire mail that was delivered', () => {
     const mail = send()
-    takeMail('b', 'read', all)
+    deliver('b', 'read', all)
     vi.setSystemTime(Date.now() + MAIL_TTL_MS + 1)
     expect(getMail(mail.id)?.state).toBe('delivered')
   })
@@ -174,7 +179,7 @@ describe('expiry and closing', () => {
     const leasedOne = send('two')
     leaseMail('b', 'prompt', (m) => m.id === leasedOne.id)
     const delivered = send('three')
-    takeMail('b', 'read', (m) => m.id === delivered.id)
+    deliver('b', 'read', (m) => m.id === delivered.id)
     const other = send('four', 'c')
 
     failPaneMail('b')
@@ -187,16 +192,16 @@ describe('expiry and closing', () => {
 
   it('drops history after seven days and past 500 per sender', () => {
     const old = send('old')
-    takeMail('b', 'read', all)
+    deliver('b', 'read', all)
     vi.setSystemTime(Date.now() + HISTORY_MS + 1000)
     send('fresh', 'b', 'z')
     expect(getMail(old.id)).toBeUndefined()
 
     const first = enqueue({ from: 'busy', to: 'd', text: 'm0' })
-    takeMail('d', 'read', all)
+    deliver('d', 'read', all)
     for (let i = 1; i <= HISTORY_PER_SENDER; i++) {
       enqueue({ from: 'busy', to: 'd', text: `m${i}` })
-      takeMail('d', 'read', all)
+      deliver('d', 'read', all)
     }
     const last = enqueue({ from: 'busy', to: 'd', text: 'last' })
     expect(getMail(first.id)).toBeUndefined()
@@ -210,7 +215,7 @@ describe('mail views', () => {
     const leased = send('leased')
     leaseMail('b', 'prompt', (m) => m.id === leased.id)
     const read = send('read')
-    takeMail('b', 'read', (m) => m.id === read.id)
+    deliver('b', 'read', (m) => m.id === read.id)
     enqueue({ from: 'a', to: 'b', text: 'report', quiet: true })
     setPending(waiting.id, 'hibernated')
     expect(mailViews().map((v) => [v.id, v.state, v.pending])).toEqual([
@@ -245,7 +250,7 @@ describe('mail views', () => {
     const off = onBusChange(listener)
     send('one')
     send('two')
-    takeMail('b', 'read', all)
+    deliver('b', 'read', all)
     await Promise.resolve()
     expect(listener).toHaveBeenCalledTimes(1)
     off()
@@ -265,7 +270,7 @@ describe('events and watches', () => {
       ['event', 'w', 'first line\nsecond line'],
       ['event', 'other', 'from another pane'],
     ])
-    takeMail('b', 'read', all)
+    deliver('b', 'read', all)
     postEvent('w', 'b', 'third line')
     expect(inboxOf('b').map((m) => m.text)).toEqual(['third line'])
   })
@@ -366,7 +371,7 @@ describe('caps', () => {
     for (let i = 0; i < INBOX_MAX; i++) send(`m${i}`)
     expect(inboxFull('b')).toBe(true)
     expect(inboxFull('c')).toBe(false)
-    takeMail('b', 'read', (m) => m.text === 'm0')
+    deliver('b', 'read', (m) => m.text === 'm0')
     expect(inboxFull('b')).toBe(false)
   })
 })
@@ -376,7 +381,7 @@ describe('observation', () => {
     const a = send('x')
     const b = send('y')
     enqueue({ from: 'a', to: 'b', text: 'q', quiet: true })
-    takeMail('b', 'read', (m) => m.id === a.id)
+    deliver('b', 'read', (m) => m.id === a.id)
     failPaneMail('b')
     expect(observed.mock.calls.map(([o]) => [o.id, o.phase])).toEqual([
       [a.id, 'queued'],
@@ -479,7 +484,7 @@ describe('persistence', () => {
 
   it('keeps only the preview of delivered mail on disk, not the text', async () => {
     send('first line\nsecond line sk-abc')
-    takeMail('b', 'read', all)
+    deliver('b', 'read', all)
     await flushBus()
     const { readFileSync } = await import('node:fs')
     const written = readFileSync(file(), 'utf8')
@@ -493,5 +498,45 @@ describe('persistence', () => {
     writeFileSync(file(), JSON.stringify({ inboxes: { b: [{ id: 'x', text: 'old' }] }, sent: [] }))
     await resetBus()
     expect(inboxOf('b')).toEqual([])
+  })
+})
+
+describe('receive', () => {
+  it('REM-S1 writes the mail to disk before answering stored, and stores nothing when the write fails', async () => {
+    const good = join(dataHome, 'receive-good.json')
+    store.setBusPath(good)
+    const blocker = join(dataHome, 'not-a-folder')
+    writeFileSync(blocker, '')
+    store.setBusPath(join(blocker, 'bus.json'))
+    const draft = {
+      id: 'h:1',
+      origin: 'remote:h',
+      from: 'remote:h:0123abcd',
+      to: 'p1',
+      text: 'once',
+    }
+    await expect(store.receive(draft)).rejects.toThrow()
+    expect(inboxOf('p1')).toHaveLength(0)
+    store.setBusPath(good)
+    await expect(store.receive(draft)).resolves.toBe('stored')
+    await expect(store.receive(draft)).resolves.toBe('stored')
+    expect(inboxOf('p1')).toHaveLength(1)
+    expect(
+      JSON.parse(readFileSync(good, 'utf8')).mail.map((mail: { id: string }) => mail.id),
+    ).toContain('h:1')
+  })
+
+  it('REM-S2 dedupes on the origin and the id, so two hosts may send the same id and neither is lost', async () => {
+    const base = { id: 'same', from: 'x', to: 'p2', text: 'a' }
+    await store.receive({ ...base, origin: 'remote:one' })
+    await store.receive({ ...base, origin: 'remote:two', text: 'b' })
+    await store.receive({ ...base, origin: 'remote:one' })
+    expect(inboxOf('p2').map((mail) => mail.text)).toEqual(['a', 'b'])
+  })
+
+  it('REM-S3 answers stored once for the same mail received twice at the same time', async () => {
+    const draft = { id: 'dup', origin: 'remote:h', from: 'x', to: 'p3', text: 'once' }
+    await Promise.all([store.receive(draft), store.receive(draft)])
+    expect(inboxOf('p3')).toHaveLength(1)
   })
 })

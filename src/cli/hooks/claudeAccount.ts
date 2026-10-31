@@ -3,11 +3,13 @@ import { fail } from '../common/failure'
 
 export async function runClaudeAccountVerb(conn: MessageConnection): Promise<void> {
   const [verb, ...rest] = process.argv.slice(3)
-  if (verb !== 'start') {
-    fail('ostia claude-account: usage: claude-account start [-- <claude args>]')
+  if (verb !== 'start' || rest.length > 0) {
+    fail('ostia claude-account: usage: claude-account start')
     return
   }
-  const args = rest[0] === '--' ? rest.slice(1) : rest
-  const { dir } = await conn.sendRequest<{ dir: string }>('claudeAccount.start', { args })
-  if (dir.startsWith('/')) console.log(dir)
+  const { dir, memoryHome } = await conn.sendRequest<{ dir: string; memoryHome: string }>(
+    'claudeAccount.start',
+    {},
+  )
+  if (dir.startsWith('/') && memoryHome.startsWith('/')) console.log(`${dir}\n${memoryHome}`)
 }

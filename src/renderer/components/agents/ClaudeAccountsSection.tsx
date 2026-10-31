@@ -1,15 +1,17 @@
-import { DotsThreeIcon, PlusIcon, UserCircleIcon } from '@phosphor-icons/react'
+import { PlusIcon, UserCircleIcon, UserSwitchIcon } from '@phosphor-icons/react'
 import {
   type ClaudeAccountView,
   DEFAULT_ACCOUNT,
   type RemoveAccountOutcome,
 } from '@shared/claudeAccounts/claudeAccounts'
 import { useState } from 'react'
+import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
-import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
-import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { ToggleRow } from '@/components/settingsKit/ControlRow'
+import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -24,10 +26,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { useClaudeAccounts } from '@/lib/agents/useClaudeAccounts'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { ClaudeSignInDialog } from './ClaudeSignInDialog'
+import { useUsageText } from './useUsageText'
 
 type Problem = 'no-workspace' | 'not-opened' | 'running' | 'busy' | null
 
@@ -40,8 +44,17 @@ const accountName = (account: ClaudeAccountView, fallback: string): string =>
 
 export function ClaudeAccountsSection(): JSX.Element {
   const d = useDict().claudeAccounts
-  const { accounts, current, adding, signInAvailable, duplicate, damaged, recoverable } =
-    useClaudeAccounts()
+  const {
+    accounts,
+    current,
+    adding,
+    signInAvailable,
+    duplicate,
+    damaged,
+    recoverable,
+    checkUsage,
+    usageAvailable,
+  } = useClaudeAccounts()
   const { claudeAccounts } = window.ostia
   const [problem, setProblem] = useState<Problem>(null)
   const [broughtBack, setBroughtBack] = useState(0)
@@ -79,7 +92,7 @@ export function ClaudeAccountsSection(): JSX.Element {
       desc={d.titleDesc}
       actions={
         <Button variant="outline" size="sm" disabled={adding || damaged} onClick={() => void add()}>
-          <PlusIcon aria-hidden />
+          <PlusIcon data-icon="inline-start" />
           {d.add}
         </Button>
       }
@@ -92,16 +105,22 @@ export function ClaudeAccountsSection(): JSX.Element {
             </Button>
           }
         >
-          {damaged ? d.damaged : fmt(d.recoverable, { count: recoverable })}
+          {damaged
+            ? d.damaged
+            : recoverable === 1
+              ? d.recoverableOne
+              : fmt(d.recoverableMany, { count: recoverable })}
         </Notice>
       ) : null}
       {broughtBack > 0 ? (
-        <Notice tone="info">{fmt(d.broughtBack, { count: broughtBack })}</Notice>
+        <Notice tone="info">
+          {broughtBack === 1 ? d.broughtBackOne : fmt(d.broughtBackMany, { count: broughtBack })}
+        </Notice>
       ) : null}
       {adding ? <Notice tone="info">{d.adding}</Notice> : null}
       {duplicate ? <Notice tone="info">{fmt(d.duplicate, { email: duplicate })}</Notice> : null}
       {problem ? <Notice>{problemText[problem]}</Notice> : null}
-      <SettingsList label={d.listLabel} empty={d.defaultAccount}>
+      <SettingsList label={d.listLabel} empty={d.noAccounts}>
         {accounts.map((account) => (
           <AccountRow
             key={account.id}
@@ -112,9 +131,17 @@ export function ClaudeAccountsSection(): JSX.Element {
           />
         ))}
       </SettingsList>
-      <div className="mt-4">
-        <SettingsSubgroup title={d.sharedTitle} desc={d.sharedDesc} />
-      </div>
+      {usageAvailable ? (
+        <SettingsGroup title={d.usageTitle}>
+          <ToggleRow
+            label={d.checkUsage}
+            desc={d.checkUsageDesc}
+            checked={checkUsage}
+            onChange={(on) => void claudeAccounts.setCheckUsage(on)}
+          />
+        </SettingsGroup>
+      ) : null}
+      <SettingsGroup title={d.sharedTitle} desc={d.sharedDesc} />
       {signingIn ? (
         <ClaudeSignInDialog account={signingIn.account} onClose={() => setSigningIn(null)} />
       ) : null}
@@ -144,6 +171,10 @@ export function ClaudeAccountsSection(): JSX.Element {
   )
 }
 
+function EmptySlot(): JSX.Element {
+  return <span aria-hidden className="size-5.5 shrink-0" />
+}
+
 function AccountRow({
   account,
   active,
@@ -156,28 +187,50 @@ function AccountRow({
   onSignIn: () => void
 }): JSX.Element {
   const d = useDict().claudeAccounts
+  const usage = useUsageText()
   const name = accountName(account, d.defaultAccount)
   const removable = account.id !== DEFAULT_ACCOUNT
-  const meta = [account.id === DEFAULT_ACCOUNT ? d.defaultLabel : null, active ? d.active : null]
-  let actions: React.ReactNode = null
-  if (active && removable) {
-    actions = (
-      <Button variant="ghost" size="sm" onClick={onRemove}>
-        {d.remove}
-      </Button>
-    )
-  } else if (!active) {
-    actions = (
-      <DropdownMenu
-        trigger={<IconButton icon={DotsThreeIcon} label={fmt(d.actionsFor, { account: name })} />}
-      >
-        <MenuItem onClick={() => void window.ostia.claudeAccounts.use(account.id)}>
-          {d.switchTo}
-        </MenuItem>
-        {removable ? <MenuItem onClick={onRemove}>{d.remove}</MenuItem> : null}
-      </DropdownMenu>
-    )
-  }
+  const meta = [
+    account.id === DEFAULT_ACCOUNT ? d.defaultLabel : null,
+    active ? d.active : null,
+    account.enabled ? null : d.off,
+  ]
+  let locked: string | null = null
+  if (!removable) locked = d.enabledDefault
+  else if (active) locked = d.enabledCurrent
+  const toggle = (
+    <Switch
+      checked={account.enabled}
+      disabled={locked !== null}
+      aria-label={fmt(d.enabledFor, { account: name })}
+      onCheckedChange={(on) => void window.ostia.claudeAccounts.setEnabled(account.id, on)}
+    />
+  )
+  const actions = (
+    <>
+      {active || !account.enabled ? (
+        <EmptySlot />
+      ) : (
+        <IconButton
+          icon={UserSwitchIcon}
+          label={fmt(d.switchTo, { account: name })}
+          onClick={() => void window.ostia.claudeAccounts.use(account.id)}
+        />
+      )}
+      {locked ? (
+        <Hint label={locked}>
+          <span className="inline-flex">{toggle}</span>
+        </Hint>
+      ) : (
+        toggle
+      )}
+      {removable ? (
+        <RowRemoveButton label={fmt(d.removeFor, { account: name })} onClick={onRemove} />
+      ) : (
+        <EmptySlot />
+      )}
+    </>
+  )
   return (
     <SettingsListRow
       lead={<UserCircleIcon aria-hidden className="size-4" />}
@@ -187,11 +240,13 @@ function AccountRow({
         account.signedOut ? (
           <>
             {d.signedOut} ·{' '}
-            <TextLink className="h-auto px-0 text-ui-sm" onClick={onSignIn}>
+            <TextLink size="xs" onClick={onSignIn}>
               {d.signInAgain}
             </TextLink>
           </>
-        ) : undefined
+        ) : (
+          usage.line(account.usage)
+        )
       }
       actions={actions}
     />

@@ -5,10 +5,12 @@ import { parseScrollbackHistory } from '../../shared/terminal/scrollbackHistory'
 import { startAgent } from '../agent/agentWiring'
 import { registerAgentTranscriptIpc } from '../agents/agentTranscript'
 import { registerAgentWiring } from '../agents/agentWiring'
+import { createAccountMoves } from '../agents/claudeAccounts/accountMovesWiring'
 import { registerClaudeAccountsWiring } from '../agents/claudeAccounts/claudeAccountsWiring'
 import { registerFolderTrustIpc } from '../agents/folderTrustIpc'
 import { currentPlaybookFiles, setPlaybookSettings } from '../agents/playbookFiles'
 import { createResumeClaimer, registerResumeClaimIpc } from '../agents/resumeClaims'
+import { createStartTrust } from '../agents/startTrust'
 import { registerToolbeltWiring } from '../agents/toolbeltWiring'
 import { registerApprovalsWiring } from '../approvals/approvalsWiring'
 import { registerArtifactViewIpc, startArtifacts } from '../artifacts/artifactWiring'
@@ -155,7 +157,11 @@ export function boot(wiring: Wiring): void {
   registerBrowserGuestIpc({ ...wiring })
   registerWorkspaceIpc()
   registerSandboxIpcWiring({ ...wiring })
-  registerPtyIpc({ ...wiring })
+  const accountMoves = createAccountMoves({ ...wiring })
+  registerPtyIpc({
+    ...wiring,
+    hibernateHeld: (paneId, writes) => accountMoves.holds(paneId, writes),
+  })
   registerHistoryIpc({ ...wiring })
   registerFsIpc({ ...wiring })
   registerSelectionIpc(reachesPane, redactor.text, () => services.files?.viewers ?? null)
@@ -170,7 +176,11 @@ export function boot(wiring: Wiring): void {
     ),
   )
   registerFolderTrustIpc({ ...wiring, readSettingsFile })
-  registerClaudeAccountsWiring({ ...wiring })
+  registerClaudeAccountsWiring({
+    ...wiring,
+    accountMoves,
+    trustForStart: createStartTrust({ ...wiring, readSettingsFile }),
+  })
   const { notifyDeps } = registerNotifyWiring({ ...wiring })
   registerSandboxWiring({ ...wiring, notifyDeps })
   startFolderAccessWatch({ ...wiring, notifyDeps })
@@ -191,9 +201,9 @@ export function boot(wiring: Wiring): void {
   const { marketplace } = startMarketplace({ ...wiring, extensionStore })
   const server = startServer({ ...wiring })
   startShares({ ...wiring, server })
-  startProfileSyncWiring({ ...wiring, marketplace, server, notifyDeps })
+  startProfileSyncWiring({ ...wiring, marketplace, server })
   startChat({ ...wiring })
-  startAgent({ ...wiring })
+  startAgent({ ...wiring, registry })
   const { viewHost, ownSnippets } = registerContentIpc({ ...wiring })
   startGateway({ ...wiring, turnConfirms, startAgentForPhone, ownSnippets, server })
   registerBrowserWiring({ ...wiring })

@@ -1,6 +1,7 @@
 import {
   BroadcastIcon,
   ChatCircleTextIcon,
+  CoffeeIcon,
   FileCodeIcon,
   GitBranchIcon,
   GitDiffIcon,
@@ -91,6 +92,11 @@ export function TabFace({
         <span className="dot pane-tab-dirty" role="img" aria-label={d.pane.unsaved} />
       ) : null}
       <span className={cn('title', diskProblem === 'deleted' && 'line-through')}>{title}</span>
+      {pane.keepAwake ? (
+        <Hint label={d.pane.keptAwake}>
+          <CoffeeIcon size={16} className="pane-kind" role="img" aria-label={d.pane.keptAwake} />
+        </Hint>
+      ) : null}
       <MailCount paneIds={[pane.id]} />
       {diskProblem ? (
         <Hint label={diskLabel[diskProblem]}>

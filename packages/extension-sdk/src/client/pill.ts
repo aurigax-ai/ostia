@@ -1,3 +1,4 @@
+import { PILL_IDLE_MS } from '../contract/pillIdle'
 import { h } from './panel'
 import { buildFindRow, type FindRow } from './pillFind'
 import { buildMenu, type MenuHandle } from './pillMenu'
@@ -21,7 +22,7 @@ export type {
   PillToggle,
 } from './pillTypes'
 
-export const PILL_IDLE_MS = 2500
+export { PILL_IDLE_MS }
 
 export function createPill(options: PillOptions): Pill {
   const updates = new Map<string, Update>()
@@ -37,19 +38,17 @@ export function createPill(options: PillOptions): Pill {
   const controls = h('div', { class: 'ostia-pill-controls' })
   const element = h(
     'div',
-    { class: 'ostia-pill', role: 'toolbar', 'aria-label': options.label, 'data-state': 'hidden' },
+    { class: 'ostia-pill', role: 'toolbar', 'aria-label': options.label, 'data-state': 'idle' },
     controls,
   )
   let idle: ReturnType<typeof setTimeout> | null = null
 
   const held = (): boolean =>
     state.hover || state.menuOpen || state.findOpen || element.contains(document.activeElement)
-  const shown = (): boolean => !state.hostHidden && !state.selection && (state.awake || held())
   const render = (): void => {
-    const visible = shown()
-    element.dataset.state = visible ? 'visible' : 'hidden'
-    if (visible) element.removeAttribute('inert')
-    else element.setAttribute('inert', '')
+    const suppressed = state.hostHidden || state.selection
+    element.dataset.state = suppressed ? 'hidden' : state.awake || held() ? 'visible' : 'idle'
+    element.toggleAttribute('inert', suppressed)
   }
   const wake = (): void => {
     state.awake = true

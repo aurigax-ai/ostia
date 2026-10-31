@@ -7,6 +7,9 @@ interface AccountRow {
   number: number
   email: string | null
   current: boolean
+  enabled: boolean
+  session: number | null
+  weekly: number | null
 }
 
 type ListAnswer = { ok: true; accounts: AccountRow[] } | { ok: false; error: string }
@@ -17,6 +20,15 @@ type SwitchAnswer =
 
 const DEFAULT_LABEL = 'default'
 
+function rowState(row: AccountRow): string {
+  if (row.current) return 'current'
+  return row.enabled ? '' : 'off'
+}
+
+function percentText(percent: number | null): string {
+  return percent === null ? '' : `${percent}%`
+}
+
 function isolatedText(error: string): string {
   const kind = { scratch: 'a scratch', manager: 'the manager' }[error] ?? 'a sandboxed'
   return `${kind} pane has only the default account`
@@ -24,6 +36,8 @@ function isolatedText(error: string): string {
 
 function switchProblem(error: string, target: string): string {
   if (error === 'unknown-account') return `no account '${target}'; run ostia account list`
+  if (error === 'account-off')
+    return `'${target}' is turned off; the human turns it on in Settings › Claude accounts`
   if (error === 'not-approved') return 'the human did not approve the switch'
   if (error === 'sandboxed' || error === 'scratch' || error === 'manager')
     return isolatedText(error)
@@ -46,7 +60,13 @@ export async function runAccountVerb(conn: MessageConnection): Promise<void> {
     }
     for (const row of accounts) {
       console.log(
-        tsvLine([String(row.number), row.email ?? DEFAULT_LABEL, row.current ? 'current' : '']),
+        tsvLine([
+          String(row.number),
+          row.email ?? DEFAULT_LABEL,
+          rowState(row),
+          percentText(row.session),
+          percentText(row.weekly),
+        ]),
       )
     }
     return

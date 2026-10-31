@@ -1,6 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type Grid, type GridSelectEvent, grid } from './grid'
 
+const hostClears = vi.hoisted(() => new Set<() => void>())
+
+vi.mock('./viewer', () => ({
+  onSelectionCleared: (listener: () => void) => {
+    hostClears.add(listener)
+    return () => hostClears.delete(listener)
+  },
+}))
+
 const ROWS = 20
 const COLUMNS = 6
 const SCROLL_BOX = { width: 800, height: 240 }
@@ -387,5 +396,49 @@ describe('what the page reports and says', () => {
     const empty = await mount({ rowCount: 0 })
     empty.view.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }))
     expect(empty.onSelect).not.toHaveBeenCalled()
+  })
+})
+
+describe('a selection the host cleared', () => {
+  it('is dropped from the grid, and the page is told it is gone', async () => {
+    const { onSelect } = await mount()
+    click(cell(1, 1))
+    for (const clear of hostClears) clear()
+    expect(selectedCells()).toEqual([])
+    expect(onSelect).toHaveBeenLastCalledWith(null)
+  })
+
+  it('stops listening once the grid is destroyed', async () => {
+    await mount()
+    expect(hostClears.size).toBe(1)
+    mounted?.destroy()
+    expect(hostClears.size).toBe(0)
+  })
+})
+
+describe('rows added to the end', () => {
+  it('keeps the drawn range, tells the page nothing and shows the new rows', async () => {
+    const { view, onSelect } = await mount()
+    click(cell(1, 1))
+    press(cell(1, 1))
+    hover(cell(3, 2))
+    lift()
+    const before = selectedCells()
+    const reports = onSelect.mock.calls.length
+    view.setRows(ROWS + 5, (row, column) => `r${row}c${column}`)
+    expect(selectedCells()).toEqual(before)
+    expect(onSelect.mock.calls).toHaveLength(reports)
+    expect(cell(0, 0).textContent).toBe('r0c0')
+    expect(view.element.querySelector('[role="grid"]')?.getAttribute('aria-rowcount')).toBe(
+      String(ROWS + 6),
+    )
+  })
+
+  it('freezes a whole-column selection so it does not grow with the rows', async () => {
+    const { view } = await mount()
+    click(header('column', 1))
+    expect(view.selection()).toMatchObject({ r1: 0, r2: ROWS - 1, c1: 1, c2: 1 })
+    view.setRows(ROWS + 5, () => '')
+    expect(view.selection()).toMatchObject({ r1: 0, r2: ROWS - 1, c1: 1, c2: 1 })
   })
 })

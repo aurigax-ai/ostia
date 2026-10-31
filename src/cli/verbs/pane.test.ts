@@ -8,6 +8,7 @@ import {
   waitOutcome,
   wakeOutcome,
 } from './pane'
+import { keepAwakeLine } from './paneKeepAwake'
 import { filterPanes, paneLine } from './paneListVerb'
 import { nameLine } from './paneName'
 
@@ -151,6 +152,42 @@ describe('paneLine', () => {
     const line = paneLine({ ...pane, title: 'a\tb\nc\u001b[31m' })
     expect(line).toBe('p1\tws1\tterminal\trunning\ta\\tb\\nc\\x1b[31m')
     expect(line.split('\t')).toHaveLength(5)
+  })
+})
+
+describe('pane keep-awake', () => {
+  it('turns on by default and off with --off, for the caller only', () => {
+    expect(parsePaneArgs(['keep-awake'])).toEqual({
+      method: 'pane.keepAwake',
+      params: { on: true },
+      json: false,
+    })
+    expect(parsePaneArgs(['keep-awake', '--off', '--json'])).toEqual({
+      method: 'pane.keepAwake',
+      params: { on: false },
+      json: true,
+    })
+  })
+
+  it('takes no pane and says the new state', () => {
+    expect(() => parsePaneArgs(['keep-awake', 'p1'])).toThrow('usage: ostia pane')
+    expect(keepAwakeLine({ paneId: 'e6546de6-aaaa', keepAwake: true })).toBe('e6546de6 kept awake')
+    expect(keepAwakeLine({ paneId: 'e6546de6-aaaa', keepAwake: false })).toBe(
+      'e6546de6 no longer kept awake',
+    )
+  })
+
+  it('shows keep-awake as the last field of the pane list line', () => {
+    expect(
+      paneLine({
+        paneId: 'p1',
+        workspaceId: 'ws1',
+        kind: 'terminal',
+        title: 'w-1',
+        running: false,
+        keepAwake: true,
+      }),
+    ).toBe('p1\tws1\tterminal\tidle\tw-1\tkeep-awake')
   })
 })
 

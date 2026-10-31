@@ -179,7 +179,7 @@ export interface KeptShell {
 
 type KeptShellsLog = (event: string, fields: Record<string, string>) => void
 
-export type KeptProgram = Omit<TmuxServerOptions, 'dir' | 'name'>
+export type KeptProgram = Omit<TmuxServerOptions, 'dir' | 'name' | 'log'>
 
 export interface KeptShellsDeps {
   dir: string
@@ -352,6 +352,14 @@ export class KeptShells {
     } catch {}
   }
 
+  suspend(): void {
+    this.server?.suspend()
+  }
+
+  resume(): void {
+    this.server?.resume()
+  }
+
   release(): void {
     this.waiting.clear()
     this.hosts.clear()
@@ -477,7 +485,12 @@ export class KeptShells {
     if (this.connecting) return this.connecting
     const program = this.deps.program()
     if (!program) return Promise.reject(new Error('tmux is not available'))
-    const options: TmuxServerOptions = { ...program, dir: this.deps.dir, name: this.deps.name }
+    const options: TmuxServerOptions = {
+      ...program,
+      dir: this.deps.dir,
+      name: this.deps.name,
+      log: this.deps.log,
+    }
     let server: TmuxServer | null = null
     const connecting = TmuxServer.connect(options, () => {
       if (this.server === server) this.server = null

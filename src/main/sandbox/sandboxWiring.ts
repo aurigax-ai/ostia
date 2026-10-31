@@ -65,6 +65,12 @@ export function registerSandboxWiring({
     vaultDelete: deleteGlobalVaultValue,
   })
   if (process.platform === 'linux') setInterval(scanSandboxPorts, PORT_SCAN_MS).unref()
+  workspaceSandboxes.onLeftBehind = (workspaceId, workDir, paths) => {
+    const windowId = windowForWorkspace(workspaceId)
+    const win = windowId ? windows.get(windowId) : undefined
+    if (!win || win.isDestroyed()) return
+    win.webContents.send('sandbox:left-behind', { workspaceId, workDir, paths })
+  }
   services.onSandboxSpawnFailure = (workspaceId, errors) =>
     reportSandboxSpawnFailure(
       {

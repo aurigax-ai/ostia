@@ -2,6 +2,7 @@ import type { GatewayPairRequest, GatewayRemoteStatus } from '@shared/gateway/ga
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PairRequests } from './GatewayPairing'
 import { GatewaySection } from './GatewaySection'
 
 const STATUS: GatewayRemoteStatus = {
@@ -37,7 +38,7 @@ function qr(pairCode: string) {
 }
 
 async function showCode(): Promise<void> {
-  const button = await screen.findByRole('button', { name: 'Show pairing code' })
+  const button = await screen.findByRole('button', { name: 'Show QR' })
   await waitFor(() => expect(button).toBeEnabled())
   await act(async () => {
     fireEvent.click(button)
@@ -131,11 +132,27 @@ describe('GatewaySection pairing', () => {
     expect(screen.getByText('It keeps: Run commands, Type into panes.')).toBeInTheDocument()
   })
 
-  it('turns Discoverable on from its switch', async () => {
+  it('turns Local network discovery on from its switch on the network method', async () => {
+    vi.mocked(window.ostia.gateway.status).mockResolvedValue({
+      ...STATUS,
+      route: { ...STATUS.route, tailnet: false },
+    })
     const user = userEvent.setup()
     render(<GatewaySection />)
-    await user.click(await screen.findByRole('switch', { name: 'Discoverable' }))
+    await user.click(await screen.findByRole('switch', { name: 'Local network discovery' }))
     expect(window.ostia.gateway.setDiscoverable).toHaveBeenCalledWith(true)
     await waitFor(() => expect(window.ostia.gateway.status).toHaveBeenCalledTimes(2))
+  })
+})
+
+describe('PairRequests', () => {
+  it('names the check code the phone must show', () => {
+    render(
+      <PairRequests
+        requests={[{ requestId: 'r1', name: 'Pixel', checkCode: '482913', replaces: null }]}
+        onAnswer={() => undefined}
+      />,
+    )
+    expect(screen.getByText('Approve only if the phone shows 482 913.')).toBeInTheDocument()
   })
 })

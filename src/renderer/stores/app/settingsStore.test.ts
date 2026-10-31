@@ -323,6 +323,26 @@ describe('settingsStore', () => {
       expect(store().behavior.inputMode).toBe('terminal')
     })
 
+    it('reads the Esc mode and the live file suggestions switch with their defaults', async () => {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        version: 'v1',
+        text: JSON.stringify({ behavior: { inputEscape: 'menus', liveFileSuggestions: false } }),
+      })
+      await store().init()
+      expect(store().behavior.inputEscape).toBe('menus')
+      expect(store().behavior.liveFileSuggestions).toBe(false)
+
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        version: 'v1',
+        text: JSON.stringify({ behavior: { inputEscape: 'wipe' } }),
+      })
+      await store().init()
+      expect(store().behavior.inputEscape).toBe('clear')
+      expect(store().behavior.liveFileSuggestions).toBe(true)
+    })
+
     it('reads workspace settings, dropping bad values and blank folders', async () => {
       vi.mocked(window.ostia.fs.read).mockResolvedValue({
         ok: true,
@@ -765,6 +785,35 @@ describe('settingsStore', () => {
       expect(useSettingsStore.getState().sync).toEqual({ dir: '', method: 'server' })
       await store().setSyncMethod('folder')
       expect(useSettingsStore.getState().sync).toBeUndefined()
+    })
+
+    it('PSY-C44 keeps the What to sync choices across method and folder changes', async () => {
+      await store().setSyncKinds({
+        settings: true,
+        snippets: false,
+        completions: true,
+        views: true,
+        extensions: true,
+      })
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '', kinds: { snippets: false } })
+      await store().setSyncDir('/home/me/Sync')
+      await store().setSyncMethod('server')
+      expect(useSettingsStore.getState().sync).toEqual({
+        dir: '/home/me/Sync',
+        method: 'server',
+        kinds: { snippets: false },
+      })
+      await store().setSyncKinds({
+        settings: true,
+        snippets: true,
+        completions: true,
+        views: true,
+        extensions: true,
+      })
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync', method: 'server' })
+      expect(() => store().setByPath('sync.kinds', { snippets: true })).toThrow(
+        /unknown settings key/,
+      )
     })
 
     it('PSY-C32 refuses an agent turning secret sync on', () => {

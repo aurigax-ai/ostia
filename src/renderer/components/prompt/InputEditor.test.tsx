@@ -276,7 +276,7 @@ describe('InputEditor', () => {
     }
   })
 
-  it('clears the draft on Ctrl+C and hands the draft to the shell line on Escape', async () => {
+  it('clears the draft on Ctrl+C and keeps the draft and the editor on Escape', async () => {
     setMode('editor')
     idlePrompt(PANE, '/w')
     const { props } = renderEditor()
@@ -287,8 +287,27 @@ describe('InputEditor', () => {
     expect(props.onSubmit).not.toHaveBeenCalled()
     await user.type(editor() as HTMLElement, 'git st')
     await user.keyboard('{Escape}')
-    expect(props.onHandOff).toHaveBeenCalledTimes(1)
-    expect(props.onHandOff).toHaveBeenCalledWith('git st', '')
+    expect(props.onHandOff).not.toHaveBeenCalled()
+    expect(editor()).toHaveValue('git st')
+    expect(editor()).toHaveFocus()
+  })
+
+  it('gives its draft to the shell line once and empties the editor when the shell already holds text', async () => {
+    setMode('editor')
+    idlePrompt(PANE, '/w')
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'git st')
+    let taken: string | undefined
+    act(() => {
+      taken = inputEditorFor(PANE)?.take()
+    })
+    expect(taken).toBe('git st')
+    expect(editor()).toHaveValue('')
+    act(() => {
+      taken = inputEditorFor(PANE)?.take()
+    })
+    expect(taken).toBe('')
   })
 
   it.each(['search', 'everywhere'] as const)(
@@ -536,6 +555,30 @@ describe('InputEditor', () => {
     await user.keyboard('{Tab}')
     expect(await screen.findByText('No matching paths')).toBeVisible()
     expect(editor()).toHaveFocus()
+  })
+
+  it('completes a lone ~ to ~/ and then lists the home folder', async () => {
+    setMode('editor')
+    idlePrompt(PANE, '/w')
+    vi.mocked(window.ostia.pty.listDir).mockImplementation(async (_pane, path) =>
+      path === '~/'
+        ? [
+            { name: '.gemini', dir: true },
+            { name: 'notes', dir: true },
+            { name: 'work', dir: true },
+          ]
+        : [],
+    )
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'ls ~')
+    await user.keyboard('{Tab}')
+    await waitFor(() => expect(editor()).toHaveValue('ls ~/'))
+    expect(screen.queryByText('No matching paths')).toBeNull()
+    await user.keyboard('{Tab}')
+    expect(await screen.findByRole('option', { name: 'notes/' })).toBeVisible()
+    expect(screen.queryByRole('option', { name: '.gemini/' })).toBeNull()
+    vi.mocked(window.ostia.pty.listDir).mockReset()
   })
 
   it('completes a path outside the home folder from the pane’s own listing', async () => {
@@ -789,6 +832,20 @@ describe('InputEditor', () => {
       expect(ghost()).toBe(' --short')
       await user.keyboard('{End}')
       expect(editor()).toHaveValue('git status --short')
+    })
+
+    it('shows no "No matching paths" tip beside a history ghost, and Tab leaves the ghost to Right', async () => {
+      withHistory('ls -la')
+      renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'ls -')
+      expect(ghost()).toBe('la')
+      await user.keyboard('{Tab}')
+      expect(screen.queryByText('No matching paths')).toBeNull()
+      expect(editor()).toHaveValue('ls -')
+      expect(ghost()).toBe('la')
+      await user.keyboard('{ArrowRight}')
+      expect(editor()).toHaveValue('ls -la')
     })
 
     it('shows no history ghost text while behavior.historySuggestions is off', async () => {
@@ -1236,7 +1293,7 @@ describe('InputEditor', () => {
 
     const mode = () => screen.queryByLabelText('Vim mode')?.textContent ?? null
 
-    it('is off by default, so Escape still hands off to the shell line', async () => {
+    it('is off by default, and Escape keeps the draft in the editor', async () => {
       setMode('editor')
       idlePrompt(PANE, '/w')
       const { props } = renderEditor()
@@ -1244,7 +1301,21 @@ describe('InputEditor', () => {
       const user = userEvent.setup()
       await user.type(editor() as HTMLElement, 'ls')
       await user.keyboard('{Escape}')
-      expect(props.onHandOff).toHaveBeenCalledWith('ls', '')
+      expect(props.onHandOff).not.toHaveBeenCalled()
+      expect(editor()).toHaveValue('ls')
+    })
+
+    it('keeps the draft and the editor on Escape in normal mode', async () => {
+      setMode('editor')
+      setVim(true)
+      idlePrompt(PANE, '/w')
+      const { props } = renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'ls')
+      await user.keyboard('{Escape}{Escape}{Escape}')
+      expect(mode()).toBe('NORMAL')
+      expect(props.onHandOff).not.toHaveBeenCalled()
+      expect(editor()).toHaveValue('ls')
     })
 
     it('edits with motions, operators, counts and undo, then submits from normal mode', async () => {

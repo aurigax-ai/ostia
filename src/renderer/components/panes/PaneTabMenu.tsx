@@ -10,6 +10,7 @@ import {
   ArrowsOutSimpleIcon,
   BookmarkSimpleIcon,
   CaretDoubleLeftIcon,
+  CoffeeIcon,
   GitForkIcon,
   LockSimpleIcon,
   LockSimpleOpenIcon,
@@ -22,7 +23,7 @@ import {
 import type { ReactElement } from 'react'
 import { commands } from '@/commands/registry'
 import { IconButton } from '@/components/common/IconButton'
-import { MenuContent, MenuItem } from '@/components/common/Menu'
+import { MenuCheckboxItem, MenuContent, MenuItem } from '@/components/common/Menu'
 import { FileMenuItems } from '@/components/files/FileMenu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { viewIcon } from '@/components/views/viewIcons'
@@ -217,6 +218,15 @@ function PaneTabMenuItems({
         </MenuItem>
       ) : null}
       {agentTab && workspaceId ? <TabHibernateItems workspaceId={workspaceId} pane={pane} /> : null}
+      {agentTab && pane.resume ? (
+        <MenuCheckboxItem
+          icon={CoffeeIcon}
+          checked={pane.keepAwake === true}
+          onCheckedChange={(on) => void commands.exec('pane.keepAwake', { paneId: pane.id, on })}
+        >
+          {d.pane.keepAwake}
+        </MenuCheckboxItem>
+      ) : null}
       {workspaceId && forkableResume(pane) ? (
         <MenuItem icon={GitForkIcon} onClick={() => forkConversation(workspaceId, pane.id)}>
           {d.pane.forkConversation}

@@ -15,14 +15,9 @@ import {
   type PreviewTheme,
   previewPartition,
 } from '../../shared/artifacts/htmlPreview'
-import {
-  REGION_IMAGE_MAX,
-  regionCaptureRect,
-  regionPageRect,
-} from '../../shared/browser/regionCapture'
 import { lockDownSession, previewHeaders } from './previewAttach'
 import { type PreviewSource, regularFileSize } from './previewFiles'
-import type { PreviewGuest, PreviewHostDeps, PreviewRect, PreviewSession } from './previewHostTypes'
+import type { PreviewGuest, PreviewHostDeps, PreviewSession } from './previewHostTypes'
 import { busySince, previewsOverCap, previewVerdict } from './previewLimits'
 
 const PING_MS = 1_000
@@ -30,23 +25,11 @@ const METRICS_MS = 5_000
 const GESTURE_MS = 5_000
 const MESSAGE_MAX = 2_000
 const WATCHED_DIRS_MAX = 16
+const ACTIVITY_MS = 1000
 const GESTURE_INPUTS = new Set(['mouseDown', 'keyDown', 'touchStart'])
 const CLIPBOARD_WRITE = 'clipboard-sanitized-write'
 const DEBUGGER_PROTOCOL = '1.3'
 const PAUSE_SCRIPTS = 'Emulation.setScriptExecutionDisabled'
-
-const REGION_MIN = 4
-
-function regionOf(value: unknown): PreviewRect | null {
-  const raw = value as Partial<PreviewRect> | null
-  if (!raw || typeof raw !== 'object') return null
-  const [x, y, width, height] = [raw.x, raw.y, raw.width, raw.height].map((n) =>
-    typeof n === 'number' && Number.isFinite(n) ? Math.round(n) : Number.NaN,
-  )
-  if ([x, y, width, height].some(Number.isNaN) || x < 0 || y < 0) return null
-  if (width < REGION_MIN || height < REGION_MIN) return null
-  return { x, y, width, height }
-}
 
 interface Slot {
   nonce: string
@@ -74,6 +57,7 @@ interface Live {
   memoryBytes: number
   busySince: number | null
   gestureAt: number
+  activityAt: number
   frozen: boolean
   stale: boolean
   reported: { responding: boolean; busy: boolean }
@@ -136,6 +120,7 @@ export class PreviewHost {
       memoryBytes: 0,
       busySince: null,
       gestureAt: 0,
+      activityAt: 0,
       frozen: false,
       stale: false,
       reported: { responding: true, busy: false },
@@ -199,7 +184,6 @@ export class PreviewHost {
   adopt(guest: PreviewGuest): boolean {
     const slot = [...this.slots.values()].find((s) => s.session === guest.session)
     if (!slot) return false
-    guest.setWindowOpenHandler(() => ({ action: 'deny' }))
     guest.setWebRTCIPHandlingPolicy('disable_non_proxied_udp')
     guest.setBackgroundThrottling(true)
     const live = slot.live
@@ -209,11 +193,18 @@ export class PreviewHost {
     }
     live.guest = guest
     const current = (): Live | null => (slot.live === live && live.guest === guest ? live : null)
-    guest.on('will-navigate', (event: { preventDefault: () => void }, url: string) => {
-      event.preventDefault()
+    const offerLink = (url: unknown): void => {
       if (!current() || typeof url !== 'string' || allowsPreviewRequest(url)) return
       if (this.now() - live.gestureAt > GESTURE_MS) return
       this.deps.send(live.windowId, { id: live.id, type: 'link', url: url.slice(0, MESSAGE_MAX) })
+    }
+    guest.setWindowOpenHandler(({ url }) => {
+      offerLink(url)
+      return { action: 'deny' }
+    })
+    guest.on('will-navigate', (event: { preventDefault: () => void }, url: string) => {
+      event.preventDefault()
+      offerLink(url)
     })
     guest.on('will-redirect', (event: { preventDefault: () => void }) => event.preventDefault())
     guest.on(
@@ -235,7 +226,13 @@ export class PreviewHost {
       },
     )
     guest.on('input-event', (_event: unknown, input: { type?: string }) => {
-      if (input?.type && GESTURE_INPUTS.has(input.type)) live.gestureAt = this.now()
+      if (!input?.type) return
+      const now = this.now()
+      if (GESTURE_INPUTS.has(input.type)) live.gestureAt = now
+      if (current() && now - live.activityAt >= ACTIVITY_MS) {
+        live.activityAt = now
+        this.deps.send(live.windowId, { id: live.id, type: 'activity' })
+      }
     })
     guest.on('unresponsive', () => {
       if (current() && live.waitingSince === null) live.waitingSince = this.now()
@@ -361,26 +358,10 @@ export class PreviewHost {
     this.thaw(live)
   }
 
-  async capture(windowId: string, id: string, rect: unknown): Promise<Uint8Array | null> {
-    const live = this.live.get(id)
-    const region = regionOf(rect)
-    if (!live || live.windowId !== windowId || !region) return null
-    const guest = live.guest
-    if (!guest || guest.isDestroyed()) return null
-    const zoom = this.deps.hostZoom?.(windowId) ?? 1
-    try {
-      const image = await guest.capturePage(regionCaptureRect(region, zoom))
-      if (image.isEmpty()) return null
-      const png = image.toPNG()
-      return png.byteLength > REGION_IMAGE_MAX ? null : new Uint8Array(png)
-    } catch {
-      return null
-    }
-  }
-
-  pageRegion(windowId: string, rect: unknown): PreviewRect | null {
-    const region = regionOf(rect)
-    return region ? regionPageRect(region, this.deps.hostZoom?.(windowId) ?? 1, 1) : null
+  captureGuestId(windowId: string, paneId: string): number | null {
+    const live = this.byPane.get(paneId)?.live
+    const guest = live?.guest
+    return live && guest && live.windowId === windowId && !guest.isDestroyed() ? guest.id : null
   }
 
   stopByHuman(windowId: string, id: string): void {

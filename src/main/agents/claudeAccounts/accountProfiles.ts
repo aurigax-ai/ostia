@@ -141,6 +141,40 @@ export async function loginState(
   }
 }
 
+const TOKEN_SHAPE = /^[\x21-\x7e]{1,4096}$/
+const TOKEN_MARGIN_MS = 60_000
+
+export interface UsageToken {
+  accessToken: string
+  stamp: string
+}
+
+export async function credentialsStamp(dir: string): Promise<string | null> {
+  const info = await stat(join(dir, CREDENTIAL_FILE)).catch(() => null)
+  return info?.isFile() ? `${info.ino}:${info.size}:${info.mtimeMs}` : null
+}
+
+export async function usageToken(
+  dir: string,
+  now: number,
+  platform: NodeJS.Platform = process.platform,
+): Promise<UsageToken | null> {
+  if (platform === 'darwin') return null
+  const stamp = await credentialsStamp(dir)
+  const read = stamp ? await readRegularFile(join(dir, CREDENTIAL_FILE), CREDENTIAL_READ_MAX) : null
+  if (!stamp || !read?.ok) return null
+  try {
+    const oauth = (JSON.parse(read.body.toString('utf8')) as { claudeAiOauth?: unknown })
+      .claudeAiOauth as { accessToken?: unknown; expiresAt?: unknown } | undefined
+    const { accessToken, expiresAt } = oauth ?? {}
+    if (typeof accessToken !== 'string' || !TOKEN_SHAPE.test(accessToken)) return null
+    if (typeof expiresAt !== 'number' || expiresAt <= now + TOKEN_MARGIN_MS) return null
+    return { accessToken, stamp }
+  } catch {
+    return null
+  }
+}
+
 async function readCredentials(file: string): Promise<Record<string, unknown> | null> {
   if (!present(file)) return {}
   const read = await readRegularFile(file, CREDENTIAL_READ_MAX)

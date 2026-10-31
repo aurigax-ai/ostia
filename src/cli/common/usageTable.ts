@@ -128,6 +128,12 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       { verb: 'rename', args: `${PANE} <title…> | --clear`, about: "name a pane's tab" },
       {
+        verb: 'keep-awake',
+        args: '[--off] [--json]',
+        about:
+          'keep your own agent pane awake: automatic hibernation and pane hibernate skip it; --off ends it',
+      },
+      {
         verb: 'name',
         args: '<name> [--desc <text>] [--json] | --clear',
         about:
@@ -418,7 +424,7 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       {
         verb: 'list',
         args: '[--json]',
-        about: 'every account: number, email, which one is current',
+        about: 'every account: number, email, which one is current, session and weekly use',
       },
       { verb: 'switch', args: '<email|number>', about: 'the account new Claude sessions start on' },
     ],

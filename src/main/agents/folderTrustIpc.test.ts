@@ -28,10 +28,10 @@ function pane(paneId: string, workspaceId: string, host = hostname(), windowId =
   return identity
 }
 
-const accountDirs = new Map<string, string>()
+let accountDir: string | undefined
 
-const ask = (paneId: string, sender = '1', sessionId?: string) =>
-  handlers.get('agent:folder-trust')?.({ sender: { id: Number(sender) } }, paneId, sessionId)
+const ask = (paneId: string, sender = '1') =>
+  handlers.get('agent:folder-trust')?.({ sender: { id: Number(sender) } }, paneId)
 const trust = (paneId: string, sender = '1', shown = project) =>
   handlers.get('agent:trust-folder')?.({ sender: { id: Number(sender) } }, paneId, shown)
 
@@ -51,14 +51,14 @@ beforeEach(() => {
     scratchFolders: { isScratch: (id) => scratch.has(id ?? '') },
     workspaceSandboxes: { isEnabled: (id) => sandboxed.has(id) },
     readSettingsFile: () => ({}),
-    claudeAccounts: { configDirFor: (session) => accountDirs.get(session ?? '') },
+    claudeAccounts: { configDir: () => accountDir },
   })
 })
 
 afterEach(() => {
   for (const id of ptys.keys()) removePane(id)
   ptys.clear()
-  accountDirs.clear()
+  accountDir = undefined
   for (const id of ['ws', 'scratch', 'sandbox']) removeWorkspace(id)
   vi.unstubAllEnvs()
   rmSync(home, { recursive: true, force: true })
@@ -102,50 +102,18 @@ describe('folder trust IPC', () => {
     expect(readFileSync(config, 'utf8')).toBe('{"projects":{}}\n')
   })
 
-  it('CFT-C35 writes the trust key into the profile of the session the pane is about to resume', async () => {
+  it('CFT-C35 writes the trust key into the profile of the current account, the one every start uses', async () => {
     pane('p-ok', 'ws')
     const profile = join(home, 'accounts', 'work')
     mkdirSync(profile, { recursive: true })
     writeFileSync(join(profile, '.claude.json'), '{"projects":{}}\n')
-    accountDirs.set('session-work', profile)
-    expect(await ask('p-ok', '1', 'session-work')).toEqual({ state: 'ask', folder: project })
+    accountDir = profile
+    expect(await ask('p-ok')).toEqual({ state: 'ask', folder: project })
     expect(await trust('p-ok')).toBe(true)
     expect(
       JSON.parse(readFileSync(join(profile, '.claude.json'), 'utf8')).projects[project],
     ).toEqual({ hasTrustDialogAccepted: true })
     expect(readFileSync(config, 'utf8')).toBe('{"projects":{}}\n')
-  })
-
-  it('CFT-C37 does not let another window pick the profile the owner’s next trust writes into', async () => {
-    pane('p-ok', 'ws')
-    const profile = join(home, 'accounts', 'work')
-    mkdirSync(profile, { recursive: true })
-    writeFileSync(join(profile, '.claude.json'), '{"projects":{}}\n')
-    accountDirs.set('session-work', profile)
-    expect(await ask('p-ok', '2', 'session-work')).toEqual({ state: 'unknown' })
-    expect(await ask('p-ok')).toEqual({ state: 'ask', folder: project })
-    expect(await trust('p-ok')).toBe(true)
-    expect(readFileSync(join(profile, '.claude.json'), 'utf8')).toBe('{"projects":{}}\n')
-    expect(JSON.parse(readFileSync(config, 'utf8')).projects[project]).toEqual({
-      hasTrustDialogAccepted: true,
-    })
-  })
-
-  it('CFT-C38 forgets the session a closed pane was asked about', async () => {
-    pane('p-gone', 'ws')
-    const profile = join(home, 'accounts', 'work')
-    mkdirSync(profile, { recursive: true })
-    writeFileSync(join(profile, '.claude.json'), '{"projects":{}}\n')
-    accountDirs.set('session-work', profile)
-    await ask('p-gone', '1', 'session-work')
-    removePane('p-gone')
-    ptys.delete('p-gone')
-    pane('p-next', 'ws')
-    await ask('p-next')
-    registerPane({ windowId: '1', workspaceId: 'ws', paneId: 'p-gone' })
-    ptys.set('p-gone', { mirror: { cwdReport: { host: hostname(), path: project } } })
-    expect(await trust('p-gone')).toBe(true)
-    expect(readFileSync(join(profile, '.claude.json'), 'utf8')).toBe('{"projects":{}}\n')
   })
 
   it('CFT-C34 trusts only the folder the note showed, never one the pane moved to since', async () => {

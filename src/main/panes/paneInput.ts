@@ -37,10 +37,20 @@ export class PaneInput {
   private text: string[] = []
   private submitted: { human: boolean; text: string; at: number; claimed: Set<string> } | null =
     null
+  private noted = 0
 
   constructor(private readonly now: () => number) {}
 
+  get writes(): number {
+    return this.noted
+  }
+
+  drafting(): boolean {
+    return this.text.length > 0 || this.edited || this.foreign
+  }
+
   note(data: string, source: HumanInputSource | null): void {
+    this.noted += 1
     if (source === 'key') this.pasting = false
     let i = 0
     while (i < data.length) {

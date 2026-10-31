@@ -1,7 +1,7 @@
 import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { useDict } from '@/lib/app/useDict'
 import { DeviceList } from './GatewayDevices'
 import { PairCodePanel, PairRequests } from './GatewayPairing'
@@ -23,8 +23,7 @@ export function GatewaySection(): JSX.Element {
     clearPairing: pair.clear,
   })
   const { setRequests, refresh, requests, devices } = gateway
-  const { pairing, mintCode } = pair
-  const { canPair } = routing
+  const shown = pair.pairResult !== null
 
   const onAnswer = async (requestId: string, approve: boolean): Promise<void> => {
     await window.ostia.gateway.answerPairRequest(requestId, approve)
@@ -36,24 +35,20 @@ export function GatewaySection(): JSX.Element {
     <SettingsPage title={d.settings.remote} desc={d.settings.remoteDesc}>
       <GatewayRouteRows gateway={gateway} routing={routing} />
 
-      <Separator className="my-3" />
-
-      <ControlRow label={d.settings.remotePair} desc={d.settings.remotePairDesc}>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void mintCode()}
-          disabled={pairing || !canPair}
-        >
-          {pairing ? d.settings.remotePairing : d.settings.remotePairButton}
-        </Button>
-      </ControlRow>
-
-      <PairRequests requests={requests} onAnswer={(id, approve) => void onAnswer(id, approve)} />
-
-      <PairCodePanel pair={pair} />
-
-      <Separator className="my-3" />
+      <SettingsGroup title={d.settings.remotePairGroup}>
+        <ControlRow label={d.settings.remotePair} desc={d.settings.remotePairDesc}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => (shown ? pair.clear() : void pair.mintCode())}
+            disabled={!shown && (pair.pairing || !routing.canPair)}
+          >
+            {shown ? d.settings.remotePairHide : d.settings.remotePairShow}
+          </Button>
+        </ControlRow>
+        <PairCodePanel pair={pair} />
+        <PairRequests requests={requests} onAnswer={(id, approve) => void onAnswer(id, approve)} />
+      </SettingsGroup>
 
       <DeviceList
         devices={devices}

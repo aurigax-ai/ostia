@@ -153,6 +153,46 @@ describe('hibernateIdleAgents', () => {
       expect(hibernated(id)).toBe(false)
   })
 
+  it('skips a kept-awake agent and does not count it toward the limit', async () => {
+    seed(2)
+    useLayoutStore.getState().setKeepAwake('s2', 'idle-claude', true)
+    expect(
+      findPane(useLayoutStore.getState().byWorkspace.s2?.root as never, 'idle-claude'),
+    ).toMatchObject({
+      keepAwake: true,
+    })
+    expect(await hibernateIdleAgents(NOW)).toEqual([])
+    expect(window.ostia.pty.hibernate).not.toHaveBeenCalled()
+  })
+
+  it('leaves the human able to hibernate a kept-awake agent', async () => {
+    seed(2)
+    useLayoutStore.getState().setKeepAwake('s2', 'idle-claude', true)
+    expect(await hibernateAgentPane('s2', 'idle-claude')).toBe('hibernated')
+    expect(hibernated('idle-claude')).toBe(true)
+  })
+
+  it('ends keep-awake when the human hibernates the agent and keeps it when refused', async () => {
+    seed(2)
+    useLayoutStore.getState().setKeepAwake('s2', 'idle-claude', true)
+    const pane = () =>
+      findPane(useLayoutStore.getState().byWorkspace.s2?.root as never, 'idle-claude')
+    vi.mocked(window.ostia.pty.hibernate).mockResolvedValueOnce('subagent')
+    await hibernateAgentPane('s2', 'idle-claude')
+    expect(pane()).toMatchObject({ keepAwake: true })
+    await hibernateAgentPane('s2', 'idle-claude')
+    expect(pane()).not.toHaveProperty('keepAwake')
+    expect(hibernated('idle-claude')).toBe(true)
+  })
+
+  it('keeps no mark on a pane without a resume token', () => {
+    seed(2)
+    useLayoutStore.getState().setKeepAwake('s2', 'no-token', true)
+    expect(
+      findPane(useLayoutStore.getState().byWorkspace.s2?.root as never, 'no-token'),
+    ).not.toHaveProperty('keepAwake')
+  })
+
   it('does nothing while live agents fit under the limit', async () => {
     seed(3)
     expect(await hibernateIdleAgents(NOW)).toEqual([])

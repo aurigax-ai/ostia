@@ -4,10 +4,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { copyPaneSelection } from '@/lib/agents/selectionCopiers'
-import { openSelectionSend } from '@/lib/agents/selectionSenders'
 import { browserPaneOfGuest, runBrowserAction } from '@/lib/browser/browserHandles'
 import { startRegionCapture } from '@/lib/browser/regionCaptures'
+import { copyCapture, triggerCapture } from '@/lib/capture/captureSession'
 import { resetIds } from '@/lib/layout/tree'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -25,6 +24,11 @@ function homeWorkspaceId(): string {
     useWorkspacesStore.getState().addWorkspace()
   return useWorkspacesStore.getState().workspaces[0].id
 }
+
+vi.mock('@/lib/attention/workspaceActivity', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/attention/workspaceActivity')>()),
+  usePaneVisible: () => true,
+}))
 
 const BROWSER = 'browser-pane'
 
@@ -212,7 +216,7 @@ describe('BrowserView capture bar', () => {
       note: '',
     })
     await waitFor(() => noBar())
-    expect(screen.getByText(/^Sent to .*report path is on your clipboard/)).toBeVisible()
+    expect(screen.getByText(/^Sent to .*path on clipboard/)).toBeVisible()
   })
 
   it('sends the note typed under the bar and pastes it in front of the reference', async () => {
@@ -271,7 +275,7 @@ describe('BrowserView capture bar', () => {
     })
     await userEvent.click(within(bar()).getByRole('button', { name: 'Copy' }))
     expect(window.ostia.browser.pickCopy).toHaveBeenCalledWith(BROWSER, 'pick-7')
-    expect(await screen.findByText('Copied the table (5 rows × 4 columns) as CSV.')).toBeVisible()
+    expect(await screen.findByText('Copied table')).toBeVisible()
     noBar()
   })
 
@@ -279,11 +283,11 @@ describe('BrowserView capture bar', () => {
     await capturedBar()
     vi.mocked(window.ostia.browser.pickCopy).mockResolvedValue({ ok: true, kind: 'image' })
     act(() => {
-      expect(copyPaneSelection(BROWSER)).toBe(true)
+      expect(copyCapture(BROWSER)).not.toBeNull()
     })
-    expect(await screen.findByText('Copied the element screenshot.')).toBeVisible()
+    expect(await screen.findByText('Copied image')).toBeVisible()
     await waitFor(() => noBar())
-    expect(copyPaneSelection(BROWSER)).toBe(false)
+    expect(copyCapture(BROWSER)).toBeNull()
   })
 
   it('discards the capture on Escape and on its close button', async () => {
@@ -317,7 +321,7 @@ describe('BrowserView capture bar', () => {
     })
     await renderView(panes.workspaceId)
     await act(async () => {
-      expect(openSelectionSend(BROWSER)).toBe(true)
+      expect(triggerCapture(BROWSER)).toBe(true)
     })
     await screen.findByRole('toolbar', { name: /selection actions/i })
     await sendTo(0)
@@ -338,7 +342,7 @@ describe('BrowserView capture bar', () => {
     const { workspaceId } = twoTerminals()
     await renderView(workspaceId)
     await act(async () => {
-      expect(openSelectionSend(BROWSER)).toBe(true)
+      expect(triggerCapture(BROWSER)).toBe(true)
     })
     expect(await screen.findByText('Select some text first.')).toBeVisible()
     noBar()
@@ -444,7 +448,7 @@ describe('BrowserView region capture', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Copy' }))
     expect(window.ostia.browser.regionCopy).toHaveBeenCalledWith(BROWSER, 'region-3')
     expect(window.ostia.browser.regionSend).not.toHaveBeenCalled()
-    expect(await screen.findByText('Copied the image to the clipboard.')).toBeVisible()
+    expect(await screen.findByText('Copied image')).toBeVisible()
   })
 
   it('says why when main refuses the capture', async () => {

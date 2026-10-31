@@ -5,13 +5,14 @@ import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '@/commands/registry'
 import { registerSelectionSendCommand, SEND_SELECTION_COMMAND } from '@/commands/selectionSend'
-import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import { triggerCapture } from '@/lib/capture/captureSession'
 import { fileFeatureOptions, LARGE_FILE_LINES } from '@/lib/monaco/largeFile'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
+import { useViewModeStore } from '@/stores/files/viewModeStore'
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
@@ -132,6 +133,7 @@ const fake = vi.hoisted(() => {
     blurListeners: Listener[]
     keyListeners: ((e: unknown) => void)[]
     modelListeners: Listener[]
+    scrollListeners: Listener[]
     formatRuns: (() => void) | null
     decorations: {
       range: { startLineNumber: number; endLineNumber: number }
@@ -141,13 +143,9 @@ const fake = vi.hoisted(() => {
     optionUpdates: Record<string, unknown>[]
     visible: boolean
     layouts: number
-    themed: boolean
-    themedAtCreate: boolean
     input: HTMLElement | null
   } = {
     input: null,
-    themed: false,
-    themedAtCreate: false,
     visible: true,
     layouts: 0,
     createOptions: null,
@@ -163,6 +161,7 @@ const fake = vi.hoisted(() => {
     blurListeners: [],
     keyListeners: [],
     modelListeners: [],
+    scrollListeners: [],
     formatRuns: null,
     decorations: [],
   }
@@ -225,6 +224,7 @@ const fake = vi.hoisted(() => {
       }
     },
     onDidChangeModel: (l: Listener) => listen(state.modelListeners, l),
+    onDidScrollChange: (l: Listener) => listen(state.scrollListeners, l),
     layout: () => {
       state.layouts += 1
     },
@@ -244,9 +244,7 @@ const fake = vi.hoisted(() => {
       }),
     },
     editor: {
-      setTheme: vi.fn(() => {
-        state.themed = true
-      }),
+      setTheme: vi.fn(),
       defineTheme: vi.fn(),
       create: (host: HTMLElement, options: Record<string, unknown>) => {
         const input = document.createElement('div')
@@ -255,7 +253,6 @@ const fake = vi.hoisted(() => {
         host.appendChild(input)
         state.input = input
         state.createOptions = options
-        state.themedAtCreate = state.themed
         return editor
       },
       getModel: (uri: { toString(): string }) => models.get(uri.toString()) ?? null,
@@ -351,7 +348,7 @@ describe('EditorView', () => {
     const done = editorInSurface('p-html', '/w/page.html')
     await waitFor(() => expect(fake.state.input).not.toBeNull())
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Run page in preview' }))
+    act(() => useViewModeStore.getState().byPane['p-html']?.act())
     const webview = await waitFor(() => {
       const found = surfaceHost('p-html').querySelector<HTMLElement>('webview')
       if (!found) throw new Error('no webview yet')
@@ -559,11 +556,10 @@ describe('EditorView', () => {
     }
   })
 
-  it('creates the editor once the scheme theme is set, without a theme of its own', async () => {
+  it('creates the editor without a theme of its own', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
-    expect(fake.state.themedAtCreate).toBe(true)
     expect(fake.state.createOptions?.theme).toBeUndefined()
   })
 
@@ -1214,7 +1210,24 @@ describe('EditorView → Send Selection to Agent', () => {
     expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
   })
 
-  it('copies the selected text from the bar and closes with one status line', async () => {
+  it('closes the capture when the editor scrolls', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'one\ntwo\nthree',
+    })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    select(2, 1, 3, 6)
+    act(() => fake.state.actions.find((a) => a.id === 'ostia.sendSelection')?.run())
+    await screen.findByRole('toolbar', { name: 'Selection actions' })
+    act(() => {
+      for (const l of [...fake.state.scrollListeners]) l()
+    })
+    expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
+  })
+
+  it('copies the selected text from the bar and closes with the chip', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({
       ok: true,
       version: 'v1',
@@ -1233,7 +1246,7 @@ describe('EditorView → Send Selection to Agent', () => {
     )
 
     expect(window.ostia.clipboard.writeCapture).toHaveBeenCalledWith({ text: 'two\nthree' })
-    expect(await screen.findByText('Copied the selection.')).toBeInTheDocument()
+    expect(await screen.findByTestId('capture-chip')).toHaveTextContent('Copied')
     expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).toBeNull()
   })
 
@@ -1324,7 +1337,7 @@ describe('EditorView → Send Selection to Agent', () => {
           note: 'is this tax rate right?',
         }),
       )
-      expect(await screen.findByText(/The report is at its prompt/)).toBeInTheDocument()
+      expect(await screen.findByText(/^Sent to /)).toBeInTheDocument()
       expect(term.paste).toHaveBeenCalledWith(
         'is this tax rate right? @/tmp/ostia-reports-1/selection-1.md ',
       )
@@ -1341,7 +1354,7 @@ describe('EditorView → Send Selection to Agent', () => {
     await waitFor(() => expect(fake.state.model).not.toBeNull())
 
     act(() => {
-      expect(openSelectionSend('p1')).toBe(true)
+      expect(triggerCapture('p1')).toBe(true)
     })
 
     expect(await screen.findByText('Select some text first.')).toBeInTheDocument()

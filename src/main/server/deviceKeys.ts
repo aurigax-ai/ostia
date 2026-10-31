@@ -2,7 +2,6 @@ import {
   createHash,
   createPrivateKey,
   createPublicKey,
-  diffieHellman,
   generateKeyPairSync,
   type KeyObject,
   randomBytes,
@@ -12,19 +11,15 @@ import {
 const SEED_BYTES = 32
 const PKCS8_ED25519 = Buffer.from('302e020100300506032b657004220420', 'hex')
 const PKCS8_X25519 = Buffer.from('302e020100300506032b656e04220420', 'hex')
-const SPKI_X25519 = Buffer.from('302a300506032b656e032100', 'hex')
 const REGISTER_CONTEXT = 'ostia-server/register/v1'
 const CHALLENGE_CONTEXT = 'ostia-server/auth/v1'
 const STAMPED_CONTEXTS = {
-  invite: 'ostia-server/invite/v1',
-  elevate: 'ostia-server/elevate/v1',
   wrapRead: 'ostia-server/wrap-read/v1',
   manifestPut: 'ostia-server/manifest-put/v1',
-  revoke: 'ostia-server/revoke/v2',
+  syncRotate: 'ostia-server/sync-rotate/v1',
   syncGc: 'ostia-server/sync-gc/v1',
 }
 export type StampedKind = keyof typeof STAMPED_CONTEXTS
-const APPROVE_CONTEXT = 'ostia-server/approve/v1'
 
 export interface DeviceKeys {
   signPrivate: KeyObject
@@ -46,7 +41,7 @@ function privateFromSeed(prefix: Buffer, seed: Buffer): KeyObject {
   return createPrivateKey({ key: Buffer.concat([prefix, seed]), format: 'der', type: 'pkcs8' })
 }
 
-export function publicBytes(key: KeyObject): Buffer {
+function publicBytes(key: KeyObject): Buffer {
   const jwk = createPublicKey(key).export({ format: 'jwk' })
   return Buffer.from(jwk.x ?? '', 'base64url')
 }
@@ -105,26 +100,4 @@ export function signStamped(
   bound: readonly string[] = [],
 ): string {
   return signText(keys, [STAMPED_CONTEXTS[kind], deviceId, String(stamp), ...bound].join('\n'))
-}
-
-export function signApprove(
-  keys: DeviceKeys,
-  approverId: string,
-  approvalId: string,
-  requesterId: string,
-): string {
-  return signText(keys, `${APPROVE_CONTEXT}\n${approverId}\n${approvalId}\n${requesterId}`)
-}
-
-export function x25519FromSeed(seed: Buffer): KeyObject {
-  return privateFromSeed(PKCS8_X25519, seed)
-}
-
-export function x25519Exchange(privateKey: KeyObject, peerPublic: Buffer): Buffer {
-  const publicKey = createPublicKey({
-    key: Buffer.concat([SPKI_X25519, peerPublic]),
-    format: 'der',
-    type: 'spki',
-  })
-  return diffieHellman({ privateKey, publicKey })
 }

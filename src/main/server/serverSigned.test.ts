@@ -3,7 +3,6 @@ import { signedIn } from '../../../test/fixtures/server/accountHarness'
 import { generateDeviceKeys } from './deviceKeys'
 import { DeviceSigner } from './deviceSigner'
 import { createServerClient, ServerError } from './serverClient'
-import { ServerDevices } from './serverDevices'
 import { serverRoutes } from './serverRoutes'
 
 describe('signed requests with a timestamp', () => {
@@ -12,28 +11,29 @@ describe('signed requests with a timestamp', () => {
     const signer = new DeviceSigner({ keys: () => keys, deviceId: () => 'dev-1', now: () => 1000 })
     const stamps: string[] = []
     const routes = {
-      createInvite: vi.fn(async (_token: string, headers: Record<string, string>) => {
+      secretWrap: vi.fn(async (_token: string, _slot: string, headers: Record<string, string>) => {
         stamps.push(headers['X-Device-Timestamp'] ?? '')
         if (stamps.length === 1) throw new ServerError(401, 'unauthorized')
-        return { code: 'c', expiresAt: 1 }
+        return { slot: 'passphrase', blob: 'b' }
       }),
     }
-    const account = {
-      signer: () => signer,
-      authed: async <T>(use: (token: string, r: typeof routes) => Promise<T>): Promise<T> => {
-        try {
-          return await use('t1', routes)
-        } catch {
-          return use('t2', routes)
-        }
-      },
+    const authed = async <T>(use: (token: string, r: typeof routes) => Promise<T>): Promise<T> => {
+      try {
+        return await use('t1', routes)
+      } catch {
+        return use('t2', routes)
+      }
     }
-    const res = await new ServerDevices(account as never).createInvite()
-    expect(res).toMatchObject({ ok: true, code: 'c' })
+    const res = await authed((token, r) =>
+      signer.signed('wrapRead', (headers) => r.secretWrap(token, 'passphrase', headers), [
+        'passphrase',
+      ]),
+    )
+    expect(res).toMatchObject({ slot: 'passphrase' })
     expect(stamps).toEqual(['1000', '1001'])
   })
 
-  it('SSY-C131 does not resend a signed invite or elevation request after a 429', async () => {
+  it('SSY-C131 does not resend a signed wrap read or key replacement after a 429', async () => {
     const fetchFn = vi.fn(
       async () =>
         new Response('{"error":"rate-limited"}', { status: 429, headers: { 'Retry-After': '1' } }),
@@ -44,12 +44,12 @@ describe('signed requests with a timestamp', () => {
       pause: async () => {},
     })
     const routes = serverRoutes(client)
-    await expect(routes.createInvite('t', { 'X-Device-Signature': 's' })).rejects.toMatchObject({
-      status: 429,
-    })
-    await expect(routes.requestApproval('t', { 'X-Device-Signature': 's' })).rejects.toMatchObject({
-      status: 429,
-    })
+    await expect(
+      routes.secretWrap('t', 'passphrase', { 'X-Device-Signature': 's' }),
+    ).rejects.toMatchObject({ status: 429 })
+    await expect(
+      routes.rotate('t', '{}', '1', { 'X-Device-Signature': 's' }),
+    ).rejects.toMatchObject({ status: 429 })
     expect(fetchFn).toHaveBeenCalledTimes(2)
   })
 

@@ -15,9 +15,9 @@ const SPARE = 'b'.repeat(16)
 
 const state = (over: Partial<ClaudeAccountsState> = {}): ClaudeAccountsState => ({
   accounts: [
-    { id: 'default', email: 'me@example.com', signedOut: false },
-    { id: WORK, email: 'work@example.com', signedOut: false },
-    { id: SPARE, email: 'spare@example.com', signedOut: false },
+    { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+    { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage: null },
+    { id: SPARE, email: 'spare@example.com', signedOut: false, enabled: true, usage: null },
   ],
   current: WORK,
   adding: false,
@@ -26,6 +26,8 @@ const state = (over: Partial<ClaudeAccountsState> = {}): ClaudeAccountsState => 
   duplicate: null,
   damaged: false,
   recoverable: 0,
+  checkUsage: false,
+  usageAvailable: true,
   ...over,
 })
 
@@ -58,7 +60,10 @@ describe('ClaudeAccountsSection', () => {
 
   it('names a default account without a known login', async () => {
     show(
-      state({ accounts: [{ id: 'default', email: null, signedOut: false }], current: 'default' }),
+      state({
+        accounts: [{ id: 'default', email: null, signedOut: false, enabled: true, usage: null }],
+        current: 'default',
+      }),
     )
     render(<ClaudeAccountsSection />)
     expect(await screen.findByText('Default account')).toBeInTheDocument()
@@ -67,14 +72,14 @@ describe('ClaudeAccountsSection', () => {
   it('asks before removing the active account, and removes it only on the confirm', async () => {
     show(state())
     render(<ClaudeAccountsSection />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Remove' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove work@example.com' }))
     expect(window.ostia.claudeAccounts.remove).not.toHaveBeenCalled()
     const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent('Remove work@example.com?')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     expect(window.ostia.claudeAccounts.remove).not.toHaveBeenCalled()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
-    await userEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Remove work@example.com' }))
     await userEvent.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
     )
@@ -85,35 +90,33 @@ describe('ClaudeAccountsSection', () => {
     show(state())
     vi.mocked(window.ostia.claudeAccounts.remove).mockResolvedValueOnce('running')
     render(<ClaudeAccountsSection />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Remove' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove work@example.com' }))
     await userEvent.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
     )
     expect(await screen.findByText(/still running on this account/)).toBeInTheDocument()
   })
 
-  it('switches to or removes another account from its menu', async () => {
+  it('gives every account the same actions: switch unless active, remove unless default', async () => {
     show(state())
     render(<ClaudeAccountsSection />)
+    await screen.findByText('spare@example.com')
+    const [first, active, spare] = screen.getAllByRole('listitem')
+    expect(
+      within(first).getByRole('button', { name: 'Switch to me@example.com' }),
+    ).toBeInTheDocument()
+    expect(within(first).queryByRole('button', { name: /^Remove/ })).toBeNull()
+    expect(within(active).queryByRole('button', { name: /^Switch to/ })).toBeNull()
+    expect(within(active).getByRole('button', { name: 'Remove work@example.com' })).toBeVisible()
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Actions for spare@example.com' }),
+      within(spare).getByRole('button', { name: 'Switch to spare@example.com' }),
     )
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Switch to' }))
     expect(window.ostia.claudeAccounts.use).toHaveBeenCalledWith(SPARE)
-    await userEvent.click(screen.getByRole('button', { name: 'Actions for spare@example.com' }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove' }))
+    await userEvent.click(within(spare).getByRole('button', { name: 'Remove spare@example.com' }))
     await userEvent.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
     )
     expect(window.ostia.claudeAccounts.remove).toHaveBeenCalledWith(SPARE)
-  })
-
-  it('cannot remove the default account', async () => {
-    show(state())
-    render(<ClaudeAccountsSection />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Actions for me@example.com' }))
-    expect(await screen.findByRole('menuitem', { name: 'Switch to' })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Remove' })).toBeNull()
   })
 
   it('adds in the active workspace, and waits while a sign-in is open', async () => {
@@ -163,6 +166,88 @@ describe('ClaudeAccountsSection', () => {
     expect(window.ostia.claudeAccounts.recover).toHaveBeenCalledTimes(1)
   })
 
+  it('uses the singular for one account to bring back and one brought back', async () => {
+    show(state({ recoverable: 1 }))
+    vi.mocked(window.ostia.claudeAccounts.recover).mockResolvedValueOnce(1)
+    render(<ClaudeAccountsSection />)
+    expect(await screen.findByText(/^1 signed-in account is on this computer/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Bring back' }))
+    expect(
+      await screen.findByText('Brought back 1 account that was still signed in.'),
+    ).toBeInTheDocument()
+  })
+
+  it('turns the usage check on from its switch and shows each account’s usage', async () => {
+    const now = Date.now()
+    show(
+      state({
+        checkUsage: true,
+        accounts: [
+          { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+          {
+            id: WORK,
+            email: 'work@example.com',
+            signedOut: false,
+            enabled: true,
+            usage: {
+              session: { percent: 91, resetsAt: now + 1_800_000 },
+              weekly: { percent: 67, resetsAt: now + 2 * 86_400_000 },
+              checkedAt: now - 9 * 3_600_000,
+            },
+          },
+        ],
+      }),
+    )
+    render(<ClaudeAccountsSection />)
+    const row = (await screen.findByText('work@example.com')).closest('li') as HTMLElement
+    expect(row).toHaveTextContent(/Session 91% · Weekly 67% · pace 71% · resets \w+ · 9 hr\. ago/)
+    await userEvent.click(screen.getByRole('switch', { name: 'Check usage' }))
+    expect(window.ostia.claudeAccounts.setCheckUsage).toHaveBeenCalledWith(false)
+  })
+
+  it('has no usage switch where usage cannot be checked', async () => {
+    show(state({ usageAvailable: false }))
+    render(<ClaudeAccountsSection />)
+    await screen.findByText('work@example.com')
+    expect(screen.queryByRole('switch', { name: 'Check usage' })).toBeNull()
+  })
+
+  it('turns an account off and on from its switch; an off account has no Switch to', async () => {
+    show(
+      state({
+        accounts: [
+          { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+          { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage: null },
+          { id: SPARE, email: 'spare@example.com', signedOut: false, enabled: false, usage: null },
+        ],
+      }),
+    )
+    render(<ClaudeAccountsSection />)
+    const spare = (await screen.findByText('spare@example.com')).closest('li') as HTMLElement
+    expect(spare).toHaveTextContent('Off')
+    expect(within(spare).queryByRole('button', { name: /^Switch to/ })).toBeNull()
+    await userEvent.click(within(spare).getByRole('switch', { name: 'Use spare@example.com' }))
+    expect(window.ostia.claudeAccounts.setEnabled).toHaveBeenCalledWith(SPARE, true)
+  })
+
+  it('keeps the Default and the current account on, with the switch disabled', async () => {
+    show(state())
+    render(<ClaudeAccountsSection />)
+    await screen.findByText('work@example.com')
+    expect(screen.getByRole('switch', { name: 'Use me@example.com' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.getByRole('switch', { name: 'Use work@example.com' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.getByRole('switch', { name: 'Use spare@example.com' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+  })
+
   it('says what the accounts share and that other accounts’ changes are replaced', async () => {
     show(state())
     render(<ClaudeAccountsSection />)
@@ -200,8 +285,14 @@ describe('ClaudeAccountsSection', () => {
         available({
           signIn: 'waiting',
           accounts: [
-            { id: 'default', email: 'me@example.com', signedOut: false },
-            { id: SPARE, email: 'spare@example.com', signedOut: true },
+            {
+              id: 'default',
+              email: 'me@example.com',
+              signedOut: false,
+              enabled: true,
+              usage: null,
+            },
+            { id: SPARE, email: 'spare@example.com', signedOut: true, enabled: true, usage: null },
           ],
           current: 'default',
         }),

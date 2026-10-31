@@ -3,6 +3,7 @@ import { type RefObject, useEffect, useRef } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import {
   type CompletionMatch,
+  filterCompletions,
   followDraft,
   keepSelection,
   tabStep,
@@ -15,8 +16,9 @@ import {
   commandCandidates,
   completionScope,
   completionToken,
-  escapeShellWord,
+  escapeAtCaret,
   isCommandWord,
+  opensFileMenu,
   recentCommands,
   splitPathWord,
 } from '@/lib/prompt/inputEditor'
@@ -24,6 +26,7 @@ import type { InputDraft, Menu } from './useInputDraft'
 import type { InputHistory } from './useInputHistory'
 
 const MENU_LIMIT = 200
+const LIVE_DELAY_MS = 150
 
 function shownMatches(matches: CompletionMatch[]): CompletionMatch[] {
   return matches.length > MENU_LIMIT ? matches.slice(0, MENU_LIMIT) : matches
@@ -34,6 +37,7 @@ export interface InputCompletion {
   pick: (item: CompletionItem) => void
   followMenu: (draft: string, start: number, end: number) => void
   complete: (area: HTMLTextAreaElement) => Promise<void>
+  typed: (draft: string, start: number, end: number) => void
 }
 
 export function useInputCompletion({
@@ -43,6 +47,7 @@ export function useInputCompletion({
   menuRef,
   history: { commands, history, facts },
   historySuggestionsOn,
+  liveFilesOn,
 }: {
   paneId: string
   cwd: string | undefined
@@ -50,9 +55,11 @@ export function useInputCompletion({
   menuRef: RefObject<HTMLDivElement>
   history: InputHistory
   historySuggestionsOn: boolean
+  liveFilesOn: boolean
 }): InputCompletion {
   const d = useDict()
   const completing = useRef(0)
+  const liveTimer = useRef<number | undefined>(undefined)
   const specs = useRef(new Map<string, Promise<SpecCommand | null>>())
   const menuShown = menu !== null && menu.matches.length > 0 ? menu : null
 
@@ -119,7 +126,7 @@ export function useInputCompletion({
     const origin = { ...live.origin, pool }
     const step = followDraft(origin, area.value, area.selectionStart)
     if (step.kind !== 'filter') return
-    setMenu({ origin, matches: shownMatches(step.matches), index: 0 })
+    setMenu({ origin, matches: shownMatches(step.matches), index: 0, auto: live.auto })
   }
 
   const followMenu = (draft: string, start: number, end: number): void => {
@@ -133,7 +140,12 @@ export function useInputCompletion({
     if (step.kind === 'close') {
       setMenu(null)
     } else if (step.kind === 'relist') {
-      setMenu({ origin: { ...live.origin, scope: step.scope, pool: [] }, matches: [], index: 0 })
+      setMenu({
+        origin: { ...live.origin, scope: step.scope, pool: [] },
+        matches: [],
+        index: 0,
+        auto: live.auto,
+      })
       void relist(draft, start)
     } else {
       const matches = shownMatches(step.matches)
@@ -162,12 +174,42 @@ export function useInputCompletion({
       return
     }
     if (step.extend) {
-      const insert = escapeShellWord(step.extend)
+      const insert = escapeAtCaret(text, caret, step.extend)
       replaceText(text.slice(0, caret) + insert + text.slice(caret), caret + insert.length)
     }
     const origin = { start, scope: completionScope(word), pool }
     setMenu({ origin, matches: shownMatches(step.matches), index: 0 })
   }
 
-  return { menuShown, pick, followMenu, complete }
+  const openLive = async (): Promise<void> => {
+    const area = areaRef.current
+    if (!area || liveMenu.current || area.selectionStart !== area.selectionEnd) return
+    const draft = area.value
+    const caret = area.selectionStart
+    if (!opensFileMenu(draft, caret)) return
+    const ticket = ++completing.current
+    const pool = await candidatesAt(draft, caret)
+    const current = areaRef.current
+    if (ticket !== completing.current || liveMenu.current || !current) return
+    if (current.value !== draft || current.selectionStart !== caret) return
+    const { start, word } = completionToken(draft, caret)
+    const matches = filterCompletions(pool, splitPathWord(word).base)
+    if (matches.length === 0) return
+    const origin = { start, scope: completionScope(word), pool }
+    setMenu({ origin, matches: shownMatches(matches), index: 0, auto: true })
+  }
+
+  const typed = (draft: string, start: number, end: number): void => {
+    window.clearTimeout(liveTimer.current)
+    followMenu(draft, start, end)
+    if (!liveFilesOn || liveMenu.current || start !== end || !opensFileMenu(draft, start)) return
+    liveTimer.current = window.setTimeout(
+      () => void openLive().catch(() => undefined),
+      LIVE_DELAY_MS,
+    )
+  }
+
+  useEffect(() => () => window.clearTimeout(liveTimer.current), [])
+
+  return { menuShown, pick, followMenu, complete, typed }
 }

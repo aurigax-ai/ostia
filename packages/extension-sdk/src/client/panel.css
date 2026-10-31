@@ -59,6 +59,7 @@
   --motion-pulse: calc(1500ms * var(--ostia-motion-scale, 1));
   --motion-breathe: calc(2400ms * var(--ostia-motion-scale, 1));
   --motion-highlight: calc(2000ms * var(--ostia-motion-scale, 1));
+  --pill-idle-opacity: 0.4;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
@@ -542,40 +543,39 @@ button.quiet.strong {
 
 .ostia-pill {
   position: fixed;
-  top: 12px;
-  right: 12px;
+  top: 8px;
+  right: 8px;
   z-index: 20;
   display: flex;
   align-items: center;
-  max-width: calc(100vw - 24px);
-  padding: 4px;
+  max-width: calc(100vw - 16px);
+  padding: 2px;
   border: 1px solid var(--line-strong);
-  border-radius: calc(var(--radius-md) + 4px);
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--fg-muted);
   font-size: var(--text-ui-sm);
   line-height: var(--text-ui-sm--line-height);
-  box-shadow: 0 8px 24px -12px var(--bg-sunken);
+  box-shadow: 0 2px 8px -4px var(--bg-sunken);
   opacity: 1;
-  transform: none;
-  transition:
-    opacity var(--motion-base) var(--ease-out),
-    transform var(--motion-base) var(--ease-out);
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+.ostia-pill[data-state="idle"] {
+  opacity: var(--pill-idle-opacity);
+  transition: opacity var(--motion-base-exit) var(--ease-in);
 }
 
 .ostia-pill[data-state="hidden"] {
   opacity: 0;
-  transform: translateY(-6px);
   pointer-events: none;
-  transition:
-    opacity var(--motion-base-exit) var(--ease-in),
-    transform var(--motion-base-exit) var(--ease-in);
+  transition: opacity var(--motion-base-exit) var(--ease-in);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ostia-pill,
+  .ostia-pill[data-state="idle"],
   .ostia-pill[data-state="hidden"] {
-    transform: none;
     transition: none;
   }
 }
@@ -598,9 +598,9 @@ button.quiet.strong {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 3px;
   border-color: transparent;
   color: inherit;
   font-size: var(--text-ui-base);
@@ -633,7 +633,7 @@ button.quiet.strong {
 
 .ostia-pill-menu {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 4px);
   right: 0;
   z-index: 1;
   display: flex;
@@ -694,8 +694,8 @@ button.quiet.strong {
 
 .ostia-pill-page {
   width: calc(var(--digits, 2) * 1ch + 16px);
-  min-width: 28px;
-  height: 24px;
+  min-width: 22px;
+  height: 20px;
   padding: 0 4px;
   border-color: transparent;
   background: var(--bg-sunken);
@@ -719,7 +719,7 @@ button.quiet.strong {
   align-items: center;
   gap: 6px;
   width: min(280px, calc(100vw - 220px));
-  height: 28px;
+  height: 22px;
   padding: 0 8px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);

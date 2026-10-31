@@ -5,8 +5,6 @@ export interface ServerInfo {
   api: number
   modules: { relay: boolean; publish: boolean; sync: boolean; push: boolean }
   auth: { invite: boolean; github: boolean }
-  approverMinAgeSeconds?: number
-  syncGCBound?: boolean
   deviceInactiveAfterSeconds?: number
   relayDomain: string
   limits?: { shareMaxBytes?: number; allowPublic?: boolean; allowNever?: boolean }
@@ -63,55 +61,11 @@ export interface SessionGrant {
   accountId: string
 }
 
-export interface DeviceRow {
-  id: string
-  name: string
-  signPub: string
-  boxPub: string
-  createdAt: number
-  lastSeenAt: number
-  removeAt: number
-  current?: boolean
-}
-
-export interface ApprovalRow {
-  id: string
-  deviceId: string
-  deviceName: string
-  deviceCreatedAt: number
-  createdAt: number
-  expiresAt: number
-}
-
-export interface ApprovalStatus {
-  status: 'pending' | 'approved'
-  elevatedUntil?: number
-}
-
 export interface ManifestView {
   version: number
+  keyVersion: number
   blob: string
   updatedAt: number
-}
-
-export interface WrapSlot {
-  slot: string
-  updatedAt: number
-}
-
-export interface RotateBody {
-  ifMatch: number
-  manifest: string
-  wraps: Record<string, string>
-  deleteSlots: string[]
-}
-
-export interface GithubElevation {
-  flowId: string
-  userCode: string
-  verificationUri: string
-  interval: number
-  expiresIn: number
 }
 
 export interface PushTicket {
@@ -155,51 +109,8 @@ export function serverRoutes(client: ServerClient) {
         reportsTime: true,
       }),
     endSession: (token: string) => client.request<void>('DELETE', '/v1/auth/session', { token }),
-    devices: (token: string) =>
-      client.request<{ devices: DeviceRow[] }>('GET', '/v1/devices', { token }),
     heartbeat: (token: string) =>
       client.request<void>('POST', '/v1/devices/heartbeat', { token, retryRateLimited: false }),
-    createInvite: (token: string, headers: Record<string, string>) =>
-      client.request<{ code: string; expiresAt: number }>('POST', '/v1/devices/invite', {
-        token,
-        headers,
-        retryRateLimited: false,
-      }),
-    revokeDevice: (token: string, id: string, headers: Record<string, string>) =>
-      client.request<void>('DELETE', `/v1/devices/${encodeURIComponent(id)}`, {
-        token,
-        headers,
-        retryRateLimited: false,
-      }),
-    elevation: (token: string) =>
-      client.request<{ elevatedUntil: number }>('GET', '/v1/auth/elevation', { token }),
-    requestApproval: (token: string, headers: Record<string, string>) =>
-      client.request<{ approvalId: string; expiresAt: number }>(
-        'POST',
-        '/v1/auth/elevation/approval',
-        { token, headers, retryRateLimited: false },
-      ),
-    approvals: (token: string) =>
-      client.request<{ approvals: ApprovalRow[] }>('GET', '/v1/auth/approvals', { token }),
-    approve: (token: string, id: string, headers: Record<string, string>) =>
-      client.request<void>('POST', `/v1/auth/approvals/${encodeURIComponent(id)}/approve`, {
-        token,
-        headers,
-      }),
-    approvalStatus: (token: string, id: string) =>
-      client.request<ApprovalStatus>('GET', `/v1/auth/approvals/${encodeURIComponent(id)}`, {
-        token,
-      }),
-    cancelApproval: (token: string, id: string) =>
-      client.request<void>('DELETE', `/v1/auth/approvals/${encodeURIComponent(id)}`, { token }),
-    githubElevation: (token: string) =>
-      client.request<GithubElevation>('POST', '/v1/auth/elevation/github', { token }),
-    githubElevationPoll: (token: string, flowId: string) =>
-      client.request<{ elevatedUntil?: number; status?: 'pending' }>(
-        'POST',
-        '/v1/auth/elevation/github/poll',
-        { token, body: { flowId } },
-      ),
     manifest: (token: string) =>
       client.request<ManifestView>('GET', '/v1/sync/manifest', { token }),
     putManifest: (token: string, json: string, ifMatch: string, signed: Record<string, string>) =>
@@ -213,20 +124,19 @@ export function serverRoutes(client: ServerClient) {
       client.request<Buffer>('GET', `/v1/sync/blobs/${id}`, { token, asBytes: true }),
     putBlob: (token: string, id: string, bytes: Uint8Array<ArrayBuffer>) =>
       client.request<void>('PUT', `/v1/sync/blobs/${id}`, { token, bytes }),
-    wraps: (token: string) =>
-      client.request<{ wraps: WrapSlot[] }>('GET', '/v1/sync/wraps', { token }),
-    deviceWrap: (token: string, slot: `device:${string}`) =>
-      client.request<{ slot: string; blob: string }>('GET', `/v1/sync/wraps/${slot}`, { token }),
     secretWrap: (token: string, slot: 'passphrase' | 'recovery', headers: Record<string, string>) =>
       client.request<{ slot: string; blob: string }>('GET', `/v1/sync/wraps/${slot}`, {
         token,
         headers,
         retryRateLimited: false,
       }),
-    putWrap: (token: string, slot: string, blob: string) =>
-      client.request<void>('PUT', `/v1/sync/wraps/${slot}`, { token, body: { blob } }),
-    rotate: (token: string, body: RotateBody) =>
-      client.request<{ version: number }>('POST', '/v1/sync/rotate', { token, body }),
+    rotate: (token: string, json: string, ifMatch: string, signed: Record<string, string>) =>
+      client.request<{ version: number; keyVersion: number }>('POST', '/v1/sync/rotate', {
+        token,
+        json,
+        headers: { 'If-Match': ifMatch, ...signed },
+        retryRateLimited: false,
+      }),
     gc: (token: string, json: string, ifMatch: string, signed: Record<string, string>) =>
       client.request<{ deleted: number }>('POST', '/v1/sync/gc', {
         token,

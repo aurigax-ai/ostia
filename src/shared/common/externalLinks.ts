@@ -16,7 +16,6 @@ const BLOCKED_SCHEMES = new Set(
     'vbscript',
     'blob',
     'about',
-    'chrome',
     'chrome-extension',
     'chrome-untrusted',
     'devtools',
@@ -41,6 +40,11 @@ const BLOCKED_SCHEMES = new Set(
     'search-ms',
   ].map((scheme) => `${scheme}:`),
 )
+const BROWSER_PAGE_SCHEMES = {
+  'chrome:': 'chrome',
+  'edge:': 'edge',
+  'brave:': 'brave',
+} as const
 const SCHEME_FORMAT = /^[a-z][a-z0-9+.-]+:$/
 
 function parse(url: string): URL | null {
@@ -65,6 +69,23 @@ export function linkKind(url: string): LinkKind | null {
   if (!parsed) return null
   if (BROWSER_SCHEMES.has(parsed.protocol)) return 'browser'
   return SYSTEM_SCHEMES.has(parsed.protocol) || isAppLink(parsed) ? 'external' : null
+}
+
+export type BrowserPage = (typeof BROWSER_PAGE_SCHEMES)[keyof typeof BROWSER_PAGE_SCHEMES]
+
+export function browserPageOf(url: string): BrowserPage | null {
+  const parsed = parse(url)
+  if (!parsed || !isAppLink(parsed)) return null
+  return BROWSER_PAGE_SCHEMES[parsed.protocol as keyof typeof BROWSER_PAGE_SCHEMES] ?? null
+}
+
+export function appLinkScheme(url: string): string | null {
+  const parsed = parse(url)
+  if (!parsed || BROWSER_SCHEMES.has(parsed.protocol) || SYSTEM_SCHEMES.has(parsed.protocol)) {
+    return null
+  }
+  if (!isAppLink(parsed)) return null
+  return parsed.protocol.slice(0, -1)
 }
 
 export function externalHref(url: string, policy: ExternalLinkPolicy): string | null {

@@ -25,6 +25,10 @@ export function readSessionInfo(resume: AgentResume, home = homedir()): AgentSes
   }
 }
 
+export function codexSessionFolder(resume: AgentResume, home = homedir()): string | null {
+  return resume.agent === 'codex' ? (readSessionInfo(resume, home)?.cwd ?? null) : null
+}
+
 export function registerAgentTranscriptIpc(): void {
   ipcMain.handle('agent:session-info', (_e, raw: unknown) => {
     const resume = parseAgentResume(raw)

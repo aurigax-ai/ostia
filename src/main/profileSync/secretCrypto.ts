@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto'
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes, randomUUID } from 'node:crypto'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { argon2idKey } from './argon2'
 import { canonicalJson } from './merge'
@@ -16,6 +16,7 @@ const NONCE_BYTES = 12
 const TAG_BYTES = 16
 const RECOVERY_BYTES = 20
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+const LABEL_SYNC_KEY = 'ostia-sync/secrets'
 
 export interface Kdf {
   name: 'argon2id'
@@ -31,7 +32,7 @@ export interface Wrap {
   tag: string
 }
 
-export interface BundleHeader {
+export interface PasswordHeader {
   format: typeof BUNDLE_FORMAT
   keyId: string
   wrapId: string
@@ -39,6 +40,17 @@ export interface BundleHeader {
   password: Wrap
   recovery: Wrap
 }
+
+export interface SyncKeyHeader {
+  format: typeof BUNDLE_FORMAT
+  keyId: string
+  wrapId: string
+  syncKey: true
+}
+
+export type BundleHeader = PasswordHeader | SyncKeyHeader
+
+export const usesSyncKey = (header: BundleHeader): header is SyncKeyHeader => 'syncKey' in header
 
 interface SealedBundle {
   header: BundleHeader
@@ -131,11 +143,19 @@ export function normalizeRecoveryKey(input: string): string {
   return compact.match(/.{1,4}/g)?.join('-') ?? compact
 }
 
+export function syncKeyDataKey(syncKey: Buffer): Buffer {
+  return Buffer.from(hkdfSync('sha256', syncKey, Buffer.alloc(0), LABEL_SYNC_KEY, KEY_BYTES))
+}
+
+export function newSyncKeyHeader(): SyncKeyHeader {
+  return { format: BUNDLE_FORMAT, keyId: randomUUID(), wrapId: randomUUID(), syncKey: true }
+}
+
 export async function newHeader(
   dataKey: Buffer,
   password: string,
   recoveryKey: string,
-): Promise<BundleHeader> {
+): Promise<PasswordHeader> {
   return {
     format: BUNDLE_FORMAT,
     keyId: randomUUID(),
@@ -147,10 +167,10 @@ export async function newHeader(
 }
 
 export async function withPassword(
-  header: BundleHeader,
+  header: PasswordHeader,
   dataKey: Buffer,
   password: string,
-): Promise<BundleHeader> {
+): Promise<PasswordHeader> {
   return {
     ...header,
     wrapId: randomUUID(),
@@ -164,6 +184,9 @@ const isWrap = (v: unknown): v is Wrap =>
 export function parseHeader(raw: unknown): BundleHeader | null {
   if (!isRecord(raw) || raw.format !== BUNDLE_FORMAT) return null
   if (typeof raw.keyId !== 'string' || typeof raw.wrapId !== 'string') return null
+  if (raw.syncKey === true) {
+    return { format: BUNDLE_FORMAT, keyId: raw.keyId, wrapId: raw.wrapId, syncKey: true }
+  }
   const kdf = raw.kdf
   if (!isRecord(kdf) || kdf.name !== 'argon2id') return null
   if (!inRange(kdf.memory, KDF_MEMORY_RANGE) || !inRange(kdf.passes, KDF_PASSES_RANGE)) return null
@@ -195,7 +218,6 @@ export function sealBundle(header: BundleHeader, dataKey: Buffer, plain: string)
 export interface OpenedBundle {
   header: BundleHeader
   open: (dataKey: Buffer) => string | null
-  openWithPassword: (password: string) => Promise<string | null>
 }
 
 export function openBundle(text: string): OpenedBundle | null {
@@ -213,12 +235,13 @@ export function openBundle(text: string): OpenedBundle | null {
   if (!header || !nonce || !data || !tag) return null
   const open = (dataKey: Buffer): string | null =>
     unseal(dataKey, nonce, data, tag, headerAad(header))?.toString('utf8') ?? null
-  return {
-    header,
-    open,
-    openWithPassword: async (password) => {
-      const key = await unwrapKey(header.password, password, header.kdf)
-      return key ? open(key) : null
-    },
-  }
+  return { header, open }
+}
+
+export function rekeyBundle(text: string, from: Buffer, to: Buffer): string {
+  const bundle = openBundle(text)
+  if (!bundle || !usesSyncKey(bundle.header)) return text
+  const plain = bundle.open(syncKeyDataKey(from))
+  if (plain === null) return text
+  return sealBundle(newSyncKeyHeader(), syncKeyDataKey(to), plain)
 }

@@ -155,7 +155,7 @@ describe('ostia activity verbs', () => {
 
   it('filters by needs-you, open and since, and prints one line per entry', async () => {
     const caller = pane('p1', 'w1')
-    const open = await add('check the dashboard', caller, '--needs-you')
+    const open = await add('check the report', caller, '--needs-you')
     const closed = await add('rotate the key', caller, '--needs-you')
     await add('refactored the parser', caller)
     await run('done', [closed.id], caller)
@@ -171,7 +171,7 @@ describe('ostia activity verbs', () => {
     })
     const text = (await run('list', ['--needs-you'], caller)) as { text: string }
     expect(text.text.split('\n')).toEqual([
-      `${open.id}\t${open.time}\tneeds-you\tcheck the dashboard`,
+      `${open.id}\t${open.time}\tneeds-you\tcheck the report`,
       `${closed.id}\t${closed.time}\tneeds-you done\trotate the key`,
     ])
   })

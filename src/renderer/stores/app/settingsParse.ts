@@ -15,6 +15,7 @@ import { parseGlobalHotkey } from '@shared/keyboard/globalHotkey'
 import { parseModifierRemap } from '@shared/keyboard/modifierRemap'
 import { parseApprovalSettings } from '@shared/permissions/approvals'
 import { parsePrivacySettings } from '@shared/privacy/redaction'
+import { offKinds, type SyncKinds } from '@shared/profileSync/syncKinds'
 import { parseSandboxGlobals } from '@shared/sandbox/sandboxParse'
 import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import { parseActions } from '@/lib/settings/actions'
@@ -37,6 +38,7 @@ import {
   DEFAULTS,
   HERE,
   type HibernationSettings,
+  inputEscape,
   inputMode,
   isPlainObject,
   kindOf,
@@ -120,6 +122,7 @@ function parseBehavior(raw: unknown): Behavior {
       typeof src.externalEditor === 'string'
         ? src.externalEditor
         : DEFAULTS.behavior.externalEditor,
+    inputEscape: inputEscape(src.inputEscape),
     inputMode: inputMode(src.inputMode),
     updateChannel: parseUpdateChannel(src.updateChannel),
   }
@@ -269,9 +272,20 @@ const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues>
   return out
 }
 
+export const syncSettingsOf = (
+  dir: string,
+  method: 'server' | undefined,
+  kinds: Partial<SyncKinds> | undefined,
+): SyncSettings | undefined =>
+  dir || method || kinds
+    ? { dir, ...(method ? { method } : {}), ...(kinds ? { kinds } : {}) }
+    : undefined
+
 const syncOf = (v: unknown): SyncSettings | undefined => {
   if (!isPlainObject(v)) return undefined
   const dir = typeof v.dir === 'string' ? v.dir : ''
-  if (v.method === 'server') return { dir, method: 'server' }
-  return typeof v.dir === 'string' ? { dir } : undefined
+  const kinds = offKinds(v.kinds)
+  const server = v.method === 'server'
+  if (!server && !kinds && typeof v.dir !== 'string') return undefined
+  return { dir, ...(server ? { method: 'server' as const } : {}), ...(kinds ? { kinds } : {}) }
 }

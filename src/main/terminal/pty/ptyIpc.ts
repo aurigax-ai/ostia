@@ -1,5 +1,5 @@
 import { app, ipcMain } from 'electron'
-import type { HibernateOutcome } from '../../../shared/agents/agentWork'
+import { HIBERNATE_HELD, type HibernateOutcome } from '../../../shared/agents/agentWork'
 import type {
   PaneActivity,
   PromptContext,
@@ -16,7 +16,6 @@ import { humanInputSource } from '../../panes/paneInput'
 import type { PaneWaking } from '../../panes/paneWaking'
 import { wakeReason } from '../../panes/wakeReason'
 import type { KeptShells } from '../../tmux/keptShells'
-import { stashedScreen } from '../../workspaces/savedScrollback'
 import { registerPathCompletionIpc } from '../pathCompletion'
 import { KubeContextReader, NodeVersionResolver, promptContext } from '../promptContext'
 import { ExecutableIndex, readShellState, registerCommandNamesIpc } from '../shellCommands'
@@ -39,11 +38,11 @@ interface PtyIpcDeps {
   paneWaking: PaneWaking
   paneStartErrors: Map<string, string>
   hibernatePty: PtyStop['hibernatePty']
+  hibernateHeld: (paneId: string, writes: number) => boolean
   killPty: PtyStop['killPty']
   releasePtyFlow: PtyIo['releasePtyFlow']
   paneActivity: PtyQueries['paneActivity']
   sandboxReadRules: PtyQueries['sandboxReadRules']
-  windowOfPane: (paneId: string) => string | undefined
   readSettingsFile: () => { behavior?: { historySuggestions?: unknown } }
 }
 
@@ -59,8 +58,8 @@ function registerPtyLifecycleIpc({
   keptShells,
   agentWork,
   hibernatePty,
+  hibernateHeld,
   killPty,
-  windowOfPane,
   paneStartErrors,
 }: PtyIpcDeps): void {
   const attaching = new Map<string, Promise<PtyAttachResult>>()
@@ -97,17 +96,15 @@ function registerPtyLifecycleIpc({
     if (!entry) return 'no-terminal'
     const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
     if (busy) return busy
-    return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
+    if (ptys.get(paneId) !== entry) return 'no-terminal'
+    if (hibernateHeld(paneId, entry.input.writes)) return HIBERNATE_HELD
+    return hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
   })
 
   ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {
     await keptShells.ready
     return keptShells.waitingPaneIds()
   })
-
-  ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
-    stashedScreen(String(paneId), String(e.sender.id), windowOfPane(String(paneId))),
-  )
 
   ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
     const entry = ptys.get(String(paneId))
@@ -157,6 +154,10 @@ function registerPtyControlIpc({
   ipcMain.on('pty:release-hold', (e, paneId: unknown) => {
     const entry = typeof paneId === 'string' ? ptys.get(paneId) : undefined
     if (entry?.session.canWrite(String(e.sender.id))) releasePty(paneId as string, entry)
+  })
+  ipcMain.on('pty:retry-link', (e, paneId: unknown) => {
+    const entry = typeof paneId === 'string' ? ptys.get(paneId) : undefined
+    if (entry?.session.canWrite(String(e.sender.id))) entry.kept?.retryLink()
   })
   ipcMain.on('pty:resize', (e, paneId: string, cols: number, rows: number) => {
     const entry = ptys.get(paneId)

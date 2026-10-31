@@ -60,6 +60,7 @@ function signInDeps(): NonNullable<ClaudeAccountsDeps['signIn']> {
 function deps(over: Partial<ClaudeAccountsDeps> = {}): ClaudeAccountsDeps {
   return {
     store,
+    usage: null,
     root,
     defaultHome: () => join(base, 'home'),
     defaultEmail: async () => 'me@example.com',

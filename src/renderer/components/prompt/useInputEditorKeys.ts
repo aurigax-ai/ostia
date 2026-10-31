@@ -1,7 +1,9 @@
 import { type KeyboardEvent, type MutableRefObject, type RefObject, useRef } from 'react'
+import { copyTextConfirmed } from '@/lib/capture/copyConfirm'
 import { execChord, isAppChord, matchTerminalChord } from '@/lib/keyboard/chords'
 import { smartClipboardAction } from '@/lib/keyboard/clipboardKeys'
 import { clipboardChordOf } from '@/lib/keyboard/documentClipboard'
+import { escAction } from '@/lib/prompt/escClear'
 import { type CompletionItem, caretOnFirstLine, suggestionWord } from '@/lib/prompt/inputEditor'
 import { applyLineEdit, lineEditOp, shellKeyBytes } from '@/lib/prompt/lineEditing'
 import { enterNormal, type VimMode } from '@/lib/prompt/vimMode'
@@ -28,7 +30,11 @@ function onMenuKey(
     setMenu({ ...open, index: (open.index + step + count) % count })
     return true
   }
-  if (e.key === 'Enter' || e.key === 'Tab') {
+  if (open.auto && e.key === 'Enter') return false
+  const area = e.currentTarget
+  const atWordEnd =
+    area.selectionStart === area.selectionEnd && !/\S/.test(area.value[area.selectionEnd] ?? '')
+  if (e.key === 'Enter' || e.key === 'Tab' || (open.auto && e.key === 'ArrowRight' && atWordEnd)) {
     e.preventDefault()
     pick(open.matches[open.index].item)
     return true
@@ -121,12 +127,14 @@ export function useInputEditorKeys({
   vim,
   vimModeRef,
   vimEnabled,
+  escapeClears,
   normal,
   completion: { menuShown, pick, followMenu, complete },
   suggestions,
   history: { stepHistory },
   composing,
   termRef,
+  paneId,
   onSubmit,
   onHandOffRef,
   onShellKeys,
@@ -135,19 +143,32 @@ export function useInputEditorKeys({
   vim: InputVim
   vimModeRef: MutableRefObject<VimMode>
   vimEnabled: boolean
+  escapeClears: boolean
   normal: boolean
   completion: InputCompletion
   suggestions: InputSuggestions
   history: InputHistory
   composing: boolean
   termRef: RefObject<Xterm | null>
+  paneId: string
   onSubmit: (text: string) => boolean
   onHandOffRef: MutableRefObject<(draft: string, keys: string) => void>
   onShellKeys: (keys: string) => void
 }): (e: KeyboardEvent<HTMLTextAreaElement>) => void {
   const killRing = useRef('')
-  const { text, setText, setSelection, walk, setMenu, setDismissed, replaceText, resetDraftState } =
-    draft
+  const {
+    text,
+    tip,
+    setText,
+    setSelection,
+    setTip,
+    walk,
+    restore,
+    setMenu,
+    setDismissed,
+    replaceText,
+    resetDraftState,
+  } = draft
   const { naturalOpen, suggestion, ghost, acceptSuggestion } = suggestions
   const { setVimMode, undo } = vim
 
@@ -158,6 +179,35 @@ export function useInputEditorKeys({
     resetDraftState()
     undo.current = []
     if (vimEnabled) setVimMode('insert')
+  }
+
+  const clearDraft = (): void => {
+    setText('')
+    setSelection({ start: 0, end: 0 })
+    resetDraftState()
+  }
+
+  const onEscape = (area: HTMLTextAreaElement): void => {
+    const action = escAction({
+      vim: vimEnabled,
+      suggestion: Boolean(suggestion),
+      clears: escapeClears,
+      text,
+      armed: tip === 'escAgain',
+    })
+    if (action === 'normal') {
+      const next = enterNormal({ text, caret: area.selectionStart })
+      setVimMode('normal')
+      replaceText(next.text, next.caret)
+    } else if (action === 'dismiss') {
+      setDismissed(text)
+    } else if (action === 'arm') {
+      setTip('escAgain')
+    } else if (action === 'clear') {
+      restore.current = text
+      clearDraft()
+      setTip('cleared')
+    }
   }
 
   const handOff = (keys: string): void => {
@@ -182,7 +232,7 @@ export function useInputEditorKeys({
       return
     }
     if (e.key === 'Home' || e.key === 'End' || e.key === 'Escape') setMenu(null)
-    if (normal && onNormalKey(e, { vim, vimModeRef, draft, submit, handOff, stepHistory })) return
+    if (normal && onNormalKey(e, { vim, vimModeRef, draft, submit, stepHistory })) return
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey
     if (e.key === 'Enter' && plain && !e.shiftKey) {
       e.preventDefault()
@@ -191,12 +241,16 @@ export function useInputEditorKeys({
     }
     if (e.key === 'Escape' && plain && !e.shiftKey) {
       e.preventDefault()
-      if (vimEnabled) {
-        const next = enterNormal({ text, caret: area.selectionStart })
-        setVimMode('normal')
-        replaceText(next.text, next.caret)
-      } else if (suggestion) setDismissed(text)
-      else handOff('')
+      onEscape(area)
+      return
+    }
+    const ctrlOnly = e.ctrlKey && !e.shiftKey && !e.metaKey && !e.altKey
+    if (e.key.toLowerCase() === 'z' && ctrlOnly && tip === 'cleared' && text === '') {
+      e.preventDefault()
+      const back = restore.current
+      restore.current = ''
+      setTip('none')
+      replaceText(back)
       return
     }
     if (suggestion && plain && !e.shiftKey && (e.key === 'ArrowRight' || e.key === 'End')) {
@@ -226,18 +280,16 @@ export function useInputEditorKeys({
     if (smart === 'paste') return
     if (smart === 'copy' || clipboardChordOf(e, isMac) === 'copy') {
       e.preventDefault()
-      if (draftSelection) void navigator.clipboard.writeText(draftSelection)
+      if (draftSelection) void copyTextConfirmed(paneId, draftSelection)
       else if (term?.hasSelection()) {
-        void navigator.clipboard.writeText(term.getSelection())
+        void copyTextConfirmed(paneId, term.getSelection())
         if (smart) term.clearSelection()
       }
       return
     }
     if (e.key.toLowerCase() === 'c' && e.ctrlKey && !e.shiftKey && !e.metaKey && !e.altKey) {
       e.preventDefault()
-      setText('')
-      setSelection({ start: 0, end: 0 })
-      resetDraftState()
+      clearDraft()
       return
     }
     if (onLineEditKey(e, { draft, killRing, stepHistory, onShellKeys, handOff, followMenu })) return

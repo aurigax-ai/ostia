@@ -350,6 +350,26 @@ async function cellBox(
   )) as { x: number; y: number; left: number; right: number; bottom: number }
 }
 
+async function openCsvTable(win: Page, name: string) {
+  await win.locator('.file-row').filter({ hasText: name }).click()
+  for (const dismiss of await win
+    .locator('output')
+    .getByRole('button', { name: 'Dismiss' })
+    .all()) {
+    await dismiss.click()
+  }
+  await win.locator('.pane-tab:visible').last().click({ button: 'right' })
+  await win.getByRole('menuitem', { name: 'Open With…' }).click()
+  await win.getByRole('radio', { name: 'Table' }).click()
+  await win.getByRole('button', { name: 'Open', exact: true }).click()
+  await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
+    'data-view-type',
+    'csv.table',
+    { timeout: 15_000 },
+  )
+  return { viewType: 'csv.table', name }
+}
+
 async function cellsAreCopiedAndSent(win: Page, app: ElectronApplication): Promise<void> {
   const bar = win.getByRole('toolbar', { name: 'Selection actions' })
   const webview = win.locator('[data-testid="file-viewer"]:visible webview')
@@ -369,7 +389,7 @@ async function cellsAreCopiedAndSent(win: Page, app: ElectronApplication): Promi
   expect(barBox.x).toBeLessThanOrEqual(frame.x + to.right)
 
   await bar.getByRole('button', { name: 'Copy' }).click()
-  await expect(win.getByText('Copied Q4!A1:C3 (3 rows × 3 columns) as CSV.')).toBeVisible()
+  await expect(win.getByTestId('capture-chip')).toHaveText('Copied table')
   const copied = await readClipboard(app)
   expect(copied.text).toBe('Region,Orders,Revenue\nNorth,412,48210\nSouth,305,36120')
   expect(copied.html).toContain('<table>')
@@ -407,17 +427,7 @@ async function cellsAreCopiedAndSent(win: Page, app: ElectronApplication): Promi
     'the reference is pasted and never submitted',
   )
 
-  await win.locator('.file-row').filter({ hasText: 'orders.csv' }).click()
-  await win.locator('.pane-tab:visible').last().click({ button: 'right' })
-  await win.getByRole('menuitem', { name: 'Open With…' }).click()
-  await win.getByRole('radio', { name: 'Table' }).click()
-  await win.getByRole('button', { name: 'Open', exact: true }).click()
-  const table = { viewType: 'csv.table', name: 'orders.csv' }
-  await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
-    'data-view-type',
-    'csv.table',
-    { timeout: 15_000 },
-  )
+  const table = await openCsvTable(win, 'orders.csv')
   await expect
     .poll(() => viewerGuestText(app, table), { timeout: 20_000 })
     .toContain('Hsinchu, East')
@@ -429,6 +439,6 @@ async function cellsAreCopiedAndSent(win: Page, app: ElectronApplication): Promi
   )
   await expect(bar).toBeVisible({ timeout: 15_000 })
   await bar.getByRole('button', { name: 'Copy' }).click()
-  await expect(win.getByText('Copied A2:B3 (2 rows × 2 columns) as CSV.')).toBeVisible()
+  await expect(win.getByTestId('capture-chip')).toHaveText('Copied table')
   expect((await readClipboard(app)).text).toBe('Taipei,3\n"Hsinchu, East",4')
 }

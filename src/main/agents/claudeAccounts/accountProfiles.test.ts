@@ -19,9 +19,11 @@ import {
   accountEmail,
   createProfile,
   credentialsPresent,
+  credentialsStamp,
   loginState,
   removeProfile,
   sweepPendingProfiles,
+  usageToken,
   writeLogin,
 } from './accountProfiles'
 import type { OAuthProfile, OAuthTokens } from './signIn/anthropicOAuth'
@@ -305,5 +307,48 @@ describe('loginState', () => {
 
   it('cannot tell on macOS, where the login is in the Keychain', async () => {
     expect(await loginState(join(root, STALE), NOW, 'darwin')).toBe('signed-in')
+  })
+})
+
+describe('usageToken', () => {
+  const NOW = 1_000_000
+  let made = 0
+  const write = (oauth: unknown): string => {
+    made += 1
+    const dir = createProfile(root, `u${String(made).padStart(15, '0')}`.replace('u', 'f'), home)
+    writeFileSync(join(dir, '.credentials.json'), JSON.stringify({ claudeAiOauth: oauth }))
+    return dir
+  }
+
+  it('gives the access token and the file stamp while the token has more than a minute left', async () => {
+    const dir = write({ accessToken: 'tok', refreshToken: 'r', expiresAt: NOW + 120_000 })
+    const token = await usageToken(dir, NOW, 'linux')
+    expect(token?.accessToken).toBe('tok')
+    expect(token?.stamp).toBe(await credentialsStamp(dir))
+  })
+
+  it('gives nothing for a token that expired or is about to, so Claude refreshes it, never Ostia', async () => {
+    expect(
+      await usageToken(write({ accessToken: 'tok', expiresAt: NOW + 30_000 }), NOW, 'linux'),
+    ).toBeNull()
+  })
+
+  it('gives nothing without a usable token, without the file, or on macOS', async () => {
+    expect(
+      await usageToken(write({ accessToken: 'a b', expiresAt: NOW * 2 }), NOW, 'linux'),
+    ).toBeNull()
+    expect(await usageToken(join(root, STALE), NOW, 'linux')).toBeNull()
+    const dir = write({ accessToken: 'tok', expiresAt: NOW * 2 })
+    expect(await usageToken(dir, NOW, 'darwin')).toBeNull()
+  })
+
+  it('stamps a new value once Claude rewrites the file', async () => {
+    const dir = write({ accessToken: 'tok', expiresAt: NOW * 2 })
+    const before = await credentialsStamp(dir)
+    writeFileSync(
+      join(dir, '.credentials.json'),
+      JSON.stringify({ claudeAiOauth: { accessToken: 'longer-token', expiresAt: NOW * 3 } }),
+    )
+    expect(await credentialsStamp(dir)).not.toBe(before)
   })
 })

@@ -5,30 +5,35 @@ import {
   accountOfTarget,
   type ClaudeAccountView,
   NO_ACCOUNTS,
+  percentNow,
 } from '../../../shared/claudeAccounts/claudeAccounts'
 import { quoteArg } from '../../../shared/terminal/shellQuote'
 import { approvals } from '../../approvals/approvals'
 import { openCallbackListener } from '../../chat/mcpOAuth'
 import type { CommandBridge } from '../../control/commandBridge'
 import { type ControlMethodContext, registerControlMethod } from '../../control/controlServer'
-import { resolveExternal } from '../../control/idRegistry'
+import { type PaneIdentity, resolveExternal } from '../../control/idRegistry'
 import { listWorkspaces } from '../../panes/paneList'
 import { storePath } from '../../platform/jsonStore'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
-import type { AgentResumes } from '../agentResumes'
 import type { AgentRunningPanes } from '../agentRunning'
+import type { AccountMoves } from './accountMoves'
 import {
   accountEmail,
   accountsRoot,
+  credentialsStamp,
   defaultConfigHome,
   loginState,
+  usageToken,
   writeLogin,
 } from './accountProfiles'
 import { syncProfileFromDefault } from './accountSync'
 import { ClaudeAccountsStore } from './accountsStore'
 import { ClaudeAccounts, type LoginTarget } from './claudeAccounts'
 import { createPkce, exchangeCode, fetchProfile } from './signIn/anthropicOAuth'
+import { fetchUsage } from './usageApi'
+import { UsagePoller } from './usagePoller'
 
 const ACCOUNTS_DIR = 'claude-accounts'
 
@@ -41,7 +46,15 @@ interface CreateDeps {
 }
 
 export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
-  return new ClaudeAccounts({
+  const usage = new UsagePoller({
+    targets: () => accounts.usageTargets(),
+    token: (dir) => usageToken(dir, Date.now()),
+    stamp: credentialsStamp,
+    fetch: (accessToken) => fetchUsage(accessToken),
+    onChange: () => void accounts.usageChanged(),
+  })
+  const accounts: ClaudeAccounts = new ClaudeAccounts({
+    usage: process.platform === 'darwin' ? null : usage,
     store: new ClaudeAccountsStore(storePath(ACCOUNTS_DIR, 'global')),
     root: accountsRoot(),
     defaultHome: () => defaultConfigHome(),
@@ -85,15 +98,17 @@ export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
     },
     onChange: (state) => deps.broadcast('claude-accounts:changed', state),
   })
+  return accounts
 }
 
 interface RegisterDeps {
   claudeAccounts: ClaudeAccounts
-  agentResumes: AgentResumes
+  accountMoves: Pick<AccountMoves, 'switched'>
   workspaceSandboxes: Pick<WorkspaceSandboxes, 'isEnabled'>
   scratchFolders: Pick<ScratchFolders, 'isScratch'>
   workspaceWindowId: (workspaceId: string) => string | undefined
   execCommand: CommandBridge['execCommand']
+  trustForStart: (profileDir: string, identity: PaneIdentity) => Promise<boolean>
   windowIds: () => string[]
 }
 
@@ -148,19 +163,32 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
   ipcMain.handle('claude-accounts:remove', (e, id: unknown) =>
     fromWindow(e) && typeof id === 'string' ? claudeAccounts.remove(id) : 'unknown',
   )
+  const use = async (id: string): Promise<boolean> => {
+    if (!(await claudeAccounts.use(id))) return false
+    void deps.accountMoves.switched()
+    return true
+  }
+
   ipcMain.handle('claude-accounts:use', (e, id: unknown) =>
-    fromWindow(e) && typeof id === 'string' ? claudeAccounts.use(id) : false,
+    fromWindow(e) && typeof id === 'string' ? use(id) : false,
+  )
+  ipcMain.handle('claude-accounts:set-enabled', (e, id: unknown, enabled: unknown) =>
+    fromWindow(e) && typeof id === 'string' && typeof enabled === 'boolean'
+      ? claudeAccounts.setEnabled(id, enabled)
+      : 'unknown',
+  )
+  ipcMain.handle('claude-accounts:set-check-usage', (e, on: unknown) =>
+    fromWindow(e) && typeof on === 'boolean' ? claudeAccounts.setCheckUsage(on) : false,
   )
   ipcMain.handle('claude-accounts:recover', (e) =>
     fromWindow(e) ? claudeAccounts.recover() : null,
   )
 
   registerControlMethod('claudeAccount.start', {
-    handler: async (params, ctx) => {
-      if (defaultOnly(ctx)) return { dir: '' }
-      const args = (params as { args?: unknown } | null)?.args
-      const argv = Array.isArray(args) ? args.filter((a): a is string => typeof a === 'string') : []
-      return { dir: await claudeAccounts.startDirectory(argv, ctx.identity.paneId) }
+    handler: async (_params, ctx) => {
+      const dir = defaultOnly(ctx) ? '' : await claudeAccounts.startDirectory(ctx.identity.paneId)
+      await deps.trustForStart(dir, ctx.identity)
+      return { dir, memoryHome: dir === '' ? '' : claudeAccounts.defaultHome() }
     },
   })
 
@@ -170,12 +198,16 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
       const isolated = defaultOnly(ctx)
       if (isolated) return { ok: false, error: isolated }
       const { accounts, current } = await claudeAccounts.state()
+      const now = Date.now()
       return {
         ok: true,
-        accounts: accounts.map(({ id, email }, i) => ({
+        accounts: accounts.map(({ id, email, enabled, usage }, i) => ({
           number: i + 1,
           email,
           current: id === current,
+          enabled,
+          session: percentNow(usage?.session ?? null, now),
+          weekly: percentNow(usage?.weekly ?? null, now),
         })),
       }
     },
@@ -190,16 +222,11 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
       const { accounts } = await claudeAccounts.state()
       const account = accountOfTarget(accounts, target)
       if (!account) return { ok: false, error: 'unknown-account' }
+      if (!account.enabled) return { ok: false, error: 'account-off' }
       if (!(await humanApproves(ctx, account))) return { ok: false, error: 'not-approved' }
-      if (!(await claudeAccounts.use(account.id))) return { ok: false, error: 'unavailable' }
+      if (!(await use(account.id))) return { ok: false, error: 'unavailable' }
       return { ok: true, number: accounts.indexOf(account) + 1, email: account.email }
     },
-  })
-
-  deps.agentResumes.subscribe((externalPaneId, resume) => {
-    if (resume.agent !== 'claude') return
-    const pane = resolveExternal(externalPaneId)
-    if (pane?.kind === 'pane') claudeAccounts.sessionStarted(pane.paneId, resume.id)
   })
 }
 

@@ -265,7 +265,7 @@ export const filesZhHant: typeof filesEn = {
   preview: {
     blocked: '這個頁面嘗試連線到 {host}；預覽沒有網路',
     busy: '這個頁面已經佔用一個處理器核心一段時間。',
-    captureRegion: '擷取區域',
+    controls: '檔案動作',
     copyErrors: '複製錯誤',
     editSource: '編輯頁面原始碼',
     errorActions: '錯誤動作',

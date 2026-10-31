@@ -22,14 +22,20 @@ export function isMacInstall(method: InstallMethod): boolean {
   return MAC_METHODS.includes(method)
 }
 
-export function offeredChannels(method: InstallMethod): readonly UpdateChannel[] {
+export function offeredChannels(method: InstallMethod, dirty = false): readonly UpdateChannel[] {
   if (isMacInstall(method)) return ['stable', 'beta']
-  if (method === 'local' || method === 'tarball') return ['stable', 'beta', 'main']
+  if (method === 'local' || method === 'tarball') {
+    return dirty ? ['stable', 'beta'] : ['stable', 'beta', 'main']
+  }
   return [DEFAULT_UPDATE_CHANNEL]
 }
 
-export function updateChannelFor(method: InstallMethod, picked: UpdateChannel): UpdateChannel {
-  return offeredChannels(method).includes(picked) ? picked : DEFAULT_UPDATE_CHANNEL
+export function updateChannelFor(
+  method: InstallMethod,
+  picked: UpdateChannel,
+  dirty = false,
+): UpdateChannel {
+  return offeredChannels(method, dirty).includes(picked) ? picked : DEFAULT_UPDATE_CHANNEL
 }
 
 export function hasAppFolder(method: InstallMethod): boolean {

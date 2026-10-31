@@ -1,6 +1,6 @@
 import { parseChord } from '@shared/keyboard/chordSpec'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { registerSelectionCopier } from '@/lib/agents/selectionCopiers'
+import { closeCapture, openCapture } from '@/lib/capture/captureSession'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -195,6 +195,21 @@ describe('the pane copier registry', () => {
     useLayoutStore.setState({ byWorkspace: { w1: { activePaneId: 'p1' } as never } })
   })
 
+  function hold(copy: () => void): () => void {
+    openCapture('p1', {
+      anchor: null,
+      takeFocus: true,
+      highlight: null,
+      copy: async () => {
+        copy()
+        return { ok: true, label: 'Copied' }
+      },
+      send: async () => ({ ok: true, inserted: true }),
+      clear: () => undefined,
+    })
+    return () => closeCapture('p1', 'source-gone')
+  }
+
   afterEach(() => {
     useLayoutStore.setState(layoutBefore, true)
     useWorkspacesStore.setState(workspacesBefore, true)
@@ -202,8 +217,8 @@ describe('the pane copier registry', () => {
 
   it('answers the copy chord before the native copy', () => {
     listen()
-    const copy = vi.fn(() => Promise.resolve())
-    const off = registerSelectionCopier('p1', copy)
+    const copy = vi.fn()
+    const off = hold(copy)
     const text = document.createElement('p')
     document.body.append(text)
     expect(press(text, copyChord).defaultPrevented).toBe(true)
@@ -214,8 +229,8 @@ describe('the pane copier registry', () => {
 
   it('leaves a text field to the native copy', () => {
     listen()
-    const copy = vi.fn(() => Promise.resolve())
-    const off = registerSelectionCopier('p1', copy)
+    const copy = vi.fn()
+    const off = hold(copy)
     const input = document.createElement('input')
     document.body.append(input)
     input.focus()
@@ -226,20 +241,18 @@ describe('the pane copier registry', () => {
   })
 
   it('takes the copy event when the pane has something, and lets it through when not', () => {
-    const copy = vi.fn((): Promise<void> | null => Promise.resolve())
-    const off = registerSelectionCopier('p1', copy)
+    const off = hold(vi.fn())
     const taken = new Event('copy', { cancelable: true }) as ClipboardEvent
     handleDocumentCopyEvent(taken)
     expect(taken.defaultPrevented).toBe(true)
-    copy.mockReturnValue(null)
+    off()
     const passed = new Event('copy', { cancelable: true }) as ClipboardEvent
     handleDocumentCopyEvent(passed)
     expect(passed.defaultPrevented).toBe(false)
-    off()
   })
 
   it('enables the copy command with beforecopy while the pane has a copier, never in a text field', () => {
-    const off = registerSelectionCopier('p1', () => Promise.resolve())
+    const off = hold(() => undefined)
     const enabled = new Event('beforecopy', { cancelable: true })
     handleDocumentBeforeCopy(enabled)
     expect(enabled.defaultPrevented).toBe(true)
@@ -262,8 +275,8 @@ describe('the pane copier registry', () => {
     document.body.append(text)
     const cmdC = { key: 'c', code: 'KeyC', metaKey: true }
     expect(press(text, cmdC).defaultPrevented).toBe(false)
-    const copy = vi.fn(() => Promise.resolve())
-    const off = registerSelectionCopier('p1', copy)
+    const copy = vi.fn()
+    const off = hold(copy)
     expect(press(text, cmdC).defaultPrevented).toBe(true)
     expect(copy).toHaveBeenCalledTimes(1)
     expect(window.ostia.clipboard.edit).not.toHaveBeenCalled()
@@ -272,8 +285,8 @@ describe('the pane copier registry', () => {
 
   it('leaves Cmd+C in a text field native on macOS even with a copier', () => {
     listen(true)
-    const copy = vi.fn(() => Promise.resolve())
-    const off = registerSelectionCopier('p1', copy)
+    const copy = vi.fn()
+    const off = hold(copy)
     const input = document.createElement('input')
     document.body.append(input)
     input.focus()

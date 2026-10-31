@@ -9,9 +9,9 @@ import type { ReactElement } from 'react'
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { addToAgentPane } from '@/lib/agent/agentPane'
-import { openSelectionSend } from '@/lib/agents/selectionSenders'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { blockOutputContext } from '@/lib/assist/askContext'
+import { triggerCapture } from '@/lib/capture/captureSession'
 import { copyBlock, rerunBlock } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
@@ -64,7 +64,7 @@ export function BlockMenu({
           onClick={() => {
             select()
             terminalFor(paneId)?.clearSelection()
-            openSelectionSend(paneId)
+            triggerCapture(paneId)
           }}
         >
           {d.blocks.sendOutput}

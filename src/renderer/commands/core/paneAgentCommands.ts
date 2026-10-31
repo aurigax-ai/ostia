@@ -136,8 +136,7 @@ function registerAgentSessionCommands(): void {
       if (pane.hibernated) return { resumed: wakePane(pane.id, undefined, !ctx.target) }
       if (pane.resumeFolderMissing) return { resumed: false }
       if (!ctx.target) {
-        if (!(await claudeTrustGate(pane.id, resume.agent, undefined, resume.id)))
-          return { resumed: false }
+        if (!(await claudeTrustGate(pane.id, resume.agent))) return { resumed: false }
         await refuseHeld()
       }
       const resumed = insertCommand(pane.id, resumeCommand(resume), true)
@@ -169,6 +168,37 @@ function registerAgentSessionCommands(): void {
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
       return { hibernated: pane?.hibernated === true }
+    },
+  })
+
+  registerCore<undefined, { keepAwake: boolean }>({
+    id: 'pane.keptAwake',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['read-board'],
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      return { keepAwake: pane?.keepAwake === true }
+    },
+  })
+
+  registerCore<{ paneId?: string; on?: boolean } | undefined, { keepAwake: boolean }>({
+    id: 'pane.keepAwake',
+    category: 'pane',
+    hidden: true,
+    local: true,
+    capabilities: ['drive-self'],
+    run: (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      if (!ctx.activeWorkspaceId || !paneId) throw new Error('no target pane')
+      const layout = useLayoutStore.getState()
+      const root = layout.byWorkspace[ctx.activeWorkspaceId]?.root
+      const kept = root ? findPane(root, paneId)?.keepAwake === true : false
+      layout.setKeepAwake(ctx.activeWorkspaceId, paneId, args?.on ?? !kept)
+      const after = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      return { keepAwake: after ? findPane(after.root, paneId)?.keepAwake === true : false }
     },
   })
 
@@ -210,6 +240,7 @@ function registerAgentSessionCommands(): void {
   registerCore<{ paneId?: string } | undefined, { hibernated: boolean; outcome: string }>({
     id: 'pane.hibernate',
     category: 'pane',
+    local: true,
     capabilities: ['kill-pane'],
     argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
     run: async (args, ctx) => {

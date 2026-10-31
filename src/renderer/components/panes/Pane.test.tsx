@@ -20,7 +20,6 @@ import type { PaneNode, TabsNode } from '@/lib/layout/types'
 import { PANE_DND, startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
-import { useUIStore } from '@/stores/app/uiStore'
 import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
@@ -124,11 +123,9 @@ describe('Pane', () => {
         choices: [],
         text: 'Postgres',
       })
-      expect(useUIStore.getState().dashboardActive).toBe(false)
     } finally {
       act(() => {
         useQuestionsStore.setState({ pending: [], focusId: null })
-        useUIStore.setState({ dashboardActive: false })
       })
     }
   })

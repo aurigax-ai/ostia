@@ -134,6 +134,7 @@ const reach = createReach({
 const { registry } = registerProcessMethods({
   isSandboxed: () => false,
   isConfined: () => false,
+  managerAdmitSpawn: () => null,
   reach,
   openTab: async (req) => {
     opened.push(req)
@@ -209,6 +210,7 @@ registerPaneIoMethods({
   hibernated: async (pane) => asleep.has(pane.paneId),
   wake: async (pane) => ({ woke: asleep.delete(pane.paneId) }),
   hibernate: async () => ({ ok: true, result: { hibernated: true, outcome: 'hibernated' } }),
+  keptAwake: async () => false,
   panes: async () =>
     livePanes.map((p) => ({
       ...p,
@@ -240,6 +242,7 @@ registerPaneResumeMethods({
   execCommand: async () => ({ ok: true }) as CommandResult,
   foregroundProgram: () => null,
   agentCwd: async () => null,
+  sessionFolder: () => null,
   onResume: (identity) => waking.end(identity.paneId, 'started'),
 })
 

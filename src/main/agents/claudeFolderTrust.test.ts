@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { lock } from 'proper-lockfile'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { claudeConfigFile, folderTrust, trustFolder } from './claudeFolderTrust'
+import { carryTrust, claudeConfigFile, folderTrust, trustFolder } from './claudeFolderTrust'
 
 let home: string
 let config: string
@@ -230,5 +230,146 @@ describe('trustFolder writes like Claude', () => {
     }
     expect(await trustFolder(place(dir))).toBe(true)
     expect(() => statSync(`${config}.lock`)).toThrow()
+  })
+})
+
+describe('carryTrust', () => {
+  let profile: string
+  let profileConfig: string
+
+  const carry = (dir: string, workDir = dir) =>
+    carryTrust({ ...place(dir, workDir), configDir: profile }, undefined)
+  const writeProfile = (data: unknown) =>
+    writeFileSync(profileConfig, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 })
+  const readProfile = () => JSON.parse(readFileSync(profileConfig, 'utf8'))
+
+  beforeEach(() => {
+    profile = folder('profile')
+    profileConfig = join(profile, '.claude.json')
+    writeProfile({ oauthAccount: { emailAddress: 'w@example.com' }, projects: {} })
+  })
+
+  it('CFT-C39 copies the trust of exactly the session folder when the Default config trusts it, keeping the rest', async () => {
+    const dir = folder('shop')
+    write({ projects: { [dir]: { hasTrustDialogAccepted: true, allowedTools: ['x'] } } })
+    writeProfile({ oauthAccount: { emailAddress: 'w@example.com' }, projects: { '/p': { a: 1 } } })
+    expect(await carry(dir)).toBe(true)
+    expect(readProfile()).toEqual({
+      oauthAccount: { emailAddress: 'w@example.com' },
+      projects: { '/p': { a: 1 }, [dir]: { hasTrustDialogAccepted: true } },
+    })
+    expect(read().projects?.[dir]).toEqual({ hasTrustDialogAccepted: true, allowedTools: ['x'] })
+  })
+
+  it('CFT-C40 copies nothing the Default config does not have: no entry, an untrusted entry or only a parent', async () => {
+    const dir = folder('work', 'shop')
+    const before = readFileSync(profileConfig, 'utf8')
+    for (const projects of [
+      {},
+      { [dir]: { hasTrustDialogAccepted: false } },
+      { [dir]: { allowedTools: [] } },
+      { [join(home, 'work')]: { hasTrustDialogAccepted: true } },
+    ]) {
+      write({ projects })
+      await carry(dir)
+      expect(readFileSync(profileConfig, 'utf8')).toBe(before)
+    }
+  })
+
+  it('CFT-C41 uses the git root as the key and copies only when the Default config trusts that root', async () => {
+    const repo = folder('repo')
+    mkdirSync(join(repo, '.git'))
+    const sub = folder('repo', 'pkg')
+    write({ projects: { [sub]: { hasTrustDialogAccepted: true } } })
+    const before = readFileSync(profileConfig, 'utf8')
+    await carry(sub, repo)
+    expect(readFileSync(profileConfig, 'utf8')).toBe(before)
+    write({ projects: { [repo]: { hasTrustDialogAccepted: true } } })
+    expect(await carry(sub, repo)).toBe(true)
+    expect(Object.keys(readProfile().projects)).toEqual([repo])
+  })
+
+  it('CFT-C42 refuses /, home, above home, a folder above the workspace and a missing folder', async () => {
+    const before = readFileSync(profileConfig, 'utf8')
+    const dir = folder('mono')
+    mkdirSync(join(dir, '.git'))
+    const pkg = folder('mono', 'pkg')
+    write({ projects: { [dir]: { hasTrustDialogAccepted: true } } })
+    for (const refused of [
+      carry(home),
+      carryTrust({ folder: '/', workDir: '/', home, configDir: profile }, undefined),
+      carryTrust({ folder: dir, workDir: dirname(home), home, configDir: profile }, undefined),
+      carry(pkg, pkg),
+      carry(join(home, 'gone')),
+    ])
+      expect(await refused).toBe(false)
+    expect(readFileSync(profileConfig, 'utf8')).toBe(before)
+  })
+
+  it('CFT-C43 never creates the profile’s config', async () => {
+    const dir = folder('shop')
+    write({ projects: { [dir]: { hasTrustDialogAccepted: true } } })
+    rmSync(profileConfig)
+    expect(await carry(dir)).toBe(false)
+    expect(() => statSync(profileConfig)).toThrow()
+  })
+
+  it('CFT-C44 writes nothing when the Default config is missing, not an object, not JSON or over the cap', async () => {
+    const dir = folder('shop')
+    const before = readFileSync(profileConfig, 'utf8')
+    expect(await carry(dir)).toBe(false)
+    for (const text of ['[]', 'not json', `{"projects":{}}${' '.repeat(33 * 1024 * 1024)}`]) {
+      writeFileSync(config, text)
+      expect(await carry(dir)).toBe(false)
+    }
+    expect(readFileSync(profileConfig, 'utf8')).toBe(before)
+  })
+
+  it('CFT-C45 never writes the Default config: without a profile folder it does nothing', async () => {
+    const dir = folder('shop')
+    write({ projects: { [dir]: { hasTrustDialogAccepted: true } } })
+    const before = readFileSync(config, 'utf8')
+    expect(await carryTrust(place(dir), undefined)).toBe(false)
+    expect(readFileSync(config, 'utf8')).toBe(before)
+  })
+
+  it('CFT-C46 leaves a profile that already trusts the folder or a parent untouched', async () => {
+    const repo = folder('repo')
+    mkdirSync(join(repo, '.git'))
+    write({ projects: { [repo]: { hasTrustDialogAccepted: true } } })
+    writeProfile({ projects: { [repo]: { hasTrustDialogAccepted: true, extra: 1 } } })
+    const before = readFileSync(profileConfig, 'utf8')
+    expect(await carry(repo)).toBe(true)
+    expect(readFileSync(profileConfig, 'utf8')).toBe(before)
+  })
+
+  it('CFT-C47 takes the lock Claude takes, and writes nothing while Claude holds it', async () => {
+    const dir = folder('shop')
+    write({ projects: { [dir]: { hasTrustDialogAccepted: true } } })
+    const before = readFileSync(profileConfig, 'utf8')
+    const release = await lock(profileConfig, {
+      lockfilePath: `${profileConfig}.lock`,
+      realpath: false,
+    })
+    try {
+      expect(await carry(dir)).toBe(false)
+      expect(readFileSync(profileConfig, 'utf8')).toBe(before)
+    } finally {
+      await release()
+    }
+    expect(await carry(dir)).toBe(true)
+    expect(() => statSync(`${profileConfig}.lock`)).toThrow()
+  })
+
+  it('CFT-C48 reads the Default config from the given config folder', async () => {
+    const dir = folder('shop')
+    const elsewhere = folder('elsewhere')
+    writeFileSync(
+      join(elsewhere, '.claude.json'),
+      JSON.stringify({ projects: { [dir]: { hasTrustDialogAccepted: true } } }),
+    )
+    write({ projects: {} })
+    expect(await carryTrust({ ...place(dir), configDir: profile }, elsewhere)).toBe(true)
+    expect(readProfile().projects[dir]).toEqual({ hasTrustDialogAccepted: true })
   })
 })

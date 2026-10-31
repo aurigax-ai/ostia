@@ -14,7 +14,7 @@ function routePath(): string {
   return storePath('gateway-config', 'global')
 }
 
-type RouteProblem = 'unknown-address' | 'invalid-phone-address'
+type RouteProblem = 'unknown-address' | 'invalid-phone-address' | 'two-methods'
 
 export function checkRoute(value: unknown): GatewayRoute | RouteProblem {
   if (typeof value !== 'object' || value === null) return 'unknown-address'
@@ -35,6 +35,8 @@ export function checkRoute(value: unknown): GatewayRoute | RouteProblem {
   }
   const phoneAddress = v.phoneAddress === null ? null : phoneAddressOf(v.phoneAddress)
   if (v.phoneAddress !== null && !phoneAddress) return 'invalid-phone-address'
+  const direct = v.bindInterface !== null || phoneAddress !== null
+  if ([v.relay, v.tailnet, direct].filter(Boolean).length > 1) return 'two-methods'
   return {
     bindAddress: v.bindAddress,
     bindInterface: v.bindInterface,

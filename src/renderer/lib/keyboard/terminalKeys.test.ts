@@ -1,12 +1,6 @@
 import { parseChord } from '@shared/keyboard/chordSpec'
 import { describe, expect, it } from 'vitest'
-import {
-  checkSendChord,
-  parseTerminalKeys,
-  parseTerminalSend,
-  sendChordProblem,
-  sendData,
-} from './terminalKeys'
+import { parseTerminalKeys, parseTerminalSend, sendChordProblem, sendData } from './terminalKeys'
 
 const chord = (text: string) => {
   const spec = parseChord(text, true)
@@ -76,23 +70,29 @@ describe('parseTerminalSend', () => {
 
 describe('sendChordProblem', () => {
   it('takes Option, Cmd and Ctrl chords, and single non-typing keys like Forward Delete', () => {
-    for (const text of ['Alt+Left', 'Cmd+Backspace', 'Alt+Delete', 'Delete', 'Home', 'Shift+Tab']) {
+    for (const text of [
+      'Alt+Left',
+      'Cmd+Backspace',
+      'Alt+Delete',
+      'Delete',
+      'Home',
+      'Shift+Tab',
+      'Ctrl+Shift+K',
+      'PageUp',
+    ]) {
       expect(sendChordProblem(chord(text)), text).toBeNull()
     }
-    expect(checkSendChord('Ctrl+Shift+K', false)).toBeNull()
-    expect(checkSendChord('PageUp', true)).toBeNull()
   })
 
   it('refuses keys that type, plain Escape, Tab and Enter, and the 1-9 range', () => {
     expect(sendChordProblem(chord('a'))).toBe('bare')
     expect(sendChordProblem(chord('Shift+a'))).toBe('bare')
-    expect(checkSendChord('Shift+Shift', false)).toBe('invalid')
+    expect(sendChordProblem(chord('Shift+Shift'))).toBe('invalid')
     expect(sendChordProblem(chord('Space'))).toBe('bare')
     expect(sendChordProblem(chord('Enter'))).toBe('bare')
     expect(sendChordProblem(chord('Escape'))).toBe('escape')
     expect(sendChordProblem(chord('Tab'))).toBe('tab')
     expect(sendChordProblem(chord('Cmd+1-9'))).toBe('digit-range')
-    expect(checkSendChord('Hyper+X', true)).toBe('invalid')
   })
 })
 

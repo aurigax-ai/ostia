@@ -16,7 +16,9 @@ import { CommandPalette } from '@/components/palette/CommandPalette'
 import { HistorySearch } from '@/components/palette/HistorySearch'
 import { SaveSnippetDialog } from '@/components/palette/SaveSnippetDialog'
 import { SnippetPicker } from '@/components/palette/SnippetPicker'
+import { RemoteDialogs } from '@/components/remote/RemoteDialogs'
 import { SandboxFolderDialog } from '@/components/sandbox/SandboxFolderDialog'
+import { SandboxLeftBehindNotice } from '@/components/sandbox/SandboxLeftBehindNotice'
 import { SandboxRequirementsDialog } from '@/components/sandbox/SandboxRequirementsDialog'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
 import { TelemetryConsentDialog } from '@/components/settings/TelemetryConsentDialog'
@@ -36,10 +38,8 @@ import {
 } from '@/lib/keyboard/documentClipboard'
 import { wireGuestChords } from '@/lib/keyboard/guestChordBridge'
 import { useModifierHint } from '@/lib/keyboard/useModifierHint'
-import { startLanguageServices } from '@/lib/lsp/client'
-import { loadEditorLanguages } from '@/lib/monaco/contributedLanguages'
+import { loadEditorLanguages, loadedMonaco } from '@/lib/monaco/monacoLoader'
 import { useMonacoTheme } from '@/lib/monaco/useMonacoTheme'
-import { registerSettingsSchema } from '@/lib/settings/registerSettingsSchema'
 import { installMiddlePasteGuard } from '@/lib/terminal/middlePaste'
 import { useIconStyle } from '@/lib/theme/iconWeight'
 import { applyTheme, useEffectiveTheme } from '@/lib/theme/theme'
@@ -84,10 +84,6 @@ export function App(): JSX.Element {
     document.documentElement.lang = locale
   }, [locale])
 
-  useEffect(() => {
-    void startLanguageServices()
-  }, [])
-
   useEffect(() => syncClipboardChords(isMac), [])
   useEffect(() => wireGuestChords(isMac), [])
   useEffect(() => wireLinkTabs(), [])
@@ -101,10 +97,7 @@ export function App(): JSX.Element {
     void loadEditorLanguages()
   }, [extensionList])
 
-  useEffect(() => {
-    void registerSettingsSchema()
-    return commands.subscribe(() => void registerSettingsSchema())
-  }, [])
+  useEffect(() => commands.subscribe(() => void loadedMonaco()?.registerSettingsSchema()), [])
 
   useModifierHint(isMac)
   useWindowTitle()
@@ -152,6 +145,7 @@ export function App(): JSX.Element {
           <CloseConfirmDialog />
           <MergeConfirmDialog />
           <HibernateSkippedDialog />
+          <RemoteDialogs />
           <TabSleepNoticeDialog />
           <CmuxImportDialog />
           <ActionConfirmDialog />
@@ -160,6 +154,7 @@ export function App(): JSX.Element {
           <AgentOfferDialog />
           <SandboxRequirementsDialog />
           <SandboxFolderDialog />
+          <SandboxLeftBehindNotice />
           <HistorySearch />
           <SnippetPicker />
           <SaveSnippetDialog />

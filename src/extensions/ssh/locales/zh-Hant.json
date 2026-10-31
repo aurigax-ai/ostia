@@ -11,7 +11,8 @@
     "commands.helper-remove.argument": "要移除輔助程式的主機，寫法與 ssh 後面的參數相同",
     "settings.remoteHelper.title": "遠端輔助程式",
     "settings.remoteHelper.description": "提供在主機的 ~/.ostia 下安裝小型輔助指令稿，讓 {product} 透過 ssh 取得該主機的檔案。每台主機只會詢問一次，並在安裝前顯示確切路徑。關閉後不再詢問，也不會連線",
-    "commands.open-folder.title": "SSH：開啟遠端資料夾"
+    "commands.open-folder.title": "SSH：開啟遠端資料夾",
+    "paneChips.remote.title": "遠端主機"
   },
   "messages": {
     "confirmTitle": "開啟 SSH 連線",
@@ -55,6 +56,37 @@
     "helperProtocol": "主機回應的內容不是輔助程式",
     "notASession": "這個窗格不是用「SSH：連線到主機…」開啟的 ssh 工作階段；請先選取那個終端機",
     "noRemoteFolder": "這個工作階段的 shell 尚未回報主機上的資料夾；需要 bash 或 zsh，並開啟 shell 整合",
-    "folderDenied": "你沒有開啟這個資料夾"
+    "folderDenied": "你沒有開啟這個資料夾",
+    "remoteUsage": "遠端指令需要一個 JSON 參數，內含 host、agent、folder 與 step 或 pane",
+    "nodeInstallTitle": "安裝遠端執行器",
+    "nodeInstallMessage": "要在 {host} 上安裝 {product} 的執行器嗎？",
+    "nodeInstallNote": "它是一個可讀的 node 程式，在這台主機上以 tmux 讓你的代理持續執行。它以你的身分透過 ssh 執行：不使用 sudo，也不會在 ~/.ostia 之外寫入自己的檔案。關閉分頁只會中斷連線；代理會繼續執行，直到你停止它們。",
+    "nodeRefused": "你選擇不在這台主機安裝執行器",
+    "disconnected": "與 {host} 的連線中斷，正在重新連線",
+    "online": "在線上",
+    "offline": "離線 · {ago}",
+    "reconnecting": "重新連線中",
+    "never": "從未",
+    "notRemote": "這個工作區不是遠端工作區",
+    "pushTitle": "將程式碼傳送到遠端主機",
+    "pushMessage": "要將 {repo} 的提交 {commit} 傳送到 {host} 嗎？",
+    "pushNote": "{product} 會透過 ssh 只推送這一個提交，放進主機上 ~/.ostia/node/repos 下的裸鏡像，並在那裡的新分支上啟動 {agent}。這台電腦上不會合併或切換任何東西，未提交的變更也不會移動。",
+    "send": "傳送",
+    "dontSend": "不要傳送",
+    "pushRefused": "你選擇不將這個儲存庫傳送到這台主機",
+    "startFailed": "{ref} 未能啟動：{reason}。工作仍留在主機上；請用 ostia ssh remote-jobs 查看",
+    "fetchUsage": "remote-fetch 需要一個遠端工作代號，格式如 ostia ssh remote-jobs 所列：remote:<host>:<job>",
+    "fetchNoFolder": "呼叫的窗格沒有資料夾；請在該儲存庫的複本中執行",
+    "fetchTitle": "從遠端主機取回結果",
+    "fetchMessage": "要將 {host} 上某個工作的分支取回到 {repo} 嗎？",
+    "fetchNote": "分支會透過 ssh 取回到 refs/remotes/ostia/<host>/<job>。不會合併或切換任何東西。",
+    "fetch": "取回",
+    "dontFetch": "不要取回",
+    "fetchRefused": "你選擇不從這台主機取回",
+    "wrongRepo": "這個工作屬於 {repo}；請在該儲存庫的複本中執行",
+    "fetchChanged": "取回時主機上的分支已變動；請再執行一次以更新 {ref}",
+    "noChanges": "分支尚無任何變更",
+    "remoteDirty": "工作 {ref} 在主機上有未提交的變更，它們不在分支內。請請代理先提交，再重新取回",
+    "connectFailed": "無法連線到 {host}。請先在終端機檢查 ssh，再從工作清單重新開啟分頁。"
   }
 }

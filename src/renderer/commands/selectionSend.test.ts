@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import { registerCaptureOpener } from '@/lib/capture/captureSession'
 import { chordLabel } from '@/lib/keyboard/chords'
 import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
 import { commands } from './registry'
@@ -35,8 +35,8 @@ describe('selection.sendToAgent command', () => {
   it('opens the send panel of the active pane only', async () => {
     const editor = vi.fn()
     const other = vi.fn()
-    cleanups.push(registerSelectionSender('p1', editor))
-    cleanups.push(registerSelectionSender('p2', other))
+    cleanups.push(registerCaptureOpener('p1', editor))
+    cleanups.push(registerCaptureOpener('p2', other))
 
     const res = await commands.execWith(ctx('p1'), SEND_SELECTION_COMMAND)
 
@@ -52,7 +52,7 @@ describe('selection.sendToAgent command', () => {
 
   it('forgets a sender once its view unregisters', async () => {
     const sender = vi.fn()
-    const unregister = registerSelectionSender('p1', sender)
+    const unregister = registerCaptureOpener('p1', sender)
     unregister()
     const res = await commands.execWith(ctx('p1'), SEND_SELECTION_COMMAND)
     expect(res.ok).toBe(false)

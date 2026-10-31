@@ -349,6 +349,7 @@ describe('sandbox folder check', () => {
   it('reads a folder written with ~ as the path it stands for', async () => {
     const { home, workDir, sandboxes, call } = setup('tilde', { ws: '~/proj' })
     expect(sandboxes.workDir('ws')).toBe(workDir)
+    mkdirSync(join(workDir, '.git/hooks'), { recursive: true })
     expect(await call('sandbox:set-enabled', sender(1), 'ws', true)).toMatchObject({ ok: true })
     const { filesystem } = sandboxes.config('ws')
     expect(filesystem.allowWrite).toContain(workDir)

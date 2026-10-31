@@ -564,6 +564,29 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().workspaces.globalHotkey).toBe('')
   })
 
+  it('settings.set refuses the app link question and the allowed schemes, directly or via terminal', async () => {
+    const ask = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.askBeforeOpeningApps',
+      value: false,
+    })
+    const allowed = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.allowedAppSchemes',
+      value: ['obsidian'],
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal',
+      value: {
+        ...useSettingsStore.getState().terminal,
+        allowedAppSchemes: ['obsidian'],
+      },
+    })
+    expect(ask.ok).toBe(false)
+    expect(allowed.ok).toBe(false)
+    expect(nested.ok).toBe(false)
+    expect(useSettingsStore.getState().terminal.askBeforeOpeningApps).toBe(true)
+    expect(useSettingsStore.getState().terminal.allowedAppSchemes).toEqual([])
+  })
+
   it('KSH-C2 settings.set refuses keeping shells, directly or via terminal', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'terminal.keepShells',
@@ -863,16 +886,6 @@ describe('builtins route to store actions', () => {
     expect([ui.settingsActive, ui.settingsTabOpen]).toEqual([false, false])
     expect(ask).not.toHaveBeenCalled()
     expect(closePane).not.toHaveBeenCalled()
-  })
-
-  it('returns from the dashboard instead of closing a pane', async () => {
-    const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
-    useUIStore.getState().openDashboard()
-
-    await commands.execWith(ctx('s1', 'pA'), 'pane.close')
-
-    expect(useUIStore.getState().dashboardActive).toBe(false)
-    expect(ask).not.toHaveBeenCalled()
   })
 
   it('still closes the named pane while settings is showing', async () => {
@@ -1682,15 +1695,6 @@ describe('builtins route to store actions', () => {
     expect(useUIStore.getState().browseExtensionsOpen).toBe(true)
   })
 
-  it('toggles the dashboard from dashboard.toggle without a target', async () => {
-    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
-    expect(byId['dashboard.toggle'].target).toBe('none')
-    await commands.execWith(ctx(null, null), 'dashboard.toggle')
-    expect(useUIStore.getState().dashboardActive).toBe(true)
-    await commands.execWith(ctx(null, null), 'dashboard.toggle')
-    expect(useUIStore.getState().dashboardActive).toBe(false)
-  })
-
   it('MGR-C43 quits through the window bridge and needs destructive', async () => {
     const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
     expect(byId['app.quit'].capabilities).toEqual(['destructive'])
@@ -2248,7 +2252,7 @@ describe('agent.newSession', () => {
 
     status.mockReturnValue('ready')
     await commands.execWith(ctx('s1', 'ag'), 'agent.newSession')
-    expect(start).toHaveBeenCalledWith('s1')
+    expect(start).toHaveBeenCalledWith('s1', 'ag')
 
     start.mockClear()
     status.mockReturnValue('streaming')
@@ -2344,6 +2348,39 @@ describe('tab sleep notices', () => {
     vi.spyOn(resumeFolder, 'paneResumeHolder').mockReturnValue({ title: 'other' } as never)
     await commands.execWith(ctx('s1', pane.id), 'pane.wake')
     expect(notice()).toEqual({ kind: 'conflict', tab: 'other' })
+  })
+})
+
+describe('pane.keepAwake', () => {
+  function seedAgent(resume?: AgentResume) {
+    const pane = { ...createPane('terminal'), ...(resume ? { resume } : {}) }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    return pane
+  }
+  const kept = (id: string) => {
+    const root = useLayoutStore.getState().byWorkspace.s1.root
+    return root.type === 'pane' && root.id === id ? root.keepAwake === true : null
+  }
+
+  it('turns keep awake on, off and back by toggling, for a tab with a session', async () => {
+    const pane = seedAgent({ agent: 'claude', id: 't' })
+    const run = (args?: { on?: boolean }) =>
+      commands.execWith(ctx('s1', pane.id), 'pane.keepAwake', args)
+    expect(await run({ on: true })).toMatchObject({ ok: true, result: { keepAwake: true } })
+    expect(kept(pane.id)).toBe(true)
+    expect(await run()).toMatchObject({ ok: true, result: { keepAwake: false } })
+    expect(kept(pane.id)).toBe(false)
+    expect(await run()).toMatchObject({ ok: true, result: { keepAwake: true } })
+    expect(await run({ on: false })).toMatchObject({ ok: true, result: { keepAwake: false } })
+  })
+
+  it('keeps nothing awake for a tab with no session', async () => {
+    const pane = seedAgent()
+    const result = await commands.execWith(ctx('s1', pane.id), 'pane.keepAwake', { on: true })
+    expect(result).toMatchObject({ ok: true, result: { keepAwake: false } })
+    expect(kept(pane.id)).toBe(false)
   })
 })
 
@@ -3125,6 +3162,7 @@ describe('commands open to script tokens', () => {
     'workspace.hibernateGroupAgents',
     'workspace.resumeAgents',
     'workspace.resumeGroupAgents',
+    'workspace.remoteJobs',
   ])('%s is the human’s: local only, never a socket command', (id) => {
     expect(commands.isLocal(id)).toBe(true)
   })

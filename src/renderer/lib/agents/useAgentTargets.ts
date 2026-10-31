@@ -46,11 +46,6 @@ function useWindowAgentTargets(workspaceId: string): PickTarget[] {
   }, [workspaces, layouts, workspaceId, attention, touchedAt, running, agentBlocks, d])
 }
 
-export function useLocalAgentTargets(workspaceId: string): PickTarget[] {
-  const inWindow = useWindowAgentTargets(workspaceId)
-  return useMemo(() => inWindow.filter((target) => target.sameWorkspace), [inWindow])
-}
-
 function useGroupPeerIds(workspaceId: string): string[] {
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const sandboxed = useSandboxStore((s) => s.enabled)

@@ -246,6 +246,15 @@ describe('typography guard', () => {
     )
   })
 
+  it('no chat message rule sets the code font', () => {
+    const css = readFileSync(resolve(ROOT, 'src/renderer/index.css'), 'utf8')
+    const offenders = css
+      .split('}')
+      .filter((rule) => /\.chat-message\b/.test(rule))
+      .filter((rule) => /font-family:\s*var\(--font-code\)/.test(rule))
+    expect(offenders).toEqual([])
+  })
+
   it('still points at real files for every exception', () => {
     for (const name of [
       ...SETTINGS_FONT_FILES.keys(),

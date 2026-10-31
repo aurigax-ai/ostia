@@ -1,7 +1,9 @@
 import type { ShareView } from '@shared/artifacts/shares'
 import { useEffect, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
-import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SignInNotice } from '@/components/server/SignInNotice'
+import { useServerStatus } from '@/components/server/useServerStatus'
+import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -10,7 +12,6 @@ import { DATE_ONLY, formatBytes, formatDate } from '@/lib/app/localeFormat'
 import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
 import { useSharesStore } from '@/stores/files/sharesStore'
 import { shareFailureText } from './shareText'
 
@@ -54,9 +55,7 @@ function ShareRow({ share }: { share: ShareView }): JSX.Element {
               {copied ? d.shares.copied : d.shares.copyLink}
             </Button>
           ) : null}
-          <Button variant="outline" size="xs" onClick={() => void remove()}>
-            {d.shares.delete}
-          </Button>
+          <RowRemoveButton label={d.shares.delete} onClick={() => void remove()} />
         </>
       }
     />
@@ -66,24 +65,16 @@ function ShareRow({ share }: { share: ShareView }): JSX.Element {
 export function SharesSection(): JSX.Element {
   const d = useDict()
   const { availability, shares, error, loaded } = useSharesStore()
+  const { signedIn } = useServerStatus()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the list reloads when the account signs in or out
   useEffect(() => {
     void useSharesStore.getState().refresh()
-  }, [])
+  }, [signedIn])
 
   const signedOut = availability?.state === 'signed-out' || error === 'signed-out'
   return (
     <SettingsPage title={d.shares.title} desc={d.shares.desc}>
-      {signedOut ? (
-        <ControlRow label={d.shares.title} desc={d.shares.signedOut}>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => useUIStore.getState().openSettings('server')}
-          >
-            {d.shares.signedOutOpen}
-          </Button>
-        </ControlRow>
-      ) : null}
+      {signedOut ? <SignInNotice text={d.shares.signedOut} /> : null}
       {!signedOut && error ? <Notice>{shareFailureText(d, error)}</Notice> : null}
       {!signedOut && !error && availability?.state === 'off' ? (
         <Notice>{d.shares.errPublishOff}</Notice>

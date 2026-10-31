@@ -124,8 +124,7 @@ export class ExtensionProcesses {
     if (!rt.ext.builtin) return false
     const c = rt.ext.manifest.contributes
     if (c.assist.length > 0) return this.host.assistant.assistEntries(rt).length === 0
-    const chips = c.paneChips.length > 0 || c.workspaceChips.length > 0
-    return !chips && !this.host.deps.launches?.has(rt.ext.manifest.id)
+    return !this.host.deps.launches?.has(rt.ext.manifest.id)
   }
 
   eager(rt: Runtime): boolean {

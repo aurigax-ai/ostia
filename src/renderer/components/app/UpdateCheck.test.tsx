@@ -129,10 +129,24 @@ describe('UpdateCheck', () => {
     await check()
     expect(screen.getByRole('status')).toHaveTextContent('latest')
 
-    act(() => announce(state(RELEASE)))
+    await act(async () => announce(state(RELEASE)))
 
     expect(screen.getByRole('status')).toHaveTextContent('Version 1.1.0 is available')
     expect(screen.getByRole('button', { name: 'View release' })).toBeInTheDocument()
+    stop()
+  })
+
+  it('drops a manual check result when the channel changes outside the picker', async () => {
+    answer({ status: 'available', release: RELEASE })
+    render(<UpdateCheck />)
+    const stop = startUpdateWatch()
+    await check()
+    expect(screen.getByRole('status')).toHaveTextContent('Version 1.1.0 is available')
+
+    act(() => useSettingsStore.getState().setBehavior({ updateChannel: 'beta' }))
+
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    expect(screen.queryByRole('button', { name: 'View release' })).toBeNull()
     stop()
   })
 

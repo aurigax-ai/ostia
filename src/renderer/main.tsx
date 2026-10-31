@@ -27,8 +27,9 @@ import { revealPane, startAttentionSync } from '@/lib/attention/workspaceActivit
 import { startFileDropTracking } from '@/lib/files/fileDrop'
 import { loadHomeDir } from '@/lib/files/homeDir'
 import { startModifierRemap } from '@/lib/keyboard/modifierRemapSync'
-import { loadEditorLanguages } from '@/lib/monaco/contributedLanguages'
 import { setSettingsFile } from '@/lib/monaco/language'
+import { loadEditorLanguages } from '@/lib/monaco/monacoLoader'
+import { prefetchMonacoWhenQuiet } from '@/lib/monaco/prefetchMonaco'
 import { startUserActions } from '@/lib/palette/userActions'
 import { livePaneIds } from '@/lib/panes/livePanes'
 import { startPaneDragTracking } from '@/lib/panes/paneDrag'
@@ -41,10 +42,12 @@ import { registerViewCommands, startViews } from '@/lib/views/views'
 import { restoreSidePanels } from '@/lib/workspaces/restoreSidePanels'
 import { initWindow, startWindowSync } from '@/lib/workspaces/windowHandoff'
 import { startWorkspaceProjects } from '@/lib/workspaces/workspaceProjects'
+import { wirePortalPrompts } from '@/stores/agent/agentStore'
 import { startAgentGroupsSync } from '@/stores/agents/agentGroupsStore'
 import { startApprovals } from '@/stores/agents/approvalsStore'
 import { startMail } from '@/stores/agents/mailStore'
 import { startQuestions } from '@/stores/agents/questionsStore'
+import { startSessionStays } from '@/stores/agents/sessionStaysStore'
 import { startKeymapSync } from '@/stores/app/keymapStore'
 import { startPlaybookPush } from '@/stores/app/playbookPush'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -57,7 +60,6 @@ import { wireArtifacts } from '@/stores/files/artifactsStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { wireOpenWaits } from '@/stores/files/openWaitsStore'
 import { wireRemoteFolders } from '@/stores/files/remoteFoldersStore'
-import { startSyncAttention } from '@/stores/server/syncAttentionStore'
 import { startPaneRecencySync } from '@/stores/workspaces/paneRecencyStore'
 import { startPaneRenameSync } from '@/stores/workspaces/paneRenameStore'
 import { startSnapshotAutosave } from '@/stores/workspaces/persistence'
@@ -99,6 +101,7 @@ wireArtifacts()
 wireOpenWaits()
 wirePaneRunBridge()
 wireManagerBridge()
+wirePortalPrompts()
 wireRemoteFolders()
 if (isMac) startAppMenu()
 
@@ -168,8 +171,8 @@ async function boot(): Promise<void> {
   startApprovals()
   startAgentGroupsSync()
   startQuestions()
-  startSyncAttention()
   startMail()
+  startSessionStays()
   startUserActions()
   startViews()
   startUpdateWatch()
@@ -195,6 +198,7 @@ async function boot(): Promise<void> {
     </StrictMode>,
   )
   window.ostia.diagnostics.ready(livePaneIds())
+  prefetchMonacoWhenQuiet()
 }
 
 boot().catch((err: unknown) => {

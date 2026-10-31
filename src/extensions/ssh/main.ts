@@ -9,6 +9,8 @@ import {
   runTool,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { NODE_CLI, NODE_ENTRY, REMOTE_REGISTRY_FILE } from '../../shared/remote/remoteNode'
+import { spawnSsh } from './channel'
 import { sshCommands } from './commands'
 import { CONSENT_FILE, HelperConsent } from './consent'
 import { HelperFolders, Sessions } from './folders'
@@ -16,9 +18,23 @@ import { shippedHelper } from './helper'
 import { type HelperDeps, helperCommands, installedHelper } from './helperCommands'
 import { HelperHosts } from './helperHosts'
 import { discoverHosts } from './hosts'
+import { type ConnectPlan, planConnect } from './plan'
+import { nodeBundle } from './remote/bundle'
+import { remoteCommands } from './remote/commands'
+import { remoteFetch } from './remote/fetch'
+import { HostLink } from './remote/link'
+import { LinkHub } from './remote/linkHub'
+import { RemoteMonitor } from './remote/monitor'
+import { RemoteRegistry } from './remote/registry'
+import { RunnerClient } from './remote/runnerClient'
+import { remoteStart } from './remote/start'
 
 const RESOLVE_TIMEOUT_MS = 5000
+const GIT_TIMEOUT_MS = 300_000
+const GIT_OUTPUT_MAX = 6 * 1024 * 1024
 const HELPER_SOURCE = join(__dirname, 'assets', 'helper.sh')
+const NODE_ASSETS = join(__dirname, 'assets', 'node')
+const NODE_FILES = [NODE_ENTRY, NODE_CLI]
 
 async function main(): Promise<void> {
   const ext = await connect()
@@ -28,12 +44,27 @@ async function main(): Promise<void> {
   const consent = new HelperConsent(dataDir ? join(dataDir, CONSENT_FILE) : null)
   const run = (args: string[]) => runTool('ssh', args, { timeoutMs: RESOLVE_TIMEOUT_MS })
   const sessions = new Sessions()
+  const registry: RemoteRegistry = new RemoteRegistry(
+    dataDir ? join(dataDir, REMOTE_REGISTRY_FILE) : null,
+    () => {
+      void ext.startWithWindow(registry.hasWorkspaces())
+      for (const host of registry.hosts()) void monitor.seed(host)
+      hub.sync()
+    },
+  )
+  void ext.startWithWindow(registry.hasWorkspaces())
   const folders = new HelperFolders(hosts)
   onShutdown(() => hosts.closeAll())
   ext.onFiles(folders.handle)
   ext.onFolderClosed((folderId) => folders.remove(folderId))
-  await ext.subscribe(['pane.closed'], (type, payload) => {
-    if (type === 'pane.closed' && 'paneId' in payload) sessions.closed(payload.paneId)
+  await ext.subscribe(['pane.closed', 'workspace.closed'], (type, payload) => {
+    if (type === 'pane.closed' && 'paneId' in payload) {
+      sessions.closed(payload.paneId)
+      registry.forgetTab(payload.paneId)
+    }
+    if (type === 'workspace.closed' && 'workspaceId' in payload) {
+      registry.forgetWorkspace(payload.workspaceId)
+    }
   })
   const translate = createTranslator()
   const helperDeps: HelperDeps = {
@@ -49,6 +80,41 @@ async function main(): Promise<void> {
     openFolder: (opts) => ext.openFolder(opts),
     closeFolder: (folderId) => ext.closeFolder(folderId),
   }
+  const bundle = nodeBundle(
+    NODE_FILES.map((name) => ({ name, data: readFileSync(join(NODE_ASSETS, name)) })),
+  )
+  const client = (plan: ConnectPlan) => new RunnerClient(plan, bundle)
+  const git = (args: string[], cwd: string) =>
+    runTool('git', args, { cwd, timeoutMs: GIT_TIMEOUT_MS, maxOutput: GIT_OUTPUT_MAX })
+  const monitor = new RemoteMonitor({
+    registry,
+    translate: async () => translate(await ext.getLocale()),
+    locale: () => ext.getLocale(),
+    setSidebar: ({ workspaceId, text, tone }) =>
+      ext.setSidebarItem({ key: 'remote', workspaceId, text, icon: 'server', tone, kind: 'live' }),
+    setChip: (paneId, text) => ext.setPaneChip({ paneId, id: 'remote', text, tone: 'warn' }),
+    clearChip: (paneId) => ext.clearPaneChip(paneId, 'remote'),
+  })
+  const hub: LinkHub = new LinkHub(registry, (host) => {
+    const plan = planConnect([host])
+    return plan
+      ? new HostLink({
+          host,
+          plan,
+          bundle,
+          spawn: spawnSsh,
+          remoteMail: (request) => ext.remoteMail(request),
+          onState: (online, last) => void monitor.state(host, online, last),
+        })
+      : null
+  })
+  monitor.start()
+  for (const host of registry.hosts()) void monitor.seed(host)
+  hub.sync()
+  onShutdown(() => {
+    monitor.stop()
+    hub.stopAll()
+  })
   await ext.registerCommands({
     ...sshCommands({
       translate,
@@ -63,6 +129,32 @@ async function main(): Promise<void> {
         (await helperDeps.enabled()) ? installedHelper(plan, helperDeps) : null,
     }),
     ...helperCommands(helperDeps),
+    'remote-start': remoteStart({
+      translate,
+      confirm: (req) => ext.confirm(req),
+      consent,
+      openTerminal: (opts) => ext.openTerminal(opts),
+      client,
+      registry,
+      git,
+    }),
+    'remote-fetch': remoteFetch({
+      translate,
+      confirm: (req) => ext.confirm(req),
+      consent,
+      client,
+      git,
+      openDiff: (diff) => ext.openDiff(diff),
+    }),
+    ...remoteCommands({
+      translate,
+      confirm: (req) => ext.confirm(req),
+      openTerminal: (opts) => ext.openTerminal(opts),
+      client,
+      bundle,
+      consent,
+      registry,
+    }),
   })
 }
 

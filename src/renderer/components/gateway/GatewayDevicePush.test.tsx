@@ -32,6 +32,7 @@ async function show(
   } satisfies GatewayRemoteStatus)
   vi.mocked(window.ostia.gateway.devices).mockResolvedValue({ devices: [device(push, caps)] })
   await renderSettled(<GatewaySection />)
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Manage Pixel' }))
 }
 
 const pushSwitch = (): Promise<HTMLElement> =>

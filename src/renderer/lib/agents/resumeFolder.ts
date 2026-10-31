@@ -106,7 +106,7 @@ export function resumeWhenIdle(
   let heldElsewhere = false
   const allowed = async (): Promise<boolean> => {
     if (resumeFolderMissing(paneId) || resumeHolder(paneId, resume)) return false
-    if (askTrust && !(await claudeTrustGate(paneId, resume.agent, onHold, resume.id))) {
+    if (askTrust && !(await claudeTrustGate(paneId, resume.agent, onHold))) {
       return false
     }
     if (resumeFolderMissing(paneId) || resumeHolder(paneId, resume)) return false

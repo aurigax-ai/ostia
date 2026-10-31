@@ -1,23 +1,10 @@
-import { join } from 'node:path'
-import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import type { SecretSpan } from '../../shared/privacy/redaction'
-import type {
-  SecretSyncStatus,
-  SyncConflict,
-  SyncStatus,
-} from '../../shared/profileSync/profileSync'
-import { keyPath, withValueAt } from './merge'
-import { removeRegularFile, SETTINGS_FILE, type SyncedExtension } from './profile'
+import type { SecretSyncStatus, SyncStatus } from '../../shared/profileSync/profileSync'
+import type { SyncKinds } from '../../shared/profileSync/syncKinds'
+import type { SyncedExtension } from './profile'
 import type { SecretSync } from './secrets'
 import { createSyncPlanner, type Plan, ScanFailed } from './syncPlan'
-import {
-  createSyncStore,
-  type Held,
-  type StoredConflict,
-  type SyncState,
-  type SyncStore,
-  stamp,
-} from './syncStore'
+import { createSyncStore, type SyncState, type SyncStore } from './syncStore'
 
 export type DetectSecrets = (text: string) => Promise<SecretSpan[]>
 
@@ -47,6 +34,7 @@ export interface ProfileSyncDeps {
   now?: () => Date
   method: () => SyncMethod | null
   targetLabel: () => string | null
+  kinds: () => SyncKinds
   installedExtensions: () => SyncedExtension[]
   builtinIds: () => string[]
   installExtension: (id: string, marketplace: string) => Promise<boolean>
@@ -60,25 +48,17 @@ export interface SyncRunResult {
 }
 
 const WRITE_ATTEMPTS = 3
-const SHOWN_VALUE_MAX = 120
 
-const SECRETS_OFF: SecretSyncStatus = { state: 'off', logins: false }
+const SECRETS_OFF: SecretSyncStatus = { state: 'off', mode: 'password', logins: false }
 
 const OFF: SyncStatus = {
   dir: null,
   state: 'off',
   lastSync: null,
-  conflicts: [],
   skipped: [],
   heldBack: [],
   offers: [],
   secrets: SECRETS_OFF,
-}
-
-const shown = (value: Held, kind: StoredConflict['kind']): string | null => {
-  if (value === null) return null
-  const text = kind === 'setting' ? JSON.stringify(value.value) : String(value.value)
-  return text.length > SHOWN_VALUE_MAX ? `${text.slice(0, SHOWN_VALUE_MAX)}…` : text
 }
 
 export class ProfileSync {
@@ -102,18 +82,6 @@ export class ProfileSync {
       state: error ? 'error' : 'ok',
       ...(error ? { error } : {}),
       lastSync: state.lastSync,
-      conflicts: state.conflicts.map(
-        (c): SyncConflict => ({
-          id: c.id,
-          kind: c.kind,
-          key: c.key,
-          local: shown(c.local, c.kind),
-          remote: shown(c.remote, c.kind),
-          winner: c.winner,
-          ...(c.localAt !== undefined ? { localAt: c.localAt } : {}),
-          ...(c.remoteAt !== undefined ? { remoteAt: c.remoteAt } : {}),
-        }),
-      ),
       skipped: state.skipped,
       heldBack: state.heldBack,
       offers: state.offers,
@@ -179,7 +147,7 @@ export class ProfileSync {
         version = res.version
       }
       const pulledSettings = plan.apply()
-      this.store.saveBase(method.id, plan.outgoing)
+      this.store.saveBase(method.id, plan.baseline)
       plan.saveSecretBase()
       const next = plan.state(version)
       this.store.saveState(next)
@@ -188,41 +156,6 @@ export class ProfileSync {
       return { status: this.last, pulledSettings }
     }
     return this.fail(state, 'busy')
-  }
-
-  async resolve(id: string): Promise<SyncStatus> {
-    const method = this.deps.method()
-    if (!method) return OFF
-    const state = this.store.loadState(method.id)
-    const conflict = state.conflicts.find((c) => c.id === id)
-    if (!conflict) return this.status()
-    if (conflict.kind === 'secret') {
-      if (!(await this.deps.secrets?.resolve(id))) return this.status()
-      return (await this.run()).status
-    }
-    const other = conflict.winner === 'local' ? conflict.remote : conflict.local
-    const time = this.now().getTime()
-    if (conflict.kind === 'setting') {
-      const local = this.store.readLocal()
-      if (local.settingsInvalid) return this.status()
-      const next = withValueAt(
-        local.settings ?? {},
-        keyPath(id.slice('setting:'.length)),
-        other?.value,
-      )
-      const path = this.store.path(SETTINGS_FILE)
-      writeFileAtomic(path, `${JSON.stringify(next, null, 2)}\n`)
-      stamp(path, time)
-    } else {
-      const path = join(this.deps.configDir, id.slice('file:'.length))
-      if (other === null) removeRegularFile(path)
-      else {
-        writeFileAtomic(path, String(other.value))
-        stamp(path, time)
-      }
-    }
-    this.store.saveState({ ...state, conflicts: state.conflicts.filter((c) => c.id !== id) })
-    return (await this.run()).status
   }
 
   async install(id: string): Promise<SyncStatus> {

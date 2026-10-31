@@ -1,8 +1,11 @@
+import type { KeptLink } from '../../shared/terminal/ptyApi'
 import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
 import { ScreenTitleFilter } from './screenTitleFilter'
 import { encodeMeta, META_OPTION, sendKeysCommands, tmuxQuote } from './tmuxCommand'
 
 export const LOST_EXIT_CODE = 1
+
+const REDRAW_RESET = '\x1b[?1049l\x1b[0m\x1b[H\x1b[2J'
 
 type Listener<T> = (value: T) => void
 
@@ -16,11 +19,14 @@ interface PaneServer {
   batch(lines: string[], onLastReply?: () => void): Promise<string[][]>
   forget(pane: TmuxPane): void
   killWindow(windowId: string): Promise<void>
+  retry(): void
 }
 
 export class TmuxPane {
   foreground = ''
   private readonly dataListeners = new Set<Listener<string>>()
+  private readonly linkListeners = new Set<Listener<KeptLink>>()
+  private link: KeptLink = 'up'
   private readonly exitListeners = new Set<Listener<{ exitCode: number; signal?: number }>>()
   private exited = false
   private detached = false
@@ -79,6 +85,25 @@ export class TmuxPane {
     return { dispose: () => this.exitListeners.delete(listener) }
   }
 
+  get linkState(): KeptLink {
+    return this.link
+  }
+
+  onLink(listener: Listener<KeptLink>): Disposable {
+    this.linkListeners.add(listener)
+    return { dispose: () => this.linkListeners.delete(listener) }
+  }
+
+  linked(state: KeptLink): void {
+    if (this.link === state) return
+    this.link = state
+    for (const listener of this.linkListeners) listener(state)
+  }
+
+  retryLink(): void {
+    this.server.retry()
+  }
+
   write(data: string): void {
     if (this.exited || this.detached) return
     for (const line of sendKeysCommands(this.paneId, data)) this.server.send(line)
@@ -128,7 +153,26 @@ export class TmuxPane {
     return command
   }
 
-  async snapshot(cols: number, rows: number): Promise<string> {
+  async redraw(): Promise<void> {
+    if (this.exited || this.detached) return
+    let screen: string
+    try {
+      screen = await this.capture(this.cols, this.rows, false)
+    } catch (err) {
+      this.live()
+      throw err
+    }
+    const held = this.held ?? []
+    this.held = null
+    this.emit(REDRAW_RESET + screen)
+    if (held.length > 0) this.emit(held.join(''))
+  }
+
+  snapshot(cols: number, rows: number): Promise<string> {
+    return this.capture(cols, rows, true)
+  }
+
+  private async capture(cols: number, rows: number, history: boolean): Promise<string> {
     this.held = []
     if (cols > 0 && rows > 0 && (cols !== this.cols || rows !== this.rows)) {
       this.cols = cols
@@ -142,7 +186,7 @@ export class TmuxPane {
     const lines = [
       onAlternate
         ? `capture-pane -p -e -a -t ${this.paneId}`
-        : `capture-pane -p -e -S - -t ${this.paneId}`,
+        : `capture-pane -p -e ${history ? '-S - ' : ''}-t ${this.paneId}`,
       ...(onAlternate ? [`capture-pane -p -e -t ${this.paneId}`] : []),
       `display-message -p -t ${this.paneId} ${tmuxQuote(SCREEN_INFO_FORMAT)}`,
     ]

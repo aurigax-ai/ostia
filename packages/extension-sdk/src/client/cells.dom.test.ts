@@ -57,11 +57,10 @@ function setup(
 }
 
 describe('createCellsPublisher', () => {
-  it('posts the cells with the csv and the rectangle once the selection settles', async () => {
+  it('posts the cells with the csv and the rectangle in the same tick as the selection', async () => {
     const { publisher } = setup()
     publisher.update(FIRST)
-    expect(calls).toEqual([])
-    await vi.advanceTimersByTimeAsync(100)
+    await vi.advanceTimersByTimeAsync(0)
     expect(calls).toHaveLength(1)
     expect(calls[0].url).toBe('/~selection')
     expect(calls[0].method).toBe('POST')
@@ -73,17 +72,22 @@ describe('createCellsPublisher', () => {
     expect(calls[0].body).not.toHaveProperty('html')
   })
 
-  it('publishes only the last of a burst, and not the same selection twice', async () => {
+  it('publishes the first of a burst at once and only the last of the rest, never the same twice', async () => {
     const { publisher } = setup()
     publisher.update({ range: { r1: 0, c1: 0, r2: 0, c2: 0 }, rect: RECT })
+    publisher.update({ range: { r1: 0, c1: 0, r2: 1, c2: 0 }, rect: RECT })
     publisher.update(FIRST)
-    await vi.advanceTimersByTimeAsync(100)
-    publisher.update(FIRST)
-    await vi.advanceTimersByTimeAsync(100)
+    await vi.advanceTimersByTimeAsync(0)
     expect(calls).toHaveLength(1)
-    publisher.update({ ...FIRST, rect: { ...RECT, y: 99 } })
     await vi.advanceTimersByTimeAsync(100)
     expect(calls).toHaveLength(2)
+    expect(calls[1].body).toMatchObject({ capture: { range: 'A1:B2' } })
+    publisher.update(FIRST)
+    await vi.advanceTimersByTimeAsync(200)
+    expect(calls).toHaveLength(2)
+    publisher.update({ ...FIRST, rect: { ...RECT, y: 99 } })
+    await vi.advanceTimersByTimeAsync(100)
+    expect(calls).toHaveLength(3)
   })
 
   it('withdraws the selection at once when it is cleared', async () => {
@@ -100,10 +104,11 @@ describe('createCellsPublisher', () => {
 
   it('drops a pending publish when cleared before it was sent', async () => {
     const { publisher } = setup()
+    publisher.update({ range: { r1: 0, c1: 0, r2: 0, c2: 0 }, rect: RECT })
     publisher.update(FIRST)
     publisher.clear()
     await vi.advanceTimersByTimeAsync(200)
-    expect(calls).toEqual([])
+    expect(calls.map((call) => call.method)).toEqual(['POST', 'DELETE'])
   })
 
   it('says the selection is too large, publishes nothing and withdraws an earlier one', async () => {

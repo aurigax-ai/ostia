@@ -1,4 +1,4 @@
-import { accessSync, constants, realpathSync } from 'node:fs'
+import { accessSync, constants, existsSync, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
@@ -10,7 +10,6 @@ import {
   type SandboxSwitches,
 } from '../../shared/sandbox/sandbox'
 import { expandHome, isInsidePath } from '../platform/pathGuard'
-import { OLD_PRODUCT_NAME } from '../platform/userDirs'
 
 export interface SandboxPaths {
   home: string
@@ -23,12 +22,14 @@ export interface SandboxPaths {
   agentSockets?: string[]
   containerSockets?: string[]
   tmpRoot?: string
+  pluginsDir?: string
+  hookLinks?: string[]
   codexDir?: string
   srtVendorDir?: string
   keptSocketPath?: string
 }
 
-export type SandboxBasePaths = Omit<SandboxPaths, 'workDir' | 'tmpDir'>
+export type SandboxBasePaths = Omit<SandboxPaths, 'workDir' | 'tmpDir' | 'pluginsDir' | 'hookLinks'>
 
 export const SSH_AGENT_SOCKET_NAME = 'a.sock'
 
@@ -46,11 +47,9 @@ const AGENT_PROTECTED_FILES = [
 ]
 
 const GIT_CONFIG_FILE = '.git/config'
-const WORKDIR_PROTECTED_FILES = ['.envrc', '.git/hooks', GIT_CONFIG_FILE]
-export const WORKDIR_HIDDEN_FILES = [
-  `.${PRODUCT_NAME}/vault.json`,
-  `.${OLD_PRODUCT_NAME}/vault.json`,
-]
+const ENVRC_FILE = '.envrc'
+const WORKDIR_PROTECTED_FILES = ['.git/hooks', GIT_CONFIG_FILE]
+export const WORKDIR_HIDDEN_FILES = [`.${PRODUCT_NAME}/vault.json`]
 export const HOME_HIDDEN_FILES = ['.cargo/credentials.toml', '.cargo/credentials']
 
 const CONTAINER_SOCKETS = [
@@ -145,7 +144,9 @@ export function protectedFiles(paths: SandboxBasePaths, workDir?: string): strin
   return [
     ...AGENT_PROTECTED_FILES.map((f) => join(paths.home, f)),
     ...(workDir
-      ? [...WORKDIR_PROTECTED_FILES, ...WORKDIR_HIDDEN_FILES].map((f) => join(workDir, f))
+      ? [ENVRC_FILE, ...WORKDIR_PROTECTED_FILES, ...WORKDIR_HIDDEN_FILES].map((f) =>
+          join(workDir, f),
+        )
       : []),
   ]
 }
@@ -168,21 +169,26 @@ export function canBlockSockets(platform: NodeJS.Platform, arch: string): boolea
 
 export function fixedPolicy(
   paths: SandboxBasePaths,
-  workspace: { workDir: string; tmpDir: string } | null,
+  workspace: { workDir: string; tmpDir: string; pluginsDir?: string } | null,
   switches: Pick<SandboxSwitches, 'gitConfig'>,
   platform: NodeJS.Platform = process.platform,
   arch: string = process.arch,
 ): SandboxFixedPolicy {
   const { home } = paths
   const agentDirs = AGENT_DATA_DIRS.map((d) => join(home, d))
-  const hiddenFiles = workspace ? WORKDIR_HIDDEN_FILES.map((f) => join(workspace.workDir, f)) : []
+  const existingInWorkDir = (files: readonly string[]): string[] =>
+    workspace ? files.filter((f) => existsSync(join(workspace.workDir, f))) : []
+  const hiddenFiles = existingInWorkDir(WORKDIR_HIDDEN_FILES).map((f) =>
+    join(workspace?.workDir ?? '', f),
+  )
   const hiddenSockets = [
     ...(paths.agentSockets ?? []).map((sock) => dirname(sock)),
     ...(paths.containerSockets ?? []),
   ]
-  const guardedInWorkDir = WORKDIR_PROTECTED_FILES.filter(
-    (f) => !(switches.gitConfig && f === GIT_CONFIG_FILE),
-  )
+  const guardedInWorkDir = existingInWorkDir([
+    ENVRC_FILE,
+    ...WORKDIR_PROTECTED_FILES.filter((f) => !(switches.gitConfig && f === GIT_CONFIG_FILE)),
+  ])
   return {
     hidden: [
       home,
@@ -198,12 +204,14 @@ export function fixedPolicy(
       ...(workspace ? [workspace.workDir, workspace.tmpDir] : []),
       paths.socketPath,
       ...agentDirs,
+      ...(workspace?.pluginsDir ? [workspace.pluginsDir] : []),
       ...paths.runtimeReads,
     ],
     writable: [...(workspace ? [workspace.workDir, workspace.tmpDir] : []), ...agentDirs],
     readOnly: [
       ...AGENT_PROTECTED_FILES.map((f) => join(home, f)),
       ...(workspace ? guardedInWorkDir.map((f) => join(workspace.workDir, f)) : []),
+      ...(workspace?.pluginsDir ? [workspace.pluginsDir] : []),
       ...hiddenFiles,
     ],
     hiddenSockets,
@@ -227,9 +235,9 @@ export function buildSrtConfig(
   platform: NodeJS.Platform = process.platform,
   arch: string = process.arch,
 ): SrtConfig {
-  const { home, workDir, tmpDir } = paths
+  const { home, workDir, tmpDir, pluginsDir } = paths
   const switches = { ...DEFAULT_SWITCHES, ...policy.switches }
-  const fixed = fixedPolicy(paths, { workDir, tmpDir }, switches, platform, arch)
+  const fixed = fixedPolicy(paths, { workDir, tmpDir, pluginsDir }, switches, platform, arch)
   const guarded = protectedPaths(paths)
   const expand = (list: readonly string[] = []): string[] => list.map((p) => expandHome(p, home))
   const denyRead = expand(policy.denyRead)
@@ -238,6 +246,7 @@ export function buildSrtConfig(
     expand(list).filter((p) => !touches(p, guarded) && !hiddenByHuman(p))
   const agentDirs = AGENT_DATA_DIRS.map((d) => join(home, d)).filter((d) => !hiddenByHuman(d))
   const allowWrite = opened(policy.allowWrite)
+  const hookLinks = (paths.hookLinks ?? []).filter((p) => !touches(p, guarded) && !hiddenByHuman(p))
   const isMac = platform === 'darwin'
   const sockets = switches.unixSockets
   return {
@@ -268,13 +277,15 @@ export function buildSrtConfig(
           paths.socketPath,
           ...(paths.keptSocketPath ? [paths.keptSocketPath] : []),
           ...agentDirs,
+          ...(pluginsDir ? [pluginsDir] : []),
           ...paths.runtimeReads,
+          ...hookLinks,
           ...opened(policy.allowRead),
           ...allowWrite,
         ]),
       ],
       allowWrite: [...new Set([workDir, tmpDir, ...agentDirs, ...allowWrite])],
-      denyWrite: [...new Set([...fixed.readOnly, ...expand(policy.denyWrite)])],
+      denyWrite: [...new Set([...fixed.readOnly, ...hookLinks, ...expand(policy.denyWrite)])],
       allowGitConfig: switches.gitConfig,
     },
     ...(isMac ? { allowPty: true } : {}),

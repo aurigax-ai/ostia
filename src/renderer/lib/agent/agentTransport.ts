@@ -3,7 +3,7 @@ import type { AgentToolCallNotice } from '@shared/agent/agentApi'
 import type { ChatTransport, UIMessageChunk } from 'ai'
 import { agentProblem } from '@/lib/agent/agentProblem'
 import { agentPromptText } from '@/lib/agent/agentPrompt'
-import type { ChatToolDef, ToolOutcome, ToolRun } from '@/lib/assist/chatToolGate'
+import type { AgentToolRun, ChatToolDef, ToolOutcome } from '@/lib/assist/chatToolGate'
 import { type OstiaChatMessage, outputText } from '@/lib/assist/chatTransport'
 
 const AGENT_DENIED_TEXT = 'The human denied this call.'
@@ -12,7 +12,7 @@ export interface AgentTransportSession {
   sessionId: string
   workspaceId: () => string | null
   root: () => string
-  tools: () => ChatToolDef[]
+  tools: () => ChatToolDef<AgentToolRun>[]
   prepare: () => Promise<string | null>
 }
 
@@ -107,16 +107,21 @@ export function createAgentTransport(
             let outcome: ToolOutcome
             if (!def) outcome = { state: 'error', error: `Unknown tool ${call.name}.` }
             else {
-              const run: ToolRun = {
+              const run: AgentToolRun = {
                 sessionId: session.sessionId,
                 workspaceId: session.workspaceId(),
                 root: session.root(),
+                callId: call.callId,
                 toolCallId: call.toolCallId,
                 signal: abort.signal,
-                onApproval: (approvalId) =>
-                  emit({ type: 'tool-approval-request', approvalId, toolCallId: call.toolCallId }),
-                onAnswer: (approvalId, approved) =>
-                  emit({ type: 'tool-approval-response', approvalId, approved }),
+                onApproval: (approvalId) => {
+                  api.noteWaiting(call.callId, true)
+                  emit({ type: 'tool-approval-request', approvalId, toolCallId: call.toolCallId })
+                },
+                onAnswer: (approvalId, approved) => {
+                  api.noteWaiting(call.callId, false)
+                  emit({ type: 'tool-approval-response', approvalId, approved })
+                },
               }
               try {
                 outcome = await def.run(call.input, run)

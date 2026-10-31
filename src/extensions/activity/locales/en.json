@@ -22,7 +22,6 @@
     "time.hours": "{count} h",
     "time.days": "{count} d",
     "loadFailed": "Could not load the activity: {reason}",
-    "sidebar.needsYou": "{count} need you",
     "needsYou": "Needs you",
     "noteDone": "Done",
     "notes": "Notes",

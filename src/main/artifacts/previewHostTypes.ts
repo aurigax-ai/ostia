@@ -24,23 +24,15 @@ export interface PreviewSession {
   clearStorageData: () => Promise<void>
 }
 
-export interface PreviewRect {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
 export interface PreviewGuest {
   id: number
   session: unknown
   isDestroyed: () => boolean
-  capturePage: (rect: PreviewRect) => Promise<{ toPNG: () => Buffer; isEmpty: () => boolean }>
   getOSProcessId: () => number
   reload: () => void
   executeJavaScript: (code: string) => Promise<unknown>
   forcefullyCrashRenderer: () => void
-  setWindowOpenHandler: (handler: () => { action: 'deny' }) => void
+  setWindowOpenHandler: (handler: (details: { url: string }) => { action: 'deny' }) => void
   setWebRTCIPHandlingPolicy: (policy: 'disable_non_proxied_udp') => void
   setBackgroundThrottling: (allowed: boolean) => void
   debugger: {
@@ -65,7 +57,6 @@ export interface PreviewHostDeps {
   ownsPane: (windowId: string, paneId: string) => boolean
   send: (windowId: string, event: PreviewEvent) => void
   processes: () => ProcessUse[]
-  hostZoom?: (windowId: string) => number
   build: (source: PreviewSource, theme: PreviewTheme) => Promise<PreviewBuild>
   now?: () => number
 }

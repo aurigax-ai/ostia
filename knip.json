@@ -4,6 +4,7 @@
     ".": {
       "entry": [
         "src/shared/artifacts/artifactRuntime.ts",
+        "src/node/runner.ts",
         "src/extensions/*/{main,panel}.ts",
         "src/extensions/*/*.worker.ts",
         "src/extensions/*/*.script.ts",

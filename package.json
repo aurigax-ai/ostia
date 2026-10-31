@@ -1,6 +1,6 @@
 {
   "name": "ostia",
-  "version": "0.5.12",
+  "version": "0.5.13-rc.2",
   "description": "Terminal Workspace — the ultimate CLI workspace (terminal + IDE + agents)",
   "private": true,
   "type": "commonjs",
@@ -9,7 +9,7 @@
     "ostia": "./out/cli/index.js"
   },
   "author": "",
-  "packageManager": "pnpm@11.19.0",
+  "packageManager": "pnpm@11.25.0",
   "license": "FSL-1.1-MIT",
   "scripts": {
     "dev": "pnpm run build:cli && pnpm run build:sandbox-host && pnpm run build:redaction-worker && pnpm run build:history-worker && electron-vite dev",
@@ -30,12 +30,12 @@
     "start": "electron-vite preview",
     "package": "pnpm build && electron-builder",
     "icons": "bash scripts/icons.sh",
-    "install:local": "pnpm package && bash scripts/install-linux.sh",
+    "install:local": "OSTIA_LOCAL_INSTALL=1 pnpm package && bash scripts/install-linux.sh",
     "bump": "bash -c 'case \"$*\" in patch|minor|major) exec pnpm version --no-git-tag-version --no-git-checks \"$1\" ;; *) echo \"usage: pnpm bump <patch|minor|major>\" >&2; exit 1 ;; esac' bump",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.e2e.json && tsc --noEmit -p packages/extension-sdk",
     "rebuild": "electron-rebuild -f -w node-pty",
     "lint": "biome check src packages && node scripts/comments.mjs --check",
-    "quality": "knip && depcruise src e2e test scripts packages marketplace --config .dependency-cruiser.json --ignore-known && jscpd && node scripts/i18n.mjs check",
+    "quality": "knip && depcruise src e2e test scripts packages marketplace --config .dependency-cruiser.json --ignore-known && depcruise src/renderer --config .dependency-cruiser-launch.json && jscpd && node scripts/i18n.mjs check",
     "i18n:coverage": "node scripts/i18n.mjs coverage",
     "format": "biome format --write src packages",
     "test": "vitest run --project node --project dom",
@@ -45,6 +45,7 @@
     "test:dom": "vitest run --project dom",
     "test:e2e": "bash scripts/e2e.sh",
     "bench:terminal": "OSTIA_E2E_BENCH=1 bash scripts/e2e.sh --workers=1",
+    "bench:flows": "rm -rf bench-results/flows/latest; OSTIA_E2E_BENCH=flows bash scripts/e2e.sh --workers=1 e2e/flows; node scripts/flowsReport.mjs",
     "bench:agent-tokens": "node scripts/agentTokens.mjs",
     "postinstall": "install-electron"
   },

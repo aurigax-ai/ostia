@@ -4,6 +4,7 @@ import {
   MANAGER_AGENT_NAME,
   MANAGER_MAX_ARG_LENGTH,
   MANAGER_MAX_ARGS,
+  PI_MANAGER_AGENT,
 } from '../../shared/agents/managerSettings'
 
 const MAX_PATH_LENGTH = 32 * 1024
@@ -20,11 +21,13 @@ export interface ManagerOpenRequest {
 export interface ManagerInfo {
   paneId: string
   agent: string
+  session: boolean
 }
 
 export interface ManagerDeps {
   agents: () => Record<string, string[]>
-  createPane: (req: { agent: string; cwd: string }) => Promise<string | null>
+  createPane: (req: { agent: string; cwd: string; session: boolean }) => Promise<string | null>
+  adopt: (paneId: string) => boolean
   spawn: (req: {
     paneId: string
     argv: string[]
@@ -99,6 +102,7 @@ export class ManagerService {
   private current: ManagerInfo | null = null
   private opening: Promise<ManagerInfo> | null = null
   private stopping = false
+  private readonly endListeners = new Set<(paneId: string) => void>()
 
   constructor(private readonly deps: ManagerDeps) {}
 
@@ -108,6 +112,17 @@ export class ManagerService {
 
   isManagerPane(paneId: string): boolean {
     return this.current?.paneId === paneId
+  }
+
+  onEnd(listener: (paneId: string) => void): () => void {
+    this.endListeners.add(listener)
+    return () => this.endListeners.delete(listener)
+  }
+
+  paneClosed(paneId: string): void {
+    if (this.current?.paneId !== paneId || !this.current.session) return
+    this.current = null
+    for (const listener of [...this.endListeners]) listener(paneId)
   }
 
   rememberResume(resume: AgentResume): void {
@@ -120,10 +135,12 @@ export class ManagerService {
 
   async open(req: ManagerOpenRequest): Promise<{ info: ManagerInfo; created: boolean }> {
     const agents = this.deps.agents()
-    const preset = agents[req.agent]
+    const session = req.agent === PI_MANAGER_AGENT
+    if (session && req.args.length > 0) throw new ManagerError('bad-request: args')
+    const preset = session ? [] : agents[req.agent]
     if (!preset) {
       throw new ManagerError(
-        `unknown-agent: ${req.agent} (known: ${Object.keys(agents).join(', ')})`,
+        `unknown-agent: ${req.agent} (known: ${[PI_MANAGER_AGENT, ...Object.keys(agents)].join(', ')})`,
       )
     }
     if (this.opening) await this.opening.catch(() => {})
@@ -133,7 +150,7 @@ export class ManagerService {
       }
       return { info: this.current, created: false }
     }
-    this.opening = this.start(req, [...preset, ...req.args])
+    this.opening = session ? this.startSession(req) : this.start(req, [...preset, ...req.args])
     try {
       return { info: await this.opening, created: true }
     } finally {
@@ -141,13 +158,27 @@ export class ManagerService {
     }
   }
 
+  private async startSession(req: ManagerOpenRequest): Promise<ManagerInfo> {
+    const paneId = await this.deps.createPane({ agent: req.agent, cwd: req.cwd, session: true })
+    if (!paneId) {
+      throw new ManagerError(
+        `no-window: ${PRODUCT_DISPLAY_NAME} could not open the manager workspace`,
+      )
+    }
+    if (!this.deps.adopt(paneId)) {
+      throw new ManagerError(`spawn-failed: could not start the ${req.agent} manager`)
+    }
+    this.current = { paneId, agent: req.agent, session: true }
+    return this.current
+  }
+
   private async start(req: ManagerOpenRequest, argv: string[]): Promise<ManagerInfo> {
-    const paneId = await this.deps.createPane({ agent: req.agent, cwd: req.cwd })
+    const paneId = await this.deps.createPane({ agent: req.agent, cwd: req.cwd, session: false })
     if (!paneId)
       throw new ManagerError(
         `no-window: ${PRODUCT_DISPLAY_NAME} could not open the manager workspace`,
       )
-    const info: ManagerInfo = { paneId, agent: req.agent }
+    const info: ManagerInfo = { paneId, agent: req.agent, session: false }
     const saved = parseSavedResume(this.deps.loadResume())
     const resume = saved?.agent === req.agent && req.args.length === 0 ? saved.resume : null
     const spawned = this.deps.spawn({

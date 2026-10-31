@@ -105,5 +105,5 @@ export function useAgoText(): (elapsedMs: number) => string {
     () => new Intl.RelativeTimeFormat(locale, { numeric: 'always', style: 'short' }),
     [locale],
   )
-  return (elapsedMs) => agoText(elapsedMs, d.dashboard.justNow, relative)
+  return (elapsedMs) => agoText(elapsedMs, d.inbox.justNow, relative)
 }

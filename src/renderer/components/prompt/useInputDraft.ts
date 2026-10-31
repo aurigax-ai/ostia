@@ -9,16 +9,18 @@ import {
   useState,
 } from 'react'
 import type { CompletionMatch, CompletionOrigin } from '@/lib/prompt/completionMatch'
+import { ESC_ARM_MS, ESC_CLEARED_MS } from '@/lib/prompt/escClear'
 import type { VimMode } from '@/lib/prompt/vimMode'
 import { clampNormal } from '@/lib/prompt/vimMode'
 import { registerInputEditor } from '@/lib/terminal/terminalHandles'
 
-type Tip = 'none' | 'noPaths' | 'noCommands'
+type Tip = 'none' | 'noPaths' | 'noCommands' | 'escAgain' | 'cleared'
 
 export interface Menu {
   origin: CompletionOrigin
   matches: CompletionMatch[]
   index: number
+  auto?: boolean
 }
 
 interface Selection {
@@ -47,6 +49,7 @@ export interface InputDraft {
   areaRef: RefObject<HTMLTextAreaElement>
   textRef: MutableRefObject<string>
   walk: MutableRefObject<HistoryWalk | null>
+  restore: MutableRefObject<string>
   replaceText: (next: string, caret?: number) => void
   resetDraftState: () => void
   typeAtCaret: (chunk: string) => void
@@ -71,6 +74,7 @@ export function useInputDraft({
   const [dismissed, setDismissed] = useState<string | null>(null)
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const walk = useRef<HistoryWalk | null>(null)
+  const restore = useRef('')
   const pendingCaret = useRef<number | null>(null)
   const textRef = useRef(text)
   textRef.current = text
@@ -86,6 +90,13 @@ export function useInputDraft({
     setSelection({ start: at, end: at })
     pendingCaret.current = at
   }
+
+  useEffect(() => {
+    const ms = tip === 'escAgain' ? ESC_ARM_MS : tip === 'cleared' ? ESC_CLEARED_MS : 0
+    if (!ms) return
+    const timer = window.setTimeout(() => setTip('none'), ms)
+    return () => window.clearTimeout(timer)
+  }, [tip])
 
   useLayoutEffect(() => {
     const caret = pendingCaret.current
@@ -130,6 +141,16 @@ export function useInputDraft({
         area?.focus()
       },
       focus: () => areaRef.current?.focus(),
+      take: () => {
+        const taken = textRef.current
+        setText('')
+        setSelection({ start: 0, end: 0 })
+        walk.current = null
+        setTip('none')
+        liveMenu.current = null
+        setMenuState(null)
+        return taken
+      },
     })
   }, [paneId, visible])
 
@@ -158,6 +179,7 @@ export function useInputDraft({
     areaRef,
     textRef,
     walk,
+    restore,
     replaceText,
     resetDraftState,
     typeAtCaret,

@@ -11,7 +11,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRecencyStore } from '@/stores/workspaces/paneRecencyStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
-import { useAgentTargets, useLocalAgentTargets, useNoAgentsText } from './useAgentTargets'
+import { useAgentTargets, useNoAgentsText } from './useAgentTargets'
 
 const HOME: OriginAgents = {
   workspaceId: 'w-home',
@@ -113,15 +113,6 @@ describe('useAgentTargets', () => {
     const { result } = renderHook(() => useAgentTargets('w-moved'))
 
     expect(result.current).toEqual([])
-  })
-
-  it('never gives the origin workspace’s agents to the local-only list', () => {
-    seedDetached(true)
-    useOriginAgentsStore.getState().setAll({ 'w-moved': HOME })
-
-    const { result } = renderHook(() => useLocalAgentTargets('w-moved'))
-
-    expect(result.current.map((t) => t.paneId)).toEqual(['p-near'])
   })
 })
 
@@ -317,14 +308,6 @@ describe('useAgentTargets in a sidebar group', () => {
         'p-docs',
       ]),
     )
-  })
-
-  it('keeps the group out of the list that presses Enter', () => {
-    seed(GROUPED)
-
-    const { result } = renderHook(() => useLocalAgentTargets('w-web'))
-
-    expect(result.current.map((t) => t.paneId)).toEqual(['p-web'])
   })
 
   it('says the group runs no agent either when a grouped workspace finds none', () => {

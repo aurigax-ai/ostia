@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -51,13 +51,8 @@ vi.mocked(electron.ipcMain.handle).mockImplementation((channel, fn) => {
   listHandlers.set(channel, fn as () => unknown)
 })
 
-const {
-  registerNotifyIpc,
-  registerNotifyMethods,
-  notificationsRecorded,
-  postDesktopNotice,
-  postNotification,
-} = await import('./notify')
+const { registerNotifyIpc, registerNotifyMethods, notificationsRecorded, postNotification } =
+  await import('./notify')
 const { setScriptTokenCheck } = await import('../control/controlAuth')
 const { registerControlServer, stopControlServer } = await import('../control/controlServer')
 
@@ -229,43 +224,6 @@ describe('the notification log', () => {
       () => expect(readFileSync(out, 'utf8')).toBe('Agent finished|all; green|pane-x'),
       { timeout: 3000 },
     )
-  })
-})
-
-describe('a desktop-only notice', () => {
-  it('shows a banner and runs the click, and reaches no log, platform event or command', async () => {
-    const script = join(userData, 'never-run.sh')
-    const out = join(userData, 'never-ran.txt')
-    writeFileSync(script, `#!/bin/sh\ntouch "${out}"\n`)
-    chmodSync(script, 0o755)
-    settings({ desktop: true, command: `${script} {title}` })
-    const { emitPlatformEvent } = await import('../control/events')
-    const onClick = vi.fn()
-    const before = listHandlers.get('notifications:list')?.()
-
-    postDesktopNotice(
-      notifyDeps,
-      { title: 'A device wants your synced data', body: 'Pixel' },
-      onClick,
-    )
-    await notificationsRecorded()
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
-    expect(shown).toEqual([
-      { title: 'A device wants your synced data', body: 'Pixel', silent: false },
-    ])
-    clicks[0]?.()
-    expect(onClick).toHaveBeenCalledTimes(1)
-    expect(saved).toEqual([])
-    expect(vi.mocked(emitPlatformEvent)).not.toHaveBeenCalled()
-    expect(existsSync(out)).toBe(false)
-    expect(listHandlers.get('notifications:list')?.()).toEqual(before)
-  })
-
-  it('stays silent when desktop notifications are off', () => {
-    settings({ desktop: false })
-    postDesktopNotice(notifyDeps, { title: 'x' }, vi.fn())
-    expect(shown).toEqual([])
   })
 })
 

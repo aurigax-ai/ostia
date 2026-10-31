@@ -1,6 +1,12 @@
-import type { AgentEvent } from '@aurigax-ai/ostia-extension-sdk/contract/agent'
-import { afterEach, describe, expect, it } from 'vitest'
+import {
+  AGENT_PROMPT_MAX,
+  type AgentEvent,
+  type AgentToolReply,
+} from '@aurigax-ai/ostia-extension-sdk/contract/agent'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type AgentRig, startAgentRig } from '../../../test/agentHarness'
+import type { CoreCallRequest, CoreLifecycle } from './agentCoreCall'
+import { openInputOf } from './agentRequests'
 import { type AgentRenderer, AgentSessions } from './agentSessions'
 
 interface FakeRenderer extends AgentRenderer {
@@ -44,16 +50,53 @@ async function bridge(
     rules: { text: '', count: 0 } as { text: string; count: number },
     asked: [] as string[][],
     throws: false,
+    core: [] as CoreCallRequest[],
+    coreHook: undefined as ((request: CoreCallRequest) => void) | undefined,
+    coreReply: { ok: true, output: 'core output' } as AgentToolReply,
+    mail: null as string | null,
+    acked: 0,
+    mailLifecycles: [] as CoreLifecycle[],
+    failPrompt: false,
+    promptMailCalls: 0,
+    playbooks: '',
   }
   const rig = await startAgentRig(answer)
   rigs.push(rig)
   const sessions = new AgentSessions({
-    request: (request) => rig.handle(request),
+    request: (request) =>
+      state.failPrompt && request.op === 'prompt'
+        ? Promise.resolve({ ok: false, error: 'boom' })
+        : rig.handle(request),
     settings: () => ({
       providers: [{ id: 'fake', name: 'Fake', baseUrl: rig.provider.url, models: ['fake-model'] }],
+      alwaysAsk: [],
     }),
     sandboxed: () => state.sandboxed,
     redact,
+    playbookList: () => state.playbooks,
+    promptMail: async (_scope, lifecycle) => {
+      state.promptMailCalls++
+      state.mailLifecycles.push(lifecycle)
+      if (state.mail === null) return null
+      return {
+        text: state.mail,
+        ack: async () => {
+          state.acked++
+        },
+      }
+    },
+    coreCall: async (request) => {
+      state.core.push(request)
+      state.coreHook?.(request)
+      if (state.coreHook) {
+        return new Promise<AgentToolReply>((resolve) =>
+          request.lifecycle.token?.onCancellationRequested(() =>
+            resolve({ ok: true, output: 'late' }),
+          ),
+        )
+      }
+      return state.coreReply
+    },
     rulesContext: async (...asked) => {
       state.asked.push(asked)
       if (state.throws) throw new Error('hook failed')
@@ -71,6 +114,7 @@ async function bridge(
   const input = {
     sessionId: 's1',
     workspaceId: 'w1',
+    paneId: 'p1',
     cwd: rig.cwd,
     rules: true,
     tools: [
@@ -137,6 +181,16 @@ describe('AgentSessions', () => {
     expect(ctx.win.sent.filter((s) => s.channel === 'agent:tool-call')).toHaveLength(1)
     ctx.sessions.answerTool(ctx.win, call.callId, { ok: true, output: 'x' })
     await done
+  })
+
+  it('puts the enabled playbooks in the session’s system prompt, beside the rules', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    state.playbooks = 'Playbooks the human turned on.\n- onboard: Learn the workflow.'
+    expect(await sessions.open(win, input)).toMatchObject({ ok: true })
+    const done = rig.settled()
+    await sessions.prompt(win, 's1', 'hi')
+    await done
+    expect(rig.provider.requests[0].system).toContain('- onboard: Learn the workflow.')
   })
 
   describe('rules at session start', () => {
@@ -238,9 +292,12 @@ describe('AgentSessions', () => {
     expect(rig.provider.requests).toEqual([])
     const none = new AgentSessions({
       request: (request) => rig.handle(request),
-      settings: () => ({ providers: [] }),
+      settings: () => ({ providers: [], alwaysAsk: [] }),
       sandboxed: () => false,
       redact: async (t) => t,
+      coreCall: async () => ({ ok: true, output: '' }),
+      promptMail: async () => null,
+      playbookList: () => '',
       rulesContext: async () => ({ text: '', count: 0 }),
     })
     expect(await none.complete({ system: 's', input: 'i' })).toEqual({
@@ -436,6 +493,296 @@ describe('AgentSessions', () => {
       await sessions.open(win, input)
       win.destroy()
       expect(sessions.stream('s1')).toBeUndefined()
+    })
+  })
+
+  describe('core calls from the owning window', () => {
+    interface Pending {
+      callId: string
+    }
+
+    async function pendingCall(ctx: Ctx, sessionId = 's1', name = 'ostia_panes', input = {}) {
+      const reply = ctx.sessions.tool(
+        true,
+        { sessionId, toolCallId: `tc-${sessionId}`, name, input },
+        () => undefined,
+      )
+      await expect
+        .poll(() => ctx.win.sent.filter((s) => s.channel === 'agent:tool-call').length)
+        .toBeGreaterThan(0)
+      const sent = ctx.win.sent.filter((s) => s.channel === 'agent:tool-call')
+      const { callId } = sent[sent.length - 1].payload as Pending
+      return { callId, reply }
+    }
+
+    it('runs the tool the model asked for with the model’s own input, as the pane the session was opened for', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const { callId } = await pendingCall(ctx, 's1', 'ostia_agent_run', { agent: 'claude' })
+      expect(await ctx.sessions.coreCall(ctx.win, 's1', callId)).toEqual({
+        ok: true,
+        output: 'core output',
+      })
+      expect(ctx.state.core).toHaveLength(1)
+      expect(ctx.state.core[0]).toMatchObject({
+        name: 'ostia_agent_run',
+        input: { agent: 'claude' },
+        scope: { paneId: 'p1', windowId: '1', workspaceId: 'w1' },
+      })
+    })
+
+    it('runs one core call for each tool call', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const { callId } = await pendingCall(ctx)
+      await ctx.sessions.coreCall(ctx.win, 's1', callId)
+      expect(await ctx.sessions.coreCall(ctx.win, 's1', callId)).toEqual({
+        ok: false,
+        error: 'invalid',
+      })
+      expect(ctx.state.core).toHaveLength(1)
+    })
+
+    it('refuses a call that is unknown, from another window, or for another session', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      await ctx.sessions.open(ctx.win, { ...ctx.input, sessionId: 's2' })
+      const { callId } = await pendingCall(ctx, 's1')
+      const invalid = { ok: false, error: 'invalid' }
+      expect(await ctx.sessions.coreCall(ctx.win, 's1', 't999')).toEqual(invalid)
+      expect(await ctx.sessions.coreCall(ctx.win, 's2', callId)).toEqual(invalid)
+      expect(await ctx.sessions.coreCall(renderer(2), 's1', callId)).toEqual(invalid)
+      expect(await ctx.sessions.coreCall(ctx.win, 's1', 5)).toEqual(invalid)
+      expect(ctx.state.core).toEqual([])
+    })
+
+    it('never runs a call that already settled, was aborted or lost its session', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const answered = await pendingCall(ctx)
+      ctx.sessions.answerTool(ctx.win, answered.callId, { ok: true, output: 'x' })
+      await answered.reply
+      const aborted = await pendingCall(ctx)
+      await ctx.sessions.abort(ctx.win, 's1')
+      const closed = await pendingCall(ctx)
+      await ctx.sessions.close(ctx.win, 's1')
+      for (const { callId } of [answered, aborted, closed]) {
+        expect(await ctx.sessions.coreCall(ctx.win, 's1', callId)).toEqual({
+          ok: false,
+          error: 'invalid',
+        })
+      }
+      expect(ctx.state.core).toEqual([])
+    })
+
+    it('ends the call’s connection and token when the call settles', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const { callId } = await pendingCall(ctx)
+      await ctx.sessions.coreCall(ctx.win, 's1', callId)
+      const { lifecycle } = ctx.state.core[0]
+      let closed = 0
+      lifecycle.conn.onClose(() => {
+        closed += 1
+      })
+      expect(lifecycle.token?.isCancellationRequested).toBe(false)
+      ctx.sessions.answerTool(ctx.win, callId, { ok: true, output: 'x' })
+      expect(lifecycle.token?.isCancellationRequested).toBe(true)
+      expect(closed).toBe(1)
+    })
+
+    it('fires the connection’s close when an abort cancels a running core call', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const { callId } = await pendingCall(ctx)
+      let closed = 0
+      ctx.state.coreHook = (request) => {
+        request.lifecycle.conn.onClose(() => {
+          closed += 1
+        })
+      }
+      const running = ctx.sessions.coreCall(ctx.win, 's1', callId)
+      await ctx.sessions.abort(ctx.win, 's1')
+      expect(await running).toEqual({ ok: false, error: 'Cancelled.' })
+      expect(closed).toBe(1)
+    })
+
+    it('cancels only the aborted session’s calls, not another session of the same window', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      await ctx.sessions.open(ctx.win, { ...ctx.input, sessionId: 's2', paneId: 'p2' })
+      const first = await pendingCall(ctx, 's1')
+      const second = await pendingCall(ctx, 's2')
+      await ctx.sessions.abort(ctx.win, 's1')
+      expect(await first.reply).toMatchObject({ ok: false, error: 'Cancelled.' })
+      expect(await ctx.sessions.coreCall(ctx.win, 's2', second.callId)).toMatchObject({ ok: true })
+      ctx.sessions.answerTool(ctx.win, second.callId, { ok: true, output: 'x' })
+      expect(await second.reply).toEqual({ ok: true, output: 'x' })
+    })
+
+    it('cancels a session’s pending calls when it closes, before it forgets who owns it', async () => {
+      const ctx = await bridge(() => 'ok')
+      await ctx.sessions.open(ctx.win, ctx.input)
+      const { reply } = await pendingCall(ctx)
+      await ctx.sessions.close(ctx.win, 's1')
+      expect(await reply).toMatchObject({ ok: false, error: 'Cancelled.' })
+      expect(ctx.win.sent.some((s) => s.channel === 'agent:tool-cancel')).toBe(true)
+    })
+
+    it('opens only with the pane the window names', async () => {
+      const ctx = await bridge(() => 'ok')
+      const { paneId: _paneId, ...withoutPane } = ctx.input
+      expect(openInputOf('s1', withoutPane)).toBeNull()
+      expect(openInputOf('s1', { ...withoutPane, paneId: '' })).toBeNull()
+      expect(openInputOf('s1', { ...withoutPane, paneId: 'p1' })).toMatchObject({ paneId: 'p1' })
+    })
+  })
+})
+
+describe('AgentSessions prompt mail', () => {
+  const MAIL =
+    '<ostia-bus-messages>\n<message id="m1" from="ab12">build is green</message>\n</ostia-bus-messages>'
+  const ended = (lifecycle: CoreLifecycle | undefined) =>
+    lifecycle?.token?.isCancellationRequested === true
+
+  it('starts no turn and takes no mail until the human sends a prompt', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    state.mail = MAIL
+    await sessions.open(win, input)
+    expect(state.promptMailCalls).toBe(0)
+    expect(rig.provider.requests).toEqual([])
+  })
+
+  it('adds the wrapped mail ahead of the human’s prompt and acknowledges it once after pi accepted it', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    state.mail = MAIL
+    await sessions.open(win, input)
+    const done = rig.settled()
+    expect((await sessions.prompt(win, 's1', 'what now?')).ok).toBe(true)
+    await done
+    expect(rig.provider.requests.map((r) => r.last)).toEqual([`${MAIL}\n\nwhat now?`])
+    expect(state.acked).toBe(1)
+    expect(state.mailLifecycles.every(ended)).toBe(true)
+  })
+
+  it('sends the prompt alone and acknowledges nothing when no mail waits', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    await sessions.open(win, input)
+    const done = rig.settled()
+    await sessions.prompt(win, 's1', 'plain')
+    await done
+    expect(rig.provider.requests.map((r) => r.last)).toEqual(['plain'])
+    expect(state.acked).toBe(0)
+  })
+
+  it('leaves the mail queued when pi refuses the prompt', async () => {
+    const { rig, sessions, win, input, state } = await bridge(() => 'ok')
+    state.mail = MAIL
+    state.failPrompt = true
+    await sessions.open(win, input)
+    expect(await sessions.prompt(win, 's1', 'hi')).toEqual({ ok: false, error: 'boom' })
+    expect(state.acked).toBe(0)
+    expect(state.mailLifecycles.every(ended)).toBe(true)
+    expect(rig.provider.requests).toEqual([])
+  })
+
+  it('leaves the mail queued and sends nothing when the mail cannot be checked for secrets', async () => {
+    const { rig, sessions, win, input, state } = await bridge(
+      () => 'ok',
+      async (text) => (text === MAIL ? null : text),
+    )
+    state.mail = MAIL
+    await sessions.open(win, input)
+    expect(await sessions.prompt(win, 's1', 'hi')).toEqual({
+      ok: false,
+      error: 'redaction-failed',
+    })
+    expect(state.acked).toBe(0)
+    expect(state.mailLifecycles.every(ended)).toBe(true)
+    expect(rig.provider.requests).toEqual([])
+  })
+
+  it('redacts the mail like the prompt before pi sees it', async () => {
+    const { rig, sessions, win, input, state } = await bridge(
+      () => 'ok',
+      async (text) => text.replaceAll('sk-SECRET', '[redacted]'),
+    )
+    state.mail = 'key sk-SECRET'
+    await sessions.open(win, input)
+    const done = rig.settled()
+    await sessions.prompt(win, 's1', 'go')
+    await done
+    expect(rig.provider.requests.map((r) => r.last)).toEqual(['key [redacted]\n\ngo'])
+  })
+
+  it.each(['abort', 'close'] as const)(
+    'releases the lease at once when %s arrives before pi took the prompt',
+    async (way) => {
+      let open!: () => void
+      const gate = new Promise<void>((resolve) => {
+        open = resolve
+      })
+      const { rig, sessions, win, input, state } = await bridge(
+        () => 'ok',
+        async (text) => {
+          if (text === MAIL) await gate
+          return text
+        },
+      )
+      state.mail = MAIL
+      await sessions.open(win, input)
+      const prompted = sessions.prompt(win, 's1', 'hi')
+      await vi.waitFor(() => expect(state.promptMailCalls).toBe(1))
+      await sessions[way](win, 's1')
+      expect(state.mailLifecycles.every(ended)).toBe(true)
+      open()
+      expect(await prompted).toEqual({ ok: false, error: 'cancelled' })
+      expect(state.acked).toBe(0)
+      expect(rig.provider.requests).toEqual([])
+    },
+  )
+
+  it('keeps the mail queued for a prompt too long to carry it', async () => {
+    const { sessions, win, input, state } = await bridge(() => 'ok')
+    state.mail = MAIL
+    await sessions.open(win, input)
+    await sessions.prompt(win, 's1', 'x'.repeat(AGENT_PROMPT_MAX - 100))
+    expect(state.promptMailCalls).toBe(0)
+  })
+
+  describe('a capability card raised for the session pane', () => {
+    it('reports waiting true then false, only as booleans', async () => {
+      const { sessions, win, input } = await bridge(() => 'ok')
+      await sessions.open(win, input)
+      const seen: unknown[] = []
+      sessions.watchWaiting('s1', (waiting) => seen.push(waiting))
+      sessions.approvalOpened('p1', 'approval-1')
+      expect(seen).toEqual([true])
+      sessions.approvalSettled('approval-1')
+      expect(seen).toEqual([true, false])
+    })
+
+    it('stays waiting until every card of the session is answered', async () => {
+      const { sessions, win, input } = await bridge(() => 'ok')
+      await sessions.open(win, input)
+      const seen: boolean[] = []
+      sessions.watchWaiting('s1', (waiting) => seen.push(waiting))
+      sessions.approvalOpened('p1', 'approval-1')
+      sessions.approvalOpened('p1', 'approval-2')
+      sessions.approvalSettled('approval-1')
+      sessions.approvalSettled('approval-2')
+      expect(seen).toEqual([true, false])
+    })
+
+    it('does not touch a session for a card of another pane or an unknown card', async () => {
+      const { sessions, win, input } = await bridge(() => 'ok')
+      await sessions.open(win, input)
+      const seen: boolean[] = []
+      sessions.watchWaiting('s1', (waiting) => seen.push(waiting))
+      sessions.approvalOpened('other-pane', 'approval-1')
+      sessions.approvalSettled('approval-1')
+      sessions.approvalSettled('approval-9')
+      expect(seen).toEqual([])
     })
   })
 })

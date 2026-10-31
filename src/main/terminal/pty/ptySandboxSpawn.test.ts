@@ -20,7 +20,7 @@ function spawner() {
   const wrapped: unknown[][] = []
   const spawn = createSandboxSpawn({
     workspaceSandboxes: {
-      tmp: { tmpDir: () => tmp },
+      tmp: { tmpDir: () => tmp, pluginsDir: () => `${tmp}-plugins` },
       resolved: () => ({ switches: { unixSockets: false } }),
       packagePolicy: () => ({ cooldownDays: 0 }),
       hosts: { connect: async () => {}, isKept: () => true },
@@ -65,6 +65,14 @@ describe('a sandboxed pane', () => {
     expect(result.file).toBe('/bin/sh')
     expect(wrapped).toHaveLength(1)
     expect(wrapped[0][3]).toEqual([])
+  })
+
+  it('points Claude Code at the sandbox own plugins folder', async () => {
+    const { spawn, tmp } = spawner()
+    const result = (await spawn.spawnSandboxed('p-sbx', sandboxedPlan(tmp, null))) as {
+      env: Record<string, string>
+    }
+    expect(result.env.CLAUDE_CODE_PLUGIN_CACHE_DIR).toBe(`${tmp}-plugins`)
   })
 
   it('creates its state file and lists it for the sandbox when there is one', async () => {

@@ -10,7 +10,6 @@ export const terminalBridge: Pick<
     attach: (paneId, opts) => ipcRenderer.invoke('pty:attach', paneId, opts),
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId),
-    stashed: (paneId) => ipcRenderer.invoke('pty:stashed', paneId),
     historyRead: (paneId, from, count) =>
       ipcRenderer.invoke('pty:history-read', paneId, from, count),
     historySearch: (paneId, query, options, liveLines) =>
@@ -26,6 +25,7 @@ export const terminalBridge: Pick<
       ipcRenderer.send('pty:waking', paneId, waking, reason),
     write: (paneId, data, source) => ipcRenderer.send('pty:write', paneId, data, source),
     releaseHold: (paneId) => ipcRenderer.send('pty:release-hold', paneId),
+    retryLink: (paneId) => ipcRenderer.send('pty:retry-link', paneId),
     ack: (paneId, chars) => ipcRenderer.send('pty:ack', paneId, chars),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId),
@@ -37,6 +37,7 @@ export const terminalBridge: Pick<
     promptContext: (paneId, want) => ipcRenderer.invoke('pty:prompt-context', paneId, want),
     onData: (paneId, cb) => listen(`pty:data:${paneId}`, cb),
     onExit: (paneId, cb) => listen(`pty:exit:${paneId}`, cb),
+    onLink: (paneId, cb) => listen(`pty:link:${paneId}`, cb),
     onSize: (paneId, cb) => listen(`pty:size:${paneId}`, cb),
     onRun: (cb) => listen('pty:run', cb),
   },

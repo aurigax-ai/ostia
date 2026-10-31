@@ -6,8 +6,8 @@ import {
   type ClaudeAccountsState,
   DEFAULT_ACCOUNT,
   type RemoveAccountOutcome,
+  type SetEnabledOutcome,
   type SubmitCodeOutcome,
-  sessionIdOfArgs,
 } from '../../../shared/claudeAccounts/claudeAccounts'
 import {
   acceptedProfileFolders,
@@ -21,6 +21,7 @@ import {
 import type { ClaudeAccountsStore } from './accountsStore'
 import type { OAuthProfile, OAuthTokens } from './signIn/anthropicOAuth'
 import { ClaudeSignIn, type CompleteOutcome, type SignInDeps } from './signIn/claudeSignIn'
+import type { UsagePoller, UsageTarget } from './usagePoller'
 
 const LOGIN_POLL_MS = 2000
 const LOGIN_TIMEOUT_MS = 30 * 60 * 1000
@@ -41,6 +42,7 @@ export interface ClaudeAccountsDeps {
   loginState: (dir: string) => Promise<LoginState>
   writeLogin: (dir: string, tokens: OAuthTokens, profile: OAuthProfile) => Promise<boolean>
   signIn: Omit<SignInDeps, 'complete' | 'onChange'> | null
+  usage: Pick<UsagePoller, 'run' | 'usageOf'> | null
   openLoginTab: (dir: string, target: LoginTarget) => Promise<string | null>
   agentRunning: (paneId: string) => boolean
   paneOf: (externalPaneId: string) => string | undefined
@@ -79,16 +81,25 @@ export class ClaudeAccounts {
 
   async state(): Promise<ClaudeAccountsState> {
     const { store } = this.deps
+    const usageOf = (id: string) => this.deps.usage?.usageOf(id) ?? null
     const profiles = await Promise.all(
       store.accounts().map(async ({ id, email }) => ({
         id,
         email,
         signedOut: (await this.deps.loginState(join(this.deps.root, id))) === 'signed-out',
+        enabled: store.isEnabled(id),
+        usage: store.isEnabled(id) ? usageOf(id) : null,
       })),
     )
     return {
       accounts: [
-        { id: DEFAULT_ACCOUNT, email: await this.deps.defaultEmail(), signedOut: false },
+        {
+          id: DEFAULT_ACCOUNT,
+          email: await this.deps.defaultEmail(),
+          signedOut: false,
+          enabled: true,
+          usage: usageOf(DEFAULT_ACCOUNT),
+        },
         ...profiles,
       ],
       current: store.current(),
@@ -98,6 +109,8 @@ export class ClaudeAccounts {
       duplicate: this.duplicate,
       damaged: store.isDamaged,
       recoverable: this.recoverable.length,
+      checkUsage: this.deps.usage !== null && store.checkUsage(),
+      usageAvailable: this.deps.usage !== null,
     }
   }
 
@@ -112,6 +125,37 @@ export class ClaudeAccounts {
     )
     this.recoverable = await this.unlistedLogins()
     if (this.recoverable.length > 0) await this.publish()
+    this.deps.usage?.run(this.deps.store.checkUsage())
+  }
+
+  async setCheckUsage(on: boolean): Promise<boolean> {
+    const { usage } = this.deps
+    if (!usage || !this.deps.store.setCheckUsage(on)) return false
+    usage.run(on)
+    await this.publish()
+    return true
+  }
+
+  async usageTargets(): Promise<UsageTarget[]> {
+    const { store, root } = this.deps
+    const profiles = await Promise.all(
+      store
+        .accounts()
+        .filter(({ id }) => store.isEnabled(id))
+        .map(async ({ id }) => ({
+          id,
+          dir: join(root, id),
+          signedOut: (await this.deps.loginState(join(root, id))) === 'signed-out',
+        })),
+    )
+    return [
+      { id: DEFAULT_ACCOUNT, dir: this.deps.defaultHome() },
+      ...profiles.filter((profile) => !profile.signedOut).map(({ id, dir }) => ({ id, dir })),
+    ]
+  }
+
+  async usageChanged(): Promise<void> {
+    await this.publish()
   }
 
   async recover(): Promise<number | null> {
@@ -183,14 +227,25 @@ export class ClaudeAccounts {
     return 'removed'
   }
 
+  async setEnabled(id: string, enabled: boolean): Promise<SetEnabledOutcome> {
+    const { store } = this.deps
+    if (store.isDamaged) return 'damaged'
+    if (id === DEFAULT_ACCOUNT) return 'default'
+    if (!store.has(id)) return 'unknown'
+    if (!enabled && store.current() === id) return 'current'
+    store.setEnabled(id, enabled)
+    await this.publish()
+    return 'done'
+  }
+
   async use(id: string): Promise<boolean> {
     if (!this.deps.store.use(id)) return false
     await this.publish()
     return true
   }
 
-  async startDirectory(args: readonly string[], paneId: string): Promise<string> {
-    const account = this.accountFor(sessionIdOfArgs(args))
+  async startDirectory(paneId: string): Promise<string> {
+    const account = this.deps.store.current()
     this.deps.store.rememberPane(paneId, account)
     if (account === DEFAULT_ACCOUNT) return ''
     const dir = join(this.deps.root, account)
@@ -198,26 +253,25 @@ export class ClaudeAccounts {
     return dir
   }
 
-  configDirFor(sessionId: string | null): string | undefined {
-    const account = this.accountFor(sessionId)
-    return account === DEFAULT_ACCOUNT ? undefined : join(this.deps.root, account)
+  defaultHome(): string {
+    return this.deps.defaultHome()
   }
 
-  sessionStarted(paneId: string, sessionId: string): void {
-    const account = this.deps.store.accountOfPane(paneId)
-    if (account) this.deps.store.rememberSession(sessionId, account)
+  current(): string {
+    return this.deps.store.current()
+  }
+
+  accountOfPane(paneId: string): string | undefined {
+    return this.deps.store.accountOfPane(paneId)
+  }
+
+  configDir(): string | undefined {
+    const account = this.deps.store.current()
+    return account === DEFAULT_ACCOUNT ? undefined : join(this.deps.root, account)
   }
 
   private runningOn(id: string): boolean {
     return this.deps.store.panesOn(id).some((paneId) => this.deps.agentRunning(paneId))
-  }
-
-  private accountFor(sessionId: string | null): string {
-    const { store } = this.deps
-    const remembered = sessionId ? store.accountOfSession(sessionId) : undefined
-    return remembered && (remembered === DEFAULT_ACCOUNT || store.has(remembered))
-      ? remembered
-      : store.current()
   }
 
   private async check(): Promise<boolean> {

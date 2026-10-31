@@ -7,14 +7,19 @@ export function nextPatch(base) {
   return `${match[1]}.${match[2]}.${Number(match[3]) + 1}`
 }
 
-export function buildVersion(base, git, mainRun = null) {
+export function buildVersion(base, git, mainRun = null, localInstall = false) {
+  const dirty = git && (git.dirty || localInstall) ? '.dirty' : ''
   if (mainRun !== null) {
     if (!git) throw new Error('a main build needs the git commit')
-    return `${nextPatch(base)}-main.${mainRun}+sha.${git.commit}${git.dirty ? '.dirty' : ''}`
+    return `${nextPatch(base)}-main.${mainRun}+sha.${git.commit}${dirty}`
   }
   if (!git) return base
-  if (!git.dirty && git.tags.includes(`v${base}`)) return base
-  return `${base}+sha.${git.commit}${git.dirty ? '.dirty' : ''}`
+  if (!dirty && git.tags.includes(`v${base}`)) return base
+  return `${base}+sha.${git.commit}${dirty}`
+}
+
+export function isLocalInstall(env) {
+  return env.OSTIA_LOCAL_INSTALL === '1'
 }
 
 export function mainBuildRun(env) {

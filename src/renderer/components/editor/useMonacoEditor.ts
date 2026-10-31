@@ -7,7 +7,6 @@ import { findStep, matchChord, runAppChord } from '@/lib/keyboard/chords'
 import { fileFeatureOptions } from '@/lib/monaco/largeFile'
 import { EDITOR_SCROLLBAR } from '@/lib/monaco/scrollbarOptions'
 import { monaco } from '@/lib/monaco/setup'
-import { ensureMonacoTheme } from '@/lib/monaco/useMonacoTheme'
 import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@/lib/settings/browserEditorSettings'
 import { codeFontStack } from '@/lib/theme/uiFonts'
 import { isMac } from '@/platform'
@@ -66,7 +65,6 @@ export function useMonacoEditor({
     if (!host) return
 
     const initial = useSettingsStore.getState().appearance.editor
-    ensureMonacoTheme()
     const editor = monaco.editor.create(host, {
       automaticLayout: false,
       fontFamily: codeFontStack(initial.family),

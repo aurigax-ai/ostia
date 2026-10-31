@@ -16,3 +16,7 @@ workspace reaches only its own panes.
 `send` and `handoff` take a pane id or a bus name (`ostia pane name`); a name resolves only to a pane
 you reach, so a name held outside your reach answers `unknown-pane`. Mail already queued stays
 addressed to the pane that held the name when it was sent.
+
+A pane on a remote host is `remote:<alias>:<pane>`; `ostia ssh remote-jobs [--json] [<host>]` lists
+them (ref, name, agent, state, folder). `send` to one needs `all-workspaces`, and an offline link
+answers `pending: remote-offline`. A remote pane answers only a pane that wrote to it.

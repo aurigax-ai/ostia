@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fuzzyMatch, rankFiles } from './fuzzyPaths'
+import { fuzzyMatch } from './fuzzyPaths'
 
 describe('fuzzyMatch', () => {
   it('matches the query letters in order, ignoring case and spaces', () => {
@@ -19,24 +19,16 @@ describe('fuzzyMatch', () => {
   })
 })
 
-describe('rankFiles', () => {
-  it('puts a file whose name matches ahead of one that only matches across folders', () => {
-    const ranked = rankFiles('main', ['src/mx/a/in.ts', 'src/extensions/git/main.ts'], 10)
-    expect(ranked[0].path).toBe('src/extensions/git/main.ts')
+describe('fuzzyMatch scores', () => {
+  const score = (query: string, path: string): number => fuzzyMatch(query, path)?.score ?? 0
+
+  it('scores a file whose name matches above one that only matches across folders', () => {
+    expect(score('main', 'src/extensions/git/main.ts')).toBeGreaterThan(
+      score('main', 'src/mx/a/in.ts'),
+    )
   })
 
-  it('prefers matches at word starts, camelCase included', () => {
-    const ranked = rankFiles('fv', ['src/sofavx.ts', 'src/FileView.tsx'], 10)
-    expect(ranked[0].path).toBe('src/FileView.tsx')
-  })
-
-  it('prefers the shorter path when two match equally', () => {
-    const ranked = rankFiles('index', ['a/b/c/index.ts', 'a/index.ts'], 10)
-    expect(ranked.map((h) => h.path)).toEqual(['a/index.ts', 'a/b/c/index.ts'])
-  })
-
-  it('returns at most the limit', () => {
-    const paths = Array.from({ length: 30 }, (_, i) => `file${i}.ts`)
-    expect(rankFiles('file', paths, 5)).toHaveLength(5)
+  it('scores matches at word starts, camelCase included, higher', () => {
+    expect(score('fv', 'src/FileView.tsx')).toBeGreaterThan(score('fv', 'src/sofavx.ts'))
   })
 })

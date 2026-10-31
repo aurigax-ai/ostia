@@ -23,6 +23,7 @@ import {
   selectHeader,
   selectionRange,
 } from './gridSelection'
+import { onSelectionCleared } from './viewer'
 
 export { columnName } from './gridLayout'
 export { type GridRange, rangeColumns, rangeLabel, rangeRows } from './gridSelection'
@@ -47,6 +48,7 @@ export interface Grid {
   element: HTMLElement
   selection: () => GridRange | null
   clearSelection: () => void
+  setRows: (rowCount: number, cell: (row: number, column: number) => string) => void
   setStatus: (text: string | null) => void
   destroy: () => void
 }
@@ -107,6 +109,7 @@ export function grid(options: GridOptions): Grid {
   root.append(status, scroller, announcer)
 
   const size: GridSize = { rowCount: options.rowCount, columnCount: options.columns.length }
+  let cellText = options.cell
   let unit = { ch: FALLBACK_CH, row: FALLBACK_ROW }
   let labelWidth = 0
   let widths: number[] = []
@@ -139,9 +142,9 @@ export function grid(options: GridOptions): Grid {
 
   function layout(): void {
     unit = measure(scroller)
-    widths = columnWidths(options.columns, options.rowCount, options.cell).map((w) => w * unit.ch)
+    widths = columnWidths(options.columns, size.rowCount, cellText).map((w) => w * unit.ch)
     starts = columnStarts(widths)
-    labelWidth = options.rowLabels ? rowLabelWidth(options.rowCount) * unit.ch : 0
+    labelWidth = options.rowLabels ? rowLabelWidth(size.rowCount) * unit.ch : 0
     rows.setOptions({ ...rows.options, scrollMargin: unit.row })
     columns.setOptions({ ...columns.options, scrollMargin: labelWidth })
     rows.measure()
@@ -213,7 +216,7 @@ export function grid(options: GridOptions): Grid {
       for (const column of visibleColumns) {
         const cell = div(
           `ostia-grid-cell${selectedClass(range, row.index, column.index)}`,
-          options.cell(row.index, column.index),
+          cellText(row.index, column.index),
         )
         cell.setAttribute('role', 'gridcell')
         cell.setAttribute('aria-rowindex', String(row.index + 2))
@@ -356,6 +359,9 @@ export function grid(options: GridOptions): Grid {
     return Math.max(1, Math.floor((scroller.clientHeight - unit.row) / unit.row))
   }
 
+  const stopCleared = onSelectionCleared(() => {
+    if (selection) select(null, { reveal: false })
+  })
   scroller.addEventListener('mousedown', press)
   document.addEventListener('mousemove', drag)
   document.addEventListener('mouseup', release)
@@ -411,12 +417,29 @@ export function grid(options: GridOptions): Grid {
     clearSelection: () => {
       if (selection) select(null, { reveal: false })
     },
+    setRows: (rowCount, cell) => {
+      const range = currentRange()
+      if (range) {
+        selection = {
+          anchor: { row: range.r1, column: range.c1 },
+          focus: { row: range.r2, column: range.c2 },
+          shape: 'cells',
+        }
+      }
+      size.rowCount = rowCount
+      cellText = cell
+      scroller.setAttribute('aria-rowcount', String(rowCount + 1))
+      rows.setOptions({ ...rows.options, count: rowCount })
+      rows.measure()
+      render()
+    },
     setStatus: (text) => {
       status.hidden = text === null
       status.textContent = text ?? ''
     },
     destroy: () => {
       clearTimeout(settleTimer)
+      stopCleared()
       document.removeEventListener('mousemove', drag)
       document.removeEventListener('mouseup', release)
       document.removeEventListener('mousedown', pressOutside)

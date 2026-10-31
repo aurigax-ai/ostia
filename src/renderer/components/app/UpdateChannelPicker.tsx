@@ -1,4 +1,10 @@
-import { isMacInstall, offeredChannels, updateCommandLine } from '@shared/app/installMethod'
+import { isDirtyBuild } from '@shared/app/buildInfo'
+import {
+  isMacInstall,
+  offeredChannels,
+  updateChannelFor,
+  updateCommandLine,
+} from '@shared/app/installMethod'
 import { parseVersion, type UpdateChannel } from '@shared/app/releases'
 import { useEffect, useState } from 'react'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
@@ -15,9 +21,10 @@ export function UpdateChannelPicker(): JSX.Element | null {
   const channel = useSettingsStore((s) => s.behavior.updateChannel)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   const mac = isMacInstall(method)
+  const needsVersion = mac || offeredChannels(method).includes('main')
   const [running, setRunning] = useState<string | null>(null)
   useEffect(() => {
-    if (!mac) return
+    if (!needsVersion) return
     let live = true
     window.ostia
       .info()
@@ -28,10 +35,9 @@ export function UpdateChannelPicker(): JSX.Element | null {
     return () => {
       live = false
     }
-  }, [mac])
+  }, [needsVersion])
   if (method === 'dev') return null
   const pick = (updateChannel: UpdateChannel): void => {
-    useUpdateStore.setState({ releaseCheck: { status: 'idle' } })
     setBehavior({ updateChannel })
     void saveSettingsNow()
   }
@@ -58,7 +64,8 @@ export function UpdateChannelPicker(): JSX.Element | null {
       />
     )
   }
-  const offered = offeredChannels(method).length > 1
+  const channels = offeredChannels(method, isDirtyBuild(running ?? ''))
+  const offered = channels.length > 1
   const labels: Record<(typeof LINUX_CHANNELS)[number], string> = {
     stable: d.update.channelStable,
     beta: d.update.channelBeta,
@@ -70,11 +77,11 @@ export function UpdateChannelPicker(): JSX.Element | null {
       desc={offered ? d.update.channelDesc : d.update.channelStableOnly}
     >
       <SelectField
-        value={offered && channel !== 'stable' ? channel : 'stable'}
+        value={updateChannelFor(method, channel, isDirtyBuild(running ?? ''))}
         onChange={pick}
         label={d.update.channel}
         disabled={!offered}
-        options={LINUX_CHANNELS.map((c) => ({ value: c, label: labels[c] }))}
+        options={channels.map((c) => ({ value: c, label: labels[c] }))}
       />
     </ControlRow>
   )

@@ -12,7 +12,9 @@ import {
 } from 'vscode-jsonrpc/node'
 import { managerAgents, parseManagerSettings } from '../../shared/agents/managerSettings'
 import type { MissingRequirement } from '../../shared/app/systemRequirements'
+import type { PortalPromptResult } from '../agent/portalPrompts'
 import { ManagerService } from './manager'
+import type { SessionSink } from './managerSession'
 import { type MirrorSink, Portal, portalSupported } from './portal'
 import type { CallerVerdict } from './portalCaller'
 
@@ -47,6 +49,7 @@ async function startPortal(verdict: CallerVerdict = 'outside', missing: MissingR
     saveResume: () => {},
     agents: () => managerAgents(parseManagerSettings(undefined)),
     createPane: async () => `pane-${++next}`,
+    adopt: () => true,
     spawn: (req) => {
       ptys.set(req.paneId, {
         paneId: req.paneId,
@@ -61,6 +64,9 @@ async function startPortal(verdict: CallerVerdict = 'outside', missing: MissingR
     },
   })
   const judged: number[] = []
+  const sessionSinks = new Map<string, SessionSink>()
+  const prompted: string[] = []
+  const promptResult: { value: PortalPromptResult } = { value: { ok: true } }
   const portal = new Portal(path, {
     missing: () => missing,
     hint: (m) => ({
@@ -83,10 +89,20 @@ async function startPortal(verdict: CallerVerdict = 'outside', missing: MissingR
         detach: () => pty.sinks.delete(sink),
       }
     },
+    attachSession: (paneId, sink) => {
+      sessionSinks.set(paneId, sink)
+      return {
+        prompt: async (text) => {
+          prompted.push(text)
+          return promptResult.value
+        },
+        detach: () => sessionSinks.delete(paneId),
+      }
+    },
   })
   portals.push(portal)
   expect(await portal.start()).toBe(true)
-  return { path, ptys, manager, portal, judged }
+  return { path, ptys, manager, portal, judged, sessionSinks, prompted, promptResult }
 }
 
 async function client(path: string) {
@@ -134,7 +150,7 @@ describe('Portal', () => {
     const { path, ptys } = await startPortal()
     const c = await client(path)
     const res = await open(c.conn)
-    expect(res).toEqual({ paneId: 'pane-1', agent: 'claude', created: true })
+    expect(res).toEqual({ paneId: 'pane-1', agent: 'claude', created: true, session: false })
     await settle()
     expect(c.data.join('')).toBe('welcome\r\n')
 
@@ -232,9 +248,11 @@ describe('Portal', () => {
         saveResume: () => {},
         agents: () => ({}),
         createPane: async () => null,
+        adopt: () => true,
         spawn: () => false,
       }),
       attachMirror: () => null,
+      attachSession: () => null,
     })
     expect(await other.start()).toBe(false)
     const c = await client(path)
@@ -245,5 +263,104 @@ describe('Portal', () => {
     expect(portalSupported('linux')).toBe(true)
     expect(portalSupported('darwin')).toBe(false)
     expect(portalSupported('win32')).toBe(false)
+  })
+
+  it('PIM-C1 opens the pi session without a mirror, forwards a prompt and the session events', async () => {
+    const { path, sessionSinks, prompted } = await startPortal()
+    const c = await client(path)
+    const events: unknown[] = []
+    const waits: boolean[] = []
+    c.conn.onNotification('session.events', (p: { events: unknown[] }) => {
+      events.push(...p.events)
+    })
+    c.conn.onNotification('session.waiting', (p: { waiting: boolean }) => {
+      waits.push(p.waiting)
+    })
+    const opened = await open(c.conn, 'pi')
+    expect(opened).toMatchObject({ agent: 'pi', created: true, session: true })
+    expect(await c.conn.sendRequest('portal.prompt', { text: 'list workspaces' })).toEqual({
+      ok: true,
+    })
+    expect(prompted).toEqual(['list workspaces'])
+    const sink = sessionSinks.get(opened.paneId)
+    sink?.events([{ type: 'turn.started', turn: 't1' }])
+    sink?.waiting(true)
+    await vi.waitFor(() => expect(events).toHaveLength(1))
+    await vi.waitFor(() => expect(waits).toEqual([true]))
+  })
+
+  it('PIM-C2 refuses a prompt before the session is open, an empty one and one that is too long', async () => {
+    const { path, prompted } = await startPortal()
+    const c = await client(path)
+    await expect(c.conn.sendRequest('portal.prompt', { text: 'early' })).rejects.toThrow(
+      'not-attached',
+    )
+    await open(c.conn, 'pi')
+    await expect(c.conn.sendRequest('portal.prompt', { text: '' })).rejects.toThrow('bad-request')
+    await expect(
+      c.conn.sendRequest('portal.prompt', { text: 'x'.repeat(9 * 1024) }),
+    ).rejects.toThrow('bad-request')
+    await expect(c.conn.sendRequest('portal.prompt', { text: 7 })).rejects.toThrow('bad-request')
+    expect(prompted).toEqual([])
+  })
+
+  it('PIM-C3 turns a failed delivery into a named refusal instead of waiting', async () => {
+    const { path, promptResult } = await startPortal()
+    const c = await client(path)
+    await open(c.conn, 'pi')
+    promptResult.value = { ok: false, error: 'no-window' }
+    await expect(c.conn.sendRequest('portal.prompt', { text: 'hi' })).rejects.toThrow('no-window')
+  })
+
+  it('PIM-C4 detach on disconnect keeps the manager session running', async () => {
+    const { path, manager, sessionSinks } = await startPortal()
+    const c = await client(path)
+    const opened = await open(c.conn, 'pi')
+    c.socket.destroy()
+    await c.closed
+    await vi.waitFor(() => expect(sessionSinks.has(opened.paneId)).toBe(false))
+    expect(manager.live).toMatchObject({ agent: 'pi', session: true })
+    const again = await client(path)
+    expect(await open(again.conn, 'pi')).toMatchObject({ created: false, session: true })
+  })
+
+  it('PIM-C5 tells the client when the manager pane closes and closes the connection', async () => {
+    const { path, manager, sessionSinks } = await startPortal()
+    const c = await client(path)
+    let ended = 0
+    c.conn.onNotification('session.ended', () => {
+      ended += 1
+    })
+    const opened = await open(c.conn, 'pi')
+    manager.paneClosed(opened.paneId)
+    sessionSinks.get(opened.paneId)?.ended()
+    await c.closed
+    expect(ended).toBe(1)
+  })
+
+  it('PIM-C6 offers no way to answer a card, a question or a capability', async () => {
+    const { path } = await startPortal()
+    const c = await client(path)
+    await open(c.conn, 'pi')
+    for (const method of [
+      'approvals.answer',
+      'agent:tool-result',
+      'ask.answer',
+      'portal.answer',
+      'pane.input',
+      'manager.input',
+    ]) {
+      await expect(c.conn.sendRequest(method, {})).rejects.toThrow()
+    }
+  })
+
+  it('PIM-C7 still refuses a caller from inside Ostia before opening the pi session', async () => {
+    const { path, manager } = await startPortal('inside')
+    const c = await client(path)
+    await expect(open(c.conn, 'pi')).rejects.toThrow('inside-ostia')
+    expect(manager.live).toBeNull()
+    await expect(c.conn.sendRequest('portal.prompt', { text: 'hi' })).rejects.toThrow(
+      'not-attached',
+    )
   })
 })

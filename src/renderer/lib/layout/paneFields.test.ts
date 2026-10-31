@@ -11,7 +11,9 @@ import {
   setPaneDiff,
   setPaneEditor,
   setPaneHibernated,
+  setPaneKeepAwake,
   setPaneLocked,
+  setPaneResume,
   setPaneSpawnDir,
   setPaneTitle,
   setPaneUrl,
@@ -259,6 +261,28 @@ describe('setPaneLocked', () => {
   })
 })
 
+describe('setPaneKeepAwake', () => {
+  it('marks and clears a pane, returning the same tree when nothing changes', () => {
+    const root = createPane()
+    const kept = setPaneKeepAwake(root, root.id, true)
+    expect(kept).toMatchObject({ keepAwake: true })
+    expect(setPaneKeepAwake(kept, root.id, true)).toBe(kept)
+    const open = setPaneKeepAwake(kept, root.id, false)
+    expect(open).not.toHaveProperty('keepAwake')
+    expect(setPaneKeepAwake(open, root.id, false)).toBe(open)
+  })
+
+  it('stays when the same agent stores a new session and drops when another agent starts', () => {
+    const root = { ...createPane(), resume: { agent: 'claude' as const, id: 'a' } }
+    const kept = setPaneKeepAwake(root, root.id, true)
+    const sameAgent = setPaneResume(kept, root.id, { agent: 'claude', id: 'b' })
+    expect(sameAgent).toMatchObject({ keepAwake: true, resume: { id: 'b' } })
+    const otherAgent = setPaneResume(kept, root.id, { agent: 'codex', id: 'c' })
+    expect(otherAgent).not.toHaveProperty('keepAwake')
+    expect(otherAgent).toMatchObject({ resume: { agent: 'codex', id: 'c' } })
+  })
+})
+
 describe('setPaneHibernated', () => {
   it('marks and clears a pane, returning the same tree when nothing changes', () => {
     const root = createPane()
@@ -270,6 +294,14 @@ describe('setPaneHibernated', () => {
     expect(setPaneHibernated(awake, root.id, false)).toBe(awake)
   })
 
+  it('drops keep-awake when the pane hibernates', () => {
+    const root = { ...createPane(), resume: { agent: 'claude' as const, id: 'a' } }
+    const kept = setPaneKeepAwake(root, root.id, true)
+    const asleep = setPaneHibernated(kept, root.id, true)
+    expect(asleep).toMatchObject({ hibernated: true })
+    expect(asleep).not.toHaveProperty('keepAwake')
+  })
+
   it('wakes a pane whose token names a folder with the next shell starting there', () => {
     const root = {
       ...createPane(),
@@ -278,6 +310,17 @@ describe('setPaneHibernated', () => {
     }
     const awake = setPaneHibernated(setPaneHibernated(root, root.id, true), root.id, false)
     expect(awake).toMatchObject({ cwd: '/w', spawnDir: '/w/t' })
+  })
+
+  it('wakes in the folder the session moved to after the token was refreshed', () => {
+    const root = {
+      ...createPane(),
+      cwd: '/w',
+      resume: { agent: 'claude' as const, id: 'a', cwd: '/w/t' },
+    }
+    const moved = setPaneResume(root, root.id, { agent: 'claude', id: 'a', cwd: '/w/t/wt1' })
+    const awake = setPaneHibernated(setPaneHibernated(moved, root.id, true), root.id, false)
+    expect(awake).toMatchObject({ resume: { cwd: '/w/t/wt1' }, spawnDir: '/w/t/wt1' })
   })
 })
 

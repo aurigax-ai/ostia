@@ -1,24 +1,21 @@
 import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { WarningIcon } from '@phosphor-icons/react'
-import { selectionLabel } from '@shared/browser/selection'
-import type {
-  ViewerOpenResult,
-  ViewerSelectionEvent,
-  ViewerStopReason,
-} from '@shared/files/filesApi'
+import type { ViewerOpenResult, ViewerStopReason } from '@shared/files/filesApi'
 import { useEffect, useRef, useState } from 'react'
-import { RegionActionBar } from '@/components/agents/RegionActionBar'
+import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { EmptyState } from '@/components/common/EmptyState'
-import { StatusLine } from '@/components/common/StatusLine'
 import { Button } from '@/components/ui/button'
-import type { PickTarget } from '@/lib/agents/pickTargets'
-import { registerSelectionCopier } from '@/lib/agents/selectionCopiers'
-import { registerSelectionSender } from '@/lib/agents/selectionSenders'
-import { sendViewerSelectionToPane } from '@/lib/agents/sendPick'
-import { fmt, useDict } from '@/lib/app/useDict'
-import { useTransientStatus } from '@/lib/app/useTransientStatus'
+import { useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { openBrowserTabAs } from '@/lib/browser/browserProfile'
+import {
+  closeCapture,
+  confirmCapture,
+  openCapture,
+  updateCapture,
+} from '@/lib/capture/captureSession'
+import { closeOnGuestFocus } from '@/lib/capture/guestFocus'
+import { viewerAdapter } from '@/lib/capture/viewerAdapter'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { webLinkTarget } from '@/lib/terminalLinks/linkModifier'
@@ -31,7 +28,6 @@ import { useLiveDocumentText } from './useLiveDocumentText'
 import { ViewerMessage } from './ViewerChrome'
 
 const ABORTED = -3
-const SEND_STATUS_MS = 6000
 
 interface FrameProps {
   workspaceId: string
@@ -66,18 +62,12 @@ function ViewerFrame({
   const visible = usePaneVisible(paneId)
   const webviewRef = useRef<HTMLElement | null>(null)
   webviewRef.current = webview
-  const [shown, setShown] = useState<{
-    selection: NonNullable<ViewerSelectionEvent['selection']>
-    takeFocus: boolean
-  } | null>(null)
-  const [sendRequest, setSendRequest] = useState(0)
-  const [status, setStatus] = useTransientStatus(SEND_STATUS_MS)
+  const selectionRef = useRef<{ seq: number; takeFocus: boolean } | null>(null)
   const [hint, setHint] = useState<{ value: string; count: number } | null>(() => {
     const value = useViewerHintStore.getState().take(filePath)
     return value === undefined ? null : { value, count: 0 }
   })
   useLiveDocumentText(paneId, filePath, opened !== null)
-  const selection = shown?.selection ?? null
 
   useEffect(
     () =>
@@ -91,36 +81,32 @@ function ViewerFrame({
     [filePath],
   )
 
-  useEffect(
-    () =>
-      window.ostia.viewers.onSelection((event) => {
-        if (event.paneId !== paneId) return
-        setShown((current) =>
-          event.selection
-            ? {
-                selection: event.selection,
-                takeFocus:
-                  current?.selection.seq === event.selection.seq
-                    ? current.takeFocus
-                    : document.activeElement === webviewRef.current,
-              }
-            : null,
-        )
-      }),
-    [paneId],
-  )
-
   useEffect(() => {
-    if (!selection) return
-    return registerSelectionSender(paneId, () => setSendRequest((n) => n + 1))
-  }, [paneId, selection])
-
-  useEffect(() => {
-    if (!selection) return
-    return registerSelectionCopier(paneId, () =>
-      window.ostia.viewers.copySelection(paneId).then(() => undefined),
-    )
-  }, [paneId, selection])
+    const stopSelection = window.ostia.viewers.onSelection((event) => {
+      if (event.paneId !== paneId) return
+      const { selection } = event
+      if (!selection) {
+        selectionRef.current = null
+        closeCapture(paneId, 'source-gone')
+        return
+      }
+      if (selectionRef.current?.seq === selection.seq) {
+        updateCapture(paneId, viewerAdapter(paneId, selection, selectionRef.current.takeFocus))
+        return
+      }
+      const takeFocus = document.activeElement === webviewRef.current
+      selectionRef.current = { seq: selection.seq, takeFocus }
+      openCapture(paneId, viewerAdapter(paneId, selection, takeFocus))
+    })
+    const stopCopied = window.ostia.viewers.onCopied((event) => {
+      if (event.paneId !== paneId) return
+      confirmCapture(paneId, event.label, 'copied')
+    })
+    return () => {
+      stopSelection()
+      stopCopied()
+    }
+  }, [paneId])
 
   useEffect(
     () =>
@@ -160,19 +146,6 @@ function ViewerFrame({
     [paneId, workspaceId],
   )
 
-  const sendSelection = async (target: PickTarget, note: string): Promise<void> => {
-    if (!selection) return
-    const res = await sendViewerSelectionToPane({
-      paneId,
-      targetPaneId: target.paneId,
-      via: target.via,
-      note,
-      label: selectionLabel(selection.capture),
-    })
-    if (!res.ok) throw new Error(fmt(d.send.sendFailed, { reason: res.error }))
-    setStatus(fmt(res.inserted ? d.send.sentInserted : d.send.sentCopied, { pane: target.title }))
-  }
-
   useEffect(
     () =>
       window.ostia.viewers.onStopped((event) => {
@@ -201,6 +174,10 @@ function ViewerFrame({
       window.ostia.viewers.close(paneId)
     }
   }, [workspaceId, paneId, filePath, viewer.viewType, onFailed])
+
+  useEffect(() => {
+    if (webview) return closeOnGuestFocus(paneId, webview)
+  }, [paneId, webview])
 
   useEffect(() => {
     const el = webview
@@ -246,23 +223,7 @@ function ViewerFrame({
           <ViewerMessage>{d.viewer.loading}</ViewerMessage>
         )}
       </div>
-      {status ? (
-        <div className="absolute inset-x-0 top-0 z-20">
-          <StatusLine onDismiss={() => setStatus(null)}>{status}</StatusLine>
-        </div>
-      ) : null}
-      {selection && visible ? (
-        <RegionActionBar
-          key={selection.seq}
-          workspaceId={workspaceId}
-          anchor={selection.anchor}
-          takeFocus={shown?.takeFocus ?? false}
-          sendRequest={sendRequest}
-          onCopy={() => window.ostia.viewers.copySelection(paneId)}
-          onSend={sendSelection}
-          onClose={() => window.ostia.viewers.clearSelection(paneId)}
-        />
-      ) : null}
+      <CaptureLayer workspaceId={workspaceId} paneId={paneId} visible={visible} />
     </div>
   )
 }

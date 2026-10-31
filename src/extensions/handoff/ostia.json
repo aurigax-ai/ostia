@@ -2,7 +2,7 @@
   "id": "handoff",
   "name": "Handoff",
   "version": "1.0.0",
-  "api": "7.8",
+  "api": "7.12",
   "description": "Starts a clean new agent session on one topic, as its own tab beside yours. The new session reads the related past sessions in subagents, checks what they claim against the repository, writes a short brief and carries on the work. Your session does no gathering and is left as it was. Works only while the handoff playbook is on in Settings, and reads Claude session files on this computer without storing them.",
   "category": "tools",
   "capabilities": ["read-board", "process", "shell"],

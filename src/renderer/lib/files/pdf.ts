@@ -20,5 +20,5 @@ export function loadPdfjs(): Promise<Pdfjs> {
 
 export async function openPdf(data: Uint8Array): Promise<PdfDocument> {
   const pdfjs = await loadPdfjs()
-  return pdfjs.getDocument({ data }).promise
+  return pdfjs.getDocument({ data, verbosity: pdfjs.VerbosityLevel.ERRORS }).promise
 }

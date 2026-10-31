@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -12,11 +14,13 @@ import {
 import { ownWorkspaceReach } from '../../../test/reach'
 import { ChangeSignal } from '../../shared/common/actThenConfirm'
 import type { CommandResult } from '../../shared/control/commands'
+import type { RemoteStartAnswer, RemoteStartInput } from '../../shared/remote/remoteHandoff'
 import { grant, setCaps } from '../approvals/capabilityStore'
 import { setScriptTokenCheck } from '../control/controlAuth'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import {
   getByPaneId,
+  markManager,
   type PaneIdentity,
   registerExtension,
   registerPane,
@@ -50,6 +54,8 @@ const AGENTS: Record<string, string[]> = {
   reviewer: ['codex', '--model', 'o4'],
 }
 
+const admitted: number[] = []
+let managerRefusal: string | null = null
 const sandboxedWorkspaces = new Set<string>()
 const agentPanes = new Set<string>()
 const titles = new Map<string, string>()
@@ -61,10 +67,23 @@ const agentSessions = new Map<string, string>()
 const agentSignal = new ChangeSignal()
 const told: { to: string; text: string }[] = []
 let onOpen: ((paneId: string) => void) | null = null
+const remoteWorkspaces = new Set<string>()
+const remoteStarts: RemoteStartInput[] = []
 
 const { registry, startAgentForPhone } = registerProcessMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
+  remote: {
+    isRemote: async (workspaceId) => remoteWorkspaces.has(workspaceId),
+    start: async (input): Promise<RemoteStartAnswer> => {
+      remoteStarts.push(input)
+      return { ok: true, jobId: 'aaaa0001', ref: 'remote:box:aaaa0001', paneId: 'local-tab' }
+    },
+  },
   isConfined: () => false,
+  managerAdmitSpawn: (live) => {
+    admitted.push(live)
+    return managerRefusal
+  },
   reach: ownWorkspaceReach((id) =>
     id === 'script_ostia_scoped'
       ? {
@@ -203,6 +222,8 @@ afterEach(() => {
   agentSessions.clear()
   told.length = 0
   onOpen = null
+  remoteWorkspaces.clear()
+  remoteStarts.length = 0
 })
 
 describe('the start of a run is confirmed', () => {
@@ -280,6 +301,26 @@ describe('the start of a run is confirmed', () => {
 })
 
 describe('agent.run', () => {
+  it('PIM-C9 asks the manager limiter only for a manager caller, with its live workers, and starts nothing when refused', async () => {
+    admitted.length = 0
+    const plain = await client(agent)
+    await plain.sendRequest('agent.run', { agent: 'claude', prompt: 'one' })
+    expect(admitted).toEqual([])
+    const manager = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'pi-manager' })
+    markManager('pi-manager')
+    const conn = await client(manager)
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'two' })
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'three' })
+    expect(admitted).toEqual([0, 1])
+    managerRefusal = 'limit: 1 workers are already running'
+    const before = opened.length
+    await expect(
+      conn.sendRequest('agent.run', { agent: 'claude', prompt: 'four' }),
+    ).rejects.toThrow('limit: 1 workers')
+    expect(opened).toHaveLength(before)
+    managerRefusal = null
+  })
+
   it('puts an agent caller’s workers into one split tab named after the caller', async () => {
     agentPanes.add('agent-pane')
     titles.set('agent-pane', 'api')
@@ -361,6 +402,16 @@ describe('agent.run', () => {
     expect(started).toMatchObject({ name: 'reviewer', paneId: expect.any(String) })
     const [info] = await conn.sendRequest<ProcessInfo[]>('process.list')
     expect(info).toMatchObject({ name: 'reviewer', status: 'starting', paneId: started.paneId })
+  })
+
+  it('refuses a prompt that starts with a dash or a plus, opening nothing', async () => {
+    const conn = await client(agent)
+    for (const prompt of ['--dangerously-skip-permissions', ' --settings=x', '+flag', '-p']) {
+      await expect(conn.sendRequest('agent.run', { agent: 'claude', prompt })).rejects.toThrow(
+        'bad-request: prompt',
+      )
+    }
+    expect(opened).toEqual([])
   })
 
   it('refuses an agent Ostia does not know, a bad name and an empty prompt, opening nothing', async () => {
@@ -1130,5 +1181,75 @@ describe('startAgentForPhone', () => {
     const before = opened.length
     expect(await startAgentForPhone('ws1', 'codex', '--yolo now')).toBeNull()
     expect(opened).toHaveLength(before)
+  })
+})
+
+describe('agent.run in a remote workspace', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-remote-run-')))
+  const repo = join(root, 'proj')
+  const git = (...args: string[]) =>
+    execFileSync('git', ['-c', 'user.email=a@b.c', '-c', 'user.name=t', ...args], {
+      cwd: repo,
+      encoding: 'utf8',
+    }).trim()
+
+  beforeEach(() => {
+    rmSync(repo, { recursive: true, force: true })
+    mkdirSync(repo)
+    git('init', '-q', '-b', 'main')
+    writeFileSync(join(repo, 'a.txt'), 'one\n')
+    git('add', '.')
+    git('commit', '-q', '-m', 'first')
+    cwds.set('agent-pane', repo)
+    remoteWorkspaces.add('ws1')
+  })
+
+  it('RMT-C17 hands the clean repository to the remote start and opens no local tab', async () => {
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Record<string, unknown>>('agent.run', {
+      agent: 'claude',
+      prompt: 'fix it',
+      model: 'opus',
+      name: 'worker',
+    })
+    expect(res).toMatchObject({
+      id: 'aaaa0001',
+      name: 'worker',
+      paneId: 'local-tab',
+      status: 'started',
+      ref: 'remote:box:aaaa0001',
+    })
+    expect(remoteStarts).toHaveLength(1)
+    expect(remoteStarts[0]).toMatchObject({
+      agent: 'claude',
+      prompt: 'fix it',
+      model: 'opus',
+      title: 'worker',
+      workspaceId: 'ws1',
+      root: repo,
+      repo: { head: git('rev-parse', 'HEAD'), name: 'proj' },
+    })
+    expect(opened).toHaveLength(0)
+  })
+
+  it('RMT-C18 refuses a dirty tree before anything is sent', async () => {
+    writeFileSync(join(repo, 'a.txt'), 'two\n')
+    const conn = await client(agent)
+    const res = await conn.sendRequest<{ ok: boolean; error: string; message: string }>(
+      'agent.run',
+      { agent: 'claude', prompt: 'fix it' },
+    )
+    expect(res).toMatchObject({ ok: false, error: 'dirty' })
+    expect(res.message).toContain('commit or stash first')
+    expect(remoteStarts).toHaveLength(0)
+    expect(opened).toHaveLength(0)
+  })
+
+  it('RMT-C19 leaves a local workspace on the local path, never asking the remote start', async () => {
+    remoteWorkspaces.clear()
+    const conn = await client(agent)
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'fix it' })
+    expect(remoteStarts).toHaveLength(0)
+    expect(opened).toHaveLength(1)
   })
 })

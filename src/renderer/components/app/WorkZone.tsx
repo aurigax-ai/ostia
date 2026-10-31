@@ -1,8 +1,6 @@
 import { PlusIcon, TerminalWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { commands } from '@/commands/registry'
-import { DashboardPanel } from '@/components/agents/DashboardPanel'
-import { NoNewPrivsStatus } from '@/components/app/NoNewPrivsStatus'
 import { ChordButton } from '@/components/common/ChordButton'
 import { EmptyState } from '@/components/common/EmptyState'
 import { PaneTree } from '@/components/panes/PaneTree'
@@ -12,14 +10,14 @@ import { workspacesAwaitingResume } from '@/lib/agents/autoResume'
 import { useDict } from '@/lib/app/useDict'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 export function WorkZone(): JSX.Element {
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const covered = useUIStore(coversWorkspaces)
+  const settingsActive = useUIStore((s) => s.settingsActive)
   const autoResume = useSettingsStore((s) => s.agents.autoResume)
   const awaitingResume = useLayoutStore((s) =>
     autoResume ? workspacesAwaitingResume(s.byWorkspace).join('\n') : '',
@@ -52,12 +50,14 @@ export function WorkZone(): JSX.Element {
       {mounted
         .filter((id) => workspaces.some((s) => s.id === id))
         .map((id) => (
-          <WorkspaceLayer key={id} workspaceId={id} active={id === activeWorkspaceId && !covered} />
+          <WorkspaceLayer
+            key={id}
+            workspaceId={id}
+            active={id === activeWorkspaceId && !settingsActive}
+          />
         ))}
-      <NoNewPrivsStatus />
       <SurfacePool />
       <SettingsPanel />
-      <DashboardPanel />
     </section>
   )
 }

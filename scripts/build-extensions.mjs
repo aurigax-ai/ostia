@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 import { buildExtension } from '../marketplace/build-extension.mjs'
+import { buildNode } from './build-node.mjs'
 import { writeFigSpecs } from './completionSpecs.mjs'
 import { GENERATED_PACKS } from './i18nCatalog.mjs'
 import { marketplaceIds } from './marketplace.mjs'
@@ -36,6 +37,7 @@ const ids = readdirSync(srcRoot).filter(
 for (const id of ids) {
   const out = join(builtinRoot, id)
   await buildExtension(join(srcRoot, id), out, panelBaseCss)
+  if (id === 'ssh') await buildNode(join(out, 'assets', 'node'))
   if (id === 'completions') await writeFigSpecs(join(out, 'specs'))
   const pack = GENERATED_PACKS[id]
   if (pack) await writeCatalog(pack.exportName, join(out, pack.file))

@@ -7,6 +7,7 @@ type Handler = (params: unknown, ctx: ControlMethodContext) => unknown
 const registered = new Map<string, { handler: Handler; cap?: string }>()
 
 vi.mock('../control/controlServer', () => ({
+  callControlMethod: vi.fn(),
   registerControlMethod: (name: string, method: { handler: Handler; cap?: string }) =>
     registered.set(name, method),
 }))
@@ -25,6 +26,7 @@ function wire(builtin: string | null) {
     services: services as never,
     redactor: { text: async (t: string) => t } as never,
     workspaceSandboxes: { isEnabled: () => false },
+    registry: { isChild: () => false },
   })
   Object.assign(services.agentSessions as object, { complete })
   return complete

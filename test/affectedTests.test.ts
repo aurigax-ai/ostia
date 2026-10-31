@@ -106,6 +106,7 @@ describe('planTests', () => {
       '.dependency-cruiser.json',
       '.dependency-cruiser-known-violations.json',
       'test/consoleGuard.ts',
+      'test/nodeConsole.ts',
       'test/quarantine.mjs',
     ]) {
       expect(planTests([file], readers), file).toEqual({ node: null, dom: null })

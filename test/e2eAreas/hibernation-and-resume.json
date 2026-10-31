@@ -29,8 +29,10 @@
   "specs": [
     "e2e/auto-resume.spec.ts",
     "e2e/claude-folder-trust.spec.ts",
+    "e2e/claude-start-trust.spec.ts",
     "e2e/hibernate-background-work.spec.ts",
     "e2e/hibernate-group.spec.ts",
+    "e2e/keep-awake.spec.ts",
     "e2e/park.spec.ts",
     "e2e/resume-folder.spec.ts"
   ]

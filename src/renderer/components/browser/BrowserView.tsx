@@ -2,17 +2,20 @@ import { type BrowserDevice, DEFAULT_DEVICE } from '@shared/browser/browserDevic
 import { type BrowserProfile, browserPartition } from '@shared/browser/browserProfile'
 import type { DeviceTouch } from '@shared/browser/deviceTouch'
 import { type MutableRefObject, useCallback, useRef, useState } from 'react'
+import { CaptureHighlight } from '@/components/capture/CaptureHighlight'
+import { CaptureLayer } from '@/components/capture/CaptureLayer'
+import { RegionCropOverlay } from '@/components/capture/RegionCropOverlay'
 import { useDict } from '@/lib/app/useDict'
+import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { unscaledRegion } from '@/lib/browser/deviceFrame'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
-import { BrowserCaptureActions, BrowserCaptureBar } from './BrowserCaptureBar'
+import { BrowserCaptureBar } from './BrowserCaptureBar'
 import { BrowserFind, type FindResult } from './BrowserFind'
 import { BrowserLoadError } from './BrowserLoadError'
 import { BrowserStoragePanel } from './BrowserStoragePanel'
 import { BrowserToolbar } from './BrowserToolbar'
 import { DeviceBar } from './DeviceBar'
 import { DeviceStage } from './DeviceStage'
-import { RegionCropOverlay } from './RegionCropOverlay'
 import { useBrowserActions } from './useBrowserActions'
 import { useBrowserCapture } from './useBrowserCapture'
 import { useBrowserDevice } from './useBrowserDevice'
@@ -21,6 +24,9 @@ import { useGrantedProfile } from './useGrantedProfile'
 import { useWebviewEvents } from './useWebviewEvents'
 
 function BrowserStage({
+  workspaceId,
+  paneId,
+  visible,
   device,
   preview,
   commit,
@@ -29,7 +35,6 @@ function BrowserStage({
   cropping,
   setCropping,
   finishCrop,
-  captureActions,
   partition,
   attachWebview,
   src,
@@ -42,6 +47,9 @@ function BrowserStage({
   loadError,
   navigate,
 }: {
+  workspaceId: string
+  paneId: string
+  visible: boolean
   device: BrowserDevice | undefined
   preview: ReturnType<typeof useBrowserDevice>['preview']
   commit: ReturnType<typeof useBrowserDevice>['commit']
@@ -50,7 +58,6 @@ function BrowserStage({
   cropping: boolean
   setCropping: (on: boolean) => void
   finishCrop: ReturnType<typeof useBrowserCapture>['finishCrop']
-  captureActions: JSX.Element
   partition: string | null
   attachWebview: (el: HTMLElement | null) => void
   src: string
@@ -82,7 +89,9 @@ function BrowserStage({
               }}
               onCancel={() => setCropping(false)}
             />
-          ) : null
+          ) : (
+            <CaptureHighlight paneId={paneId} />
+          )
         }
       >
         {partition ? (
@@ -105,7 +114,7 @@ function BrowserStage({
           stepRef={findStepRef}
         />
       ) : null}
-      {captureActions}
+      <CaptureLayer workspaceId={workspaceId} paneId={paneId} visible={visible} />
       {loadError ? <BrowserLoadError loadError={loadError} navigate={navigate} /> : null}
     </div>
   )
@@ -228,6 +237,7 @@ export function BrowserView({
   })
 
   const capture = useBrowserCapture({ paneId, partition, webviewRef, withGuest, d })
+  const visible = usePaneVisible(paneId)
 
   return (
     <div className="browser-surface relative" onKeyDown={onSurfaceKeyDown}>
@@ -251,6 +261,9 @@ export function BrowserView({
       {device ? <DeviceBar device={device} onChange={commit} /> : null}
       <BrowserCaptureBar {...capture} />
       <BrowserStage
+        workspaceId={workspaceId}
+        paneId={paneId}
+        visible={visible}
         device={device}
         preview={preview}
         commit={commit}
@@ -259,7 +272,6 @@ export function BrowserView({
         cropping={capture.cropping}
         setCropping={capture.setCropping}
         finishCrop={capture.finishCrop}
-        captureActions={<BrowserCaptureActions workspaceId={workspaceId} {...capture} />}
         partition={partition}
         attachWebview={attachWebview}
         src={src}

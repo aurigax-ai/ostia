@@ -1,5 +1,5 @@
 import type { RequirementsReport } from '@shared/app/systemRequirements'
-import type { SandboxFolderProblem } from '@shared/sandbox/sandbox'
+import type { SandboxFolderProblem, SandboxLeftBehind } from '@shared/sandbox/sandbox'
 import { create } from 'zustand'
 
 export const SANDBOX_FEATURE = 'sandbox'
@@ -14,6 +14,7 @@ interface SandboxState {
   paneSandboxed: Record<string, boolean>
   generation: Record<string, number>
   blocked: SandboxBlocked | null
+  leftBehind: Record<string, SandboxLeftBehind>
   refusedFolder: SandboxFolderProblem | null
   stamp: Record<string, string | null>
   paneStamp: Record<string, string>
@@ -23,6 +24,8 @@ interface SandboxState {
   takeHostToken: (paneId: string) => string | undefined
   noteHost: (paneId: string) => void
   dismissBlocked: () => void
+  noteLeftBehind: (leftBehind: SandboxLeftBehind) => void
+  dismissLeftBehind: (workspaceId: string) => void
   dismissRefusedFolder: () => void
   load: (workspaceId: string) => Promise<void>
   reloadAll: () => Promise<void>
@@ -36,6 +39,7 @@ export const useSandboxStore = create<SandboxState>((set, get) => ({
   paneSandboxed: {},
   generation: {},
   blocked: null,
+  leftBehind: {},
   refusedFolder: null,
   stamp: {},
   paneStamp: {},
@@ -55,6 +59,13 @@ export const useSandboxStore = create<SandboxState>((set, get) => ({
   },
   noteHost: (paneId) => set((s) => ({ hostPanes: { ...s.hostPanes, [paneId]: true } })),
   dismissBlocked: () => set({ blocked: null }),
+  noteLeftBehind: (leftBehind) =>
+    set((s) => ({ leftBehind: { ...s.leftBehind, [leftBehind.workspaceId]: leftBehind } })),
+  dismissLeftBehind: (workspaceId) =>
+    set((s) => {
+      const { [workspaceId]: _shown, ...rest } = s.leftBehind
+      return { leftBehind: rest }
+    }),
   dismissRefusedFolder: () => set({ refusedFolder: null }),
   load: async (workspaceId) => {
     const [settings, stamp] = await Promise.all([

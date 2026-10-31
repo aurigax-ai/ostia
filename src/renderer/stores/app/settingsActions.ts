@@ -1,4 +1,5 @@
 import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
+import { AGENT_ACT_TOOLS } from '@shared/agent/agentCoreTools'
 import { parseManagerSettings } from '@shared/agents/managerSettings'
 import { clampZoom } from '@shared/app/zoom'
 import { parseChatToolSettings } from '@shared/assist/chatTools'
@@ -7,6 +8,7 @@ import { parsePortsSettings } from '@shared/boards/ports'
 import { parseModifierRemap } from '@shared/keyboard/modifierRemap'
 import { parseRedactionSettings } from '@shared/privacy/redaction'
 import { parseTelemetrySettings } from '@shared/privacy/telemetry'
+import { offKinds } from '@shared/profileSync/syncKinds'
 import { parsePromptSettings } from '@shared/terminal/promptSettings'
 import { parseScrollbackHistory } from '@shared/terminal/scrollbackHistory'
 import type { StoreApi } from 'zustand'
@@ -21,7 +23,7 @@ import {
 import { parseWindowTitle } from '@/lib/settings/windowTitle'
 import { normalizeHex } from '@/lib/theme/color'
 import { clampLineHeight, type SettingsState, withBaseSize } from './settingsModel'
-import { parseHibernation } from './settingsParse'
+import { parseHibernation, syncSettingsOf } from './settingsParse'
 import { scheduleSave, writeSettings } from './settingsPersist'
 
 type SetSettings = StoreApi<SettingsState>['setState']
@@ -284,12 +286,14 @@ export function createTrustActions(
   | 'setAutoResume'
   | 'setTrustWorkspaceFolders'
   | 'setAgentHooks'
+  | 'setAgentAlwaysAsk'
   | 'setHibernation'
   | 'trustAction'
   | 'removeAction'
   | 'setApprovalMode'
   | 'setSyncDir'
   | 'setSyncMethod'
+  | 'setSyncKinds'
 > {
   return {
     setSandbox: async (next) => {
@@ -366,6 +370,18 @@ export function createTrustActions(
       scheduleSave(get)
     },
 
+    setAgentAlwaysAsk: (tool, ask) => {
+      set((s) => ({
+        agent: {
+          ...s.agent,
+          alwaysAsk: AGENT_ACT_TOOLS.filter((name) =>
+            name === tool ? ask : s.agent.alwaysAsk.includes(name),
+          ),
+        },
+      }))
+      scheduleSave(get)
+    },
+
     setHibernation: (patch) => {
       set((s) => ({
         agents: {
@@ -397,17 +413,22 @@ export function createTrustActions(
 
     setSyncDir: async (dir) => {
       scheduleSave.cancel()
-      const method = get().sync?.method
-      set({ sync: dir || method ? { dir, ...(method ? { method } : {}) } : undefined })
+      const { method, kinds } = get().sync ?? {}
+      set({ sync: syncSettingsOf(dir, method, kinds) })
       await writeSettings(get())
     },
 
     setSyncMethod: async (method) => {
       scheduleSave.cancel()
-      const dir = get().sync?.dir ?? ''
-      set({
-        sync: method === 'server' ? { dir, method } : dir ? { dir } : undefined,
-      })
+      const { dir = '', kinds } = get().sync ?? {}
+      set({ sync: syncSettingsOf(dir, method === 'server' ? 'server' : undefined, kinds) })
+      await writeSettings(get())
+    },
+
+    setSyncKinds: async (kinds) => {
+      scheduleSave.cancel()
+      const { dir = '', method } = get().sync ?? {}
+      set({ sync: syncSettingsOf(dir, method, offKinds(kinds)) })
       await writeSettings(get())
     },
   }

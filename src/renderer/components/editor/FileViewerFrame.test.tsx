@@ -1,9 +1,13 @@
 import '@testing-library/jest-dom/vitest'
-import type { ViewerOpenLink, ViewerSelectionEvent } from '@shared/files/filesApi'
+import type { ViewerCopied, ViewerOpenLink, ViewerSelectionEvent } from '@shared/files/filesApi'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { copyPaneSelection } from '@/lib/agents/selectionCopiers'
-import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import {
+  closeCapture,
+  copyCapture,
+  triggerCapture,
+  useCaptureStore,
+} from '@/lib/capture/captureSession'
 import { useViewerHintStore } from '@/stores/files/viewerHintStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { FileViewerFrame } from './FileViewerFrame'
@@ -21,41 +25,11 @@ vi.mock('./useLiveDocumentText', () => ({ useLiveDocumentText: () => {} }))
 vi.mock('@/lib/attention/workspaceActivity', () => ({
   usePaneVisible: () => paneVisible.value,
 }))
-vi.mock('@/components/agents/RegionActionBar', () => ({
-  RegionActionBar: ({
-    anchor,
-    onCopy,
-    onClose,
-    takeFocus,
-    sendRequest,
-  }: {
-    anchor: { left: number; top: number }
-    onCopy: () => Promise<string | null>
-    onClose: () => void
-    takeFocus: boolean
-    sendRequest: number
-  }) => (
-    <div
-      data-testid="region-bar"
-      data-left={anchor.left}
-      data-top={anchor.top}
-      data-take-focus={String(takeFocus)}
-      data-send-request={sendRequest}
-    >
-      <button type="button" onClick={() => void onCopy()}>
-        copy
-      </button>
-      <button type="button" onClick={onClose}>
-        close
-      </button>
-    </div>
-  ),
-}))
-
 const layoutInit = useLayoutStore.getState()
 
 type Listener<T> = (event: T) => void
 let onSelection: Listener<ViewerSelectionEvent>
+let onCopied: Listener<ViewerCopied>
 let onOpenLink: Listener<ViewerOpenLink>
 let onEditSource: Listener<{ paneId: string }>
 
@@ -95,6 +69,10 @@ beforeEach(() => {
     onSelection = cb
     return () => {}
   })
+  vi.mocked(window.ostia.viewers.onCopied).mockImplementation((cb) => {
+    onCopied = cb
+    return () => {}
+  })
   vi.mocked(window.ostia.viewers.onOpenLink).mockImplementation((cb) => {
     onOpenLink = cb
     return () => {}
@@ -104,6 +82,7 @@ beforeEach(() => {
     return () => {}
   })
   vi.mocked(window.ostia.viewers.copySelection).mockClear()
+  vi.mocked(window.ostia.viewers.clearSelection).mockClear()
   paneVisible.value = true
   openFile.mockClear()
   useLayoutStore.setState({ openFile } as never)
@@ -112,6 +91,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  closeCapture('p1', 'source-gone')
   useLayoutStore.setState(layoutInit, true)
 })
 
@@ -174,68 +154,87 @@ describe('FileViewerFrame', () => {
     expect(document.querySelector('.viewer-toolbar')).toBeNull()
   })
 
-  it('shows the capture bar at the published anchor and hides it when the selection clears', async () => {
+  const held = () => useCaptureStore.getState().open.p1
+
+  it('opens a capture at the published anchor and drops it when the selection clears', async () => {
     mount()
     await act(async () => {})
     act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
-    const bar = screen.getByTestId('region-bar')
-    expect(bar).toHaveAttribute('data-left', '12')
-    expect(bar).toHaveAttribute('data-top', '30')
+    expect(held().adapter.anchor).toEqual({ left: 12, top: 30, bottom: 60 })
     act(() => onSelection({ paneId: 'p1', selection: null }))
-    expect(screen.queryByTestId('region-bar')).toBeNull()
+    expect(held()).toBeUndefined()
+    expect(window.ostia.viewers.clearSelection).not.toHaveBeenCalled()
   })
 
   it('ignores another pane’s selection', async () => {
     mount()
     await act(async () => {})
     act(() => onSelection({ paneId: 'p2', selection: SELECTION }))
-    expect(screen.queryByTestId('region-bar')).toBeNull()
+    expect(held()).toBeUndefined()
   })
 
-  it('copies through main from the bar and from the pane copier', async () => {
+  it('copies through main from the bar and from the pane copier, and closes on the status', async () => {
     mount()
     await act(async () => {})
     act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
-    act(() => screen.getByText('copy').click())
+    await act(async () => {
+      await copyCapture('p1')
+    })
     expect(window.ostia.viewers.copySelection).toHaveBeenCalledWith('p1')
-    expect(copyPaneSelection('p1')).toBe(true)
-    expect(window.ostia.viewers.copySelection).toHaveBeenCalledTimes(2)
-  })
-
-  it('clears the stored selection when the bar is closed', async () => {
-    mount()
-    await act(async () => {})
-    act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
-    act(() => screen.getByText('close').click())
+    expect(useCaptureStore.getState().chip.p1?.label).toBe('Copied text')
+    expect(held()).toBeUndefined()
     expect(window.ostia.viewers.clearSelection).toHaveBeenCalledWith('p1')
   })
 
-  it('mounts a fresh bar for each numbered selection and keeps it while the same one moves', async () => {
+  it('closes with the label main pushes when a copy chord reached the page', async () => {
     mount()
     await act(async () => {})
     act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
-    const first = screen.getByTestId('region-bar')
+    act(() => onCopied({ paneId: 'p2', label: 'Copied other' }))
+    expect(held()).toBeDefined()
+    act(() => onCopied({ paneId: 'p1', label: 'Copied' }))
+    expect(held()).toBeUndefined()
+    expect(useCaptureStore.getState().chip.p1?.label).toBe('Copied')
+    expect(window.ostia.viewers.copySelection).not.toHaveBeenCalled()
+  })
+
+  it('clears the stored selection when the bar is closed, not when main dropped it', async () => {
+    mount()
+    await act(async () => {})
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
+    act(() => closeCapture('p1', 'cancel'))
+    expect(window.ostia.viewers.clearSelection).toHaveBeenCalledExactlyOnceWith('p1')
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
+    act(() => onSelection({ paneId: 'p1', selection: null }))
+    expect(window.ostia.viewers.clearSelection).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the capture while the same numbered selection moves and replaces it for the next one without clearing main', async () => {
+    mount()
+    await act(async () => {})
+    act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
+    const first = held().key
     act(() =>
       onSelection({
         paneId: 'p1',
         selection: SELECTION && { ...SELECTION, anchor: { left: 40, top: 50, bottom: 80 } },
       }),
     )
-    expect(screen.getByTestId('region-bar')).toBe(first)
-    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-left', '40')
+    expect(held().key).toBe(first)
+    expect(held().adapter.anchor).toEqual({ left: 40, top: 50, bottom: 80 })
     act(() => onSelection({ paneId: 'p1', selection: SELECTION && { ...SELECTION, seq: 2 } }))
-    expect(screen.getByTestId('region-bar')).not.toBe(first)
+    expect(held().key).not.toBe(first)
+    expect(window.ostia.viewers.clearSelection).not.toHaveBeenCalled()
   })
 
-  it('draws the bar only while its pane is shown', async () => {
+  it('closes the capture when its pane is hidden', async () => {
+    paneVisible.value = false
     mount()
     await act(async () => {})
-    paneVisible.value = false
     act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
-    expect(screen.queryByTestId('region-bar')).toBeNull()
-    paneVisible.value = true
-    act(() => onSelection({ paneId: 'p1', selection: SELECTION && { ...SELECTION, seq: 2 } }))
-    expect(screen.getByTestId('region-bar')).toBeInTheDocument()
+    await act(async () => {})
+    expect(held()).toBeUndefined()
+    expect(window.ostia.viewers.clearSelection).toHaveBeenCalledWith('p1')
   })
 
   it('lets the bar take focus only when the page held it as the selection arrived', async () => {
@@ -245,25 +244,25 @@ describe('FileViewerFrame', () => {
     const active = vi.spyOn(document, 'activeElement', 'get')
     active.mockReturnValue(document.body)
     act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
-    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-take-focus', 'false')
+    expect(held().adapter.takeFocus).toBe(false)
     active.mockReturnValue(webview)
     act(() => onSelection({ paneId: 'p1', selection: SELECTION && { ...SELECTION, seq: 2 } }))
-    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-take-focus', 'true')
+    expect(held().adapter.takeFocus).toBe(true)
     active.mockRestore()
   })
 
   it('answers the pane send chord by asking the bar for its Send menu while a selection exists', async () => {
     mount()
     await act(async () => {})
-    expect(openSelectionSend('p1')).toBe(false)
+    expect(triggerCapture('p1')).toBe(false)
     act(() => onSelection({ paneId: 'p1', selection: SELECTION }))
-    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-send-request', '0')
+    expect(held().sendRequest).toBe(0)
     act(() => {
-      expect(openSelectionSend('p1')).toBe(true)
+      expect(triggerCapture('p1')).toBe(true)
     })
-    expect(screen.getByTestId('region-bar')).toHaveAttribute('data-send-request', '1')
+    expect(held().sendRequest).toBe(1)
     act(() => onSelection({ paneId: 'p1', selection: null }))
-    expect(openSelectionSend('p1')).toBe(false)
+    expect(triggerCapture('p1')).toBe(false)
   })
 
   it('opens a web link in a browser tab, a mail link outside and a file in the frame’s own workspace', async () => {

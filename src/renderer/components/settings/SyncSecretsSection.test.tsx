@@ -1,88 +1,94 @@
 import type { SecretSyncStatus, SyncStatus } from '@shared/profileSync/profileSync'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { SyncSecretsSection } from './SyncSecretsSection'
 
-const status = (secrets: SecretSyncStatus['state'], logins = false): SyncStatus => ({
+const status = (
+  state: SecretSyncStatus['state'],
+  mode: SecretSyncStatus['mode'] = 'password',
+): SyncStatus => ({
   dir: '/home/me/Sync',
   state: 'ok',
   lastSync: null,
-  conflicts: [],
   skipped: [],
   heldBack: [],
   offers: [],
-  secrets: { state: secrets, logins },
+  secrets: { state, mode, logins: false },
 })
 
 describe('SyncSecretsSection', () => {
-  it('turns secret sync on from the switch', async () => {
+  it('SYV-C10 on the server method turns on with the sync passphrase and asks for nothing', async () => {
     const onStatus = vi.fn()
+    vi.mocked(window.ostia.sync.secrets.enable).mockResolvedValue({
+      ok: true,
+      status: status('unlocked', 'sync-key'),
+    })
+    render(<SyncSecretsSection status={status('off', 'sync-key')} server onStatus={onStatus} />)
+    expect(screen.getByText(/Encrypted with your sync passphrase\./)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('switch', { name: 'Secrets' }))
+    expect(window.ostia.sync.secrets.enable).toHaveBeenCalled()
+    await waitFor(() => expect(onStatus).toHaveBeenCalledWith(status('unlocked', 'sync-key')))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('SYV-C11 sets a separate password from the link and shows its recovery key once', async () => {
+    vi.mocked(window.ostia.sync.secrets.reset).mockResolvedValue({
+      ok: true,
+      recoveryKey: 'ABCD-EFGH-IJKL-MNOP',
+      status: status('unlocked'),
+    })
+    const user = userEvent.setup()
+    render(
+      <SyncSecretsSection status={status('unlocked', 'sync-key')} server onStatus={() => {}} />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Use a separate password' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Use a separate secrets password' })
+    await user.type(within(dialog).getByLabelText('New secrets password'), 'correct horse battery')
+    await user.type(within(dialog).getByLabelText('Type it again'), 'correct horse battery')
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+    expect(window.ostia.sync.secrets.reset).toHaveBeenCalledWith(
+      'correct horse battery',
+      'correct horse battery',
+    )
+    expect(await screen.findByText('ABCD-EFGH-IJKL-MNOP')).toBeInTheDocument()
+  })
+
+  it('SYV-C12 goes back to the sync passphrase from a separate password', async () => {
+    render(<SyncSecretsSection status={status('unlocked')} server onStatus={() => {}} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Use the sync passphrase' }))
+    expect(window.ostia.sync.secrets.useSyncKey).toHaveBeenCalled()
+  })
+
+  it('SYV-C13 on a folder asks for a new password when turned on', async () => {
     vi.mocked(window.ostia.sync.secrets.enable).mockResolvedValue({
       ok: true,
       status: status('needs-setup'),
     })
-    render(<SyncSecretsSection status={status('off')} onStatus={onStatus} />)
-    await userEvent.click(screen.getByRole('switch', { name: 'Sync secrets' }))
-    expect(window.ostia.sync.secrets.enable).toHaveBeenCalled()
-    await waitFor(() => expect(onStatus).toHaveBeenCalledWith(status('needs-setup')))
+    render(<SyncSecretsSection status={status('off')} server={false} onStatus={() => {}} />)
+    expect(screen.getByText(/Encrypted with a secrets password\./)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('switch', { name: 'Secrets' }))
+    expect(
+      await screen.findByRole('dialog', { name: 'Set a secrets password' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Use the sync passphrase' })).toBeNull()
   })
 
-  it('sets the master password and shows the recovery key once', async () => {
-    vi.mocked(window.ostia.sync.secrets.setup).mockResolvedValue({
-      ok: true,
-      recoveryKey: 'ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567',
-      status: status('unlocked'),
-    })
-    render(<SyncSecretsSection status={status('needs-setup')} onStatus={() => {}} />)
-    await userEvent.type(screen.getByLabelText('New master password'), 'correct horse battery')
-    await userEvent.type(screen.getByLabelText('Type it again'), 'correct horse battery')
-    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }))
-    expect(window.ostia.sync.secrets.setup).toHaveBeenCalledWith(
-      'correct horse battery',
-      'correct horse battery',
-    )
-    const dialog = await screen.findByRole('alertdialog', { name: 'Save your recovery key' })
-    expect(dialog).toHaveTextContent('ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567')
-    await userEvent.click(screen.getByRole('button', { name: 'I saved it' }))
-    await waitFor(() => expect(screen.queryByText(/ABCD-EFGH/)).toBeNull())
-  })
-
-  it('asks for the password when locked and explains a wrong one', async () => {
+  it('SYV-C14 asks for the secrets password when locked and explains a wrong one', async () => {
     vi.mocked(window.ostia.sync.secrets.unlock).mockResolvedValue({
       ok: false,
       error: 'wrong-password',
       status: status('locked'),
     })
-    render(<SyncSecretsSection status={status('locked')} onStatus={() => {}} />)
-    await userEvent.type(screen.getByLabelText('Master password'), 'not it at all')
-    await userEvent.click(screen.getByRole('button', { name: 'Unlock' }))
+    const user = userEvent.setup()
+    render(<SyncSecretsSection status={status('locked')} server={false} onStatus={() => {}} />)
+    await user.click(screen.getByRole('button', { name: 'Enter password' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Enter your secrets password' })
+    await user.type(within(dialog).getByLabelText('Secrets password'), 'not it at all')
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
     expect(window.ostia.sync.secrets.unlock).toHaveBeenCalledWith('not it at all')
-    expect(await screen.findByText('That is not the master password.')).toBeInTheDocument()
-  })
-
-  it('asks before removing the synced secrets', async () => {
-    render(<SyncSecretsSection status={status('unlocked')} onStatus={() => {}} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Remove synced secrets' }))
-    expect(window.ostia.sync.secrets.remove).not.toHaveBeenCalled()
-    const dialog = await screen.findByRole('alertdialog', { name: 'Remove synced secrets?' })
-    await userEvent.click(
-      Array.from(dialog.querySelectorAll('button')).find(
-        (b) => b.textContent === 'Remove synced secrets',
-      ) as HTMLElement,
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'That is not the secrets password.',
     )
-    expect(window.ostia.sync.secrets.remove).toHaveBeenCalled()
-  })
-
-  it('offers browser logins only once unlocked, off by default', async () => {
-    const { rerender } = render(
-      <SyncSecretsSection status={status('locked')} onStatus={() => {}} />,
-    )
-    expect(screen.queryByRole('switch', { name: 'Browser logins' })).toBeNull()
-    rerender(<SyncSecretsSection status={status('unlocked')} onStatus={() => {}} />)
-    const logins = screen.getByRole('switch', { name: 'Browser logins' })
-    expect(logins).not.toBeChecked()
-    await userEvent.click(logins)
-    expect(window.ostia.sync.secrets.setLogins).toHaveBeenCalledWith(true)
   })
 })

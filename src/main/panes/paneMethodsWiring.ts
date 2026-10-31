@@ -99,6 +99,10 @@ export function registerPaneMethodsWiring({
     const res = await execCommand(targetOf(to), 'pane.hibernated')
     return res.ok && (res.result as { hibernated?: unknown } | undefined)?.hibernated === true
   }
+  const paneKeptAwake = async (to: PaneIdentity): Promise<boolean> => {
+    const res = await execCommand(targetOf(to), 'pane.keptAwake')
+    return res.ok && (res.result as { keepAwake?: unknown } | undefined)?.keepAwake === true
+  }
   const paneExited = (paneId: string): boolean => {
     const entry = registry.forPane(paneId)
     if (entry) return entry.status === 'exited'
@@ -131,7 +135,8 @@ export function registerPaneMethodsWiring({
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     hibernated: paneHibernated,
     wake: (to) => wakeHibernatedPane(execCommand, to),
-    hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate'),
+    hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate', undefined, true),
+    keptAwake: paneKeptAwake,
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
     resume: (to) => execCommand(targetOf(to), 'agent.resume'),

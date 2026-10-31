@@ -1,10 +1,11 @@
 import { isAbsolute } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import { resumeFlags } from '../../shared/agents/agentLaunch'
+import { leadsWithFlag, resumeFlags } from '../../shared/agents/agentLaunch'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import { anyOf, type ChangeSignal, type Subscribe } from '../../shared/common/actThenConfirm'
+import type { RemoteStartAnswer } from '../../shared/remote/remoteHandoff'
 import {
   normalizeSplitTabName,
   SPLIT_TAB_NAME_MAX,
@@ -14,8 +15,10 @@ import type { Reach } from '../approvals/reach'
 import type { ControlMethodContext } from '../control/controlServer'
 import { resolveExternal } from '../control/idRegistry'
 import type { TerminalOpenRequest } from '../extensions/extensionRuns'
+import { repoSnapshot } from '../git/repoSnapshot'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import type { ProcessEntry, ProcessRegistry } from './processRegistry'
+import type { RemoteStarter } from './remoteStart'
 import {
   confirmStart,
   confirmTurn,
@@ -32,6 +35,17 @@ export interface ProcessTabRequest extends TerminalOpenRequest {
   openedPaneIds?: string[]
   splitTab?: SplitTabPlacement
 }
+
+interface StartedRemote {
+  id: string
+  name: string
+  paneId: string
+  status: 'started'
+  ref: string
+  session?: string
+}
+
+type RemoteRefusal = { ok: false; error: string; message: string }
 
 type StartedProcess = { id: string; name: string; paneId: string } & StartReport
 
@@ -84,7 +98,7 @@ export function modelFlags(argv: readonly string[], raw: unknown): string[] {
 }
 
 export function promptOf(raw: unknown): string {
-  if (typeof raw !== 'string' || !raw.trim()) throw badRequest('prompt')
+  if (typeof raw !== 'string' || !raw.trim() || leadsWithFlag(raw)) throw badRequest('prompt')
   return raw.trim()
 }
 
@@ -148,6 +162,7 @@ export interface ProcessLaunchDeps {
   tell: (toExternalId: string, text: string) => void
   startTiming?: StartTiming
   isSandboxed: (workspaceId: string) => boolean
+  remote?: RemoteStarter
   reach: Pick<Reach, 'ensure'>
   onChange?: (entry: ProcessEntry) => void
 }
@@ -235,16 +250,10 @@ export function createProcessLauncher(
     return { entry, report }
   }
 
-  const runInTab = async (
+  const admit = async (
     ctx: ControlMethodContext,
-    cmd: string,
-    name: string,
-    givenCwd: string | undefined,
     givenWorkspace: string | undefined,
-    splitTab: SplitTabPlacement | undefined,
-    agentHook: boolean,
-    named: boolean,
-  ): Promise<StartedProcess | typeof NOT_OPENED | ReturnType<typeof humanTab>> => {
+  ): Promise<{ workspaceId: string; here: boolean }> => {
     const home = ctx.identity.workspaceId
     const workspaceId = givenWorkspace ?? home
     if (!workspaceId) {
@@ -264,6 +273,55 @@ export function createProcessLauncher(
         `open a terminal in workspace ${workspaceId}`,
       )
     }
+    return { workspaceId, here }
+  }
+
+  const runRemote = async (
+    ctx: ControlMethodContext,
+    givenWorkspace: string | undefined,
+    input: { agent: string; prompt: string; model?: string; title: string },
+  ): Promise<StartedRemote | RemoteRefusal | null> => {
+    const remote = deps.remote
+    const target = givenWorkspace ?? ctx.identity.workspaceId
+    if (!remote || !target || !(await remote.isRemote(target))) return null
+    const { workspaceId } = await admit(ctx, givenWorkspace)
+    const cwd = deps.cwdOfPane(ctx.identity.paneId)
+    if (!cwd) {
+      return { ok: false, error: 'no-folder', message: 'the calling pane has no folder to send' }
+    }
+    const snapshot = await repoSnapshot(cwd)
+    if (!snapshot.ok) return snapshot
+    const answer: RemoteStartAnswer = await remote.start({
+      agent: input.agent as 'claude' | 'codex',
+      prompt: input.prompt,
+      ...(input.model ? { model: input.model } : {}),
+      title: input.title,
+      workspaceId,
+      root: snapshot.root,
+      repo: snapshot.repo,
+    })
+    if (!answer.ok) return answer
+    return {
+      id: answer.jobId,
+      name: input.title,
+      paneId: answer.paneId,
+      status: 'started',
+      ref: answer.ref,
+      ...(answer.session ? { session: answer.session } : {}),
+    }
+  }
+
+  const runInTab = async (
+    ctx: ControlMethodContext,
+    cmd: string,
+    name: string,
+    givenCwd: string | undefined,
+    givenWorkspace: string | undefined,
+    splitTab: SplitTabPlacement | undefined,
+    agentHook: boolean,
+    named: boolean,
+  ): Promise<StartedProcess | typeof NOT_OPENED | ReturnType<typeof humanTab>> => {
+    const { workspaceId, here } = await admit(ctx, givenWorkspace)
     if (named && splitTab && (await deps.humanTab(workspaceId, splitTab.name))) {
       return humanTab(splitTab.name)
     }
@@ -296,5 +354,5 @@ export function createProcessLauncher(
     return { id: entry.id, name: entry.name, paneId: entry.externalPaneId, ...report }
   }
 
-  return { runInTab, workersTab, openAndConfirm }
+  return { runInTab, runRemote, workersTab, openAndConfirm }
 }

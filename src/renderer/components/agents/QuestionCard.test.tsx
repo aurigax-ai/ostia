@@ -2,7 +2,7 @@ import type { QuestionRequest } from '@shared/agents/questions'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { type PaneWhere, sourceWhere } from '@/lib/sidebar/dashboard'
+import { type PaneWhere, sourceWhere } from '@/lib/agents/needsYou'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -191,7 +191,7 @@ describe('QuestionCard', () => {
     expect(window.ostia.questions.answer).not.toHaveBeenCalled()
   })
 
-  it('keeps the draft when the dashboard is closed and opened again', async () => {
+  it('keeps the draft when the card is closed and opened again', async () => {
     const user = userEvent.setup()
     vi.spyOn(Date, 'now').mockReturnValue(NOW)
     useQuestionsStore.setState({ pending: [SINGLE] })
@@ -247,7 +247,7 @@ describe('QuestionCard', () => {
     expect(screen.queryByRole('button', { name: 'Send' })).toBeNull()
   })
 
-  it('goes to the asking pane and leaves the dashboard', async () => {
+  it('goes to the asking pane and leaves Settings', async () => {
     const { createPane } = await import('@/lib/layout/tree')
     const pane = { ...createPane('terminal'), id: 'p1' }
     useWorkspacesStore.setState({
@@ -257,10 +257,10 @@ describe('QuestionCard', () => {
     useLayoutStore.setState({
       byWorkspace: { w1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
     })
-    useUIStore.getState().openDashboard()
+    useUIStore.getState().openSettings()
     show(SINGLE)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Go to pane' }))
-    await waitFor(() => expect(useUIStore.getState().dashboardActive).toBe(false))
+    await waitFor(() => expect(useUIStore.getState().settingsActive).toBe(false))
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w1')
   })
 

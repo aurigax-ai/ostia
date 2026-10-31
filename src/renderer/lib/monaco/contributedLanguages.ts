@@ -61,7 +61,3 @@ export function applyEditorLanguages(languages: readonly EditorLanguage[]): Edit
   setContributedLanguages(applied)
   return applied
 }
-
-export async function loadEditorLanguages(): Promise<void> {
-  applyEditorLanguages(await window.ostia.editorLanguages.load())
-}

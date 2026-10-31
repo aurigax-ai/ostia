@@ -93,6 +93,8 @@ function useInputEditor({
   const visible = useInputEditorVisible(paneId, alternateScreen, suppressedPrompt)
   const vimEnabled = useSettingsStore((s) => s.behavior.inputEditorVim)
   const historySuggestionsOn = useSettingsStore((s) => s.behavior.historySuggestions)
+  const liveFilesOn = useSettingsStore((s) => s.behavior.liveFileSuggestions)
+  const escapeClears = useSettingsStore((s) => s.behavior.inputEscape === 'clear')
   const prompt = useSettingsStore((s) => s.terminal.prompt)
   const ostiaPrompt = prompt.style === 'ostia'
   const catalog = useChipCatalog()
@@ -157,6 +159,7 @@ function useInputEditor({
     menuRef,
     history,
     historySuggestionsOn,
+    liveFilesOn,
   })
   const suggestions = useInputSuggestions({
     paneId,
@@ -176,12 +179,14 @@ function useInputEditor({
     vim,
     vimModeRef,
     vimEnabled,
+    escapeClears,
     normal,
     completion,
     suggestions,
     history,
     composing,
     termRef,
+    paneId,
     onSubmit,
     onHandOffRef,
     onShellKeys,
@@ -239,12 +244,14 @@ export function InputEditor(props: InputEditorProps): JSX.Element {
     />
   )
 
-  const tipText =
-    tip === 'noPaths'
-      ? d.inputEditor.noCompletions
-      : tip === 'noCommands'
-        ? d.inputEditor.noCommands
-        : null
+  const tipTexts = {
+    none: null,
+    noPaths: d.inputEditor.noCompletions,
+    noCommands: d.inputEditor.noCommands,
+    escAgain: d.inputEditor.escAgain,
+    cleared: d.inputEditor.draftCleared,
+  }
+  const tipText = suggestions.suggestion ? null : tipTexts[tip]
 
   return (
     <div
@@ -291,6 +298,7 @@ export function InputEditor(props: InputEditorProps): JSX.Element {
           menuShown={completion.menuShown}
           naturalOpen={suggestions.naturalOpen}
           tipText={tipText}
+          fileHint={completion.menuShown?.auto ? d.inputEditor.fileHint : null}
           setMenu={draft.setMenu}
           setNatural={suggestions.setNatural}
           pick={completion.pick}
@@ -298,6 +306,7 @@ export function InputEditor(props: InputEditorProps): JSX.Element {
         />
         {ostiaPrompt && prompt.sameLine ? chipRow(true) : null}
         <InputEditorGhostMenu
+          paneId={paneId}
           ghostFeature={suggestions.ghostFeature}
           selectedText={selectedText}
           typeAtCaret={draft.typeAtCaret}
@@ -315,6 +324,7 @@ export function InputEditor(props: InputEditorProps): JSX.Element {
                 commandSet={editor.history.commandSet}
                 ghost={suggestions.ghost}
                 followMenu={completion.followMenu}
+                typed={completion.typed}
                 onKeyDown={editor.onKeyDown}
                 termRef={termRef}
                 hadFocus={editor.hadFocus}

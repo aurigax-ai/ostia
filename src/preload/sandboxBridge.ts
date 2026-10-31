@@ -12,6 +12,7 @@ export const sandboxBridge: Pick<OstiaBridge, 'secrets' | 'sandbox'> = {
     vaultDelete: (workspaceId, key) => ipcRenderer.invoke('secrets:vault-delete', workspaceId, key),
   },
   sandbox: {
+    onLeftBehind: (cb) => listen('sandbox:left-behind', cb),
     onBlocked: (cb) => listen('sandbox:blocked', cb),
     get: (workspaceId) => ipcRenderer.invoke('sandbox:get', workspaceId),
     setPaths: (workspaceId, kind, paths) =>

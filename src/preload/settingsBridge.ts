@@ -11,13 +11,11 @@ export const settingsBridge: Pick<OstiaBridge, 'settings' | 'sync'> = {
   sync: {
     status: () => ipcRenderer.invoke('sync:status'),
     run: () => ipcRenderer.invoke('sync:run'),
-    resolve: (conflictId) => ipcRenderer.invoke('sync:resolve', conflictId),
     install: (extId) => ipcRenderer.invoke('sync:install', extId),
     secrets: {
-      reveal: (conflictId) => ipcRenderer.invoke('sync:secrets-reveal', conflictId),
       enable: () => ipcRenderer.invoke('sync:secrets-enable'),
       disable: () => ipcRenderer.invoke('sync:secrets-disable'),
-      remove: () => ipcRenderer.invoke('sync:secrets-remove'),
+      useSyncKey: () => ipcRenderer.invoke('sync:secrets-use-sync-key'),
       setLogins: (on) => ipcRenderer.invoke('sync:secrets-logins', on ? 'on' : 'off'),
       setup: (password, confirm) => ipcRenderer.invoke('sync:secrets-setup', password, confirm),
       reset: (password, confirm) => ipcRenderer.invoke('sync:secrets-reset', password, confirm),

@@ -26,11 +26,13 @@ export interface PaneNode {
   url?: string
   chatSessionId?: string
   agentSessionId?: string
+  managerSession?: true
   viewName?: string
   browserProfile?: BrowserProfile
   browserDevice?: BrowserDevice
   resume?: AgentResume
   hibernated?: true
+  keepAwake?: true
   resumePending?: true
   spawnDir?: string
   resumeFolderMissing?: string

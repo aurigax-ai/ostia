@@ -8,7 +8,13 @@ export const AGENT_BUSY_REASONS = [
 
 export type AgentBusyReason = (typeof AGENT_BUSY_REASONS)[number]
 
-export type HibernateOutcome = 'hibernated' | 'no-terminal' | AgentBusyReason
+export const HIBERNATE_HELD = 'typed'
+
+export type HibernateOutcome =
+  | 'hibernated'
+  | 'no-terminal'
+  | typeof HIBERNATE_HELD
+  | AgentBusyReason
 
 export const CLAUDE_WORK_EVENTS = ['SubagentStart', 'SubagentStop', 'Stop'] as const
 

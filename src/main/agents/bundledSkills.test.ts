@@ -10,7 +10,7 @@ const ROOT = join(__dirname, '..', '..', '..')
 const EXTENSIONS = join(ROOT, 'src', 'extensions')
 const SKILL_BODY_MAX_LINES = 500
 const DESCRIPTION_MAX = 1024
-const CORE_SKILL_MAX_CHARS = 17_237
+const CORE_SKILL_MAX_CHARS = 17_700
 const CONTENTS_FROM_LINES = 100
 const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/
 

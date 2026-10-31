@@ -24,11 +24,6 @@ import {
   type PreviewOpened,
 } from '../../shared/artifacts/htmlPreview'
 import { PORTABLE_CSP } from '../../shared/artifacts/portable'
-import {
-  REGION_IMAGE_MAX,
-  regionCaptureRect,
-  regionPageRect,
-} from '../../shared/browser/regionCapture'
 import { PreviewHost } from './htmlPreview'
 import { hardenPreviewAttach, previewHeaders } from './previewAttach'
 import type { PreviewSource } from './previewFiles'
@@ -59,7 +54,7 @@ describe('previewHeaders', () => {
   it('PRT-C21 sends the portable policy with the frame’s sandbox as headers', () => {
     const headers = previewHeaders('/a/App.tsx')
     expect(headers['content-security-policy'].split(', ')[0]).toBe(PORTABLE_CSP)
-    expect(headers['content-security-policy']).toContain('sandbox allow-scripts')
+    expect(headers['content-security-policy']).toContain('sandbox allow-scripts allow-popups')
     expect(headers['content-security-policy']).not.toMatch(/unsafe-eval|allow-same-origin/)
     expect(headers).toMatchObject({
       'x-dns-prefetch-control': 'off',
@@ -70,7 +65,7 @@ describe('previewHeaders', () => {
 })
 
 describe('hardenPreviewAttach', () => {
-  it('removes every way a guest could get a preload, Node, popups or dialogs', () => {
+  it('removes every way a guest could get a preload, Node or dialogs and lets popup requests reach the deny handler', () => {
     const prefs = {
       preload: '/evil/preload.js',
       nodeIntegration: true,
@@ -104,6 +99,7 @@ describe('hardenPreviewAttach', () => {
       webSecurity: true,
       webviewTag: false,
       disableDialogs: true,
+      disablePopups: false,
       autoplayPolicy: 'user-gesture-required',
       transparent: false,
       experimentalFeatures: false,
@@ -176,19 +172,11 @@ class FakeGuest implements PreviewGuest {
   killed = 0
   reloads = 0
   answers = true
-  popups: (() => { action: 'deny' }) | null = null
+  popups: ((details: { url: string }) => { action: 'deny' }) | null = null
   webrtc: string | null = null
   throttled: boolean | null = null
   attached = false
   lifecycle: string[] = []
-  captured: { x: number; y: number; width: number; height: number }[] = []
-  pngBytes = 10
-  capturePage = async (rect: { x: number; y: number; width: number; height: number }) => {
-    this.captured.push(rect)
-    const png = Buffer.alloc(this.pngBytes)
-    Buffer.from('89504e470d0a1a0a', 'hex').copy(png)
-    return { toPNG: () => png, isEmpty: () => false }
-  }
   debugger = {
     isAttached: (): boolean => this.attached,
     attach: (): void => {
@@ -214,7 +202,7 @@ class FakeGuest implements PreviewGuest {
   forcefullyCrashRenderer = (): void => {
     this.killed += 1
   }
-  setWindowOpenHandler = (handler: () => { action: 'deny' }): void => {
+  setWindowOpenHandler = (handler: (details: { url: string }) => { action: 'deny' }): void => {
     this.popups = handler
   }
   setWebRTCIPHandlingPolicy = (policy: string): void => {
@@ -233,8 +221,6 @@ class FakeGuest implements PreviewGuest {
 
 const builds: PreviewSource[] = []
 let inputsOf = (source: PreviewSource): string[] => [source.file]
-
-const hostZoom = { value: 1 }
 
 function watcherOf(dir: string): FSWatcher {
   const { calls, results } = vi.mocked(watch).mock
@@ -286,7 +272,6 @@ function rig(): Rig {
     ownsPane: (windowId, paneId) => paneId.startsWith(`${windowId}:`),
     send: (_windowId, event) => events.push(event),
     processes: () => processes,
-    hostZoom: () => hostZoom.value,
     now: () => clock.now,
   })
   const open = (paneId = '1:p1', path = page, windowId = '1'): PreviewOpened => {
@@ -406,6 +391,17 @@ describe('PreviewHost', () => {
     expect(session.grants('clipboard-sanitized-write')).toBe(false)
   })
 
+  it('tells the window about guest input at most once a second', () => {
+    const guest = r.attach(r.open())
+    const activity = (): number => r.events.filter((event) => event.type === 'activity').length
+    guest.emit('input-event', {}, { type: 'mouseMove' })
+    guest.emit('input-event', {}, { type: 'mouseMove' })
+    expect(activity()).toBe(1)
+    r.clock.now += 1_001
+    guest.emit('input-event', {}, { type: 'keyDown' })
+    expect(activity()).toBe(2)
+  })
+
   it('cancels downloads', () => {
     const prevented = vi.fn()
     r.sessionOf(r.open()).download?.({ preventDefault: prevented })
@@ -437,7 +433,9 @@ describe('PreviewHost', () => {
   it('denies popups, stops navigation and redirects, and reports only a link the human clicked', () => {
     const opened = r.open()
     const guest = r.attach(opened)
-    expect(guest.popups?.()).toEqual({ action: 'deny' })
+    const popup = (url: string): unknown => guest.popups?.({ url })
+    expect(popup('https://example.com/by-script-popup')).toEqual({ action: 'deny' })
+    expect(r.events).toEqual([])
     expect(guest.webrtc).toBe('disable_non_proxied_udp')
     expect(guest.throttled).toBe(true)
     const unasked = { preventDefault: vi.fn() }
@@ -445,6 +443,8 @@ describe('PreviewHost', () => {
     expect(unasked.preventDefault).toHaveBeenCalledOnce()
     expect(r.events).toEqual([])
     guest.emit('input-event', {}, { type: 'mouseDown' })
+    expect(popup('https://example.com/ctrl-click')).toEqual({ action: 'deny' })
+    expect(popup(`${opened.url}other.html`)).toEqual({ action: 'deny' })
     const navigate = { preventDefault: vi.fn() }
     guest.emit('will-navigate', navigate, 'https://example.com/next')
     const local = { preventDefault: vi.fn() }
@@ -454,7 +454,10 @@ describe('PreviewHost', () => {
     expect(navigate.preventDefault).toHaveBeenCalledOnce()
     expect(local.preventDefault).toHaveBeenCalledOnce()
     expect(redirect.preventDefault).toHaveBeenCalledOnce()
-    expect(r.events).toEqual([{ id: opened.id, type: 'link', url: 'https://example.com/next' }])
+    expect(r.events.filter((event) => event.type !== 'activity')).toEqual([
+      { id: opened.id, type: 'link', url: 'https://example.com/ctrl-click' },
+      { id: opened.id, type: 'link', url: 'https://example.com/next' },
+    ])
   })
 
   it('passes on console errors only, named after the previewed file', () => {
@@ -723,21 +726,14 @@ describe('PreviewHost', () => {
     expect(r.host.acceptsAttach(first.partition, first.url, '1')).toBe(false)
   })
 
-  it('PRT-C55 captures a region of a live preview of its own window, and nothing for a tiny or stopped one', async () => {
+  it('PRT-C55 names the live guest of a preview only to its own window, and to no one once it stopped', () => {
     const opened = r.open()
     const guest = r.attach(opened)
-    const png = await r.host.capture('1', opened.id, { x: 10, y: 20, width: 100, height: 50 })
-    expect(png && Buffer.from(png).subarray(0, 4).toString('hex')).toBe('89504e47')
-    expect(guest.captured).toEqual([{ x: 10, y: 20, width: 100, height: 50 }])
-    expect(await r.host.capture('1', opened.id, { x: 10, y: 20, width: 3, height: 50 })).toBeNull()
-    expect(
-      await r.host.capture('2', opened.id, { x: 10, y: 20, width: 100, height: 50 }),
-    ).toBeNull()
+    expect(r.host.captureGuestId('1', '1:p1')).toBe(guest.id)
+    expect(r.host.captureGuestId('2', '1:p1')).toBeNull()
+    expect(r.host.captureGuestId('1', '1:other')).toBeNull()
     r.host.stopByHuman('1', opened.id)
-    expect(
-      await r.host.capture('1', opened.id, { x: 10, y: 20, width: 100, height: 50 }),
-    ).toBeNull()
-    expect(guest.captured).toHaveLength(1)
+    expect(r.host.captureGuestId('1', '1:p1')).toBeNull()
   })
 
   it('PRT-C79 remembers the theme each window previews with', () => {
@@ -748,21 +744,5 @@ describe('PreviewHost', () => {
     expect(r.host.themeOf('1')).toEqual(dark)
     expect(r.host.themeOf('2')).toEqual(light)
     expect(r.host.themeOf('3')).toEqual({ dark: false, vars: {} })
-  })
-
-  it('PRT-C77 scales a region by the host window’s zoom and refuses a picture over the cap', async () => {
-    hostZoom.value = 1.25
-    try {
-      const opened = r.open()
-      const guest = r.attach(opened)
-      const rect = { x: 10, y: 20, width: 100, height: 50 }
-      expect(await r.host.capture('1', opened.id, rect)).not.toBeNull()
-      expect(guest.captured).toEqual([regionCaptureRect(rect, 1.25)])
-      expect(r.host.pageRegion('1', rect)).toEqual(regionPageRect(rect, 1.25, 1))
-      guest.pngBytes = REGION_IMAGE_MAX + 1
-      expect(await r.host.capture('1', opened.id, rect)).toBeNull()
-    } finally {
-      hostZoom.value = 1
-    }
   })
 })

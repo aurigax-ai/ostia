@@ -93,6 +93,7 @@ export function createLayoutOpenActions(set: LayoutSet, get: LayoutGet): LayoutO
         kind: 'manager',
         cwd: opts.cwd,
         title: opts.title,
+        ...(opts.session ? { managerSession: true as const } : {}),
       })),
 
     openTerminal: (workspaceId, opts) => {

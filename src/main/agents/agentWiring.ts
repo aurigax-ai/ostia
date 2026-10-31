@@ -1,5 +1,5 @@
-import { basename } from 'node:path'
-import type { BrowserWindow } from 'electron'
+import { basename, join } from 'node:path'
+import { app, type BrowserWindow } from 'electron'
 import { parseAgentHooks } from '../../shared/agents/agentHooks'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
@@ -12,17 +12,25 @@ import { registerAttentionMethods, targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
 import { getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
+import type { ExtensionHost } from '../extensions/extensionHost'
 import type { ManagerService } from '../manager/manager'
+import type { ManagerLimiter } from '../manager/managerMethods'
 import type { PaneJournal } from '../panes/paneJournal'
+import { registerPaneKeepAwakeMethods } from '../panes/paneKeepAwake'
 import { registerPaneNameMethods } from '../panes/paneNameMethods'
 import { noteAgentSession } from '../panes/paneNames'
 import { registerPaneRenameMethods } from '../panes/paneRename'
-import { registerPaneResumeMethods } from '../panes/paneResume'
+import {
+  type PaneResumeDeps,
+  refreshResumeFolder,
+  registerPaneResumeMethods,
+} from '../panes/paneResume'
 import { type PaneTurns, registerPaneTurnMethods } from '../panes/paneTurns'
 import type { PaneWatch } from '../panes/paneWait'
 import type { PaneWaking } from '../panes/paneWaking'
 import { INTERRUPT_GRACE_MS, registerProcessMethods } from '../panes/processManager'
 import type { ProcessRegistry } from '../panes/processRegistry'
+import { sshRemoteStarter } from '../panes/remoteStart'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyIo } from '../terminal/pty/ptyIo'
@@ -33,6 +41,7 @@ import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
 import type { WindowSend } from '../windows/windowSend'
 import type { AgentResumes } from './agentResumes'
 import type { AgentRunningPanes } from './agentRunning'
+import { codexSessionFolder } from './agentTranscript'
 import { type ReportedAgentWork, registerAgentWorkMethods } from './agentWork'
 import { tellPane } from './busStore'
 
@@ -45,8 +54,10 @@ interface AgentWiringDeps {
   workspaceWindowId: WindowSend['workspaceWindowId']
   services: {
     managerService: ManagerService | null
+    managerLimiter: ManagerLimiter | null
     processes: ProcessRegistry | null
     telemetry: Telemetry | null
+    extensionHost: ExtensionHost | null
   }
   paneWaking: PaneWaking
   startedAgents: Set<string>
@@ -105,11 +116,11 @@ export function registerAgentWiring({
     closing: (paneId, state, message, stop) => paneJournal.report(paneId, state, message, stop),
   })
   registerAgentWorkMethods(agentWork)
-  registerPaneTurnMethods(paneTurns)
-  registerPaneResumeMethods({
+  const resumeDeps: PaneResumeDeps = {
     execCommand,
     foregroundProgram,
     agentCwd,
+    sessionFolder: codexSessionFolder,
     onResume: (identity, resume) => {
       services.telemetry?.count('agents', 'resume')
       paneWaking.end(identity.paneId, 'started')
@@ -119,6 +130,10 @@ export function registerAgentWiring({
       agentResumes.emit(identity.externalId, resume)
       if (identity.manager) services.managerService?.rememberResume(resume)
     },
+  }
+  registerPaneResumeMethods(resumeDeps)
+  registerPaneTurnMethods(paneTurns, (identity) => {
+    void refreshResumeFolder(resumeDeps, identity).catch(() => {})
   })
   const listedPane = async (
     paneId: string,
@@ -144,6 +159,10 @@ export function registerAgentWiring({
     },
     writePane: paneIo.write,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    remote: sshRemoteStarter(
+      join(app.getPath('userData'), 'extension-data'),
+      () => services.extensionHost,
+    ),
     endShell: (paneId) => killPty(paneId, 'process-kill'),
     hasShell: (paneId) => ptys.has(paneId),
     runInPane: (paneId, command) => {
@@ -187,6 +206,7 @@ export function registerAgentWiring({
         : undefined
     },
     reach,
+    managerAdmitSpawn: (liveWorkers) => services.managerLimiter?.admitSpawn(liveWorkers) ?? null,
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   services.processes = registry
@@ -199,6 +219,10 @@ export function registerAgentWiring({
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
     processPane,
+    agentRunning: (paneId) => agentRunning.has(paneId),
+  })
+  registerPaneKeepAwakeMethods({
+    execCommand,
     agentRunning: (paneId) => agentRunning.has(paneId),
   })
   registerPaneRenameMethods({

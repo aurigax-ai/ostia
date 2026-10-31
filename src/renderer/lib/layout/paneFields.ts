@@ -95,7 +95,9 @@ export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentRes
   return mapPane(root, paneId, (p) => {
     if (sameResume(p.resume, resume) && !p.resumeFailed) return p
     const { resumeFolderMissing: _missing, resumeFailed: _failed, ...rest } = p
-    return { ...rest, resume }
+    if (rest.resume?.agent === resume.agent) return { ...rest, resume }
+    const { keepAwake: _kept, ...other } = rest
+    return { ...other, resume }
   })
 }
 
@@ -107,7 +109,7 @@ export function failPaneResume(
 ): LayoutNode {
   return mapPane(root, paneId, (p) => {
     if (p.resume?.agent !== resume.agent || p.resume.id !== resume.id) return p
-    const { resume: failed, resumePending: _pending, ...rest } = p
+    const { resume: failed, resumePending: _pending, keepAwake: _kept, ...rest } = p
     return { ...rest, resumeFailed: { resume: failed, exitCode } }
   })
 }
@@ -127,9 +129,21 @@ export function setPaneHibernated(
 ): LayoutNode {
   return mapPane(root, paneId, (p) => {
     if (Boolean(p.hibernated) === hibernated) return p
-    if (hibernated) return { ...p, hibernated: true }
+    if (hibernated) {
+      const { keepAwake: _kept, ...rest } = p
+      return { ...rest, hibernated: true }
+    }
     const { hibernated: _hibernated, ...awake } = p
     return awake.resume?.cwd ? { ...awake, spawnDir: awake.resume.cwd } : awake
+  })
+}
+
+export function setPaneKeepAwake(root: LayoutNode, paneId: string, keepAwake: boolean): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (Boolean(p.keepAwake) === keepAwake) return p
+    if (keepAwake) return { ...p, keepAwake: true }
+    const { keepAwake: _kept, ...awake } = p
+    return awake
   })
 }
 

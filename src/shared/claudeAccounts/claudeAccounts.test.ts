@@ -1,31 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { accountOfTarget, DEFAULT_ACCOUNT, sessionIdOfArgs } from './claudeAccounts'
-
-describe('sessionIdOfArgs', () => {
-  it.each([
-    [['--resume', 'abc-123'], 'abc-123'],
-    [['--resume=abc-123'], 'abc-123'],
-    [['-r', 'abc-123', '-p', 'hi'], 'abc-123'],
-    [['--model', 'opus', '--resume', 'abc-123', '--fork-session'], 'abc-123'],
-  ])('finds the session in %j', (args, id) => {
-    expect(sessionIdOfArgs(args)).toBe(id)
-  })
-
-  it.each([
-    [[]],
-    [['--resume']],
-    [['--resume', '--fork-session']],
-    [['-p', 'hello']],
-    [['--resume=']],
-  ])('finds none in %j', (args) => {
-    expect(sessionIdOfArgs(args)).toBeNull()
-  })
-})
+import { accountOfTarget, DEFAULT_ACCOUNT } from './claudeAccounts'
 
 describe('accountOfTarget', () => {
   const accounts = [
-    { id: DEFAULT_ACCOUNT, email: null, signedOut: false },
-    { id: 'a'.repeat(16), email: 'Work@Example.com', signedOut: false },
+    { id: DEFAULT_ACCOUNT, email: null, signedOut: false, enabled: true, usage: null },
+    { id: 'a'.repeat(16), email: 'Work@Example.com', signedOut: false, enabled: true, usage: null },
   ]
 
   it('picks by 1-based number', () => {

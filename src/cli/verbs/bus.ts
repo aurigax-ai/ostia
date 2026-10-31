@@ -38,7 +38,11 @@ const PENDING_HINTS: Record<MailPending, string> = {
     'hibernated: Ostia wakes the agent (a few times an hour at most) and it reads the message',
   'hooks-off':
     'hooks-off: its Ostia hooks are off, so it reads the message only with ostia bus inbox',
+  'agent-pane':
+    'agent-pane: the Agent pane reads it when the human sends its next prompt or it takes its inbox; --wait may time out',
   'no-agent': 'no-agent: no agent runs in that pane; it reads the message with ostia bus inbox',
+  'remote-offline':
+    'remote-offline: the link to that host is down; the message goes when it is back, or fails after 24 hours',
 }
 
 const BUS_EXIT_TIMEOUT = 3

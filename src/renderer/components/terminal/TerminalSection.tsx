@@ -35,11 +35,14 @@ import { isLinux, isMac } from '@/platform'
 import {
   CURSOR_STYLES,
   type CursorStyle,
+  INPUT_ESCAPES,
   INPUT_MODES,
+  type InputEscape,
   type InputMode,
 } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { TerminalLinksGroup } from './TerminalLinksGroup'
 
 export function TerminalSection(): JSX.Element {
   const d = useDict()
@@ -51,6 +54,7 @@ export function TerminalSection(): JSX.Element {
       <TerminalSelectionGroup />
       <TerminalScrollingGroup />
       <TerminalPasteGroup />
+      <TerminalLinksGroup />
       <TerminalColorsGroup />
       <TerminalRenderingGroup />
       <TerminalSessionGroup />
@@ -62,12 +66,18 @@ function TerminalInputGroup(): JSX.Element {
   const d = useDict()
   const mode = useSettingsStore((s) => s.behavior.inputMode)
   const vim = useSettingsStore((s) => s.behavior.inputEditorVim)
+  const escKey = useSettingsStore((s) => s.behavior.inputEscape)
+  const liveFiles = useSettingsStore((s) => s.behavior.liveFileSuggestions)
   const historySuggestions = useSettingsStore((s) => s.behavior.historySuggestions)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   const promptStyle = useSettingsStore((s) => s.terminal.prompt.style)
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
+  }
+  const escapeLabel: Record<InputEscape, string> = {
+    clear: d.settings.inputEscapeClear,
+    menus: d.settings.inputEscapeMenus,
   }
   return (
     <SettingsGroup title={d.settings.groupInput}>
@@ -79,6 +89,20 @@ function TerminalInputGroup(): JSX.Element {
           options={INPUT_MODES.map((m) => ({ value: m, label: modeLabel[m] }))}
         />
       </ControlRow>
+      <ControlRow label={d.settings.inputEscape} desc={d.settings.inputEscapeDesc}>
+        <SelectField
+          value={escKey}
+          onChange={(v) => setBehavior({ inputEscape: v })}
+          label={d.settings.inputEscape}
+          options={INPUT_ESCAPES.map((v) => ({ value: v, label: escapeLabel[v] }))}
+        />
+      </ControlRow>
+      <ToggleRow
+        label={d.settings.liveFileSuggestions}
+        desc={d.settings.liveFileSuggestionsDesc}
+        checked={liveFiles}
+        onChange={(v) => setBehavior({ liveFileSuggestions: v })}
+      />
       <ToggleRow
         label={d.settings.inputEditorVim}
         desc={d.settings.inputEditorVimDesc}

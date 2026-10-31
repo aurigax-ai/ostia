@@ -1203,12 +1203,12 @@ describe('shellIntegrationSpawnOptions', () => {
       dir = mkdtempSync(join(tmpdir(), 'ostia-fake-account-'))
       writeFileSync(
         join(dir, 'claude'),
-        '#!/bin/sh\nprintf "dir=%s args=%s" "${CLAUDE_CONFIG_DIR-unset}" "$*"\n',
+        '#!/bin/sh\nprintf "dir=%s memory=%s args=%s" "${CLAUDE_CONFIG_DIR-unset}" "${CLAUDE_CODE_REMOTE_MEMORY_DIR-unset}" "$*"\n',
       )
       chmodSync(join(dir, 'claude'), 0o755)
       writeFileSync(
         join(dir, 'node'),
-        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_ASKED"\nprintf "%s\\n" "$FAKE_ACCOUNT"\n',
+        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_ASKED"\n[ -n "$FAKE_ACCOUNT" ] && printf "%s\\n%s\\n" "$FAKE_ACCOUNT" "$FAKE_MEMORY"\nexit 0\n',
       )
       chmodSync(join(dir, 'node'), 0o755)
       wrapper = join(dir, 'wrapper.sh')
@@ -1247,35 +1247,49 @@ describe('shellIntegrationSpawnOptions', () => {
 
     it('runs claude on the folder main answers and leaves the shell’s own variable alone', () => {
       expect(
-        run('claude hi; echo " ${CLAUDE_CONFIG_DIR-unset}"', { FAKE_ACCOUNT: '/p/work' }),
-      ).toBe('dir=/p/work args=hi unset\n')
-      expect(asked()).toBe('/x/cli.js claude-account start -- hi\n')
+        run('claude hi; echo " ${CLAUDE_CONFIG_DIR-unset}"', {
+          FAKE_ACCOUNT: '/p/work',
+          FAKE_MEMORY: '/h/.claude',
+        }),
+      ).toBe('dir=/p/work memory=/h/.claude args=hi unset\n')
+      expect(asked()).toBe('/x/cli.js claude-account start\n')
     })
 
-    it('asks with the arguments the human typed, quoted, after --', () => {
+    it('points the memory folder at the Default home so the profile link is not in its path', () => {
+      expect(
+        run('claude hi; echo " ${CLAUDE_CODE_REMOTE_MEMORY_DIR-unset}"', {
+          FAKE_ACCOUNT: '/p/my work',
+          FAKE_MEMORY: '/h/my home/.claude',
+        }),
+      ).toBe('dir=/p/my work memory=/h/my home/.claude args=hi unset\n')
+    })
+
+    it('asks without the arguments the human typed: a resume starts on the current account too', () => {
       run("claude --resume abc 'two words' --help", { FAKE_ACCOUNT: '' })
-      expect(asked()).toBe('/x/cli.js claude-account start -- --resume abc two words --help\n')
+      expect(asked()).toBe('/x/cli.js claude-account start\n')
     })
 
     it('starts claude as it is when main answers nothing', () => {
-      expect(run('claude hi', { FAKE_ACCOUNT: '' })).toBe('dir=unset args=hi')
+      expect(run('claude hi', { FAKE_ACCOUNT: '' })).toBe('dir=unset memory=unset args=hi')
     })
 
     it('keeps a CLAUDE_CONFIG_DIR the human set and does not ask', () => {
       expect(run('claude hi', { FAKE_ACCOUNT: '/p/work', CLAUDE_CONFIG_DIR: '/mine' })).toBe(
-        'dir=/mine args=hi',
+        'dir=/mine memory=unset args=hi',
       )
       expect(run('CLAUDE_CONFIG_DIR=/typed claude hi', { FAKE_ACCOUNT: '/p/work' })).toBe(
-        'dir=/typed args=hi',
+        'dir=/typed memory=unset args=hi',
       )
       expect(asked()).toBe('')
     })
 
     it('does not ask outside an Ostia pane, and `command claude` never asks', () => {
       expect(run('claude hi', { FAKE_ACCOUNT: '/p/work', OSTIA_SOCKET: '' })).toBe(
-        'dir=unset args=hi',
+        'dir=unset memory=unset args=hi',
       )
-      expect(run('command claude hi', { FAKE_ACCOUNT: '/p/work' })).toBe('dir=unset args=hi')
+      expect(run('command claude hi', { FAKE_ACCOUNT: '/p/work' })).toBe(
+        'dir=unset memory=unset args=hi',
+      )
       expect(asked()).toBe('')
     })
   })

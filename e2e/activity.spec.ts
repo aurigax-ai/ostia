@@ -150,7 +150,7 @@ test('a needs-you item an agent adds is counted in the sidebar and marked done b
   const dataHome = freshDataHome()
   const launch = isolatedLaunch(dataHome)
   const idFile = join(dataHome, 'added-id.txt')
-  const count = (win: Page) => win.getByText('1 need you')
+  const count = (win: Page) => win.locator('.ext-item-text', { hasText: 'Needs you' })
 
   const app = await electron.launch(launch)
   try {
@@ -168,6 +168,7 @@ test('a needs-you item an agent adds is counted in the sidebar and marked done b
       })
       .toMatch(/^[a-z2-7]{10}$/)
     await expect(count(win)).toBeVisible({ timeout: 15_000 })
+    await expect(count(win).locator('xpath=preceding-sibling::*[1]')).toHaveText('1')
 
     await openActivity(win)
     const panel = win.locator('#right-panel')

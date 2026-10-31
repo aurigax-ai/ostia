@@ -2,12 +2,13 @@ import { mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { ProfileSync } from '../../../src/main/profileSync/engine'
+import { SECRETS_FILE } from '../../../src/main/profileSync/profile'
+import { rekeyBundle } from '../../../src/main/profileSync/secretCrypto'
 import { createServerTarget } from '../../../src/main/profileSync/serverSync/serverMethod'
 import { ServerSyncService } from '../../../src/main/profileSync/serverSync/serverSyncService'
 import { SyncKeyring } from '../../../src/main/profileSync/serverSync/syncKeyring'
 import { createSyncKeyStore } from '../../../src/main/profileSync/serverSync/syncKeyStore'
-import { ServerDevices } from '../../../src/main/server/serverDevices'
-import { ServerElevation } from '../../../src/main/server/serverElevation'
+import { parseSyncKinds } from '../../../src/shared/profileSync/syncKinds'
 import { type AccountHarness, accountHarness, signedIn } from './accountHarness'
 import type { FakeServer } from './fakeServer'
 
@@ -21,9 +22,7 @@ export interface SyncDevice extends AccountHarness {
   keyring: SyncKeyring
   target: ReturnType<typeof createServerTarget>
   sync: ProfileSync
-  devices: ServerDevices
   service: ServerSyncService
-  elevation: ServerElevation
   userData: string
   configDir: string
   storedKeys: () => unknown
@@ -84,12 +83,12 @@ function assemble(harness: AccountHarness): SyncDevice {
     now: () => clock.now,
     method: () => target.method(),
     targetLabel: () => target.label(),
+    kinds: () => parseSyncKinds(undefined),
     installedExtensions: () => [],
     builtinIds: () => [],
     installExtension: async () => true,
     detectSecrets: async () => [],
   })
-  const devices = new ServerDevices(harness.account)
   return {
     ...harness,
     ...local,
@@ -97,9 +96,14 @@ function assemble(harness: AccountHarness): SyncDevice {
     storedKeys: () => stored,
     target,
     sync,
-    devices,
-    service: new ServerSyncService({ account: harness.account, keyring, devices }),
-    elevation: new ServerElevation(harness.account),
+    service: new ServerSyncService({
+      account: harness.account,
+      keyring,
+      rekey: (path, content, from, to) =>
+        path === SECRETS_FILE
+          ? Buffer.from(rekeyBundle(content.toString('utf8'), from, to), 'utf8')
+          : content,
+    }),
   }
 }
 
@@ -108,30 +112,13 @@ export async function firstDevice(server: FakeServer): Promise<SyncDevice> {
   return assemble(harness)
 }
 
-export async function elevate(requester: SyncDevice, approver: SyncDevice): Promise<void> {
-  const started = await requester.elevation.start('approval')
-  if (!started.ok) throw new Error(`elevation failed: ${started.error}`)
-  const asked = await approver.elevation.approvals()
-  if (!asked.ok) throw new Error(`approvals failed: ${asked.error}`)
-  const approved = await approver.elevation.approve(asked.approvals[0]?.id ?? '')
-  if (!approved.ok) throw new Error(`approve failed: ${approved.error}`)
-  const polled = await requester.elevation.poll()
-  if (polled.state !== 'done') throw new Error('elevation did not finish')
-}
-
-export async function joinedDevice(
-  server: FakeServer,
-  inviter: SyncDevice,
-  approver?: SyncDevice,
-): Promise<SyncDevice> {
-  let invite = await inviter.devices.createInvite()
-  if (!invite.ok && invite.error === 'elevation-required' && approver) {
-    await elevate(inviter, approver)
-    invite = await inviter.devices.createInvite()
-  }
-  if (!invite.ok) throw new Error(`invite failed: ${invite.error}`)
+export async function joinedDevice(server: FakeServer, of: SyncDevice): Promise<SyncDevice> {
+  const accountId = of.account.identity()?.accountId
+  if (!accountId) throw new Error('the first device is not signed in')
+  const code = `join-${server.devices.size}`
+  server.accountInvites.set(code, accountId)
   const harness = await accountHarness({ server })
-  const result = await harness.account.signInWithInvite(invite.code)
+  const result = await harness.account.signInWithInvite(code)
   if (!result.ok) throw new Error(`join failed: ${result.error}`)
   return assemble(harness)
 }

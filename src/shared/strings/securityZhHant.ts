@@ -201,6 +201,12 @@ export const securityZhHant: typeof securityEn = {
       '沙箱中的 shell 無法讀取的檔案與資料夾，即使位於可讀取的資料夾內。被隱藏的 socket 無法連線。',
     inherited: '沿用',
     install: '安裝',
+    leftBehindBody:
+      '這些檔案在本次工作階段中出現或變更。在此執行 direnv 或 git 之前，請先檢視：{files}',
+    leftBehindLabel: '沙箱留下的檔案',
+    leftBehindMore: '另外 {count} 個',
+    leftBehindShow: '在「檔案」中顯示',
+    leftBehindTitle: '沙箱留下了可執行程式碼的檔案',
     listEmpty: '尚未新增。',
     malware: '封鎖已知惡意套件',
     malwareDesc: '每次下載套件時比對 OSV 惡意套件資料庫。',

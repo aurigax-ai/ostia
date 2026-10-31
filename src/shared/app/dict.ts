@@ -19,6 +19,8 @@ import { filesEn } from '../strings/filesEn'
 import { filesZhHant } from '../strings/filesZhHant'
 import { playbooksEn } from '../strings/playbooksEn'
 import { playbooksZhHant } from '../strings/playbooksZhHant'
+import { remoteEn } from '../strings/remoteEn'
+import { remoteZhHant } from '../strings/remoteZhHant'
 import { securityEn } from '../strings/securityEn'
 import { securityZhHant } from '../strings/securityZhHant'
 import { serverEn } from '../strings/serverEn'
@@ -73,14 +75,13 @@ export const en = {
   views: workspacesEn.views,
   agentSession: assistantEn.agentSession,
   artifacts: filesEn.artifacts,
-  dashboard: workspacesEn.dashboard,
+  inbox: workspacesEn.inbox,
   approvals: assistantEn.approvals,
   remoteFolders: filesEn.remoteFolders,
   filesView: filesEn.filesView,
   fileMenu: commandsEn.fileMenu,
   openFile: filesEn.openFile,
   portable: appEn.portable,
-  noNewPrivs: appEn.noNewPrivs,
   preview: filesEn.preview,
   viewer: filesEn.viewer,
   marketplace: extensionsEn.marketplace,
@@ -104,6 +105,7 @@ export const en = {
   sync: appEn.sync,
   server: serverEn.server,
   shares: sharesEn.shares,
+  remote: remoteEn.remote,
   syncServer: serverEn.syncServer,
   browserSettings: settingsEn.browserSettings,
   editorSettings: settingsEn.editorSettings,
@@ -163,14 +165,13 @@ export const zhHant: Dict = {
   views: workspacesZhHant.views,
   agentSession: assistantZhHant.agentSession,
   artifacts: filesZhHant.artifacts,
-  dashboard: workspacesZhHant.dashboard,
+  inbox: workspacesZhHant.inbox,
   approvals: assistantZhHant.approvals,
   remoteFolders: filesZhHant.remoteFolders,
   filesView: filesZhHant.filesView,
   fileMenu: commandsZhHant.fileMenu,
   openFile: filesZhHant.openFile,
   portable: appZhHant.portable,
-  noNewPrivs: appZhHant.noNewPrivs,
   preview: filesZhHant.preview,
   viewer: filesZhHant.viewer,
   marketplace: extensionsZhHant.marketplace,
@@ -194,6 +195,7 @@ export const zhHant: Dict = {
   sync: appZhHant.sync,
   server: serverZhHant.server,
   shares: sharesZhHant.shares,
+  remote: remoteZhHant.remote,
   syncServer: serverZhHant.syncServer,
   browserSettings: settingsZhHant.browserSettings,
   editorSettings: settingsZhHant.editorSettings,

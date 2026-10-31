@@ -17,6 +17,7 @@ export function InputEditorField({
   commandSet,
   ghost,
   followMenu,
+  typed,
   onKeyDown,
   termRef,
   hadFocus,
@@ -28,6 +29,7 @@ export function InputEditorField({
   commandSet: ReadonlySet<string> | null
   ghost: Ghost
   followMenu: (draft: string, start: number, end: number) => void
+  typed: (draft: string, start: number, end: number) => void
   onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void
   termRef: RefObject<Xterm | null>
   hadFocus: MutableRefObject<boolean>
@@ -54,7 +56,7 @@ export function InputEditorField({
           setSelection({ start: e.target.selectionStart, end: e.target.selectionEnd })
           walk.current = null
           if (tip !== 'none') setTip('none')
-          followMenu(e.target.value, e.target.selectionStart, e.target.selectionEnd)
+          typed(e.target.value, e.target.selectionStart, e.target.selectionEnd)
           if (!line) termRef.current?.scrollToBottom()
         }}
         onSelect={(e) => {

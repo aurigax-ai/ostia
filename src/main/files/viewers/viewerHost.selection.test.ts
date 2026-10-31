@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { GESTURE_WINDOW_MS, viewerOwner } from './viewerHost'
 import {
   adoptGuest,
@@ -230,7 +230,7 @@ describe('guest selection channel', () => {
         csv: 'a,"b <1>"\n"x ""y""",2',
       }),
     )
-    expect(await host.copySelection('w1', 'p1')).toBe('cells S!A1:B2 2x2')
+    expect(await host.copySelection('w1', 'p1')).toBe('cells')
     expect(clipboard.at(-1)).toEqual({
       text: 'a,"b <1>"\n"x ""y""",2',
       html: '<table><tbody><tr><td>a</td><td>b &lt;1&gt;</td></tr><tr><td>x &quot;y&quot;</td><td>2</td></tr></tbody></table>',
@@ -238,14 +238,14 @@ describe('guest selection channel', () => {
   })
 
   it('answers the owner window only and says nothing to copy otherwise', async () => {
-    const { host, session, clipboard, src } = await opened()
-    expect(await host.copySelection('w1', 'p1')).toBe('none')
+    const { host, session, clipboard, src, events } = await opened()
+    expect(await host.copySelection('w1', 'p1')).toBeNull()
     await postSelection(
       session,
       await selectionBody({ capture: IMAGE, rect: RECT, frame: FRAME }, pngOf(4, 4)),
     )
-    expect(await host.copySelection('w2', 'p1')).toBe('none')
-    expect(await host.copySelection('w1', 'other')).toBe('none')
+    expect(await host.copySelection('w2', 'p1')).toBeNull()
+    expect(await host.copySelection('w1', 'other')).toBeNull()
     expect(clipboard).toEqual([])
     expect(host.selectionForSend('w2', 'p1')).toBeNull()
     expect(host.selectionForSend('w1', 'p1')).toMatchObject({
@@ -253,8 +253,13 @@ describe('guest selection channel', () => {
     })
     expect(host.copyForGuest({ getURL: () => src })).toBe(true)
     expect(host.copyForGuest({ getURL: () => 'https://example.com/' })).toBe(false)
-    await Promise.resolve()
+    await vi.waitFor(() => expect(events.at(-1)?.type).toBe('copied'))
     expect(clipboard).toHaveLength(1)
+    expect(events.at(-1)).toEqual({
+      windowId: 'w1',
+      type: 'copied',
+      payload: { paneId: 'p1', label: expect.any(String) },
+    })
   })
 
   it('takes a selection only within a moment of a trusted pointer or key input, without spending it', async () => {
@@ -301,11 +306,11 @@ describe('guest selection channel', () => {
     click()
     await postSelection(session, body)
     expect(host.selectionForSend('w1', 'p1')).not.toBeNull()
-    host.changed(viewerOwner('t1'))
+    await host.changed(viewerOwner('t1'))
     expect(host.selectionForSend('w1', 'p1')).toBeNull()
     expect(events.at(-1)).toMatchObject({ payload: { selection: null } })
     const count = events.length
-    host.changed(viewerOwner('t1'))
+    await host.changed(viewerOwner('t1'))
     expect(events).toHaveLength(count)
   })
 

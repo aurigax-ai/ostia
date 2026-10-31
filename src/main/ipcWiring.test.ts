@@ -14,6 +14,7 @@ const SENT_BY_TESTS_ONLY = ['diagnostics:test-crash']
 
 const PUSHED = [
   'agent:event',
+  'agent:prompted',
   'agent:tool-call',
   'agent:tool-cancel',
   'app-menu:run',
@@ -35,6 +36,7 @@ const PUSHED = [
   'chatTools:always-grants',
   'chatTools:mcp-status',
   'claude-accounts:changed',
+  'claude-accounts:session-stays',
   'command:invoke',
   'diagnostics:test-crash',
   'extensions:agent-offer',
@@ -72,14 +74,13 @@ const PUSHED = [
   'remote-files:confirm',
   'remote-files:folders-changed',
   'sandbox:blocked',
+  'sandbox:left-behind',
   'scriptTokens:changed',
   'server:changed',
-  'server:devices-changed',
   'settings:changed',
   'sync:status',
-  'syncServer:attention',
-  'syncServer:open',
   'syncServer:status',
+  'viewers:copied',
   'viewers:edit-source',
   'viewers:open-link',
   'viewers:selection',
@@ -100,7 +101,7 @@ const PUSHED = [
 
 const TS_SOURCES = '**/!(*.d).ts'
 
-const PUSHED_DYNAMIC = ['lsp:exit:', 'lsp:msg:', 'pty:data:', 'pty:exit:', 'pty:size:']
+const PUSHED_DYNAMIC = ['lsp:exit:', 'lsp:msg:', 'pty:data:', 'pty:exit:', 'pty:link:', 'pty:size:']
 
 function mainSources(): string[] {
   return sourceFiles(MAIN_DIR, TS_SOURCES).map((file) => readFileSync(file, 'utf8'))
