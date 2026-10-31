@@ -1371,6 +1371,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+.rail-chips > :not(.rail-meta) {
+  flex-shrink: 0;
+}
+
+.rail-chips .ext-item.tone-brand,
+.rail-chips .ext-item.tone-ok {
+  color: var(--fg-muted);
+}
+
 .rail-chips .ext-item {
   padding: 0 4px;
   border-radius: var(--radius-sm);

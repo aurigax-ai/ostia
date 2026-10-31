@@ -10,6 +10,8 @@ import { openSidebarUrl, visibleSidebarItems } from '@/lib/sidebar/sidebarItems'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 
+const FIRST_CHIP_MIN = 72
+
 const itemKey = (item: ExtensionSidebarItem): string => `${item.extId}:${item.key}`
 
 const signatureOf = (items: readonly ExtensionSidebarItem[]): string =>
@@ -141,6 +143,7 @@ export function LiveLine({
           available: el.clientWidth,
           gap: columnGap(el),
           moreWidth: moreWidth.current,
+          firstMin: FIRST_CHIP_MIN,
         }),
       })
     if (measuring) {
