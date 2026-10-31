@@ -2,6 +2,7 @@ import type { PortableAction, PortableResult } from '@shared/artifacts/portable'
 import type { PublishOptions, ShareView } from '@shared/artifacts/shares'
 import { useState } from 'react'
 import { useDict } from '@/lib/app/useDict'
+import type { CaptureChipTone } from '@/lib/capture/captureSession'
 import { useSharesStore } from '@/stores/files/sharesStore'
 import { shareFailureText } from './shareText'
 
@@ -18,29 +19,29 @@ export interface Publishing {
   publish: (options: PublishOptions) => Promise<PortableResult | null>
   share: ShareView | null
   unshare: () => Promise<void>
-  problem: string | null
+  linkCopied: () => void
 }
 
-export function usePublishing(filePath: string, run: RunPortable): Publishing {
+export function usePublishing(
+  filePath: string,
+  run: RunPortable,
+  say: (text: string, tone: CaptureChipTone) => void,
+): Publishing {
   const d = useDict()
   const [open, setOpen] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
   const share = useSharesStore((s) => s.shares.find((x) => x.source === filePath) ?? null)
   return {
     name: filePath.slice(filePath.lastIndexOf('/') + 1),
     open,
-    show: () => {
-      setProblem(null)
-      setOpen(true)
-    },
+    show: () => setOpen(true),
     hide: () => setOpen(false),
     publish: (options) => run('publish', options),
     share,
-    problem,
+    linkCopied: () => say(d.shares.publishedLinkCopied, 'ok'),
     unshare: async () => {
       if (!share) return
       const result = await useSharesStore.getState().remove(share.id)
-      setProblem(result.ok ? null : shareFailureText(d, result.error))
+      if (!result.ok) say(shareFailureText(d, result.error), 'warn')
     },
   }
 }

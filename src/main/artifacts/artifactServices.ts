@@ -112,6 +112,8 @@ export function createArtifactServices({
     writeClipboard: (text) => clipboard.writeText(text),
     version: app.getVersion(),
     publishedTables: (windowId, path) => services.files?.viewers.portable(windowId, path) ?? null,
+    awaitTables: async (windowId, path) =>
+      (await services.files?.viewers.awaitPortable(windowId, path)) ?? null,
   })
 
   const artifactHistory: ArtifactHistory = new ArtifactHistory({

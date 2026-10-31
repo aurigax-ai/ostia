@@ -60,6 +60,7 @@ export const sharesEn = {
     publish: 'Publish',
     publishAnyway: 'Publish anyway',
     publishMenu: 'Publish…',
+    publishedLinkCopied: 'Published · link copied',
     publishing: 'Publishing…',
     signedOut: 'Sign in to your {product} account to publish files and manage what you shared.',
     title: 'Shared artifacts',

@@ -3,6 +3,7 @@ import { ARTIFACT_FILE_MAX_BYTES, type ArtifactListing } from '@shared/artifacts
 import { act, cleanup, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useCaptureStore } from '@/lib/capture/captureSession'
 import { findPane } from '@/lib/layout/tree'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -200,5 +201,29 @@ describe('ArtifactsSection', () => {
     await renderSettled(<ArtifactsSection workspaceId="s1" />)
     await userEvent.click(screen.getByRole('button', { name: 'Reveal artifacts folder' }))
     expect(window.ostia.artifacts.reveal).toHaveBeenCalledWith('s1')
+  })
+
+  it('PRT-C78 reports a failed portable copy from a row in the floating chip of the active pane', async () => {
+    seedWorkspace()
+    lists(listing(['plan.md', 5]))
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: '# Plan\n', version: 'v1' })
+    vi.mocked(window.ostia.artifacts.portable).mockResolvedValue({
+      ok: false,
+      reason: 'too-large',
+    })
+    await renderSettled(<ArtifactsSection workspaceId="s1" />)
+    await userEvent.pointer({
+      keys: '[MouseRight]',
+      target: await screen.findByTestId('artifact-row'),
+    })
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Copy Portable HTML' }))
+    const active = useLayoutStore.getState().byWorkspace.s1.activePaneId
+    await vi.waitFor(() =>
+      expect(useCaptureStore.getState().chip[active]).toMatchObject({
+        label: 'The portable file would be over 16 MiB.',
+        tone: 'warn',
+      }),
+    )
+    expect(screen.queryByTestId('portable-problem')).not.toBeInTheDocument()
   })
 })

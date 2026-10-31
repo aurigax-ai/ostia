@@ -43,9 +43,12 @@ export interface OpenCapture {
   error: string | null
 }
 
+export type CaptureChipTone = 'ok' | 'warn'
+
 export interface CaptureChipState {
   id: number
   label: string
+  tone: CaptureChipTone
 }
 
 interface CaptureState {
@@ -93,13 +96,16 @@ export function setCaptureStatus(paneId: string, text: string | null): void {
     )
 }
 
-function setCaptureChip(paneId: string, label: string | null): void {
+function setCaptureChip(paneId: string, label: string | null, tone: CaptureChipTone = 'ok'): void {
   clearTimeout(chipTimers.get(paneId))
   chipTimers.delete(paneId)
   counter += 1
   const id = counter
   useCaptureStore.setState((state) => ({
-    chip: label === null ? without(state.chip, paneId) : { ...state.chip, [paneId]: { id, label } },
+    chip:
+      label === null
+        ? without(state.chip, paneId)
+        : { ...state.chip, [paneId]: { id, label, tone } },
   }))
   if (label !== null)
     chipTimers.set(
@@ -113,6 +119,10 @@ export function closeCapture(paneId: string, reason: CloseReason): void {
   if (!current) return
   useCaptureStore.setState((state) => ({ open: without(state.open, paneId) }))
   current.adapter.clear(reason)
+}
+
+export function showCaptureChip(paneId: string, label: string, tone: CaptureChipTone): void {
+  setCaptureChip(paneId, label, tone)
 }
 
 export function confirmCapture(paneId: string, label: string, reason: 'copied' | 'sent'): void {

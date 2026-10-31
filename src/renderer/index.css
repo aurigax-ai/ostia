@@ -2518,14 +2518,6 @@
   min-height: 0;
 }
 
-.portable-problem {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  max-width: 320px;
-}
-
 .pane:hover .pane-actions,
 .pane.active .pane-actions,
 .pane-actions:focus-within {
