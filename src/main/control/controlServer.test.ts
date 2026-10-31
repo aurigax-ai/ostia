@@ -21,6 +21,7 @@ import { gitRequest } from '../../cli/verbs/coreBoards'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { grant } from '../approvals/capabilityStore'
+import { shortSocketDir } from '../platform/privateTmp'
 import {
   type ControlServerDeps,
   controlSocketPathFor,
@@ -419,6 +420,27 @@ describe('the control socket on macOS', () => {
     }
     sweepStaleControlSockets('darwin', { XDG_DATA_HOME: data }, (pid) => pid === 222)
     expect(readdirSync(dir).sort()).toEqual(['notes.txt', 'ostia-222.sock', 'ostia-x.sock'])
+  })
+})
+
+describe('long-path control sockets', () => {
+  it('are swept when their process is gone, and kept sockets stay', () => {
+    const dir = shortSocketDir()
+    const names = [
+      'aaaaaaaaaaaaaaaa-ostia-900001.sock',
+      'bbbbbbbbbbbbbbbb-ostia-900002.sock',
+      'cccccccccccccccc.sock',
+    ]
+    for (const name of names) writeFileSync(join(dir, name), '')
+    try {
+      sweepStaleControlSockets('darwin', { XDG_DATA_HOME: dataHome() }, (pid) => pid === 900002)
+      const left = readdirSync(dir)
+      expect(left).not.toContain(names[0])
+      expect(left).toContain(names[1])
+      expect(left).toContain(names[2])
+    } finally {
+      for (const name of names) rmSync(join(dir, name), { force: true })
+    }
   })
 })
 

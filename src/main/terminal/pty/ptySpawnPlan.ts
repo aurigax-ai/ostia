@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
 import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/terminal/ptyApi'
 import { shellArgv } from '../../../shared/terminal/terminalShell'
@@ -14,7 +13,6 @@ import { controlSocketPath } from '../../control/controlServer'
 import type { PaneIdentity } from '../../control/idRegistry'
 import { getByPaneId, registerPane } from '../../control/idRegistry'
 import type { Telemetry } from '../../diagnostics/telemetry'
-import { privateTmpDir } from '../../platform/privateTmp'
 import { loginPathSettled } from '../../platform/toolPath'
 import { attachWorkspace } from '../../sandbox/attachWorkspace'
 import type { HostPaneGrants } from '../../sandbox/hostPanes'
@@ -35,6 +33,7 @@ import {
   sendsMarkNonce,
   shellIntegrationSpawnOptions,
 } from '../shellIntegration'
+import { shellStateDir } from '../shellStateDir'
 import type { SpawnFolder } from '../spawnCwd'
 import { sandboxCwd, spawnFolder } from '../spawnCwd'
 import { paneShellEnv } from '../terminalType'
@@ -76,7 +75,7 @@ interface ShellFiles {
 function shellFiles(shell: string): ShellFiles {
   const name = randomUUID()
   try {
-    const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), name)
+    const stateFile = join(shellStateDir(), name)
     const markNonceFile = sendsMarkNonce(shell) ? markNonceFileFor(stateFile) : null
     const markNonce = markNonceFile ? writeMarkNonce(markNonceFile) : null
     return { stateFile, markNonceFile, markNonce, failure: null }

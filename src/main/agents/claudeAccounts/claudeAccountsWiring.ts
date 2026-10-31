@@ -63,26 +63,22 @@ export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
     syncProfile: (dir) => syncProfileFromDefault(dir, defaultConfigHome()),
     loginState: (dir) => loginState(dir, Date.now()),
     writeLogin,
-    signIn:
-      process.platform === 'darwin'
-        ? null
-        : {
-            listen: ({ state, timeoutMs }) =>
-              openCallbackListener({
-                state,
-                timeoutMs,
-                redirectName: 'localhost',
-                pages: {
-                  done: deps.mainStrings().claudeAccounts.signInPageDone,
-                  failed: deps.mainStrings().claudeAccounts.signInPageFailed,
-                },
-              }),
-            openExternal: deps.openExternalSafe,
-            createPkce,
-            exchange: (code, redirectUri, pkce) =>
-              exchangeCode(code, redirectUri, pkce, Date.now()),
-            profile: (accessToken) => fetchProfile(accessToken),
+    signIn: {
+      listen: ({ state, timeoutMs }) =>
+        openCallbackListener({
+          state,
+          timeoutMs,
+          redirectName: 'localhost',
+          pages: {
+            done: deps.mainStrings().claudeAccounts.signInPageDone,
+            failed: deps.mainStrings().claudeAccounts.signInPageFailed,
           },
+        }),
+      openExternal: deps.openExternalSafe,
+      createPkce,
+      exchange: (code, redirectUri, pkce) => exchangeCode(code, redirectUri, pkce, Date.now()),
+      profile: (accessToken) => fetchProfile(accessToken),
+    },
     openLoginTab: (dir, target) =>
       deps.openTerminalInWindow({
         command: `CLAUDE_CONFIG_DIR=${quoteArg(dir)} 'claude'`,
