@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
@@ -56,17 +56,61 @@ test('REM-E1 a remote workspace is set up from the menu, shows Online and lists 
     await dialog.getByRole('button', { name: 'Check again' }).click()
     await expect(dialog).toBeHidden({ timeout: 60_000 })
     await expect(win.getByText('Online')).toBeVisible({ timeout: 30_000 })
-    await win.keyboard.press('F1')
-    await win
-      .getByRole('dialog', { name: 'Command palette' })
-      .getByRole('combobox')
-      .fill('Remote: Jobs')
-    await win.keyboard.press('Enter')
     const jobs = win.getByRole('dialog', { name: 'Jobs on build-box' })
-    await expect(jobs.getByRole('listitem')).toHaveCount(1, { timeout: 20_000 })
+    const openJobs = async (): Promise<void> => {
+      await win.keyboard.press('F1')
+      await win
+        .getByRole('dialog', { name: 'Command palette' })
+        .getByRole('combobox')
+        .fill('Remote: Jobs')
+      await win.keyboard.press('Enter')
+      await expect(jobs).toBeVisible()
+    }
+    const expectJobs = async (count: number): Promise<void> => {
+      await openJobs()
+      await expect(jobs.getByRole('listitem')).toHaveCount(count, { timeout: 20_000 })
+    }
+    const remoteTmux = (...args: string[]): string[] => {
+      const socket = join(remoteHome, '.ostia/node/run/tmux')
+      const out = spawnSync('tmux', ['-S', socket, ...args]).stdout?.toString() ?? ''
+      return out.split('\n').filter(Boolean)
+    }
+    const sessions = (): string[] => remoteTmux('ls', '-F', '#{session_name}')
+    const clients = (): number => remoteTmux('list-clients').length
+    const tabs = win.locator('.pane-tab')
+    const openShell = async (): Promise<string> => {
+      const known = sessions()
+      const attached = clients()
+      await win.keyboard.press('Control+Shift+T')
+      await expect.poll(clients, { timeout: 30_000 }).toBe(attached + 1)
+      const added = sessions().find((name) => !known.includes(name))
+      if (!added) throw new Error('no new session on the host')
+      return added
+    }
+
+    const before = await tabs.count()
+    const shell = await openShell()
+    await expect(tabs).toHaveCount(before + 1)
+    const screen = (): string => remoteTmux('capture-pane', '-p', '-t', shell).join('\n')
+    await expect.poll(screen, { timeout: 20_000 }).toContain('$')
+    await win.keyboard.type('echo "home=$HOME"\n')
+    await expect.poll(screen, { timeout: 20_000 }).toContain(`home=${remoteHome}`)
+    await win.keyboard.type('exit\n')
+    await expect(tabs).toHaveCount(before, { timeout: 20_000 })
+    await expect.poll(sessions, { timeout: 20_000 }).not.toContain(shell)
+
+    const closed = await openShell()
+    await win.keyboard.press('Control+Shift+W')
+    await expect(tabs).toHaveCount(before, { timeout: 20_000 })
+    await expect.poll(sessions, { timeout: 20_000 }).not.toContain(closed)
+    await expectJobs(1)
     await expect(jobs.getByRole('listitem')).toContainText('claude')
   } finally {
-    spawnSync('tmux', ['-S', join(remoteHome, '.ostia/node/run/tmux'), 'kill-server'])
+    const socket = join(remoteHome, '.ostia/node/run/tmux')
+    for (const entry of readdirSync(join(remoteHome, '.ostia/node'))) {
+      if (entry !== 'run') rmSync(join(remoteHome, '.ostia/node', entry), { recursive: true })
+    }
+    spawnSync('tmux', ['-S', socket, 'kill-server'])
     await app.close()
   }
 })

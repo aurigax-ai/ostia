@@ -15,6 +15,7 @@ import {
   TERMINAL_ARG_MAX,
   TERMINAL_COMMAND_MAX_ARGS,
   TERMINAL_TITLE_MAX,
+  type TerminalPlace,
   type TerminalWait,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
@@ -37,6 +38,10 @@ import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { spawnFolder } from '../terminal/spawnCwd'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { fail, type Runtime } from './extensionRuntime'
+
+function isTerminalPlace(value: unknown): value is TerminalPlace {
+  return value === 'tab' || value === 'horizontal' || value === 'vertical'
+}
 
 function hasControlChar(text: string): boolean {
   for (let i = 0; i < text.length; i++) {
@@ -69,6 +74,8 @@ export interface TerminalOpenRequest {
   asTab?: boolean
   humanCall?: boolean
   pinTitle?: boolean
+  place?: TerminalPlace
+  replaceShell?: boolean
 }
 
 export interface ExtensionConfirmRequest {
@@ -153,8 +160,16 @@ export class ExtensionRuns {
     const argv = terminalArgv(p.command)
     if (typeof argv === 'string') return fail('invalid-params', argv)
     const rt = this.host.runtimeOf(identity, conn)
-    const command = quoteArgv(argv)
-    const req: TerminalOpenRequest = { command }
+    if (p.place !== undefined && !isTerminalPlace(p.place)) {
+      return fail('invalid-params', 'place is tab, horizontal or vertical')
+    }
+    const replaceShell = p.replaceShell === true
+    const command = replaceShell ? `exec ${quoteArgv(argv)}` : quoteArgv(argv)
+    const req: TerminalOpenRequest = {
+      command,
+      ...(p.place ? { place: p.place } : {}),
+      ...(replaceShell ? { replaceShell } : {}),
+    }
     const workspaceId =
       typeof p.workspaceId === 'string' && p.workspaceId ? p.workspaceId : undefined
     let after: PaneIdentity | undefined

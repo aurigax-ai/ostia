@@ -12,6 +12,7 @@ import type {
   InboxEntry,
   PaneChip,
   PanelToolbarEntry,
+  TerminalPlace,
   WorkspaceChip,
 } from './extensions'
 
@@ -88,6 +89,8 @@ export interface ExtensionOpenTerminalRequest {
   asTab?: boolean
   humanCall?: boolean
   pinTitle?: boolean
+  place?: TerminalPlace
+  replaceShell?: boolean
 }
 
 export interface ExtensionsApi {

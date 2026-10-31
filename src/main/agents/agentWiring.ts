@@ -30,7 +30,7 @@ import type { PaneWatch } from '../panes/paneWait'
 import type { PaneWaking } from '../panes/paneWaking'
 import { INTERRUPT_GRACE_MS, registerProcessMethods } from '../panes/processManager'
 import type { ProcessRegistry } from '../panes/processRegistry'
-import { sshRemoteStarter } from '../panes/remoteStart'
+import { registerRemoteWorkspaceIpc, sshRemoteStarter } from '../panes/remoteStart'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyIo } from '../terminal/pty/ptyIo'
@@ -147,6 +147,11 @@ export function registerAgentWiring({
         : []
     return panes.find((p) => p.paneId === paneId)
   }
+  const remote = sshRemoteStarter(
+    join(app.getPath('userData'), 'extension-data'),
+    () => services.extensionHost,
+  )
+  registerRemoteWorkspaceIpc(remote)
   const { registry, startAgentForPhone } = registerProcessMethods({
     openTab: openTerminalInWindow,
     onChange: (entry) => {
@@ -159,10 +164,7 @@ export function registerAgentWiring({
     },
     writePane: paneIo.write,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    remote: sshRemoteStarter(
-      join(app.getPath('userData'), 'extension-data'),
-      () => services.extensionHost,
-    ),
+    remote,
     endShell: (paneId) => killPty(paneId, 'process-kill'),
     hasShell: (paneId) => ptys.has(paneId),
     runInPane: (paneId, command) => {

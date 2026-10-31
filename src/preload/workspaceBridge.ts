@@ -10,6 +10,7 @@ export const workspaceBridge: Pick<OstiaBridge, 'workspace' | 'scratch' | 'snipp
     movePanes: (sourceId, targetId, paneIds) =>
       ipcRenderer.invoke('workspace:move-panes', sourceId, targetId, paneIds),
     readCmux: (path) => ipcRenderer.invoke('workspace:read-cmux', path),
+    isRemote: (workspaceId) => ipcRenderer.invoke('workspace:is-remote', workspaceId),
   },
   scratch: {
     create: () => ipcRenderer.invoke('scratch:create'),

@@ -1,5 +1,6 @@
 import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
+import { ipcMain } from 'electron'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { RemoteStartAnswer, RemoteStartInput } from '../../shared/remote/remoteHandoff'
 import { REMOTE_REGISTRY_FILE } from '../../shared/remote/remoteNode'
@@ -62,4 +63,10 @@ export function sshRemoteStarter(
       return { ok: true, ...(res.data as Omit<Extract<RemoteStartAnswer, { ok: true }>, 'ok'>) }
     },
   }
+}
+
+export function registerRemoteWorkspaceIpc(remote: RemoteStarter): void {
+  ipcMain.handle('workspace:is-remote', (_e, workspaceId: unknown) =>
+    typeof workspaceId === 'string' ? remote.isRemote(workspaceId) : false,
+  )
 }

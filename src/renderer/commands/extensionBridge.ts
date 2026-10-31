@@ -10,6 +10,7 @@ import { focusPaneWhenReady } from '@/lib/panes/paneFocus'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { startOffscreen } from '@/lib/terminal/offscreenStart'
 import { pinTitle } from '@/lib/terminal/pinnedTitles'
+import { noteReplacedShell } from '@/lib/terminal/replacedShells'
 import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -117,6 +118,7 @@ export function openExtensionTerminal(req: ProcessTerminalRequest): string | nul
   const takesKeyboard =
     req.asTab === true && (req.humanCall === true || paneHoldsKeyboard(req.afterPaneId))
   const quiet = req.backgroundTab === true || (req.asTab === true && !takesKeyboard)
+  const shownTab = takesKeyboard || req.place === 'tab'
   const open = (): string | null =>
     useLayoutStore.getState().openTerminal(workspaceId, {
       afterPaneId: req.afterPaneId,
@@ -124,14 +126,16 @@ export function openExtensionTerminal(req: ProcessTerminalRequest): string | nul
       cwd: req.cwd,
       title: req.title,
       backgroundTab: quiet,
-      asTab: takesKeyboard,
+      asTab: shownTab,
+      direction: req.place === 'tab' ? undefined : req.place,
       splitTab: req.splitTab,
     })
   const paneId = quiet ? openKeepingFocus(open) : open()
   if (!paneId) return null
   if (req.pinTitle) pinTitle(paneId)
+  if (req.replaceShell) noteReplacedShell(paneId)
   if (req.hostToken) useSandboxStore.getState().setHostToken(paneId, req.hostToken)
-  if (!quiet && workspaces.activeWorkspaceId !== workspaceId) {
+  if (!quiet && !req.place && workspaces.activeWorkspaceId !== workspaceId) {
     workspaces.setActive(workspaceId)
   }
   startOffscreen(paneId)

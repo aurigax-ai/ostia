@@ -98,6 +98,34 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
     })
   })
 
+  it('REM-U30 replaces the shell with the command and passes the place on', async () => {
+    openTerminalIn.mockResolvedValue('new-external-id')
+    const res = await host.invoke(
+      'opener',
+      'open',
+      { command: ['ssh', 'box'], workspaceId: 'w1', place: 'vertical', replaceShell: true },
+      caller,
+    )
+    expect(res).toEqual({ ok: true, data: { ok: true, paneId: 'new-external-id' } })
+    expect(openTerminalIn).toHaveBeenCalledWith({
+      command: 'exec ssh box',
+      place: 'vertical',
+      replaceShell: true,
+      workspaceId: 'w1',
+    })
+  })
+
+  it('REM-U31 refuses a place it does not know and opens nothing', async () => {
+    const res = await host.invoke(
+      'opener',
+      'open',
+      { command: ['ssh', 'box'], workspaceId: 'w1', place: 'left' },
+      caller,
+    )
+    expect(res).toMatchObject({ ok: true, data: { ok: false, error: 'invalid-params' } })
+    expect(openTerminalIn).not.toHaveBeenCalled()
+  })
+
   describe('a pane opened while serving a call', () => {
     let opened: PaneIdentity
 

@@ -11,6 +11,7 @@ import * as callerFocus from '@/lib/panes/callerFocus'
 import { instanceKey } from '@/lib/panes/panelKeepAlive'
 import { registerOffscreenStarter } from '@/lib/terminal/offscreenStart'
 import { isTitlePinned, resetPinnedTitles } from '@/lib/terminal/pinnedTitles'
+import { hasReplacedShell } from '@/lib/terminal/replacedShells'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
@@ -400,6 +401,56 @@ describe('extensionBridge', () => {
         activeWorkspaceId: 's2',
       })
     }
+
+    it('REM-U32 opens a shown tab at place tab, with no keyboard and no workspace switch', () => {
+      twoWorkspaces()
+      useLayoutStore.getState().ensure('s1')
+      const first = useLayoutStore.getState().byWorkspace.s1.activePaneId
+
+      const paneId = openExtensionTerminal({
+        requestId: 'r1',
+        workspaceId: 's1',
+        afterPaneId: first,
+        place: 'tab',
+        command: 'exec ssh box',
+      })
+
+      const layout = useLayoutStore.getState().byWorkspace.s1
+      expect(layout.activePaneId).toBe(paneId)
+      expect(layout.root).toMatchObject({ type: 'tabs' })
+      expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s2')
+    })
+
+    it('REM-U49 remembers a pane whose shell the command replaces', () => {
+      twoWorkspaces()
+      useLayoutStore.getState().ensure('s1')
+      const paneId = openExtensionTerminal({
+        requestId: 'r1',
+        workspaceId: 's1',
+        command: 'exec ssh box',
+        replaceShell: true,
+      })
+      expect(hasReplacedShell(paneId as string)).toBe(true)
+    })
+
+    it('REM-U33 splits in the direction the place names', () => {
+      twoWorkspaces()
+      useLayoutStore.getState().ensure('s1')
+      const first = useLayoutStore.getState().byWorkspace.s1.activePaneId
+
+      openExtensionTerminal({
+        requestId: 'r1',
+        workspaceId: 's1',
+        afterPaneId: first,
+        place: 'vertical',
+        command: 'exec ssh box',
+      })
+
+      expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+        type: 'split',
+        direction: 'vertical',
+      })
+    })
 
     it('splits right of the agent pane, shows its workspace, and runs the command at the first idle prompt', () => {
       twoWorkspaces()

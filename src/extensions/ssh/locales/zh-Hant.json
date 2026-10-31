@@ -87,6 +87,6 @@
     "fetchChanged": "取回時主機上的分支已變動；請再執行一次以更新 {ref}",
     "noChanges": "分支尚無任何變更",
     "remoteDirty": "工作 {ref} 在主機上有未提交的變更，它們不在分支內。請請代理先提交，再重新取回",
-    "connectFailed": "無法連線到 {host}。請先在終端機檢查 ssh，再從工作清單重新開啟分頁。"
+    "connectFailed": "無法連線到 {host}。請先在終端機檢查 ssh，再從工作清單重新開啟分頁。按 Enter 關閉此分頁。"
   }
 }

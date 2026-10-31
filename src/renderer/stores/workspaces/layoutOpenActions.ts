@@ -136,7 +136,12 @@ export function createLayoutOpenActions(set: LayoutSet, get: LayoutGet): LayoutO
               root: describeTerminal(addTab(l.root, after, pane, true), pane.id, opts),
             }
           }
-          const { root, newPaneId } = splitBeside(l.root, beside, 'horizontal', newTerminalPane())
+          const { root, newPaneId } = splitBeside(
+            l.root,
+            beside,
+            opts.direction ?? 'horizontal',
+            newTerminalPane(),
+          )
           if (!newPaneId) return l
           createdPaneId = newPaneId
           return {

@@ -449,6 +449,16 @@ describe('process.run and bus names', () => {
 })
 
 describe('process.run', () => {
+  it('REM-U46 refuses a remote workspace and opens no local tab', async () => {
+    remoteWorkspaces.add('ws1')
+    const conn = await client(agent)
+
+    const res = await conn.sendRequest('process.run', { cmd: 'make', name: 'build' })
+
+    expect(res).toMatchObject({ ok: false, error: 'remote-workspace' })
+    expect(opened).toEqual([])
+  })
+
   it('opens a background tab beside the caller with the command exactly as written', async () => {
     cwds.set('agent-pane', '/home/u/proj')
     const conn = await client(agent)

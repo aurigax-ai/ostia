@@ -27,6 +27,7 @@ import { LinkHub } from './remote/linkHub'
 import { RemoteMonitor } from './remote/monitor'
 import { RemoteRegistry } from './remote/registry'
 import { RunnerClient } from './remote/runnerClient'
+import { ShellStops } from './remote/shellStops'
 import { remoteStart } from './remote/start'
 
 const RESOLVE_TIMEOUT_MS = 5000
@@ -60,7 +61,9 @@ async function main(): Promise<void> {
   await ext.subscribe(['pane.closed', 'workspace.closed'], (type, payload) => {
     if (type === 'pane.closed' && 'paneId' in payload) {
       sessions.closed(payload.paneId)
+      const tab = registry.tab(payload.paneId)
       registry.forgetTab(payload.paneId)
+      if (tab?.shell) void shellStops.stop(tab.host, tab.pane)
     }
     if (type === 'workspace.closed' && 'workspaceId' in payload) {
       registry.forgetWorkspace(payload.workspaceId)
@@ -86,6 +89,10 @@ async function main(): Promise<void> {
   const client = (plan: ConnectPlan) => new RunnerClient(plan, bundle)
   const git = (args: string[], cwd: string) =>
     runTool('git', args, { cwd, timeoutMs: GIT_TIMEOUT_MS, maxOutput: GIT_OUTPUT_MAX })
+  const shellStops = new ShellStops(async (host, pane) => {
+    const plan = planConnect([host])
+    if (plan) await client(plan).stop(pane)
+  })
   const monitor = new RemoteMonitor({
     registry,
     translate: async () => translate(await ext.getLocale()),
@@ -104,7 +111,10 @@ async function main(): Promise<void> {
           bundle,
           spawn: spawnSsh,
           remoteMail: (request) => ext.remoteMail(request),
-          onState: (online, last) => void monitor.state(host, online, last),
+          onState: (online, last) => {
+            void monitor.state(host, online, last)
+            if (online) void shellStops.retry(host)
+          },
         })
       : null
   })

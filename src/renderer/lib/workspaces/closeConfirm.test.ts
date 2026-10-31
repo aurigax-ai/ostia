@@ -13,6 +13,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { trackSave } from '@/lib/files/pendingSaves'
 import { paneIds } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode } from '@/lib/layout/types'
+import { noteReplacedShell, resetReplacedShells } from '@/lib/terminal/replacedShells'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
@@ -529,6 +530,17 @@ describe('what a quit loses', () => {
       await vi.waitFor(() => {
         expect(useCloseConfirmStore.getState().pending?.kind).toBe('workspace')
       })
+    })
+  })
+
+  describe('a pane whose shell an extension replaced', () => {
+    afterEach(() => resetReplacedShells())
+
+    it('REM-U48 asks nothing on close or quit, since the extension decides what closing does', () => {
+      seedWorkspace(terminal('p1', false))
+      run('p1', 'exec sh -c attach')
+      noteReplacedShell('p1')
+      expect(quitGroups()).toEqual([])
     })
   })
 

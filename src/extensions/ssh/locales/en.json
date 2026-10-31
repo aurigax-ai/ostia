@@ -73,6 +73,6 @@
     "fetchChanged": "the branch on the host moved while fetching; run it again to update {ref}",
     "noChanges": "the branch has no changes yet",
     "remoteDirty": "job {ref} has uncommitted changes on the host; they are not in the branch. Ask the agent to commit them, then fetch again",
-    "connectFailed": "Could not connect to {host}. Check ssh in a terminal, then open the tab again from the Jobs list."
+    "connectFailed": "Could not connect to {host}. Check ssh in a terminal, then open the tab again from the Jobs list. Press Enter to close this tab."
   }
 }

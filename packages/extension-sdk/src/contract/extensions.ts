@@ -518,6 +518,8 @@ export const TERMINAL_COMMAND_MAX_ARGS = 64
 export const TERMINAL_ARG_MAX = 4096
 export const TERMINAL_TITLE_MAX = 80
 
+export type TerminalPlace = 'tab' | 'horizontal' | 'vertical'
+
 export interface OpenTerminalOptions {
   command: string[]
   workspaceId?: string
@@ -526,6 +528,8 @@ export interface OpenTerminalOptions {
   title?: string
   host?: boolean
   waitMs?: number
+  place?: TerminalPlace
+  replaceShell?: boolean
 }
 
 export const OPEN_TERMINAL_WAIT_MAX_MS = 10 * 60_000

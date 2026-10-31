@@ -161,7 +161,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
     expect(info).toMatchObject({
       builtin: true,
       enabled: true,
-      granted: ['shell'],
+      granted: ['shell', 'read-board'],
       unapproved: [],
     })
     expect(info?.status).not.toBe('pending-approval')

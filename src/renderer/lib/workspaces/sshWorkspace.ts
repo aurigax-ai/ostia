@@ -37,11 +37,10 @@ export async function listSshHosts(): Promise<SshHosts | null> {
   return res.ok ? hostsOf(res.data) : null
 }
 
-function reportFailure(workspaceId: string | null, host: string, message: string): void {
+export function reportSshFailure(workspaceId: string | null, title: string, message: string): void {
   const paneId = workspaceId
     ? useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
     : undefined
-  const title = fmt(currentDict().scratch.sshFailed, { host })
   if (!paneId) {
     console.error(`[ssh] ${title}: ${message}`)
     return
@@ -67,6 +66,10 @@ export async function openSshWorkspace(host: string): Promise<boolean> {
       useWorkspacesStore.getState().setActive(previous)
     }
   }
-  reportFailure(previous ?? created, host, res.message ?? res.error)
+  reportSshFailure(
+    previous ?? created,
+    fmt(currentDict().scratch.sshFailed, { host }),
+    res.message ?? res.error,
+  )
   return false
 }

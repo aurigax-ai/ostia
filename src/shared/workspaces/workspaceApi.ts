@@ -164,6 +164,7 @@ interface WorkspaceApi {
   merge: (sourceId: string, targetId: string) => Promise<WorkspaceMergeResult>
   movePanes: (sourceId: string, targetId: string, paneIds: string[]) => Promise<PaneMoveResult>
   readCmux: (path?: string) => Promise<CmuxSessionRead>
+  isRemote: (workspaceId: string) => Promise<boolean>
 }
 
 interface SnippetsApi {
