@@ -234,12 +234,14 @@ export function registerPaneMethodsWiring({
     const found = resolveExternal(externalId)
     if (found?.kind !== 'pane') return undefined
     const entry = (await listAll()).find((p) => p.paneId === externalId)
-    if (!entry?.agent) return undefined
+    if (!entry) return undefined
+    const exited = paneExited(found.paneId)
     return {
-      agent: isResumableAgent(entry.agent) ? entry.agent : 'other',
-      state: paneStateOf(entry, paneExited(found.paneId)),
+      agent: !entry.agent ? 'none' : isResumableAgent(entry.agent) ? entry.agent : 'other',
+      state: paneStateOf(entry, exited),
       drafting: ptys.get(found.paneId)?.input.drafting() === true,
       mail: Math.min(queuedCounts().get(externalId) ?? 0, 999),
+      alive: !exited,
     }
   }
   paneJournal.subscribe((paneId, event) => {

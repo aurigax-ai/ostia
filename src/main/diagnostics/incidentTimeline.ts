@@ -1,6 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import {
   INCIDENT_EVENTS_MAX,
+  INCIDENT_KEEP_MS,
+  INCIDENT_KEPT_MAX,
   INCIDENT_PANES_MAX,
   INCIDENT_STALL_MS,
   INCIDENT_WINDOW_MS,
@@ -15,6 +17,8 @@ type RawEvent = Distribute<IncidentEvent>
 
 const METHOD = /^[a-z][A-Za-z.]{0,60}$/
 const CODE = /^[a-z][a-z.-]{0,40}$/
+const MERGE_MS = 60_000
+const TOTALS_KEYS_MAX = 120
 
 interface Open {
   paneId: string
@@ -44,9 +48,22 @@ export interface IncidentTimelineDeps {
 
 export interface IncidentTake {
   paneId: string
+  agent: string
   events: RawEvent[]
   trigger: string
   callers: string[]
+}
+
+export interface IncidentListed {
+  ref: string
+  trigger: string
+  agent: string
+  ageMs: number
+}
+
+export interface IncidentTotals {
+  sinceMin: number
+  counts: Record<string, number>
 }
 
 export interface IncidentTimeline {
@@ -56,9 +73,20 @@ export interface IncidentTimeline {
   mail: (paneId: string, code: string, age: number) => void
   wake: (paneId: string, code: string, ms: number) => void
   forget: (paneId: string) => void
-  list: () => { paneId: string; trigger: string; ageMs: number; events: number }[]
-  take: (paneId: string) => IncidentTake | undefined
+  list: (periodMs: number) => IncidentListed[]
+  take: (ref: string) => IncidentTake | undefined
+  totals: () => IncidentTotals
   clear: () => void
+}
+
+interface Kept {
+  id: string
+  paneId: string
+  agent: string
+  trigger: string
+  at: number
+  sourceAt: number
+  events: RawEvent[]
 }
 
 const code = (value: string, fallback: string): string => (CODE.test(value) ? value : fallback)
@@ -66,10 +94,93 @@ const code = (value: string, fallback: string): string => (CODE.test(value) ? va
 export function createIncidentTimeline(deps: IncidentTimelineDeps): IncidentTimeline {
   const rings = new Map<string, RawEvent[]>()
   const open = new Set<Open>()
+  const kept: Kept[] = []
+  const totals = new Map<string, number>()
+  const startedAt = deps.now()
+  let keptSeq = 0
 
   const prune = (ring: RawEvent[], now: number): void => {
     while (ring.length > 0 && now - (ring[0]?.at ?? now) > INCIDENT_WINDOW_MS) ring.shift()
     while (ring.length > INCIDENT_EVENTS_MAX) ring.shift()
+  }
+
+  interface Found {
+    code: string
+    at: number
+  }
+
+  const specificOf = (ring: RawEvent[]): Found | undefined => {
+    for (let i = ring.length - 1; i >= 0; i--) {
+      const event = ring[i]
+      if (!event) continue
+      if (event.k === 'mail' || event.k === 'wake') return { code: event.code, at: event.at }
+      if (event.k === 'hook' && !event.ok) {
+        return { code: event.code ?? 'hook-failed', at: event.at }
+      }
+      if (event.k === 'call' && event.phase === 'end' && event.code) {
+        return { code: event.code, at: event.at }
+      }
+    }
+    return undefined
+  }
+
+  const slowOf = (ring: RawEvent[]): Found | undefined => {
+    for (let i = ring.length - 1; i >= 0; i--) {
+      const event = ring[i]
+      if (event?.k !== 'call') continue
+      if (event.phase === 'end' && (event.ms ?? 0) >= INCIDENT_STALL_MS) {
+        return { code: 'slow-call', at: event.at }
+      }
+      if (event.phase === 'cancel') return { code: 'call-cancelled', at: event.at }
+    }
+    return undefined
+  }
+
+  const stalledOpen = (paneId: string, now: number): boolean => {
+    for (const call of open) {
+      if (call.paneId === paneId && now - call.began >= INCIDENT_STALL_MS) return true
+    }
+    return false
+  }
+
+  const triggerOf = (paneId: string, ring: RawEvent[], now: number): string | undefined =>
+    specificOf(ring)?.code ?? (stalledOpen(paneId, now) ? 'call-open' : slowOf(ring)?.code)
+
+  const callersOf = (events: RawEvent[]): string[] => [
+    ...new Set(events.flatMap((e) => (e.k === 'call' && e.from ? [e.from] : []))),
+  ]
+
+  const freeze = (paneId: string, ring: RawEvent[], now: number): void => {
+    const found = specificOf(ring) ?? slowOf(ring)
+    if (!found) return
+    const events = ring.map((e) => ({ ...e }))
+    const last = kept.at(-1)
+    if (last && last.paneId === paneId && now - last.at < MERGE_MS) {
+      last.trigger = found.code
+      last.at = now
+      last.sourceAt = Math.max(last.sourceAt, found.at)
+      last.events = events
+      return
+    }
+    if (kept.some((entry) => entry.paneId === paneId && entry.sourceAt >= found.at)) return
+    while (kept.length > 0 && now - (kept[0]?.at ?? now) > INCIDENT_KEEP_MS) kept.shift()
+    while (kept.length >= INCIDENT_KEPT_MAX) kept.shift()
+    const entry: Kept = {
+      id: `i${++keptSeq}`,
+      paneId,
+      agent: 'other',
+      trigger: found.code,
+      at: now,
+      sourceAt: found.at,
+      events,
+    }
+    kept.push(entry)
+    void deps
+      .snapshot(paneId)
+      .then((snap) => {
+        if (snap) entry.agent = snap.agent
+      })
+      .catch(() => {})
   }
 
   const push = (paneId: string, event: RawEvent): void => {
@@ -84,26 +195,13 @@ export function createIncidentTimeline(deps: IncidentTimelineDeps): IncidentTime
     }
     ring.push(event)
     prune(ring, event.at)
+    if (event.k !== 'state') freeze(paneId, ring, event.at)
   }
 
-  const triggerOf = (paneId: string, ring: RawEvent[], now: number): string | undefined => {
-    for (let i = ring.length - 1; i >= 0; i--) {
-      const event = ring[i]
-      if (!event) continue
-      if (event.k === 'mail' || event.k === 'wake') return event.code
-      if (event.k === 'hook' && !event.ok) return event.code ?? 'hook-failed'
-      if (event.k === 'call' && event.phase === 'end' && event.code) return event.code
-    }
-    for (const call of open) {
-      if (call.paneId === paneId && now - call.began >= INCIDENT_STALL_MS) return 'call-open'
-    }
-    for (let i = ring.length - 1; i >= 0; i--) {
-      const event = ring[i]
-      if (event?.k !== 'call') continue
-      if (event.phase === 'end' && (event.ms ?? 0) >= INCIDENT_STALL_MS) return 'slow-call'
-      if (event.phase === 'cancel') return 'call-cancelled'
-    }
-    return undefined
+  const count = (method: string, result: string | undefined): void => {
+    const key = `${method}.${result ?? 'ok'}`
+    if (!totals.has(key) && totals.size >= TOTALS_KEYS_MAX) return
+    totals.set(key, (totals.get(key) ?? 0) + 1)
   }
 
   return {
@@ -131,7 +229,9 @@ export function createIncidentTimeline(deps: IncidentTimelineDeps): IncidentTime
       }
       if (target) attach(target)
       const finish = (phase: 'end' | 'cancel', result?: string): void => {
-        if (!open.delete(call)) return
+        const bound = open.delete(call)
+        count(name, phase === 'cancel' ? 'cancelled' : result ? code(result, 'error') : undefined)
+        if (!bound) return
         const at = deps.now()
         const done: RawEvent = {
           k: 'call',
@@ -196,31 +296,42 @@ export function createIncidentTimeline(deps: IncidentTimelineDeps): IncidentTime
       rings.delete(paneId)
       for (const call of open) if (call.paneId === paneId) open.delete(call)
     },
-    list: () => {
+    list: (periodMs) => {
       const now = deps.now()
-      const out: { paneId: string; trigger: string; ageMs: number; events: number }[] = []
+      const out: IncidentListed[] = kept
+        .filter((entry) => now - entry.at <= periodMs)
+        .map((entry) => ({
+          ref: entry.id,
+          trigger: entry.trigger,
+          agent: entry.agent,
+          ageMs: now - entry.at,
+        }))
       for (const [paneId, ring] of rings) {
         prune(ring, now)
-        const trigger = triggerOf(paneId, ring, now)
-        if (trigger) {
-          out.push({
-            paneId,
-            trigger,
-            ageMs: now - (ring.at(-1)?.at ?? now),
-            events: ring.length,
-          })
+        if (stalledOpen(paneId, now) && !specificOf(ring)) {
+          out.push({ ref: paneId, trigger: 'call-open', agent: 'other', ageMs: 0 })
         }
       }
       return out.sort((a, b) => a.ageMs - b.ageMs)
     },
-    take: (paneId) => {
+    take: (ref) => {
       const now = deps.now()
-      const ring = rings.get(paneId)
+      const frozen = kept.find((entry) => entry.id === ref)
+      if (frozen) {
+        return {
+          paneId: frozen.paneId,
+          agent: frozen.agent,
+          events: frozen.events.map((e) => ({ ...e })),
+          trigger: frozen.trigger,
+          callers: callersOf(frozen.events),
+        }
+      }
+      const ring = rings.get(ref)
       if (!ring) return undefined
       prune(ring, now)
       const events: RawEvent[] = ring.map((e) => ({ ...e }))
       for (const call of open) {
-        if (call.paneId === paneId && now - call.began >= INCIDENT_STALL_MS) {
+        if (call.paneId === ref && now - call.began >= INCIDENT_STALL_MS) {
           events.push({
             k: 'call',
             at: now,
@@ -232,14 +343,23 @@ export function createIncidentTimeline(deps: IncidentTimelineDeps): IncidentTime
           })
         }
       }
-      const callers = [
-        ...new Set(events.flatMap((e) => (e.k === 'call' && e.from ? [e.from] : []))),
-      ]
-      return { paneId, events, trigger: triggerOf(paneId, ring, now) ?? 'manual', callers }
+      return {
+        paneId: ref,
+        agent: 'other',
+        events,
+        trigger: triggerOf(ref, ring, now) ?? 'manual',
+        callers: callersOf(events),
+      }
     },
+    totals: () => ({
+      sinceMin: Math.floor((deps.now() - startedAt) / 60_000),
+      counts: Object.fromEntries(totals),
+    }),
     clear: () => {
       rings.clear()
       open.clear()
+      kept.length = 0
+      totals.clear()
     },
   }
 }

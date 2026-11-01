@@ -16,21 +16,21 @@ it works
     "hooks": true,
     "redaction": true
   },
-  "pane": "P1",
+  "pane": "P2",
   "trigger": "call-open",
   "events": [
     {
       "k": "call",
       "at": 0,
       "method": "pane.wait",
-      "from": "P2",
+      "from": "P1",
       "phase": "start"
     },
     {
       "k": "call",
       "at": 30000,
       "method": "pane.wait",
-      "from": "P2",
+      "from": "P1",
       "phase": "phase",
       "name": "never-returned",
       "ms": 30000
@@ -41,8 +41,9 @@ it works
     "terminal-text"
   ],
   "counts": {
-    "calls": 1,
-    "failed": 1
-  }
+    "pane.input.ok": 14,
+    "pane.input.not-submitted": 1
+  },
+  "sinceMin": 42
 }
 ```

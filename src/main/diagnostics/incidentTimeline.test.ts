@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { INCIDENT_EVENTS_MAX, INCIDENT_WINDOW_MS } from '../../shared/agents/incident'
 import { bindIncident, createIncidentTimeline, runInIncident } from './incidentTimeline'
 
-const snapshot = { agent: 'claude', state: 'waiting', drafting: true, mail: 2 }
+const PERIOD = 24 * 3600_000
+const snapshot = { agent: 'claude', state: 'waiting', drafting: true, mail: 2, alive: true }
 
 function make() {
   let now = 1000
@@ -35,8 +36,8 @@ describe('incident timeline', () => {
     const { timeline, advance } = make()
     timeline.begin('pane-1', 'pane.input')
     advance(20_000)
-    expect(timeline.list()).toEqual([
-      expect.objectContaining({ paneId: 'pane-1', trigger: 'call-open' }),
+    expect(timeline.list(PERIOD)).toEqual([
+      expect.objectContaining({ ref: 'pane-1', trigger: 'call-open' }),
     ])
     const names = timeline.take('pane-1')?.events.map((e) => (e.k === 'call' ? e.name : undefined))
     expect(names).toContain('never-returned')
@@ -47,7 +48,7 @@ describe('incident timeline', () => {
     timeline.begin('pane-1', 'pane.list').end()
     timeline.begin('pane-2', 'pane.input').end('not-submitted')
     advance(10)
-    expect(timeline.list().map((i) => [i.paneId, i.trigger])).toEqual([['pane-2', 'not-submitted']])
+    expect(timeline.list(PERIOD).map((i) => [i.ref, i.trigger])).toEqual([['i1', 'not-submitted']])
   })
 
   it('keeps at most the ring size and window', () => {
@@ -83,7 +84,7 @@ describe('incident timeline', () => {
     runInIncident(named, () => bindIncident('pane-1'))
     named.end('not-submitted')
     timeline.begin(undefined, 'pane.list').end()
-    expect(timeline.list().map((i) => [i.paneId, i.trigger])).toEqual([['pane-1', 'not-submitted']])
+    expect(timeline.list(PERIOD).map((i) => [i.ref, i.trigger])).toEqual([['i1', 'not-submitted']])
     expect(timeline.take('pane-1')?.events).toHaveLength(2)
   })
 
@@ -93,6 +94,41 @@ describe('incident timeline', () => {
     timeline.wake('pane-1', 'wake-not-ready', 12_000)
     advance(12_000)
     call.end()
-    expect(timeline.list().map((i) => i.trigger)).toEqual(['wake-not-ready'])
+    expect(timeline.list(PERIOD).map((i) => i.trigger)).toEqual(['wake-not-ready'])
+  })
+
+  it('keeps a finished incident for the period and merges its follow-up events', () => {
+    const { timeline, advance } = make()
+    const call = timeline.begin('pane-1', 'pane.input')
+    advance(50)
+    call.end('not-submitted')
+    advance(60_000 * 10)
+    timeline.begin('pane-1', 'pane.list').end()
+    const [kept] = timeline.list(PERIOD)
+    expect(kept).toMatchObject({ trigger: 'not-submitted' })
+    expect(timeline.list(PERIOD)).toHaveLength(1)
+    expect(timeline.list(1000)).toHaveLength(0)
+    const take = timeline.take(kept?.ref ?? '')
+    expect(take?.paneId).toBe('pane-1')
+    expect(take?.events.some((e) => e.k === 'call' && e.code === 'not-submitted')).toBe(true)
+  })
+
+  it('counts calls by method and result since the start', () => {
+    const { timeline, advance } = make()
+    timeline.begin('pane-1', 'pane.input').end()
+    timeline.begin('pane-1', 'pane.input').end('not-submitted')
+    advance(3 * 60_000)
+    expect(timeline.totals()).toEqual({
+      sinceMin: 3,
+      counts: { 'pane.input.ok': 1, 'pane.input.not-submitted': 1 },
+    })
+  })
+
+  it('clear forgets kept incidents and counts', () => {
+    const { timeline } = make()
+    timeline.begin('pane-1', 'pane.input').end('not-submitted')
+    timeline.clear()
+    expect(timeline.list(PERIOD)).toEqual([])
+    expect(timeline.totals().counts).toEqual({})
   })
 })

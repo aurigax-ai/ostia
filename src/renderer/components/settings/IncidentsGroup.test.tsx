@@ -14,7 +14,7 @@ const incident = {
   trigger: 'not-submitted',
   agent: 'claude',
   ageMs: 12 * 60_000,
-  events: 5,
+  count: 1,
 }
 
 describe('IncidentsGroup', () => {
@@ -58,5 +58,26 @@ describe('IncidentsGroup', () => {
     render(<IncidentsGroup />)
     expect(await screen.findByText('Agent run refused: folder not trusted')).toBeInTheDocument()
     expect(screen.getByText('Mail not delivered: hooks are off')).toBeInTheDocument()
+  })
+
+  it('asks for the chosen period and shows how often the same problem happened', async () => {
+    vi.mocked(window.ostia.incidents.list).mockResolvedValue([{ ...incident, count: 9 }])
+    render(<IncidentsGroup />)
+    expect(await screen.findByText('Enter was not submitted ×9')).toBeInTheDocument()
+    expect(window.ostia.incidents.list).toHaveBeenLastCalledWith('24h')
+    await userEvent.click(screen.getByRole('button', { name: '7 days' }))
+    await waitFor(() => expect(window.ostia.incidents.list).toHaveBeenLastCalledWith('7d'))
+    await userEvent.click(screen.getByRole('button', { name: '30 days' }))
+    await waitFor(() => expect(window.ostia.incidents.list).toHaveBeenLastCalledWith('30d'))
+  })
+
+  it('writes an old incident in hours or days', async () => {
+    vi.mocked(window.ostia.incidents.list).mockResolvedValue([
+      { ...incident, ageMs: 5 * 3600_000 },
+      { ...incident, ref: 'old', ageMs: 3 * 24 * 3600_000 },
+    ])
+    render(<IncidentsGroup />)
+    expect(await screen.findByText('claude · 5 h ago')).toBeInTheDocument()
+    expect(screen.getByText('claude · 3 d ago')).toBeInTheDocument()
   })
 })

@@ -16,14 +16,14 @@ it works
     "hooks": false,
     "redaction": true
   },
-  "pane": "P1",
+  "pane": "P2",
   "trigger": "undelivered-hooks-off",
   "events": [
     {
       "k": "call",
       "at": 0,
       "method": "bus.send",
-      "from": "P2",
+      "from": "P1",
       "phase": "start"
     },
     {
@@ -36,7 +36,7 @@ it works
       "k": "call",
       "at": 40,
       "method": "bus.send",
-      "from": "P2",
+      "from": "P1",
       "phase": "end",
       "ms": 40
     }
@@ -46,8 +46,9 @@ it works
     "terminal-text"
   ],
   "counts": {
-    "calls": 1,
-    "failed": 1
-  }
+    "pane.input.ok": 14,
+    "pane.input.not-submitted": 1
+  },
+  "sinceMin": 42
 }
 ```

@@ -39,8 +39,9 @@ it works
     "terminal-text"
   ],
   "counts": {
-    "calls": 1,
-    "failed": 1
-  }
+    "pane.input.ok": 14,
+    "pane.input.not-submitted": 1
+  },
+  "sinceMin": 42
 }
 ```

@@ -1,5 +1,10 @@
-import type { IncidentSummary } from '@shared/agents/incident'
+import {
+  INCIDENT_PERIODS,
+  type IncidentPeriod,
+  type IncidentSummary,
+} from '@shared/agents/incident'
 import { useEffect, useState } from 'react'
+import { Segmented } from '@/components/common/Segmented'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -19,6 +24,8 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useTelemetryConsentStore } from '@/stores/app/telemetryConsentStore'
 
 const MS_PER_MINUTE = 60_000
+const MINUTES_PER_HOUR = 60
+const HOURS_PER_DAY = 24
 
 export function IncidentsGroup(): JSX.Element {
   const d = useDict().privacy.incidents
@@ -26,11 +33,12 @@ export function IncidentsGroup(): JSX.Element {
   const showConsent = useTelemetryConsentStore((s) => s.show)
   const openReport = useIncidentReportStore((s) => s.open)
   const [items, setItems] = useState<IncidentSummary[]>([])
+  const [period, setPeriod] = useState<IncidentPeriod>('24h')
   const [confirming, setConfirming] = useState(false)
   useEffect(() => {
     let stale = false
     window.ostia.incidents
-      .list()
+      .list(period)
       .then((next) => {
         if (!stale) setItems(next)
       })
@@ -38,17 +46,33 @@ export function IncidentsGroup(): JSX.Element {
     return () => {
       stale = true
     }
-  }, [])
+  }, [period])
   const triggers = d.triggers as Record<string, string>
-  const age = (ms: number): string =>
-    ms < MS_PER_MINUTE ? d.justNow : fmt(d.ago, { minutes: Math.floor(ms / MS_PER_MINUTE) })
+  const age = (ms: number): string => {
+    const minutes = Math.floor(ms / MS_PER_MINUTE)
+    if (minutes < 1) return d.justNow
+    if (minutes < MINUTES_PER_HOUR) return fmt(d.ago, { minutes })
+    const hours = Math.floor(minutes / MINUTES_PER_HOUR)
+    return hours < HOURS_PER_DAY
+      ? fmt(d.agoHours, { hours })
+      : fmt(d.agoDays, { days: Math.floor(hours / HOURS_PER_DAY) })
+  }
   return (
     <SettingsGroup title={d.title} desc={d.desc}>
+      <ControlRow label={d.period}>
+        <Segmented
+          label={d.period}
+          value={period}
+          options={INCIDENT_PERIODS.map((value) => ({ value, label: d.periods[value] }))}
+          onChange={setPeriod}
+        />
+      </ControlRow>
+      <h4 className="mt-3 mb-1.5 font-medium text-fg text-ui-sm">{d.recent}</h4>
       <SettingsList label={d.recent} empty={d.none}>
         {items.map((item) => (
           <SettingsListRow
             key={item.ref}
-            title={triggers[item.trigger] ?? d.triggers.other}
+            title={`${triggers[item.trigger] ?? d.triggers.other}${item.count > 1 ? ` ×${item.count}` : ''}`}
             meta={`${item.agent} · ${age(item.ageMs)}`}
             actions={
               <Button variant="outline" size="sm" onClick={() => openReport(item.ref)}>
@@ -58,11 +82,6 @@ export function IncidentsGroup(): JSX.Element {
           />
         ))}
       </SettingsList>
-      {items.length > 0 ? (
-        <p className="py-1 text-fg-muted text-ui-sm">
-          {fmt(d.totals, { count: items.length, panes: new Set(items.map((i) => i.ref)).size })}
-        </p>
-      ) : null}
       <ControlRow label={d.share} desc={d.shareDesc}>
         <Button variant="outline" size="sm" onClick={() => showConsent(telemetry)}>
           {d.openTelemetry}

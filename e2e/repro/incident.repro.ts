@@ -129,7 +129,7 @@ test('replays an incident report against the built app', async () => {
     const hit = () => scenario.accept.some((code) => observed.has(code))
     const deadline = Date.now() + 30_000
     while (Date.now() < deadline && !hit()) {
-      const list = await win.evaluate(() => window.ostia.incidents.list())
+      const list = await win.evaluate(() => window.ostia.incidents.list('24h'))
       for (const item of list) observed.add(item.trigger)
       if (!hit()) await win.waitForTimeout(1000)
     }

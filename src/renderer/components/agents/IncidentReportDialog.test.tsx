@@ -24,12 +24,15 @@ describe('IncidentReportDialog', () => {
 
   it('shows the generated report, sends the human words and opens the issue only on click', async () => {
     vi.mocked(window.ostia.incidents.report).mockResolvedValue({
-      text: '## Timeline\n+0.0s  pane.input start',
+      text: '**Enter not submitted**\nTimeline\n-4.8  P1→P2  pane.input  not submitted',
       redacted: 2,
     })
     useIncidentReportStore.getState().open('pane-1')
     render(<IncidentReportDialog />)
-    expect(await screen.findByTestId('incident-report-text')).toHaveTextContent('pane.input start')
+    expect(await screen.findByTestId('incident-report-text')).toHaveTextContent(
+      'pane.input not submitted',
+    )
+    expect(screen.getByText('Enter not submitted').tagName).toBe('STRONG')
     expect(screen.getByText('2 secrets hidden in your words.')).toBeInTheDocument()
     expect(window.ostia.incidents.openIssue).not.toHaveBeenCalled()
 

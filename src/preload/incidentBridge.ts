@@ -3,7 +3,7 @@ import type { OstiaBridge } from '../shared/types'
 
 export const incidentBridge: Pick<OstiaBridge, 'incidents'> = {
   incidents: {
-    list: () => ipcRenderer.invoke('incident:list'),
+    list: (period) => ipcRenderer.invoke('incident:list', period),
     report: (ref, words) => ipcRenderer.invoke('incident:report', ref, words),
     save: () => ipcRenderer.invoke('incident:save'),
     openIssue: () => ipcRenderer.invoke('incident:open-issue'),

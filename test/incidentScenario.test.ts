@@ -25,6 +25,7 @@ describe('incident scenario', () => {
     const block = incidentBlock(
       {
         paneId: 'x',
+        agent: 'claude',
         trigger: 'call-open',
         callers: [],
         events: [{ k: 'call', at: 0, method: 'pane.wait', phase: 'start' }],
@@ -35,6 +36,7 @@ describe('incident scenario', () => {
         agent: { kind: 'claude' },
         settings: {},
         counts: {},
+        sinceMin: 0,
         unseen: [],
       },
     )
@@ -65,6 +67,7 @@ describe('incident scenario', () => {
     const block = incidentBlock(
       {
         paneId: 'x',
+        agent: 'claude',
         trigger,
         callers: [],
         events: [{ k: 'mail', at: 0, code: trigger }],
@@ -75,6 +78,7 @@ describe('incident scenario', () => {
         agent: { kind: 'claude' },
         settings: {},
         counts: {},
+        sinceMin: 0,
         unseen: [],
       },
     )

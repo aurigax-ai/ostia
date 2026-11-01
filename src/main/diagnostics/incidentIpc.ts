@@ -1,12 +1,13 @@
 import { writeFile } from 'node:fs/promises'
 import { type BrowserWindow, clipboard, dialog, type IpcMainInvokeEvent, ipcMain } from 'electron'
 import {
+  INCIDENT_PERIOD_MS,
   INCIDENT_WORDS_MAX,
-  type IncidentBlock,
+  type IncidentPeriod,
   type IncidentSummary,
 } from '../../shared/agents/incident'
 import { fromAppWindow } from '../platform/appWindowSender'
-import { type IncidentFacts, incidentBlock, incidentText } from './incidentReport'
+import { incidentBlock, incidentText } from './incidentReport'
 import type { IncidentTimeline } from './incidentTimeline'
 
 const ISSUE_URL = 'https://github.com/aurigax-ai/ostia/issues/new'
@@ -31,55 +32,47 @@ function words(raw: unknown): { happened: string; expected: string } | null {
   return { happened, expected }
 }
 
-function countsOf(block: IncidentBlock): Record<string, number> {
-  const calls = block.events.filter((e) => e.k === 'call' && e.phase === 'start').length
-  const failed = block.events.filter((e) => e.k === 'call' && e.code !== undefined).length
-  return { calls, failed, events: block.events.length }
-}
-
 export function registerIncidentIpc(deps: IncidentIpcDeps): void {
   let last = ''
   const trusted = (e: IpcMainInvokeEvent): boolean => fromAppWindow(deps.appWindows, e)
 
-  ipcMain.handle('incident:list', async (e) => {
-    if (!trusted(e)) return [] as IncidentSummary[]
-    const out: IncidentSummary[] = []
-    for (const item of deps.incidents.list()) {
-      const agent = await deps.agentOf(item.paneId)
-      if (!agent) continue
-      out.push({
-        ref: item.paneId,
-        trigger: item.trigger,
-        agent,
-        ageMs: item.ageMs,
-        events: item.events,
-      })
+  ipcMain.handle('incident:list', async (e, period: unknown) => {
+    if (!trusted(e) || typeof period !== 'string' || !(period in INCIDENT_PERIOD_MS)) {
+      return [] as IncidentSummary[]
     }
-    return out
+    const grouped = new Map<string, IncidentSummary>()
+    for (const item of deps.incidents.list(INCIDENT_PERIOD_MS[period as IncidentPeriod])) {
+      const key = `${item.trigger}|${item.agent}`
+      const have = grouped.get(key)
+      if (have) have.count += 1
+      else grouped.set(key, { ...item, count: 1 })
+    }
+    return [...grouped.values()]
   })
 
   ipcMain.handle('incident:report', async (e, ref: unknown, raw: unknown) => {
     if (!trusted(e)) return null
     const text = typeof ref === 'string' ? ref : ''
-    const external = deps.externalOf(text)
     const said = words(raw)
-    const take = external ? deps.incidents.take(external) : undefined
-    if (!external || !said || !take) return null
-    const agent = (await deps.agentOf(external)) ?? 'other'
+    const external = deps.externalOf(text) ?? text
+    const take = deps.incidents.take(external)
+    if (!said || !take) return null
+    const agent =
+      take.agent === 'other' ? ((await deps.agentOf(take.paneId)) ?? 'other') : take.agent
     const [happened, expected] = await Promise.all([
       deps.redact(said.happened),
       deps.redact(said.expected),
     ])
-    const base: IncidentFacts = {
+    const totals = deps.incidents.totals()
+    const block = incidentBlock(take, {
       app: deps.app(),
       platform: process.platform,
       agent: { kind: agent },
       settings: deps.settings(agent),
-      counts: {},
+      counts: totals.counts,
+      sinceMin: totals.sinceMin,
       unseen: UNSEEN,
-    }
-    const counted = incidentBlock(take, base)
-    const block = incidentBlock(take, { ...base, counts: countsOf(counted) })
+    })
     last = incidentText(block, { happened: happened.text, expected: expected.text })
     return { text: last, redacted: happened.count + expected.count }
   })

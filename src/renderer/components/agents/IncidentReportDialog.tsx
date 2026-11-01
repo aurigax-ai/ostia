@@ -51,6 +51,10 @@ export function IncidentReportDialog(): JSX.Element {
   }, [ref, happened, expected])
 
   const text = report?.text ?? ''
+  const [first = '', ...rest] = text.split('\n')
+  const bold = /^\*\*(.+)\*\*$/.exec(first)
+  const headline = bold?.[1] ?? null
+  const body = headline ? rest.join('\n') : text
   return (
     <Dialog
       open={ref !== null}
@@ -94,9 +98,11 @@ export function IncidentReportDialog(): JSX.Element {
         ) : report === undefined ? null : (
           <pre
             data-testid="incident-report-text"
-            className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-2 font-mono text-fg text-ui-xs"
+            className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-2 font-mono text-fg text-ui-xs"
           >
-            {text}
+            {headline ? <strong className="font-semibold">{headline}</strong> : null}
+            {headline ? '\n' : null}
+            {body}
           </pre>
         )}
         {report && report.redacted > 0 ? (
