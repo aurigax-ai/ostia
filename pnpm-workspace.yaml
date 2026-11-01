@@ -33,4 +33,5 @@ patchedDependencies:
   node-pty: patches/node-pty.patch
   swr@2.5.1: patches/swr@2.5.1.patch
 overrides:
+  vscode-languageserver-types: 3.18.5
   'monaco-editor>dompurify': ^3.4.16

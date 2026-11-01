@@ -175,7 +175,7 @@
     "vscode-languageserver-protocol": "^3.18.5",
     "word-extractor": "^1.0.4",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "yaml-language-server": "1.24.0",
+    "yaml-language-server": "2.0.0",
     "zustand": "^4.5.7"
   },
   "optionalDependencies": {
