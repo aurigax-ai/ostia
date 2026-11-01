@@ -1,5 +1,5 @@
 import { GearSixIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { PanelResizer } from '@/components/common/PanelResizer'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ViewsRail } from '@/components/views/ViewsRail'

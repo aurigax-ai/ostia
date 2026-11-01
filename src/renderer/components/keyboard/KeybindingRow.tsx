@@ -9,7 +9,7 @@ import {
   formatScopedChord,
   usedByMonaco,
 } from '@shared/keyboard/chordSpec'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { Button } from '@/components/ui/button'

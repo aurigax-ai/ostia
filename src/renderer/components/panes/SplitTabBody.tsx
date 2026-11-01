@@ -1,5 +1,5 @@
 import { Allotment, type AllotmentHandle } from 'allotment'
-import { type DragEvent, useLayoutEffect, useRef } from 'react'
+import { type DragEvent, type JSX, useLayoutEffect, useRef } from 'react'
 import { useSessionStaysStatus } from '@/components/agents/SessionStaysStatus'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { fmt, useDict } from '@/lib/app/useDict'

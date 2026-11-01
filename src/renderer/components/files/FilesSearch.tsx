@@ -7,7 +7,7 @@ import {
 } from '@phosphor-icons/react'
 import type { FsEntry } from '@shared/files/filesApi'
 import type { SearchNameHit, SearchOutcome } from '@shared/files/search'
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import { type JSX, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { fmt, useDict } from '@/lib/app/useDict'

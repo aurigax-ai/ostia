@@ -1,6 +1,7 @@
 import type { MailItem } from '@shared/agents/mailApi'
 import type { Dict } from '@shared/app/dict'
 import { ageLabel } from '@shared/panes/paneStatus'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'

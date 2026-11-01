@@ -6,6 +6,7 @@ import {
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
+import type { JSX } from 'react'
 import { ListRow } from '@/components/common/ListRow'
 import { TextLink } from '@/components/common/TextLink'
 import { Button } from '@/components/ui/button'

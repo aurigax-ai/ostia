@@ -4,7 +4,7 @@ import {
   DEFAULT_ACCOUNT,
   type RemoveAccountOutcome,
 } from '@shared/claudeAccounts/claudeAccounts'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'

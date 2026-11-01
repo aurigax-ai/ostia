@@ -1,4 +1,5 @@
 import { ArrowSquareInIcon, ArrowsMergeIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { RenameInput } from '@/components/common/RenameInput'
 import { useWorkspaceFlags, WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
 import { WorkspaceIcon } from '@/components/sidebar/WorkspaceIcon'

@@ -11,6 +11,7 @@ import {
   RobotIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { MailCount } from '@/components/common/MailCount'
 import { FileIcon } from '@/components/files/FileIcon'

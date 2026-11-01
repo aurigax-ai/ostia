@@ -1,4 +1,4 @@
-import { type ComponentProps, useState } from 'react'
+import { type ComponentProps, type JSX, useState } from 'react'
 import { Input } from '@/components/ui/input'
 
 type InputProps = Omit<

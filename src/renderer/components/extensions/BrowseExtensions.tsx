@@ -7,7 +7,7 @@ import {
   type MarketplaceFound,
   type MarketplaceInfo,
 } from '@shared/extensions/marketplace'
-import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
+import { type JSX, type KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Notice } from '@/components/common/Notice'
 import { Segmented } from '@/components/common/Segmented'

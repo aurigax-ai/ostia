@@ -1,5 +1,6 @@
 import { BUILTIN_ICON_THEME } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import { SlidersHorizontalIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import {
   DropdownMenu,

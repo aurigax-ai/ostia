@@ -1,6 +1,7 @@
 import { FolderOpenIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { ViewInfo } from '@shared/views/views'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { SettingsList } from '@/components/settingsKit/SettingsList'

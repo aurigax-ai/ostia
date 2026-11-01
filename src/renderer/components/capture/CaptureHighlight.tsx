@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { useCaptureHighlight } from '@/lib/capture/useCapture'
 import { RegionCropBox } from './RegionCropOverlay'
 

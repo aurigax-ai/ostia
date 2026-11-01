@@ -11,7 +11,7 @@ import {
   WORKSPACE_GROUP_COLORS,
   type WorkspaceGroupColor,
 } from '@shared/workspaces/workspaceGroups'
-import { useContext } from 'react'
+import { type JSX, useContext } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import {
   MenuContent,

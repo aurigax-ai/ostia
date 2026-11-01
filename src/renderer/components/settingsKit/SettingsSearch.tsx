@@ -1,5 +1,6 @@
 import {
   createContext,
+  type JSX,
   type ReactNode,
   useCallback,
   useContext,

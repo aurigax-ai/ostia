@@ -1,6 +1,6 @@
 import { CaretRightIcon, FolderOpenIcon, NotePencilIcon } from '@phosphor-icons/react'
 import type { ArtifactEntry } from '@shared/artifacts/artifacts'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { MenuContent } from '@/components/common/Menu'
 import {

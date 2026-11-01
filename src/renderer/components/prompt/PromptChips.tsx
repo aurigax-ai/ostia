@@ -23,6 +23,7 @@ import {
   type PromptSeparator,
   separatorText,
 } from '@shared/terminal/promptSettings'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'

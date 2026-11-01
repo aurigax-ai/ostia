@@ -8,7 +8,7 @@ import {
   TextTIcon,
   TrashIcon,
 } from '@phosphor-icons/react'
-import { useMemo, useRef } from 'react'
+import { type JSX, useMemo, useRef } from 'react'
 import type { Components } from 'react-markdown'
 import {
   Message,

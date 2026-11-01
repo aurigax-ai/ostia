@@ -3,6 +3,7 @@ import {
   type PackageSettings,
   type WorkspacePackages,
 } from '@shared/sandbox/sandbox'
+import type { JSX } from 'react'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

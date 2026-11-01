@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { aggregateWorkspaceState } from '@/lib/attention/attention'
 import { useUnread } from '@/lib/workspaces/useUnread'

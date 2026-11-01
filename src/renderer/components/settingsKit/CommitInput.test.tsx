@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { CommitInput, NumberInput } from './CommitInput'
 

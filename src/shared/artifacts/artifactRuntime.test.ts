@@ -34,7 +34,7 @@ describe('the preview runtime', () => {
       'sql.js',
     ])
     expect(TAILWIND_PACKAGE).toBe('tailwindcss')
-    expect(manifest.devDependencies.react).toBe('^18.3.1')
+    expect(manifest.devDependencies.react).toBe('^19.3.1')
   })
 
   it('allows only the listed specifiers, exactly', () => {

@@ -1,6 +1,6 @@
 import { XIcon } from '@phosphor-icons/react'
 import type { GitCommitFilesData, GitFailure, GraphCommit } from '@shared/boards/git'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type JSX, type ReactNode, useEffect, useRef, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { useDict } from '@/lib/app/useDict'
 import {

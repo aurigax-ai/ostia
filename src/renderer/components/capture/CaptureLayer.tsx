@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { type JSX, useEffect, useRef } from 'react'
 import { StatusLine } from '@/components/common/StatusLine'
 import { closeCapture, setCaptureStatus } from '@/lib/capture/captureSession'
 import { useCaptureChip, useCaptureStatus, useOpenCapture } from '@/lib/capture/useCapture'

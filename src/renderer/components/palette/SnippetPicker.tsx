@@ -6,7 +6,7 @@ import {
   type SnippetEntry,
   snippetArguments,
 } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
-import { type FormEvent, useId, useState } from 'react'
+import { type FormEvent, type JSX, useId, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {

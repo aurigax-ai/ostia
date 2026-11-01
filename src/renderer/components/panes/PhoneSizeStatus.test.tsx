@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import type { JSX } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePhoneSizeStatus } from '@/components/panes/PhoneSizeStatus'
 import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'

@@ -1,6 +1,6 @@
 import { CheckIcon, CopyIcon, InfoIcon } from '@phosphor-icons/react'
 import type { ScriptTokenInfo, ScriptTokensState } from '@shared/permissions/scriptTokens'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,

@@ -15,7 +15,7 @@ import {
   type PromptSettings,
   type PromptStyle,
 } from '@shared/terminal/promptSettings'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { type JSX, type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { chipIcon, chipName, PromptChip } from '@/components/prompt/PromptChips'

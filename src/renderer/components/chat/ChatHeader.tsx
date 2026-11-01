@@ -1,4 +1,5 @@
 import { ArrowsOutSimpleIcon, NotePencilIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'
 import { useDict } from '@/lib/app/useDict'

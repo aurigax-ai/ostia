@@ -1,5 +1,6 @@
 import { PlusIcon, XIcon } from '@phosphor-icons/react'
 import type { ScriptTokensState } from '@shared/permissions/scriptTokens'
+import type { JSX } from 'react'
 import { DropdownMenu, MenuItem, MenuLabel } from '@/components/common/Menu'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'

@@ -1,4 +1,4 @@
-import { type CSSProperties, type RefObject, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, type JSX, type RefObject, useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { useDict } from '@/lib/app/useDict'
 import { useChipCatalog } from '@/lib/extensions/extensionChips'

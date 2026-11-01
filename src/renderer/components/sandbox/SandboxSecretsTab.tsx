@@ -1,6 +1,6 @@
 import { TrashIcon } from '@phosphor-icons/react'
 import type { SecretEntry, SecretGrant, SecretGrantMode } from '@shared/sandbox/secrets'
-import { useCallback, useEffect, useState } from 'react'
+import { type JSX, useCallback, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { SettingsList } from '@/components/settingsKit/SettingsList'

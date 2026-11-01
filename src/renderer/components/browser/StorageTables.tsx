@@ -1,5 +1,6 @@
 import { CheckIcon, CopyIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 import type { StorageCookie, StorageEntry, StorageRemoval } from '@shared/browser/browserStorage'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import {

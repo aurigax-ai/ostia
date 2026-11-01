@@ -2,7 +2,7 @@ import { ArrowSquareOutIcon, ChatCircleTextIcon, CheckCircleIcon } from '@phosph
 import type { PermissionChoice } from '@shared/agents/agentPermissions'
 import type { QuestionRequest } from '@shared/agents/questions'
 import type { Dict } from '@shared/app/dict'
-import { type KeyboardEvent, useMemo, useState } from 'react'
+import { type JSX, type KeyboardEvent, useMemo, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { PromptCard } from '@/components/common/PromptCard'
 import { TextLink } from '@/components/common/TextLink'

@@ -6,7 +6,7 @@ import {
   type McpServerState,
   type McpServerStatus,
 } from '@shared/assist/chatTools'
-import { type ReactNode, useEffect, useId } from 'react'
+import { type JSX, type ReactNode, useEffect, useId } from 'react'
 import { TextLink } from '@/components/common/TextLink'
 import { buttonVariants } from '@/components/ui/button'
 import {

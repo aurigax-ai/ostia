@@ -1,5 +1,6 @@
 import { GitBranchIcon } from '@phosphor-icons/react'
 import type { GitChangesData } from '@shared/boards/git'
+import type { JSX } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/lib/app/useDict'

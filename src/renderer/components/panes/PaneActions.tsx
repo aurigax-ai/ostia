@@ -7,6 +7,7 @@ import {
   SquareSplitVerticalIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { commands } from '@/commands/registry'
 import { AgentActionsMenu } from '@/components/agents/AgentActionsMenu'
 import { AgentSessionButton, usePaneAgentSession } from '@/components/agents/AgentSessionButton'

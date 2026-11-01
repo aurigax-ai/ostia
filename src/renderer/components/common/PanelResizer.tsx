@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   applyPanelWidth,
   clampPanelWidth,

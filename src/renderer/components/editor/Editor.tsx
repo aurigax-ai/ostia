@@ -1,4 +1,5 @@
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type { JSX } from 'react'
 import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { EditorAlerts, EditorBlocked } from './EditorAlerts'
 import { EditorModes, type OptionViewer } from './EditorModes'

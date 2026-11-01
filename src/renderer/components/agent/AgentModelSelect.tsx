@@ -1,4 +1,5 @@
 import { CaretDownIcon, CubeIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { DropdownMenu, MenuLabel, MenuRadioItem } from '@/components/common/Menu'
 import { Button } from '@/components/ui/button'

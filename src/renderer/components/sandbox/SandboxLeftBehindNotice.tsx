@@ -1,5 +1,5 @@
 import { WarningIcon } from '@phosphor-icons/react'
-import { useEffect } from 'react'
+import { type JSX, useEffect } from 'react'
 import { PromptCard } from '@/components/common/PromptCard'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'

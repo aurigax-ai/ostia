@@ -1,7 +1,7 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { TrayIcon } from '@phosphor-icons/react'
 import type { NotificationEntry } from '@shared/attention/attention'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { type JSX, useCallback, useEffect, useMemo, useState } from 'react'
 import { openExtensionPanel } from '@/commands/extensionBridge'
 import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'

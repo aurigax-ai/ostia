@@ -1,5 +1,5 @@
 import { XIcon } from '@phosphor-icons/react'
-import { createContext, useContext } from 'react'
+import { createContext, type JSX, useContext } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 

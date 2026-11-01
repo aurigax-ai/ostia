@@ -1,5 +1,12 @@
 import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
-import { type KeyboardEvent, type MutableRefObject, type ReactNode, useEffect, useRef } from 'react'
+import {
+  type JSX,
+  type KeyboardEvent,
+  type MutableRefObject,
+  type ReactNode,
+  useEffect,
+  useRef,
+} from 'react'
 import {
   InputGroup,
   InputGroupAddon,

@@ -5,6 +5,7 @@ import {
   type Icon as IconComponent,
   XIcon,
 } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { SplitButton } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'

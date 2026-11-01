@@ -15,7 +15,7 @@ import {
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ArrowClockwiseIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
-import { useCallback, useEffect, useState } from 'react'
+import { type JSX, useCallback, useEffect, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'
 import { ExtensionSettingsForm } from '@/components/extensions/ExtensionSettingsForm'

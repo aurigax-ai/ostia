@@ -2,7 +2,15 @@ import { useChat } from '@ai-sdk/react'
 import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { Dict } from '@shared/app/dict'
 import type { UIMessage } from 'ai'
-import { type MutableRefObject, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type JSX,
+  type MutableRefObject,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { checkpointFiles } from '@/lib/assist/chatCheckpoint'
 import { decodeChatError } from '@/lib/assist/chatTransport'
@@ -222,7 +230,7 @@ function useChatSessionData(sessionId: string, key: string) {
 
 function useFocusRegistration(
   focusRef: MutableRefObject<HTMLElement | null> | undefined,
-  areaRef: RefObject<HTMLTextAreaElement>,
+  areaRef: RefObject<HTMLTextAreaElement | null>,
 ): void {
   useEffect(() => {
     if (!focusRef) return

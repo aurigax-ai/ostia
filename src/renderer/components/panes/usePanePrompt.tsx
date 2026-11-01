@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { type JSX, useEffect } from 'react'
 import { ApprovalPrompt } from '@/components/agents/ApprovalCard'
 import { QuestionPrompt } from '@/components/agents/QuestionCard'
 import { AppLinkPrompt } from '@/components/terminal/AppLinkPrompt'

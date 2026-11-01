@@ -1,5 +1,6 @@
 import { CaretDownIcon } from '@phosphor-icons/react'
 import {
+  type JSX,
   type ReactNode,
   useCallback,
   useEffect,

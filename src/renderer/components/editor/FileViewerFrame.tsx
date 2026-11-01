@@ -1,7 +1,7 @@
 import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { WarningIcon } from '@phosphor-icons/react'
 import type { ViewerOpenResult, ViewerStopReason } from '@shared/files/filesApi'
-import { useEffect, useRef, useState } from 'react'
+import { type JSX, useEffect, useRef, useState } from 'react'
 import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'

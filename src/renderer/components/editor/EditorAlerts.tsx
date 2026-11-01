@@ -5,7 +5,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { FileDashedIcon } from '@phosphor-icons/react'
 import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
-import type { MutableRefObject } from 'react'
+import type { JSX, MutableRefObject } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { formatBytes } from '@/lib/app/localeFormat'

@@ -685,7 +685,7 @@ describe('InputEditor', () => {
     const unregister = registerTerminal(PANE, { paste, focus: vi.fn() } as never)
     renderEditor()
     let inserted = false
-    act(() => {
+    await act(async () => {
       inserted = insertCommand(PANE, 'docker ps')
     })
     expect(inserted).toBe(true)

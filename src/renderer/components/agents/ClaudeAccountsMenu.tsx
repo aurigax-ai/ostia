@@ -1,5 +1,6 @@
 import { GearIcon, UserSwitchIcon } from '@phosphor-icons/react'
 import { type ClaudeAccountView, DEFAULT_ACCOUNT } from '@shared/claudeAccounts/claudeAccounts'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem, MenuLabel, MenuRadioItem } from '@/components/common/Menu'
 import {

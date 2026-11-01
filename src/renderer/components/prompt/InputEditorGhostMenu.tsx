@@ -1,4 +1,5 @@
 import { ClipboardTextIcon, CopyIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { MenuCheckboxItem, MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { useDict } from '@/lib/app/useDict'

@@ -1,5 +1,5 @@
 import { CheckIcon, FilePlusIcon, PencilSimpleLineIcon, XIcon } from '@phosphor-icons/react'
-import { useMemo } from 'react'
+import { type JSX, useMemo } from 'react'
 import { ToolSection as Section, type ToolState, ToolStatus } from '@/components/ai-elements/tool'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'

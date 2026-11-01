@@ -6,7 +6,7 @@ import {
   type SandboxControls,
   type WorkspaceSandbox,
 } from '@shared/sandbox/sandbox'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'

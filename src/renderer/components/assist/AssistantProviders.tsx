@@ -4,7 +4,7 @@ import type {
   AssistProviderState,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { PlusIcon, TrashIcon, XIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'

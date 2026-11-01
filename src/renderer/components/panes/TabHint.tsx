@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import type { JSX, ReactElement } from 'react'
 import { usePaneAgentSession } from '@/components/agents/AgentSessionButton'
 import { Hint } from '@/components/common/Hint'
 import { useDict } from '@/lib/app/useDict'

@@ -9,7 +9,7 @@ import {
   TrashIcon,
   WrenchIcon,
 } from '@phosphor-icons/react'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { useRequirements } from '@/components/settings/RequirementsNote'
 import { ControlRow } from '@/components/settingsKit/ControlRow'

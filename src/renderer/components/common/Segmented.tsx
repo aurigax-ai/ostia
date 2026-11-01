@@ -1,4 +1,5 @@
 import type { Icon as IconComponent } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'

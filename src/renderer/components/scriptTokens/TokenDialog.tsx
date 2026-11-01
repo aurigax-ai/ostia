@@ -8,6 +8,7 @@ import {
   type ScriptTokensState,
   type ScriptTokenUiCap,
 } from '@shared/permissions/scriptTokens'
+import type { JSX } from 'react'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import {
   AlertDialog,

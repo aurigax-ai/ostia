@@ -1,5 +1,5 @@
 import type { ArtifactVersion } from '@shared/artifacts/artifacts'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { Alert } from '@/components/ui/alert'
 import {

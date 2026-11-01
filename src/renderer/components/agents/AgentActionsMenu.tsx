@@ -1,4 +1,5 @@
 import { BookmarkSimpleIcon, GitForkIcon, HandshakeIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButtonMenu } from '@/components/common/SplitButton'
 import { forkableResume, forkConversation } from '@/lib/agents/forkConversation'

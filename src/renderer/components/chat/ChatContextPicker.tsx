@@ -10,7 +10,7 @@ import {
   WarningCircleIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { useEffect, useMemo, useState } from 'react'
+import { type JSX, useEffect, useMemo, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { FileIcon } from '@/components/files/FileIcon'
 import {

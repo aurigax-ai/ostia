@@ -1,5 +1,5 @@
 import type { SecretActionResult, SyncStatus } from '@shared/profileSync/profileSync'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
 import { ToggleRow } from '@/components/settingsKit/ControlRow'

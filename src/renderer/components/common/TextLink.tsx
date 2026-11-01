@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react'
+import type { ComponentProps, JSX } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 

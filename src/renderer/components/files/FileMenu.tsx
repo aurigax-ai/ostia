@@ -12,7 +12,7 @@ import {
   SquaresFourIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
-import type { ReactElement } from 'react'
+import type { JSX, ReactElement } from 'react'
 import { externalEditorError } from '@/commands/externalEditor'
 import { MenuContent, MenuItem, MenuSubContent, MenuSubTrigger } from '@/components/common/Menu'
 import {

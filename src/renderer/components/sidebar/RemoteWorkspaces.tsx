@@ -1,5 +1,6 @@
 import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { AppWindowIcon, ArrowSquareInIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Kbd } from '@/components/ui/kbd'

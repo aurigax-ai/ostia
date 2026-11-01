@@ -1,5 +1,5 @@
 import type { DeviceTouch } from '@shared/browser/deviceTouch'
-import { type PointerEvent as ReactPointerEvent, useEffect, useRef } from 'react'
+import { type JSX, type PointerEvent as ReactPointerEvent, useEffect, useRef } from 'react'
 
 type TouchPhase = 'touchMove' | 'touchEnd' | 'touchCancel'
 

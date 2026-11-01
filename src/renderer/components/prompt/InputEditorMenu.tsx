@@ -1,5 +1,5 @@
 import type { CommandSuggestion } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import type { ReactNode, RefObject } from 'react'
+import type { JSX, ReactNode, RefObject } from 'react'
 import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { useDict } from '@/lib/app/useDict'
 import { completionLabel, markRuns } from '@/lib/prompt/completionMatch'
@@ -32,7 +32,7 @@ export function InputEditorMenu({
   pick,
   pickNatural,
 }: {
-  menuRef: RefObject<HTMLDivElement>
+  menuRef: RefObject<HTMLDivElement | null>
   popoverAbove: boolean
   fontFamily: string
   menuShown: Menu | null

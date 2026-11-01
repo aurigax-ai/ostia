@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { TextLink } from '@/components/common/TextLink'
 import { fmt, useDict } from '@/lib/app/useDict'

@@ -5,7 +5,7 @@ import type {
   ExtensionSettingValue,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { Dict } from '@shared/app/dict'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { ExtensionConnections } from '@/components/extensions/ExtensionConnections'
 import { CommitInput, NumberInput } from '@/components/settingsKit/CommitInput'

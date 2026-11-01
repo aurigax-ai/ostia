@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react'
+import type { JSX, ReactElement, ReactNode } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useChordLabel } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'

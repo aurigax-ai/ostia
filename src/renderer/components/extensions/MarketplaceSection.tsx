@@ -5,7 +5,7 @@ import {
   type MarketplaceExtension,
   type MarketplaceInfo,
 } from '@shared/extensions/marketplace'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'

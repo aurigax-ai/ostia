@@ -4,7 +4,7 @@ import type {
   ChatContextItem,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { WarningCircleIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import type { Components } from 'react-markdown'
 import {
   Conversation,

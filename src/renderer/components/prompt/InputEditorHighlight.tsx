@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode, RefObject } from 'react'
+import type { CSSProperties, JSX, ReactNode, RefObject } from 'react'
 import { type ShellToken, tokenizeShell } from '@/lib/prompt/shellTokens'
 import type { Ghost } from '@/lib/prompt/terminalGhost'
 
@@ -67,7 +67,7 @@ export function InputEditorHighlight({
   cursor,
   ghost,
 }: {
-  overlayRef: RefObject<HTMLDivElement>
+  overlayRef: RefObject<HTMLDivElement | null>
   style: CSSProperties
   text: string
   commands: ReadonlySet<string> | null

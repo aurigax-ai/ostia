@@ -1,5 +1,5 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { useEffect } from 'react'
+import { type JSX, useEffect } from 'react'
 import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { useDict } from '@/lib/app/useDict'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'

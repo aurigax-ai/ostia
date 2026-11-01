@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import { allPanes } from '@/lib/layout/tree'
 import { sidebarLines } from '@/lib/sidebar/sidebarItems'

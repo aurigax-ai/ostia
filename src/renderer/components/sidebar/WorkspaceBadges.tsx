@@ -4,7 +4,7 @@ import {
   PushPinSimpleIcon,
   ShieldCheckIcon,
 } from '@phosphor-icons/react'
-import { useEffect } from 'react'
+import { type JSX, useEffect } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { MailCount } from '@/components/common/MailCount'
 import { Badge } from '@/components/ui/badge'

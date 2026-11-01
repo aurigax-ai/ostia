@@ -1,5 +1,5 @@
 import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
-import { useMemo, useState } from 'react'
+import { type JSX, useMemo, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'

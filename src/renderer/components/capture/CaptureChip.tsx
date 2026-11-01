@@ -1,5 +1,5 @@
 import { CheckIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { CHIP_MS } from '@/lib/capture/captureSession'
 
 const EXIT_MS = 105

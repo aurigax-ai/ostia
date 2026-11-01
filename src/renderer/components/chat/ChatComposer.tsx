@@ -3,7 +3,7 @@ import type {
   AssistProviderInfo,
   ChatContextItem,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import type { RefObject } from 'react'
+import type { JSX, RefObject } from 'react'
 import {
   PromptInput,
   PromptInputBody,
@@ -38,7 +38,7 @@ export interface ChatComposerProps {
   setDraft: (draft: string) => void
   editing: string | null
   setEditing: (id: string | null) => void
-  areaRef: RefObject<HTMLTextAreaElement>
+  areaRef: RefObject<HTMLTextAreaElement | null>
   noticeText: string
   toolsOpen: boolean
   setToolsOpen: (open: boolean) => void

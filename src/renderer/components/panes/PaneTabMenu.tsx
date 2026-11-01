@@ -21,7 +21,7 @@ import {
   SunIcon,
   XSquareIcon,
 } from '@phosphor-icons/react'
-import type { ReactElement } from 'react'
+import type { JSX, ReactElement } from 'react'
 import { commands } from '@/commands/registry'
 import { IconButton } from '@/components/common/IconButton'
 import { MenuCheckboxItem, MenuContent, MenuItem } from '@/components/common/Menu'

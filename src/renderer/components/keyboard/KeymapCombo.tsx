@@ -1,6 +1,6 @@
 import { ArrowRightIcon, CaretRightIcon } from '@phosphor-icons/react'
 import type { KeybindingMap } from '@shared/keyboard/chordSpec'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { useSearchLeaf } from '@/components/settingsKit/SettingsSearch'
 import { Button } from '@/components/ui/button'

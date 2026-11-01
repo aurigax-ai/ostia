@@ -4,7 +4,7 @@ import type {
   GatewayPushAvailability,
   GatewaySetPushResult,
 } from '@shared/gateway/gatewayApi'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Switch } from '@/components/ui/switch'
 import { fmt, useDict } from '@/lib/app/useDict'

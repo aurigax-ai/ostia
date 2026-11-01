@@ -5,6 +5,7 @@ import {
   MoonIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { latestWaitingAt } from '@/lib/attention/attention'
 import { allPanes, paneIds } from '@/lib/layout/tree'

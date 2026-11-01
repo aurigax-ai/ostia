@@ -1,7 +1,7 @@
 import { CaretDownIcon, GitBranchIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { BranchRef, GitGraphData, GraphScope } from '@shared/boards/git'
-import { useId, useState } from 'react'
+import { type JSX, useId, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'

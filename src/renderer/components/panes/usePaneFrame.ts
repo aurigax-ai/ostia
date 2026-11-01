@@ -19,7 +19,7 @@ export function usePaneFrame({
 }: {
   shown: PaneNode
   activePaneId: string
-}): RefObject<HTMLDivElement> {
+}): RefObject<HTMLDivElement | null> {
   const frameRef = useRef<HTMLDivElement>(null)
   const focusOnHover = useSettingsStore((s) => s.panes.focusOnHover)
   useEffect(() => {

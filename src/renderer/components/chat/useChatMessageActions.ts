@@ -21,7 +21,7 @@ interface ChatMessageActionsParams {
   setDraft: Dispatch<SetStateAction<string>>
   setConfirmClear: (open: boolean) => void
   setCard: (card: SlashCard) => void
-  areaRef: RefObject<HTMLTextAreaElement>
+  areaRef: RefObject<HTMLTextAreaElement | null>
 }
 
 export function useChatMessageActions({

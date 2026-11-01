@@ -1,5 +1,5 @@
 import { CaretDownIcon } from '@phosphor-icons/react'
-import type { ReactNode } from 'react'
+import type { JSX, ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
 import { DropdownMenu } from './Menu'

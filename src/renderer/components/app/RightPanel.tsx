@@ -1,5 +1,5 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { type JSX, useEffect, useLayoutEffect, useRef } from 'react'
 import { PanelInbox } from '@/components/agents/PanelInbox'
 import { PanelToolbar } from '@/components/app/PanelToolbar'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -27,7 +27,7 @@ function hasPanel(ext: ExtensionInfo): boolean {
   return ext.enabled && ext.panel !== null
 }
 
-function useInert<T extends HTMLElement>(inert: boolean): React.RefObject<T> {
+function useInert<T extends HTMLElement>(inert: boolean): React.RefObject<T | null> {
   const ref = useRef<T>(null)
   useLayoutEffect(() => {
     if (ref.current) ref.current.inert = inert

@@ -1,5 +1,6 @@
 import { GIT_POLL_SECONDS } from '@shared/boards/git'
 import { PORTS_INTERVAL_SECONDS, type PortHost } from '@shared/boards/ports'
+import type { JSX } from 'react'
 import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'

@@ -1,6 +1,6 @@
 import { BUILTIN_ICON_THEME } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import { PlusIcon, XIcon } from '@phosphor-icons/react'
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, type JSX, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'

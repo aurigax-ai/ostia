@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import '@testing-library/jest-dom/vitest'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { PortableResult } from '@shared/artifacts/portable'

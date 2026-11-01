@@ -1,5 +1,6 @@
 import type { PaneChipItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { CopyIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'

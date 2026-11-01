@@ -4,7 +4,7 @@ import type {
   ScriptTokenScope,
   ScriptTokensState,
 } from '@shared/permissions/scriptTokens'
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, type JSX, type ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'

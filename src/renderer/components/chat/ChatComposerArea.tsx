@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { ChatComposer, type ChatComposerProps } from './ChatComposer'
 import { ChatSlashMenu } from './ChatSlashMenu'
 import type { ChatComposerState } from './useChatComposer'

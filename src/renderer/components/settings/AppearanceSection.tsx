@@ -2,7 +2,7 @@ import { PRODUCT_PLACEHOLDER } from '@aurigax-ai/ostia-extension-sdk/contract/ex
 import { PlusIcon } from '@phosphor-icons/react'
 import type { Dict, Locale } from '@shared/app/dict'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/app/zoom'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { TextLink } from '@/components/common/TextLink'
 import { CommitInput, NumberInput } from '@/components/settingsKit/CommitInput'

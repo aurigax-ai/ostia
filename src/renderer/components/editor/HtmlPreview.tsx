@@ -16,6 +16,7 @@ import {
 import type { WebviewTag } from 'electron'
 import {
   type Dispatch,
+  type JSX,
   type MutableRefObject,
   type SetStateAction,
   useCallback,

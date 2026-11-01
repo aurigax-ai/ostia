@@ -1,7 +1,7 @@
 import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { isInside, isPadPath } from '@shared/artifacts/artifacts'
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { type JSX, lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { StatusAction, StatusLine } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useArtifactListing } from '@/lib/files/artifacts'

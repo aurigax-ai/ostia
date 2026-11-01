@@ -3,7 +3,7 @@ import type {
   PhoneAgentName,
   GatewayPhoneWorkspace as PhoneWorkspace,
 } from '@shared/gateway/gatewayApi'
-import { useCallback, useEffect, useState } from 'react'
+import { type JSX, useCallback, useEffect, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'

@@ -1,5 +1,5 @@
 import { CaretRightIcon } from '@phosphor-icons/react'
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type JSX, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useElementSize } from '@/lib/app/useElementSize'
 import { crumbsOf, FOLDED_CRUMB, fitCrumbs, maxFitLevel } from '@/lib/files/breadcrumb'
 import { homeDir } from '@/lib/files/homeDir'

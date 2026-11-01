@@ -5,7 +5,7 @@ import {
   type CmuxLossEntry,
 } from '@shared/workspaces/cmuxSession'
 import { MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
-import { useId } from 'react'
+import { type JSX, useId } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,

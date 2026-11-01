@@ -1,4 +1,5 @@
 import type { RemoteChoice } from '@shared/remote/remoteSetup'
+import type { JSX } from 'react'
 import { Segmented } from '@/components/common/Segmented'
 import { FieldLine } from '@/components/settingsKit/FieldLine'
 import { SelectField } from '@/components/settingsKit/SelectField'

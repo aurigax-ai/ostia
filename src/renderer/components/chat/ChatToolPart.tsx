@@ -1,5 +1,5 @@
 import { BUILTIN_TOOL_ACCESS, isBuiltinChatTool, mcpToolName } from '@shared/assist/chatTools'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import {
   Confirmation,
   ConfirmationAction,

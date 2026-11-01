@@ -2,7 +2,7 @@ import type {
   LanguageServerInfo,
   LanguageServerOverrideProblem,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
-import { type FormEvent, useId, useState } from 'react'
+import { type FormEvent, type JSX, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,

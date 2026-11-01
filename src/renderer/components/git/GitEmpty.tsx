@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 
 export function GitEmpty({

@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import '@testing-library/jest-dom/vitest'
 import type { PreviewEvent, PreviewOpened } from '@shared/artifacts/htmlPreview'
 import { act, cleanup, fireEvent, screen } from '@testing-library/react'
