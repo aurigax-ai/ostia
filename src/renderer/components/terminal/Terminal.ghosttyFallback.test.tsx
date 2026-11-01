@@ -33,14 +33,14 @@ describe('a Ghostty engine that cannot start', () => {
     vi.clearAllMocks()
   })
 
-  function useGhostty(): void {
+  function selectGhosttyRenderer(): void {
     useSettingsStore.setState({
       terminal: { ...useSettingsStore.getState().terminal, renderer: 'ghostty' },
     })
   }
 
   it('draws the pane with xterm.js instead of showing only an error', async () => {
-    useGhostty()
+    selectGhosttyRenderer()
     const { container } = render(<TerminalView workspaceId="w1" paneId="p1" cwd="/home/me" />)
     await waitFor(() => expect(container.querySelector('.xterm-host')).not.toBeNull())
     expect(container.querySelector('.ghostty-host')).toBeNull()
@@ -48,7 +48,7 @@ describe('a Ghostty engine that cannot start', () => {
   })
 
   it('says why under the Terminal engine setting', async () => {
-    useGhostty()
+    selectGhosttyRenderer()
     useUIStore.setState({ settingsActive: true, settingsTabOpen: true })
     render(<SettingsPanel />)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Terminal' }))

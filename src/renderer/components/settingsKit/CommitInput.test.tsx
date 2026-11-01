@@ -45,33 +45,33 @@ describe('CommitInput', () => {
   })
 })
 
-describe('CommitInput errors and focus', () => {
-  function Validated({ onCancel }: { onCancel: () => void }): JSX.Element {
-    const [saved, setSaved] = useState('ok')
-    const [bad, setBad] = useState(false)
-    return (
-      <>
-        <CommitInput
-          aria-label="t"
-          value={saved}
-          aria-invalid={bad}
-          onCommit={(text) => {
-            setBad(text === 'bad')
-            if (text !== 'bad') setSaved(text)
-            return text !== 'bad'
-          }}
-          onCancel={() => {
-            setBad(false)
-            onCancel()
-          }}
-        />
-        <button type="button" onClick={() => setSaved('preset')}>
-          preset
-        </button>
-      </>
-    )
-  }
+function Validated({ onCancel }: { onCancel: () => void }): JSX.Element {
+  const [saved, setSaved] = useState('ok')
+  const [bad, setBad] = useState(false)
+  return (
+    <>
+      <CommitInput
+        aria-label="t"
+        value={saved}
+        aria-invalid={bad}
+        onCommit={(text) => {
+          setBad(text === 'bad')
+          if (text !== 'bad') setSaved(text)
+          return text !== 'bad'
+        }}
+        onCancel={() => {
+          setBad(false)
+          onCancel()
+        }}
+      />
+      <button type="button" onClick={() => setSaved('preset')}>
+        preset
+      </button>
+    </>
+  )
+}
 
+describe('CommitInput errors and focus', () => {
   it('clears the error when the saved value is retyped', () => {
     const onCancel = vi.fn()
     render(<Validated onCancel={onCancel} />)
