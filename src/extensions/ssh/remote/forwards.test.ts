@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { planConnect } from '../plan'
+import { useControlDir } from '../share'
 import { type ForwardMode, HostForwards } from './forwards'
 import { PortMap } from './portMap'
 
@@ -296,5 +297,53 @@ describe('HostForwards', () => {
     children[0].emit('close')
     await vi.advanceTimersByTimeAsync(1100)
     expect(children).toHaveLength(2)
+  })
+})
+
+describe('HostForwards on a shared master', () => {
+  beforeEach(() => useControlDir('/tmp/oc-x'))
+  afterEach(() => useControlDir(null))
+
+  it('SHR-C5 adds a forward with -O forward on the master and starts no -N process', async () => {
+    const { forwards } = make()
+    await forwards.onLink(true)
+    await forwards.onPorts([])
+    await forwards.onPorts([{ port: 3000, name: 'node' }])
+    const argv = children[0].argv
+    expect(argv).toEqual([
+      'ssh',
+      '-o',
+      'ControlPath=/tmp/oc-x/%C',
+      '-O',
+      'forward',
+      '-L',
+      '127.0.0.1:3000:127.0.0.1:3000',
+      '--',
+      'dev@box',
+    ])
+    expect(argv).not.toContain('-N')
+    expect(argv).not.toContain('ControlMaster=auto')
+  })
+
+  it('SHR-C6 cancels the forward on the master when it is stopped', async () => {
+    const { forwards } = make()
+    await forwards.onLink(true)
+    await forwards.onPorts([])
+    await forwards.onPorts([{ port: 3000 }])
+    await forwards.stop(3000)
+    expect(children[1].argv).toContain('cancel')
+    expect(children[1].argv).toContain('127.0.0.1:3000:127.0.0.1:3000')
+    expect(forwards.rows()).toEqual([{ remote: 3000 }])
+  })
+
+  it('SHR-C7 shows an error row and never restarts when the master refuses the forward', async () => {
+    const { forwards } = make()
+    await forwards.onLink(true)
+    await forwards.onPorts([])
+    await forwards.onPorts([{ port: 3000 }])
+    children[0].emit('close', 255)
+    expect(forwards.rows()).toEqual([{ remote: 3000, error: 'forward-failed' }])
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(children).toHaveLength(1)
   })
 })

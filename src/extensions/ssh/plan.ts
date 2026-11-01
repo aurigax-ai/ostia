@@ -2,6 +2,7 @@ import { quoteArgv } from '../../shared/terminal/shellQuote'
 import type { HelperBundle } from './helper'
 import { ALIAS_PATTERN } from './hosts'
 import { REMOTE_COMMAND } from './remote'
+import { controlPathOption, sharingActive, sharingOptions } from './share'
 
 const MAX_HOPS = 8
 
@@ -45,12 +46,16 @@ function hopsOf(text: string | undefined): string[] | null {
 
 type Route = Pick<ConnectPlan, 'destination' | 'jump' | 'port'>
 
-function sshArgv(route: Route, options: string[]): string[] {
+function routeArgv(route: Route, options: string[]): string[] {
   const ssh = ['ssh']
   if (route.jump.length > 0) ssh.push('-J', route.jump.join(','))
   if (route.port !== undefined) ssh.push('-p', String(route.port))
   ssh.push(...options, '--', route.destination)
   return ssh
+}
+
+function sshArgv(route: Route, options: string[]): string[] {
+  return routeArgv(route, [...sharingOptions(), ...options])
 }
 
 export function planConnect(argv: string[]): ConnectPlan | null {
@@ -109,6 +114,22 @@ export function planRemote(
   options: string[] = ['-T'],
 ): string[] {
   return [...sshArgv(plan, options), command]
+}
+
+export function planControlForward(
+  plan: ConnectPlan,
+  op: 'forward' | 'cancel',
+  remote: number,
+  local: number,
+): string[] | null {
+  if (!sharingActive()) return null
+  return routeArgv(plan, [
+    ...controlPathOption(),
+    '-O',
+    op,
+    '-L',
+    `127.0.0.1:${local}:127.0.0.1:${remote}`,
+  ])
 }
 
 export function planForward(plan: ConnectPlan, remote: number, local: number): string[] {
