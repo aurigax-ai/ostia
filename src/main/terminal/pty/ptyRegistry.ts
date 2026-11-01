@@ -10,7 +10,7 @@ import type { PortBridge } from '../../sandbox/ports/portBridge'
 import type { KeptAttention } from '../../tmux/keptAttention'
 import type { KeptMeta } from '../../tmux/keptShells'
 import type { TmuxPane } from '../../tmux/tmuxPane'
-import { SPILL_BACKLOG, type SpillPressure } from '../history/historyFeed'
+import { SPILL_PAUSE, type SpillPressure } from '../history/historyFeed'
 import type { PaneHistories } from '../history/paneHistories'
 import { markNonceFileFor } from '../markNonce'
 import { PtyFlowControl } from '../ptyFlow'
@@ -67,7 +67,7 @@ function pausePty(entry: PtyEntry, paused: boolean): void {
 const HISTORY_LANE = 'history'
 
 function spillPressure(flow: PtyFlowControl, pty: PaneProcess): SpillPressure {
-  const lane = flow.open(HISTORY_LANE, () => true, SPILL_BACKLOG)
+  const lane = flow.open(HISTORY_LANE, () => true, SPILL_PAUSE)
   return {
     canPause: typeof pty.pause === 'function',
     hold: (chars) => lane.sent(chars),
