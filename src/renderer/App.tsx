@@ -6,6 +6,7 @@ import { IncidentReportDialog } from '@/components/agents/IncidentReportDialog'
 import { CmuxImportDialog } from '@/components/app/CmuxImportDialog'
 import { DetachedTitleBar } from '@/components/app/DetachedTitleBar'
 import { RightPanel } from '@/components/app/RightPanel'
+import { SettingsRecoveredNotice } from '@/components/app/SettingsRecoveredNotice'
 import { TopBar } from '@/components/app/TopBar'
 import { UpdateConfirmDialog } from '@/components/app/UpdateConfirmDialog'
 import { WindowControls } from '@/components/app/WindowControls'
@@ -157,6 +158,7 @@ export function App(): JSX.Element {
           <SandboxRequirementsDialog />
           <SandboxFolderDialog />
           <SandboxLeftBehindNotice />
+          <SettingsRecoveredNotice />
           <HistorySearch />
           <SnippetPicker />
           <SaveSnippetDialog />

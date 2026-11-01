@@ -304,6 +304,11 @@ export const settingsEn = {
       '{product} prompt shows context chips in the input editor and gives new shells a plain "directory" prompt, so scrollback stays readable.',
     promptStylePine: '{product} prompt',
     promptStyleShell: 'Shell prompt',
+    recoveredBody:
+      'Settings could not be read. A copy was saved as {path} and defaults were restored.',
+    recoveredLabel: 'Settings',
+    recoveredOpen: 'Open the copy',
+    recoveredTitle: 'Settings were reset',
     remote: 'Remote',
     remoteAddressUnavailable: '{address} is no longer on this computer. Pick another address.',
     remoteAddressWarning:

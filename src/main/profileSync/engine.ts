@@ -1,7 +1,7 @@
 import type { SecretSpan } from '../../shared/privacy/redaction'
 import type { SecretSyncStatus, SyncStatus } from '../../shared/profileSync/profileSync'
 import type { SyncKinds } from '../../shared/profileSync/syncKinds'
-import type { SyncedExtension } from './profile'
+import { FolderUnreadable, type SyncedExtension } from './profile'
 import type { SecretSync } from './secrets'
 import { createSyncPlanner, type Plan, ScanFailed } from './syncPlan'
 import { createSyncStore, type SyncState, type SyncStore } from './syncStore'
@@ -133,6 +133,7 @@ export class ProfileSync {
         plan = await this.planner.plan(remote, state)
       } catch (err) {
         if (err instanceof ScanFailed) return this.fail(state, 'scan-failed')
+        if (err instanceof FolderUnreadable) return this.fail(state, 'unreachable')
         throw err
       }
       let version = remote.version

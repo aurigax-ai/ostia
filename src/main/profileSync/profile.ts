@@ -224,6 +224,8 @@ export interface FolderRead {
   skipped: string[]
 }
 
+export class FolderUnreadable extends Error {}
+
 export function readProfileFolders(root: string): FolderRead {
   const out: FolderRead = { files: new Map(), times: new Map(), skipped: [] }
   for (const folder of PROFILE_FOLDERS) {
@@ -232,8 +234,9 @@ export function readProfileFolders(root: string): FolderRead {
     let names: string[]
     try {
       names = readdirSync(dir).filter(folder.accepts).sort()
-    } catch {
-      continue
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue
+      throw new FolderUnreadable(folder.name)
     }
     let taken = 0
     for (const name of names) {

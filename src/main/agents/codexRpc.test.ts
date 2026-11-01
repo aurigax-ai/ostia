@@ -72,6 +72,17 @@ describe('connectCodexRpc', () => {
     await rpc.closed
   })
 
+  it('ignores a message that is not an object and keeps working', async () => {
+    const rpc = await connectCodexRpc(socket, '1')
+    for (const client of wss.clients) {
+      client.send('null')
+      client.send('{not json')
+      client.send('7')
+    }
+    await expect(rpc.request('turn/start', {})).resolves.toEqual({ echoed: 'turn/start' })
+    rpc.close()
+  })
+
   it('never answers a server request, and never mistakes one for the reply to its own', async () => {
     received.length = 0
     const rpc = await connectCodexRpc(socket, '1')

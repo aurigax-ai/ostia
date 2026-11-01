@@ -1,5 +1,5 @@
 import { GearSixIcon } from '@phosphor-icons/react'
-import { useContext, useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { PanelResizer } from '@/components/common/PanelResizer'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ViewsRail } from '@/components/views/ViewsRail'
@@ -69,45 +69,52 @@ function WorkspacesView(): JSX.Element {
     if (!paneDragging) setTabOver(null)
   }, [paneDragging])
   const renamingGroup = useRailEditStore((s) => (s.editing?.kind === 'group' ? s.editing.id : null))
-  const setRenamingGroup = (id: string | null): void => {
+  const setRenamingGroup = useCallback((id: string | null): void => {
     const edit = useRailEditStore.getState()
+    const current = edit.editing?.kind === 'group' ? edit.editing.id : null
     if (id !== null) edit.begin({ kind: 'group', id })
-    else if (renamingGroup !== null) edit.end({ kind: 'group', id: renamingGroup })
-  }
+    else if (current !== null) edit.end({ kind: 'group', id: current })
+  }, [])
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
   const openSettings = useUIStore((s) => s.openSettings)
   const closeSettings = useUIStore((s) => s.closeSettings)
 
   const railDrag = useRailDragStore.getState
-  const handlers: DragHandlers = {
-    start: (source) => {
-      railDrag().start(source)
-      if (source.kind !== 'workspace') return
-      void loadMergeTargets(source.id).then((targets) => {
-        const ids = targets.filter((t) => t.refusal === null).map((t) => t.id)
-        railDrag().offerMerges(source, ids)
-      })
-    },
-    over: (next) => railDrag().aim(next),
-    end: () => railDrag().end(),
-  }
+  const handlers = useMemo<DragHandlers>(
+    () => ({
+      start: (source) => {
+        railDrag().start(source)
+        if (source.kind !== 'workspace') return
+        void loadMergeTargets(source.id).then((targets) => {
+          const ids = targets.filter((t) => t.refusal === null).map((t) => t.id)
+          railDrag().offerMerges(source, ids)
+        })
+      },
+      over: (next) => railDrag().aim(next),
+      end: () => railDrag().end(),
+    }),
+    [],
+  )
   const dropOnRail = (): void => {
     const taken = railDrag().take()
     if (!taken) return
     if (taken.target.kind === 'merge') void requestMergeWorkspace(taken.source.id, taken.target.id)
     else useWorkspacesStore.getState().drop(taken.source, taken.target)
   }
-  const tabDrop: TabDropHandlers = {
-    over: (workspaceId) => setTabOver(workspaceId),
-    leave: (workspaceId) => setTabOver((cur) => (cur === workspaceId ? null : cur)),
-    drop: (workspaceId) => {
-      setTabOver(null)
-      const dragged = draggedTab()
-      usePaneDnd.getState().dropped()
-      if (dragged) void moveTabToWorkspace(dragged.sourceId, dragged.tabId, workspaceId)
-    },
-  }
+  const tabDrop = useMemo<TabDropHandlers>(
+    () => ({
+      over: (workspaceId) => setTabOver(workspaceId),
+      leave: (workspaceId) => setTabOver((cur) => (cur === workspaceId ? null : cur)),
+      drop: (workspaceId) => {
+        setTabOver(null)
+        const dragged = draggedTab()
+        usePaneDnd.getState().dropped()
+        if (dragged) void moveTabToWorkspace(dragged.sourceId, dragged.tabId, workspaceId)
+      },
+    }),
+    [],
+  )
   const tabTarget = paneDragging ? tabOver : null
   const collapsed = useContext(RailCollapsedContext)
   const single = (w: Workspace): JSX.Element => (

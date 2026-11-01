@@ -116,4 +116,11 @@ describe('writeTextConfined', () => {
     expect(readFileSync(join(root, 'written.txt'), 'utf8')).toBe('saved')
     expect(await writeTextConfined(join(root, 'dir'), confine, save('x'))).toBe(false)
   })
+
+  it('passes on an error that is not a file system error', async () => {
+    const bug = async () => {
+      throw new TypeError('bug')
+    }
+    await expect(writeTextConfined(join(root, 'bug.txt'), confine, bug)).rejects.toThrow('bug')
+  })
 })

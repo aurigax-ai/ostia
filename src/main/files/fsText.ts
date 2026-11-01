@@ -1,6 +1,7 @@
 import type { Stats } from 'node:fs'
 import { open, readFile, stat } from 'node:fs/promises'
 import type { FsTextResult } from '../../shared/files/filesApi'
+import { isErrno } from '../diagnostics/errorReport'
 import { FS_BINARY_MAX } from './fsBinary'
 
 export const FS_TEXT_SNIFF_BYTES = 8192
@@ -41,6 +42,7 @@ export async function readTextConfined(
     if (data.subarray(0, FS_TEXT_SNIFF_BYTES).includes(0)) return { ok: false, error: 'binary' }
     return { ok: true, text: data.toString('utf8'), version: versionOf(stampOf(info)) }
   } catch (err) {
+    if (!isErrno(err)) throw err
     return { ok: false, error: isMissing(err) ? 'missing' : 'unreadable' }
   }
 }
@@ -55,7 +57,8 @@ export async function versionConfined(
   try {
     const info = await stat(safe)
     return info.isFile() ? versionOf(stampOf(info)) : null
-  } catch {
+  } catch (err) {
+    if (!isErrno(err)) throw err
     return null
   }
 }
@@ -70,7 +73,8 @@ export async function writeTextConfined(
   try {
     await save(safe)
     return true
-  } catch {
+  } catch (err) {
+    if (!isErrno(err)) throw err
     return false
   }
 }

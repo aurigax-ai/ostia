@@ -13,6 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, isAbsolute, join, relative } from 'node:path'
+import { expectErrno } from '../diagnostics/errorReport'
 import { isInsidePath } from '../platform/pathGuard'
 
 export const GENERATED_LIST = '.ostia-files'
@@ -41,7 +42,8 @@ function recordList(root: string, dir: string, names: readonly string[]): void {
     staging = mkdtempSync(join(root, '.staging-'))
     writeList(staging, names)
     renameSync(join(staging, GENERATED_LIST), join(dir, GENERATED_LIST))
-  } catch {
+  } catch (err) {
+    expectErrno(err)
   } finally {
     if (staging !== null) rmSync(staging, { recursive: true, force: true })
   }
@@ -79,7 +81,8 @@ export function installGenerated(
 function isRealDir(path: string): boolean {
   try {
     return lstatSync(path).isDirectory()
-  } catch {
+  } catch (err) {
+    expectErrno(err)
     return false
   }
 }
@@ -96,7 +99,8 @@ function ownedFile(dir: string, name: string): string | null {
   const file = join(folder, parts[parts.length - 1])
   try {
     return lstatSync(file).isFile() ? file : null
-  } catch {
+  } catch (err) {
+    expectErrno(err)
     return null
   }
 }
@@ -106,7 +110,8 @@ function removeEmptyFolders(dir: string, stop: string): void {
   while (isInsidePath(stop, current)) {
     try {
       rmdirSync(current)
-    } catch {
+    } catch (err) {
+      expectErrno(err)
       return
     }
     if (current === stop) return
@@ -122,7 +127,9 @@ export function removeGenerated(dir: string, names: readonly string[]): void {
     if (file === null) continue
     try {
       unlinkSync(file)
-    } catch {}
+    } catch (err) {
+      expectErrno(err)
+    }
     folders.add(dirname(file))
   }
   const deepestFirst = [...folders].sort((a, b) => b.length - a.length)
@@ -137,7 +144,8 @@ function readList(dir: string): string[] | null {
     const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
     if (!Array.isArray(parsed) || !parsed.every((name) => typeof name === 'string')) return null
     return parsed
-  } catch {
+  } catch (err) {
+    if (!(err instanceof SyntaxError)) expectErrno(err)
     return null
   }
 }
@@ -145,7 +153,9 @@ function readList(dir: string): string[] | null {
 export function touchGenerated(dir: string, now: Date = new Date()): void {
   try {
     if (isRealDir(dir)) utimesSync(dir, now, now)
-  } catch {}
+  } catch (err) {
+    expectErrno(err)
+  }
 }
 
 export function removeUntouchedGenerations(
@@ -157,7 +167,8 @@ export function removeUntouchedGenerations(
   let entries: string[]
   try {
     entries = readdirSync(root)
-  } catch {
+  } catch (err) {
+    expectErrno(err)
     return []
   }
   const removed: string[] = []
@@ -170,7 +181,8 @@ export function removeUntouchedGenerations(
       const st = lstatSync(dir)
       if (!st.isDirectory()) continue
       modified = st.mtimeMs
-    } catch {
+    } catch (err) {
+      expectErrno(err)
       continue
     }
     if (modified >= untouchedSince) continue

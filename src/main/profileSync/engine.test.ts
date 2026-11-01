@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -209,6 +210,40 @@ describe('ProfileSync', () => {
     const ok = await a.sync.run()
     expect(ok.status.state).toBe('ok')
     expect(a.settings()).toEqual({ appearance: { theme: 'dusk' }, terminal: { fontSize: 15 } })
+  })
+
+  it('stops with an error and deletes nothing when a target folder cannot be read', async () => {
+    const target = temp()
+    const a = machine(target)
+    a.writeFile('snippets/one.yaml', 'a: 1\n', 1)
+    await a.sync.run()
+    const hidden = join(target, 'snippets')
+    chmodSync(hidden, 0o000)
+    try {
+      const run = await a.sync.run()
+      expect(run.status.state).toBe('error')
+      expect(run.status.error).toBe('unreachable')
+      expect(a.file('snippets/one.yaml')).toBe('a: 1\n')
+    } finally {
+      chmodSync(hidden, 0o755)
+    }
+  })
+
+  it('stops with an error and uploads nothing when a local folder cannot be read', async () => {
+    const target = temp()
+    const a = machine(target)
+    a.writeFile('snippets/one.yaml', 'a: 1\n', 1)
+    await a.sync.run()
+    const hidden = join(a.configDir, 'snippets')
+    chmodSync(hidden, 0o000)
+    try {
+      const run = await a.sync.run()
+      expect(run.status.state).toBe('error')
+      expect(run.status.error).toBe('unreachable')
+      expect(existsSync(join(target, 'snippets', 'one.yaml'))).toBe(true)
+    } finally {
+      chmodSync(hidden, 0o755)
+    }
   })
 
   it('PSY-C4 carries settings, snippets, completion specs and views to another machine', async () => {

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { insideRealHome } from '../../../test/realHome'
 import { privateRunDir, privateTmpDir, socketPath } from './privateTmp'
 
@@ -41,18 +41,15 @@ describe('privateRunDir', () => {
     }
   })
 
-  it('falls back to the private temp folder when the app data folder cannot hold it', () => {
+  it('throws on macOS when the app data folder cannot hold the run folder', () => {
     const home = mkdtempSync(join(tmpdir(), 'run-home-'))
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       mkdirSync(join(home, 'd', 'ostia'), { recursive: true })
       writeFileSync(join(home, 'd', 'ostia', 'run'), '')
-      expect(privateRunDir('kept', 'darwin', { XDG_DATA_HOME: join(home, 'd') }, home)).toBe(
-        privateTmpDir('ostia-kept'),
-      )
-      expect(error).toHaveBeenCalledTimes(1)
+      expect(() =>
+        privateRunDir('kept', 'darwin', { XDG_DATA_HOME: join(home, 'd') }, home),
+      ).toThrow()
     } finally {
-      error.mockRestore()
       rmSync(home, { recursive: true, force: true })
     }
   })

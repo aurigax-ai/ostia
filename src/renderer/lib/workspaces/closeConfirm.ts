@@ -3,6 +3,7 @@ import type { PaneActivity } from '@shared/terminal/ptyApi'
 import { AGENT_CLOSE_SAVE_WAIT_MS, QUIT_SAVE_WAIT_MS } from '@shared/windows/closeWaits'
 import type { QuitAnswer } from '@shared/windows/windowsApi'
 import { runningAgent, runningAgentOf } from '@/lib/agents/paneAgent'
+import { reportError } from '@/lib/app/errorReporting'
 import { settleSaves } from '@/lib/files/pendingSaves'
 import { allPanes, findPane, findSplitTab, tabIdOf, tabsOfPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
@@ -231,16 +232,25 @@ function emptyGroup(workspace: Workspace): RunningGroup {
   }
 }
 
+function scratchCount(workspaceId: string): Promise<number | null> {
+  return window.ostia.scratch.files(workspaceId).catch((err: unknown) => {
+    reportError('rejection', err, 'scratchFiles')
+    return null
+  })
+}
+
 export function withScratchGroups(
   workspaces: readonly Workspace[],
   groups: readonly RunningGroup[],
-  scratchFiles: Readonly<Record<string, number>>,
+  scratchFiles: Readonly<Record<string, number | null>>,
 ): RunningGroup[] {
   const out: RunningGroup[] = []
   for (const workspace of workspaces) {
-    const count = workspace.kind === 'scratch' ? (scratchFiles[workspace.id] ?? 0) : 0
+    const count = workspace.kind === 'scratch' ? scratchFiles[workspace.id] : 0
     const group = groups.find((g) => g.workspaceId === workspace.id)
-    if (count > 0) out.push({ ...(group ?? emptyGroup(workspace)), scratchFiles: count })
+    if (count === null) out.push(group ?? emptyGroup(workspace))
+    else if (count !== undefined && count > 0)
+      out.push({ ...(group ?? emptyGroup(workspace)), scratchFiles: count })
     else if (group) out.push(group)
   }
   return out
@@ -249,10 +259,8 @@ export function withScratchGroups(
 async function closeGroups(workspaces: readonly Workspace[]): Promise<RunningGroup[]> {
   const { confirmClose } = useSettingsStore.getState().workspaces
   const scratch = workspaces.filter((w) => w.kind === 'scratch')
-  const filesOf = await Promise.all(
-    scratch.map((w) => window.ostia.scratch.files(w.id).catch(() => 0)),
-  )
-  const counts: Record<string, number> = Object.fromEntries(
+  const filesOf = await Promise.all(scratch.map((w) => scratchCount(w.id)))
+  const counts: Record<string, number | null> = Object.fromEntries(
     scratch.map((w, i) => [w.id, filesOf[i]]),
   )
   const activity = confirmClose ? await paneActivities(panesOf(workspaces)) : {}
@@ -269,8 +277,7 @@ export async function requestCloseWorkspace(id: string): Promise<void> {
 }
 
 export async function closeBlockers(workspace: Workspace): Promise<RunningGroup | null> {
-  const scratch =
-    workspace.kind === 'scratch' ? await window.ostia.scratch.files(workspace.id).catch(() => 0) : 0
+  const scratch = workspace.kind === 'scratch' ? await scratchCount(workspace.id) : 0
   const activity = await paneActivities(panesOf([workspace]))
   const groups = runningGroups([workspace], { ...PLAIN, activity })
   return withScratchGroups([workspace], groups, { [workspace.id]: scratch })[0] ?? null
