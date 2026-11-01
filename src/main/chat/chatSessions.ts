@@ -41,13 +41,28 @@ function dropOrphanEdits(session: ChatSession): void {
   session.edits = kept.length > 0 ? kept : undefined
 }
 
-function trimSession(session: ChatSession, maxBytes: number): number {
-  let dropped = 0
-  while (session.messages.length > 1 && sizeOf(session) > maxBytes) {
-    session.messages.shift()
-    dropped += 1
-    dropOrphanEdits(session)
+function withoutLeading(session: ChatSession, count: number): ChatSession {
+  const candidate: ChatSession = { ...session, messages: session.messages.slice(count) }
+  dropOrphanEdits(candidate)
+  return candidate
+}
+
+function leadingToDrop(session: ChatSession, maxBytes: number): number {
+  let low = 0
+  let high = session.messages.length - 1
+  if (high <= 0 || sizeOf(session) <= maxBytes) return 0
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2)
+    if (sizeOf(withoutLeading(session, mid)) <= maxBytes) high = mid
+    else low = mid + 1
   }
+  return low
+}
+
+function trimSession(session: ChatSession, maxBytes: number): number {
+  let dropped = leadingToDrop(session, maxBytes)
+  session.messages.splice(0, dropped)
+  dropOrphanEdits(session)
   while (session.messages.length > 0 && session.messages[0].role !== 'user') {
     session.messages.shift()
     dropped += 1
