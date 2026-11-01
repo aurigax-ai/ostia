@@ -9,6 +9,7 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
 } from 'vscode-jsonrpc/node'
+import { type PortsResult, portsTable } from '../shared/remote/remotePorts'
 import type { JobRecord, Jobs } from './jobs'
 import type { RunnerLink } from './link'
 import { busMethods } from './nodeBus'
@@ -26,12 +27,42 @@ export interface ControlDeps {
 
 const PANE_METHODS = ['pane.reportWork']
 
+function portsReply(result: PortsResult): unknown {
+  return result.ok
+    ? { ok: true, text: portsTable(result.forwards), data: { forwards: result.forwards } }
+    : { ok: false, error: result.error, message: result.error }
+}
+
+function portsMethods(link: RunnerLink): Record<string, Handler> {
+  const ask =
+    (op: 'list' | 'forward' | 'stop'): Handler =>
+    async (params) => {
+      const { remote, local } = (params ?? {}) as { remote?: unknown; local?: unknown }
+      if (op !== 'list' && typeof remote !== 'number') {
+        return { ok: false, error: 'bad-request', message: 'remote' }
+      }
+      return portsReply(
+        await link.request(
+          op,
+          typeof remote === 'number' ? remote : undefined,
+          typeof local === 'number' ? local : undefined,
+        ),
+      )
+    }
+  return {
+    'ports.forwards': ask('list'),
+    'ports.forward': ask('forward'),
+    'ports.stop': ask('stop'),
+  }
+}
+
 function paneHandlers(jobs: Jobs, pane: JobRecord, link: RunnerLink): Record<string, Handler> {
   const noted: Record<string, Handler> = Object.fromEntries(
     PANE_METHODS.map((method) => [method, () => ({ ok: true })]),
   )
   return {
     ...busMethods(jobs, pane, link),
+    ...portsMethods(link),
     ...noted,
     'pane.reportTurn': () => {
       jobs.markStarted(pane.pane)

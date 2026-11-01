@@ -2,7 +2,7 @@
   "id": "ssh",
   "name": "SSH",
   "version": "1.4.0",
-  "api": "7.13",
+  "api": "7.14",
   "description": "Lists the hosts in your ssh config and opens an ssh session in a new terminal, through bastion hosts when you name them. Inside a session, commands show as blocks through a shell integration that lives only for that session. With your consent per host, a small helper script under ~/.ostia there gives {product} that host's files. A session an agent asks for opens only after you approve the exact command.",
   "category": "tools",
   "capabilities": ["shell", "read-board"],
@@ -116,6 +116,28 @@
         "usage": "remote-stop <json: host, pane>",
         "argument": "A JSON object",
         "palette": false
+      },
+      {
+        "id": "ports-list",
+        "title": "Ports listening on this remote workspace's host and where they forward (JSON)",
+        "usage": "ports-list",
+        "palette": false,
+        "capabilities": ["process"]
+      },
+      {
+        "id": "ports-forward",
+        "title": "Forward a port of this remote workspace's host to this computer (JSON)",
+        "usage": "ports-forward <remote-port> [--local <port>]",
+        "argument": "A JSON object",
+        "palette": false,
+        "capabilities": ["process"]
+      },
+      {
+        "id": "ports-stop",
+        "title": "Stop forwarding a port of this remote workspace's host",
+        "usage": "ports-stop <remote-port>",
+        "palette": false,
+        "capabilities": ["process"]
       }
     ],
     "settings": {
@@ -130,6 +152,17 @@
         "title": "Remote helper",
         "default": true,
         "description": "Offer to install a small helper script under ~/.ostia on a host, which gives {product} that host's files over ssh. You are asked once per host, with the exact path, before anything is installed. Turn it off to never ask and never connect"
+      },
+      "portForwarding": {
+        "type": "enum",
+        "title": "Port forwarding",
+        "values": ["auto", "manual"],
+        "valueTitles": {
+          "auto": "Auto",
+          "manual": "Manual"
+        },
+        "default": "auto",
+        "description": "In an ssh remote workspace, Auto forwards each port that opens on the host to this computer. Manual only lists ports until you forward one. Forwards bind 127.0.0.1 on this computer only"
       }
     },
     "sidebarItems": true,
@@ -137,6 +170,12 @@
       {
         "id": "remote",
         "title": "Remote host"
+      }
+    ],
+    "workspaceChips": [
+      {
+        "id": "ports",
+        "title": "Remote ports"
       }
     ]
   }

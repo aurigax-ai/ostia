@@ -61,6 +61,27 @@ describe('gitRequest', () => {
   })
 })
 
+describe('portsRequest forward and stop', () => {
+  it('RPF-C19 sends forward and stop to the ssh extension with the asked ports', () => {
+    expect(portsRequest(['forward', '3000', '--local', '3100'])).toEqual({
+      method: 'ports.forward',
+      params: { remote: 3000, local: 3100 },
+    })
+    expect(portsRequest(['stop', '3000'])).toEqual({
+      method: 'ports.stop',
+      params: { remote: 3000 },
+    })
+  })
+
+  it('RPF-C21 refuses a request that is not a port number', () => {
+    expect(portsRequest(['forward', 'web'])).toBeNull()
+    expect(portsRequest(['forward'])).toBeNull()
+    expect(portsRequest(['forward', '3000', '--local', 'x'])).toBeNull()
+    expect(portsRequest(['stop', '3000', '3001'])).toBeNull()
+    expect(portsRequest(['tag', '3000', 'x'])).toBeNull()
+  })
+})
+
 describe('portsRequest', () => {
   it('lists the caller workspace, or every workspace with --all', () => {
     expect(portsRequest(['list'])).toEqual({ method: 'ports.ls', params: { all: false } })

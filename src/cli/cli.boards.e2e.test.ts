@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
+import { registerExtensionMethods } from '../main/extensions/extensionMethods'
 import { GitCommands } from '../main/git/commands'
 import { registerGitMethods } from '../main/git/register'
 import { ViewStateStore } from '../main/git/viewState'
@@ -85,6 +86,7 @@ describe('ostia git and ostia ports (real CLI process, real socket)', () => {
       }),
       callerOf: (pane) => ({ workspaceId: pane.workspaceId, workDir }),
     })
+    registerExtensionMethods(() => null)
     registerPortsMethods(
       new PortsService({
         settings: () => DEFAULT_PORTS_SETTINGS,

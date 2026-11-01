@@ -285,8 +285,26 @@ export const USAGE_TABLE: readonly NounUsage[] = [
   {
     noun: 'ports',
     audience: 'agent',
-    about: "listening ports of your workspace's terminals",
-    verbs: [{ verb: 'list', args: '[--all]', about: 'listening ports and ssh hosts (JSON)' }],
+    about: "listening ports of your workspace's terminals; forwards of an ssh remote workspace",
+    verbs: [
+      {
+        verb: 'list',
+        args: '[--all]',
+        about:
+          'listening ports and ssh hosts (JSON); in an ssh remote workspace, the host ports and their forwards',
+      },
+      {
+        verb: 'forward',
+        args: '<remote-port> [--local <port>]',
+        about:
+          'forward a port of the ssh remote host to this computer; answers the observed forward',
+      },
+      {
+        verb: 'stop',
+        args: '<remote-port>',
+        about: 'stop forwarding a port of the ssh remote host',
+      },
+    ],
   },
   {
     noun: 'view',

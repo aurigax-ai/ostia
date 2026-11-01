@@ -15,6 +15,7 @@ import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { dropIdentity, setCaps } from '../approvals/capabilityStore'
 import { registerExtension, removeExtension } from '../control/idRegistry'
 import type { RemoteFolders } from '../files/remoteFolders'
+import { withoutInheritedFiles } from '../platform/inheritableFiles'
 import type { ExtensionAssist } from './extensionAssist'
 import { extensionEnvironment } from './extensionEnv'
 import type { ExtensionHostDeps } from './extensionHostDeps'
@@ -230,11 +231,17 @@ export class ExtensionProcesses {
     rt.identity = identity
     rt.stopping = false
     rt.state = 'starting'
-    const proc = spawn(script ? this.host.deps.nodePath : mainPath, script ? [mainPath] : [], {
-      cwd: rt.ext.dir,
-      env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const { stdio, release } = withoutInheritedFiles(['ignore', 'pipe', 'pipe'])
+    let proc: ChildProcess
+    try {
+      proc = spawn(script ? this.host.deps.nodePath : mainPath, script ? [mainPath] : [], {
+        cwd: rt.ext.dir,
+        env,
+        stdio,
+      })
+    } finally {
+      release()
+    }
     rt.proc = proc
     const pipeLog = (chunk: Buffer): void => {
       for (const line of chunk.toString().split('\n'))

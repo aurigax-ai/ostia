@@ -62,10 +62,10 @@ describe('workspaceChipValues', () => {
   })
 
   it('lists at most the chip item limit, while the count says how many listen', () => {
-    const ports = Array.from({ length: 25 }, (_, i) => ({ port: 30000 + i }))
+    const ports = Array.from({ length: 70 }, (_, i) => ({ port: 30000 + i }))
     const [chip] = workspaceChipValues(new Map([['s1', { ports, ssh: [] }]]), 'localhost')
-    expect(chip?.text).toBe('25')
-    expect(chip?.items).toHaveLength(20)
+    expect(chip?.text).toBe('70')
+    expect(chip?.items).toHaveLength(64)
   })
 
   it('uses the configured host in the port link', () => {

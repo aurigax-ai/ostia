@@ -13,6 +13,7 @@ import {
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { CommandDescriptor, CommandResult } from '../../shared/control/commands'
 import {
+  type ControlMethodContext,
   type ExtensionCommandRun,
   type ExtensionMethodContext,
   registerControlMethod,
@@ -78,9 +79,34 @@ export function extensionCommandRunner(
   }
 }
 
+function portArgv(params: unknown): string[] {
+  const { remote, local } = (params ?? {}) as { remote?: unknown; local?: unknown }
+  return [
+    ...(typeof remote === 'number' ? [String(remote)] : []),
+    ...(typeof local === 'number' ? ['--local', String(local)] : []),
+  ]
+}
+
+function sshPortsHandler(host: () => ExtensionHost | null, command: string) {
+  return {
+    handler: (params: unknown, ctx: ControlMethodContext) => {
+      const h = host()
+      if (!h) return fail('not-remote', 'the ssh extension is not running')
+      return invokeAsPane(h, ctx.identity, 'ssh', command, { argv: portArgv(params) })
+    },
+  }
+}
+
+function registerPortMethods(host: () => ExtensionHost | null): void {
+  registerControlMethod('ports.forwards', sshPortsHandler(host, 'ports-list'))
+  registerControlMethod('ports.forward', sshPortsHandler(host, 'ports-forward'))
+  registerControlMethod('ports.stop', sshPortsHandler(host, 'ports-stop'))
+}
+
 export function registerExtensionMethods(host: () => ExtensionHost | null): void {
   const forExtension = extensionHandler(host)
   registerHostMethods(host, forExtension)
+  registerPortMethods(host)
   registerWindowMethods(forExtension)
   registerRunMethods(host, forExtension)
   registerAssistMethods(forExtension)

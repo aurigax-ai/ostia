@@ -134,9 +134,16 @@ async function install(plan: ConnectPlan, t: Translate, deps: RemoteDeps): Promi
     await client.ensure()
   } catch (err) {
     const failed = classify(err)
+    if (failed.code === 'incompatible') {
+      await client.ensure(true)
+      return
+    }
     if (failed.code !== 'missing' && failed.code !== 'corrupt') throw failed
     await client.install()
-    await client.ensure()
+    await client.ensure().catch(async (second) => {
+      if (classify(second).code !== 'incompatible') throw second
+      await client.ensure(true)
+    })
   }
 }
 

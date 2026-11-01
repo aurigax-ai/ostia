@@ -84,13 +84,13 @@ async function serve(): Promise<void> {
   setInterval(() => void reap(deps), REAP_MS).unref()
 }
 
-async function start(): Promise<void> {
+async function start(dir: string = versionDir): Promise<void> {
   const tmux = new TmuxHost(paths.tmuxSocket, paths.tmuxConf)
   await tmux.create({
     name: RUNNER_SESSION,
     cwd: homedir(),
     env: {},
-    argv: [process.execPath, join(versionDir, 'ostia-node.js'), 'serve'],
+    argv: [process.execPath, join(dir, 'ostia-node.js'), 'serve'],
   })
   for (let i = 0; i < START_TRIES; i++) {
     if ((await runningVersion()) !== null) return
@@ -99,13 +99,26 @@ async function start(): Promise<void> {
   throw new Error('runner-stopped')
 }
 
+async function replaceRunner(running: string): Promise<unknown> {
+  const tmux = new TmuxHost(paths.tmuxSocket, paths.tmuxConf)
+  await tmux.kill(RUNNER_SESSION).catch(() => {})
+  await sleep(START_POLL_MS * 2)
+  try {
+    await start()
+  } catch (err) {
+    await tmux.kill(RUNNER_SESSION).catch(() => {})
+    await start(join(dirname(versionDir), running)).catch(() => {})
+    throw err
+  }
+  return { version }
+}
+
 async function ensure(replace: boolean): Promise<unknown> {
   const running = await runningVersion()
   if (running === version) return { version }
   if (running !== null) {
     if (!replace) return { ok: false, error: 'incompatible', running, version }
-    await call('node.shutdown')
-    await sleep(START_POLL_MS * 2)
+    return replaceRunner(running)
   }
   await start()
   return { version }
