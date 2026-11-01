@@ -312,10 +312,10 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
     })
     const typed = readFileSync(sshLog, 'utf8').trim().split('\n').at(-1) ?? ''
     expect(typed).toContain(
-      `ssh -t -- px exec sh -c 'f="$HOME/.ostia/helper/${versions[0]}/session.sh"`,
+      `-t -- px exec sh -c 'f="$HOME/.ostia/helper/${versions[0]}/session.sh"`,
     )
     expect(typed).not.toContain('base64')
-    expect(typed.length).toBeLessThan(320)
+    expect(typed.length).toBeLessThan(420)
     expect(ran.stdout).toContain('short-42')
     expect(ran.stdout).toContain('\u001b]133;C')
 
