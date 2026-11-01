@@ -97,14 +97,17 @@ export function IncidentReportDialog(): JSX.Element {
         {report === null ? (
           <p className="text-fg-muted text-ui-sm">{d.noReport}</p>
         ) : report === undefined ? null : (
-          <pre
+          <section
             data-testid="incident-report-text"
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable report must take focus so the keyboard can scroll it
+            tabIndex={0}
+            aria-label={d.dialogTitle}
             className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-2 font-mono text-fg text-ui-xs"
           >
             {headline ? <strong className="font-semibold">{headline}</strong> : null}
             {headline ? '\n' : null}
             {body}
-          </pre>
+          </section>
         )}
         {report && report.redacted > 0 ? (
           <p className="text-fg-muted text-ui-xs">{fmt(d.redacted, { count: report.redacted })}</p>

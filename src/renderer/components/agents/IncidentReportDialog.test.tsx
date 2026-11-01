@@ -33,6 +33,9 @@ describe('IncidentReportDialog', () => {
       'pane.input not submitted',
     )
     expect(screen.getByText('Enter not submitted').tagName).toBe('STRONG')
+    const reportBox = screen.getByTestId('incident-report-text')
+    expect(reportBox).toHaveAttribute('tabindex', '0')
+    expect(reportBox).toHaveAccessibleName()
     expect(screen.getByText('2 secrets hidden in your words.')).toBeInTheDocument()
     expect(window.ostia.incidents.openIssue).not.toHaveBeenCalled()
 
