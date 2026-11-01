@@ -676,7 +676,9 @@ test('PRT-C30 a .tsx component runs with the bundled libraries, no eval, no netw
     await clickInGuest(app, 280, 20)
     await expect(win.getByTestId('preview-not-responding')).toBeVisible({ timeout: 20_000 })
     await runInTerminal(win, 'echo alive-$((40 + 2))')
-    await expect(win.locator('.terminal-text').first()).toContainText('alive-42', { timeout: 5_000 })
+    await expect(win.locator('.terminal-text').first()).toContainText('alive-42', {
+      timeout: 5_000,
+    })
     expect(
       await win.evaluate(
         () =>

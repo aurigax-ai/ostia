@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
 import {
@@ -9,7 +9,7 @@ import {
   wireDataDir,
 } from './dataHome'
 import { openWorkspace, panelEval, quitApp, restartApp, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 test.describe.configure({ timeout: 240_000 })
 

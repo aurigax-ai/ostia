@@ -6,10 +6,10 @@ import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings }
 import { openWorkspace } from './helpers'
 import {
   type ElectronApplication,
-  type Locator,
-  type Page,
   _electron as electron,
   expect,
+  type Locator,
+  type Page,
   test,
 } from './test'
 

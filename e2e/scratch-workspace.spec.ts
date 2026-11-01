@@ -2,15 +2,15 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { freshDataHome } from './dataHome'
 import {
-  PROMPT,
   emptyState,
   emptyWorkspace,
   launchWindow,
+  PROMPT,
   quitApp,
   runInTerminal,
   shownTerminal,
 } from './helpers'
-import { type Page, expect, test } from './test'
+import { expect, type Page, test } from './test'
 
 async function newScratchWorkspace(win: Page): Promise<void> {
   await win

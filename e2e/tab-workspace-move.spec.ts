@@ -1,13 +1,13 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import {
-  PROMPT,
   newTerminalWorkspace,
   openWorkspace,
+  PROMPT,
   quitApp,
   runInTerminal,
   shownTerminal,
 } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 const visibleTabs = (win: Page) => win.locator('.pane-tab:visible')
 
@@ -64,9 +64,9 @@ test('a running tab moves to another workspace by its menu and back by a rail dr
     await expect(win.locator(`.pane-tab[data-tab-id="${moving}"]:visible`)).toHaveCount(1)
     await expect(win.locator('.ghostty-host[data-move-mark="moving"]')).toHaveCount(1)
     await expect(win.locator('.ghostty-host[data-move-mark="moving"]')).toBeVisible()
-    await expect(win.locator('.ghostty-host[data-move-mark="moving"] ~ .terminal-text')).toContainText(
-      `pid-${pid}-up`,
-    )
+    await expect(
+      win.locator('.ghostty-host[data-move-mark="moving"] ~ .terminal-text'),
+    ).toContainText(`pid-${pid}-up`)
 
     const targetHome = await visibleTabs(win).evaluateAll(
       (tabs, id) => tabs.map((t) => t.getAttribute('data-tab-id') ?? '').find((t) => t !== id),

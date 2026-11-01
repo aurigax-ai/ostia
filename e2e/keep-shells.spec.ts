@@ -23,6 +23,7 @@ import {
   restartApp,
   runInTerminal,
   shownTerminal,
+  shownTerminalText,
   typeLine,
 } from './helpers'
 import {
@@ -373,7 +374,11 @@ test('KSH-C67 text sent to an agent that kept running across a restart waits for
     await expect(screen(win, 1)).toContainText('agent-waiting', { timeout: 15_000 })
     await expect(screen(win, 1)).toContainText(/text-rc=[1-9]/)
     await expect(screen(win)).not.toContainText('typed-early')
-    await runInTerminal(win, `ostia pane key ${agentPane} enter`, win.locator('.ghostty-host').nth(1))
+    await runInTerminal(
+      win,
+      `ostia pane key ${agentPane} enter`,
+      win.locator('.ghostty-host').nth(1),
+    )
     await expect(screen(win)).toContainText('reported-4', { timeout: 15_000 })
     await runInTerminal(
       win,
@@ -441,12 +446,12 @@ test('KSH-C88 a kept program in a workspace that is not open is attached again b
 
   const second = await launch(dataHome)
   try {
-    await expect(shownTerminal(second.win)).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(shownTerminalText(second.win)).toContainText(PROMPT, { timeout: 15_000 })
     await expect(second.win.locator('.workzone-workspace')).toHaveCount(1)
     await expect.poll(() => readFileSync(file, 'utf8'), { timeout: 15_000 }).not.toBe(before)
     expect(() => process.kill(Number(pid), 0)).not.toThrow()
     await second.win.keyboard.press(chords.firstWorkspace)
-    await expect(shownTerminal(second.win)).toContainText(`shell=${pid}`, { timeout: 15_000 })
+    await expect(shownTerminalText(second.win)).toContainText(`shell=${pid}`, { timeout: 15_000 })
     await shownTerminal(second.win).click()
     await typeLine(second.win, 'kept-input')
     await expect

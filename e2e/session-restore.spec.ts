@@ -4,10 +4,10 @@ import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { askToQuit, newTerminalWorkspace, openWorkspace, runInTerminal } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   exitedWithin,
   expect,
+  type Page,
   stopTrace,
   test,
 } from './test'
@@ -134,7 +134,11 @@ function saved(dataHome: string): Saved | null {
 const shownRows = (win: Page) => win.locator('.pane-slot:not([data-hidden]) .terminal-text')
 
 async function runInShownTerminal(win: Page, command: string): Promise<void> {
-  await runInTerminal(win, command, win.locator('.pane-slot:not([data-hidden]) .ghostty-host').last())
+  await runInTerminal(
+    win,
+    command,
+    win.locator('.pane-slot:not([data-hidden]) .ghostty-host').last(),
+  )
 }
 
 const agentWorkspace = (i: number): boolean => i >= 2 && i % 2 === 0

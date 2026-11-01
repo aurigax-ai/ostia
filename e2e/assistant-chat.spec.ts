@@ -8,7 +8,7 @@ import {
   startFakeProvider,
 } from './fakeProvider'
 import { openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 const RUN_MARKER = 'ostia-ran-from-chat'
 

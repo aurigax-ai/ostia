@@ -10,7 +10,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { type Server, createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -19,9 +19,9 @@ import { withAsar } from './fakeAsar'
 import { expectHeld, openWorkspace, quitApp, runInTerminal, stubExternalOpener } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   expect,
+  type Page,
   stopTrace,
   test,
   waitForExit,

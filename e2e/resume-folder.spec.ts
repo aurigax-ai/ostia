@@ -2,13 +2,13 @@ import { mkdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   CANVAS_RENDERER_SETTINGS,
-  HIBERNATE_FAST,
   freshDataHome,
+  HIBERNATE_FAST,
   isolatedLaunch,
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { PROMPT, expectHeld, openWorkspace, runInTerminal, shownTerminal } from './helpers'
+import { expectHeld, openWorkspace, PROMPT, runInTerminal, shownTerminal } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 90_000 })

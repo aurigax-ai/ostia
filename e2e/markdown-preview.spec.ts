@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
-import { expectHeld, openWorkspace, shownTerminal, terminalTab } from './helpers'
+import { expectHeld, openWorkspace, shownTerminalText, terminalTab } from './helpers'
 import type { ElectronApplication, Page } from './test'
 import { _electron as electron, expect, test } from './test'
 import { viewerGuestDrag, viewerGuestRun, viewerGuestText } from './viewerGuest'
@@ -133,7 +133,7 @@ test('the preview shows unsaved text, draws diagrams, lists headings, sends a se
       await win.getByRole('menuitem').first().click()
 
       await terminalTab(win).click()
-      const terminal = shownTerminal(win).locator('.terminal-text')
+      const terminal = shownTerminalText(win)
       const pasted = /@(\S+\.md)/
       await expect(terminal).toContainText(pasted, { timeout: 15_000 })
       const reportPath = (

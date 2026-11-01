@@ -1,13 +1,13 @@
 import {
   CANVAS_RENDERER_SETTINGS,
-  SOFTWARE_WEBGL,
   freshDataHome,
   isolatedLaunch,
+  SOFTWARE_WEBGL,
   seedSettings,
 } from './dataHome'
 import { openWorkspace } from './helpers'
 import { textPainted } from './pixels'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 interface Placement {
   pastRight: number

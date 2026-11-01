@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { defaultChord, isMac } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, restartApp, typeLine } from './helpers'
-import { type Locator, type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Locator, type Page, test } from './test'
 
 function segment(win: Page, name: string): Locator {
   return win.locator('.split-tab-segment', { hasText: name })
@@ -124,7 +124,9 @@ test('collapsed panes of a split tab keep running as strips, expand on focus and
 
     await strip(win, ids.w1).getByRole('button', { name: 'Expand w1' }).click()
     await expect(strip(win, ids.w1)).toHaveCount(0)
-    await expect(cell(win, ids.w1).locator('.terminal-text')).toContainText('printed-while-collapsed')
+    await expect(cell(win, ids.w1).locator('.terminal-text')).toContainText(
+      'printed-while-collapsed',
+    )
     await expect(segment(win, 'w1')).toHaveClass(/focused/)
     await expect(strip(win, ids.w3)).toHaveCount(1)
 

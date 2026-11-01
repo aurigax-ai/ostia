@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { buildSync } from 'esbuild'
 import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import type { FixtureName } from './hasFixtures'
-import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
+import { type ElectronApplication, expect, launchShared, type Page, test } from './test'
 
 let app: ElectronApplication | undefined
 let win: Page

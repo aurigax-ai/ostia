@@ -4,14 +4,14 @@ import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { SLOW_FRAME_MS, fastFrames, slowFrames } from './frames'
+import { fastFrames, SLOW_FRAME_MS, slowFrames } from './frames'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   expect,
   launchShared,
+  type Page,
   test,
 } from './test'
 
@@ -81,23 +81,21 @@ test.afterAll(async () => {
   await app?.close()
 })
 
-test(
-  'Escape right after the palette chord in a terminal closes the palette and never reaches the shell',
-  { tag: '@core' },
-  async () => {
-    await slowFrames(win)
-    try {
-      await win.keyboard.press(chords.palette)
-      await win.keyboard.press('Escape')
-      await expect(win.getByRole('dialog', { name: 'Command palette' })).toBeHidden({
-        timeout: SLOW_FRAME_MS * 4,
-      })
-    } finally {
-      await fastFrames(win)
-    }
-    await shellSawNoEscape(win, 'after-palette')
-  },
-)
+test('Escape right after the palette chord in a terminal closes the palette and never reaches the shell', {
+  tag: '@core',
+}, async () => {
+  await slowFrames(win)
+  try {
+    await win.keyboard.press(chords.palette)
+    await win.keyboard.press('Escape')
+    await expect(win.getByRole('dialog', { name: 'Command palette' })).toBeHidden({
+      timeout: SLOW_FRAME_MS * 4,
+    })
+  } finally {
+    await fastFrames(win)
+  }
+  await shellSawNoEscape(win, 'after-palette')
+})
 
 test('the palette opens from the chord, F1 and Shift twice in a terminal, toggles closed, and Escape closes it without the shell getting the key', async () => {
   const dialog = win.getByRole('dialog')

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { isMac } from './chords'
 import { freshDataHome } from './dataHome'
 import { launchWindow, openWorkspace, quitApp } from './helpers'
-import { type ElectronApplication, type Locator, type Page, expect, test } from './test'
+import { type ElectronApplication, expect, type Locator, type Page, test } from './test'
 
 async function closeWindow(page: Page): Promise<void> {
   if (isMac) await page.evaluate(() => window.ostia.window.close())

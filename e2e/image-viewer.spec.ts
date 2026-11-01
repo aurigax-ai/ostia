@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
-import { expectHeld, occurrences, openWorkspace, shownTerminal, terminalTab } from './helpers'
+import { expectHeld, occurrences, openWorkspace, shownTerminalText, terminalTab } from './helpers'
 import { pngOf } from './pngFixture'
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 import { viewerGuestRun } from './viewerGuest'
@@ -180,7 +180,7 @@ test('images open in the viewer: a drag crops at native resolution and Send past
       await expect(bar).toHaveCount(0, { timeout: 15_000 })
 
       await terminalTab(win).click()
-      const terminal = shownTerminal(win).locator('.terminal-text')
+      const terminal = shownTerminalText(win)
       const inserted = /Sharper edge here @(\S+\.md)/
       await expect(terminal).toContainText(inserted, { timeout: 15_000 })
       const [, report] = ((await terminal.textContent()) ?? '').match(inserted) as RegExpMatchArray

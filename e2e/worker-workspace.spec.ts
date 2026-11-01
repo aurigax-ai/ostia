@@ -1,6 +1,6 @@
 import { freshDataHome } from './dataHome'
 import { launchWindow, openWorkspace, quitApp, typeLine } from './helpers'
-import { type Page, expect, test } from './test'
+import { expect, type Page, test } from './test'
 
 const coordinatorRows = (win: Page) => win.locator('.terminal-text').first()
 const memberRows = (win: Page) => win.locator('.rail-group-members .rail-row')
@@ -32,7 +32,9 @@ test('a coordinator makes a background workers workspace in its sidebar group an
     await memberRows(win).nth(1).locator('.rail-tab-main').click()
     await expect(win.locator('.rail-tab.active')).toContainText('proj · workers')
     await expect(win.getByRole('tab', { name: /fixer/ })).toBeVisible({ timeout: 15_000 })
-    await expect(win.locator('.terminal-text').last()).toContainText('hi-from-42', { timeout: 15_000 })
+    await expect(win.locator('.terminal-text').last()).toContainText('hi-from-42', {
+      timeout: 15_000,
+    })
   } finally {
     await quitApp(app)
   }

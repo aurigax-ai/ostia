@@ -1,20 +1,20 @@
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
+  assistantModelSettings,
   type FakeProvider,
   type FakeReply,
   type FakeRequest,
-  assistantModelSettings,
   startFakeProvider,
 } from './fakeProvider'
 import { openWorkspace } from './helpers'
 import {
   type ElectronApplication,
-  type Locator,
-  type Page,
   _electron as electron,
   expect,
+  type Locator,
+  type Page,
   test,
 } from './test'
 

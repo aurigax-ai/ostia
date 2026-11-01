@@ -1,6 +1,6 @@
 import { freshDataHome } from './dataHome'
 import { launchWindow, openWorkspace, quitApp, typeLine } from './helpers'
-import { type Locator, type Page, expect, test } from './test'
+import { expect, type Locator, type Page, test } from './test'
 
 function rows(win: Page, index: number): Locator {
   return win.locator('.terminal-text').nth(index)

@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
 import { BENCH_ENGINES } from './ghostty'
 import { newTerminal } from './helpers'
 import { processRows } from './processes'

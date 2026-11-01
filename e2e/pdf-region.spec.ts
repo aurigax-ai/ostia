@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, startFakeAgent } from './fakeAgent'
-import { expectHeld, openWorkspace, shownTerminal, terminalTab } from './helpers'
+import { expectHeld, openWorkspace, shownTerminalText, terminalTab } from './helpers'
 import { textPdf } from './pdfFixture'
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 import { viewerGuestRun } from './viewerGuest'
@@ -164,7 +164,7 @@ test('the PDF viewer selects text, crops text and image together, finds across p
       await bar(win).getByRole('button', { name: 'Send to agent' }).click()
       await win.getByRole('menuitem').first().click()
       await terminalTab(win).click()
-      const terminal = shownTerminal(win).locator('.terminal-text')
+      const terminal = shownTerminalText(win)
       await expect(terminal).toContainText(/@\S+\.md/, { timeout: 15_000 })
       const text = (await terminal.textContent()) ?? ''
       const report = /@(\S+\.md)/.exec(text)?.[1] ?? ''

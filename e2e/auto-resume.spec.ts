@@ -9,20 +9,20 @@ import {
   testHome,
 } from './dataHome'
 import {
-  PROMPT,
   addTab,
   expectHeld,
   newTerminalWorkspace,
   openWorkspace,
+  PROMPT,
   restartApp,
   shownTerminal,
   typeLine,
 } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   expect,
+  type Page,
   test,
   waitForExit,
 } from './test'
@@ -264,7 +264,9 @@ test('an agent resumed in a visible split leaves keyboard focus in the pane the 
   await win.keyboard.press(chords.splitRight)
   const plain = win.locator(`.surface-host:not([data-pane-id="${agentPane}"]) .ghostty-host`)
   await expect(win.locator('.ghostty-host:visible')).toHaveCount(2, { timeout: 15_000 })
-  await expect(plain.locator('.terminal-text')).toContainText(PROMPT, { timeout: 15_000 })
+  await expect(
+    win.locator(`.surface-host:not([data-pane-id="${agentPane}"]) .terminal-text`),
+  ).toContainText(PROMPT, { timeout: 15_000 })
   await plain.click()
   await expect.poll(() => focusedPane(win)).not.toBeNull()
   const focused = await focusedPane(win)

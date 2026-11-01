@@ -1,6 +1,6 @@
 import { CANVAS_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { emptyState, launchWindow } from './helpers'
-import { type Page, expect, test } from './test'
+import { expect, type Page, test } from './test'
 
 async function launch(settings: object) {
   const dataHome = freshDataHome()

@@ -1,14 +1,14 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { type Server, createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { withAsar } from './fakeAsar'
-import { PROMPT, emptyState, openWorkspace, openedExternally, stubExternalOpener } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { emptyState, openedExternally, openWorkspace, PROMPT, stubExternalOpener } from './helpers'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 const VERSION = '999.0.0'
 const RELEASE_URL = `https://github.com/aurigax-ai/ostia/releases/tag/v${VERSION}`

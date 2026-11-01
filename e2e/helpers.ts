@@ -195,6 +195,10 @@ export async function typeLineToEnd(win: Page, line: string): Promise<void> {
     .toBe(true)
 }
 
+export function shownTerminalText(win: Page): Locator {
+  return win.locator('.pane-slot:not([data-hidden]) .terminal-text').first()
+}
+
 export function shownTerminal(win: Page): Locator {
   return win.locator('.pane-slot:not([data-hidden]) .ghostty-host:visible').first()
 }

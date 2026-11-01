@@ -203,8 +203,7 @@ const STEPS = [
 
 type StepName = (typeof STEPS)[number]
 
-export interface KeyTimeline extends Record<StepName, number> {
-}
+export interface KeyTimeline extends Record<StepName, number> {}
 
 function after<T extends Stamp>(
   list: T[],
