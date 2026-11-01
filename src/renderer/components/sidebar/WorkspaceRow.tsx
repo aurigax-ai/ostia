@@ -1,4 +1,5 @@
 import { ArrowSquareInIcon, ArrowsMergeIcon } from '@phosphor-icons/react'
+import { memo } from 'react'
 import { RenameInput } from '@/components/common/RenameInput'
 import { useWorkspaceFlags, WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
 import { WorkspaceIcon } from '@/components/sidebar/WorkspaceIcon'
@@ -27,7 +28,7 @@ import {
 import { WorkspaceDetails } from './WorkspaceDetails'
 import { WorkspaceMenu } from './WorkspaceMenu'
 
-export function WorkspaceRow({
+export const WorkspaceRow = memo(function WorkspaceRow({
   workspace: w,
   index,
   active,
@@ -151,4 +152,4 @@ export function WorkspaceRow({
       />
     </ContextMenu>
   )
-}
+})
