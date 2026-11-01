@@ -1,6 +1,6 @@
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron } from './test'
+import { type ElectronApplication, _electron as electron, type Page } from './test'
 
 export const GHOSTTY = {
   behavior: { gpuAcceleration: false },

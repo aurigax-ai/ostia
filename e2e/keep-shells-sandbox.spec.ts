@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { holdPort } from '../test/heldPort'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { PROMPT, openWorkspace, quitApp, restartApp, runInTerminal } from './helpers'
 import { sandboxedShell } from './sandboxShell'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -28,7 +28,7 @@ async function launch(): Promise<Launched> {
 }
 
 function screen(win: Page) {
-  return win.locator('.xterm-rows').first()
+  return win.locator('.terminal-text').first()
 }
 
 function card(win: Page) {
@@ -41,9 +41,9 @@ test.beforeEach(() => {
   const project = join(home, 'project')
   mkdirSync(project, { recursive: true })
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     terminal: { keepShells: true },
-    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
+    workspaces: { ...CANVAS_RENDERER_SETTINGS.workspaces, defaultFolder: project },
   })
 })
 

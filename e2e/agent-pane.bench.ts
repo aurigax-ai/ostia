@@ -22,7 +22,7 @@ const FULL = Number(process.env.OSTIA_AGENT_FULL ?? 0)
 const THROTTLE = Number(process.env.OSTIA_AGENT_THROTTLE ?? 1)
 const SYNC = process.env.OSTIA_AGENT_SYNC === '1' ? '1' : '0'
 const ENGINES = (process.env.OSTIA_AGENT_ENGINES ?? '').split(',').filter(Boolean)
-const TERMINALS = '.xterm, .ghostty-host'
+const TERMINALS = '.ghostty-host, .ghostty-host'
 
 const PATTERNS = [
   { name: 'touchpad', delta: 6, intervalMs: 8, events: 250 },
@@ -102,7 +102,7 @@ for (const engine of BENCH_ENGINES.filter(
         )
 
         await win.evaluate(hookScroll)
-        const box = await win.locator('.xterm-screen, .ghostty-screen').first().boundingBox()
+        const box = await win.locator('.ghostty-screen, .ghostty-screen').first().boundingBox()
         if (!box) throw new Error('no terminal box')
         await win.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
         const cdp = await win.context().newCDPSession(win)

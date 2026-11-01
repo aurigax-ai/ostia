@@ -77,7 +77,7 @@ test('crop a region of a browser page and send it to an agent pane', async () =>
 
     await expect(win.getByTestId('capture-chip')).toHaveText(/^Sent to /, { timeout: 15_000 })
     await terminalTab(win).click()
-    const terminal = shownTerminal(win).locator('.xterm-rows')
+    const terminal = shownTerminal(win).locator('.terminal-text')
     const inserted = /@(\S*capture-(\d+)\S*)\.md @(\S*capture-\2\S*)\.png/
     await expect(terminal).toContainText(inserted, { timeout: 15_000 })
     const match = ((await terminal.textContent()) ?? '').match(inserted) as RegExpMatchArray

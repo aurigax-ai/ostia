@@ -11,11 +11,11 @@ async function closeWindow(page: Page): Promise<void> {
 }
 
 async function typeInTerminal(win: Page, text: string): Promise<void> {
-  await win.locator('.xterm').first().click()
+  await win.locator('.ghostty-host').first().click()
   await expect
     .poll(() =>
       win.evaluate(
-        () => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false,
+        () => document.activeElement?.classList.contains('ghostty-host textarea') ?? false,
       ),
     )
     .toBe(true)
@@ -24,7 +24,7 @@ async function typeInTerminal(win: Page, text: string): Promise<void> {
 }
 
 async function lastTick(scope: Page | Locator, marker: string): Promise<number> {
-  const text = await scope.locator('.xterm-rows').first().innerText()
+  const text = await scope.locator('.terminal-text').first().innerText()
   const ticks = [...text.matchAll(new RegExp(`${marker}-(\\d+)`, 'g'))].map((m) => Number(m[1]))
   return ticks.length > 0 ? Math.max(...ticks) : 0
 }
@@ -64,7 +64,7 @@ test('a detached workspace keeps its running command and comes back when its win
     await openWorkspace(win)
     const project = (await win.locator('.rail-row .tab-title').first().innerText()).trim()
     await typeInTerminal(win, `for i in $(seq 1 1000); do echo ${marker}-$i; sleep 0.2; done`)
-    await expect(win.locator('.xterm-rows').first()).toContainText(`${marker}-3`, {
+    await expect(win.locator('.terminal-text').first()).toContainText(`${marker}-3`, {
       timeout: 15_000,
     })
 
@@ -78,7 +78,7 @@ test('a detached workspace keeps its running command and comes back when its win
     await expect
       .poll(() => lastTick(detached, marker), { timeout: 15_000 })
       .toBeGreaterThan(atDetach + 5)
-    await expect(detached.locator('.xterm-rows').first()).not.toContainText('workspace restored')
+    await expect(detached.locator('.terminal-text').first()).not.toContainText('workspace restored')
 
     await expect(win.locator('.workzone-empty')).toBeVisible()
     const remote = win.locator('.rail-row.remote')
@@ -91,7 +91,7 @@ test('a detached workspace keeps its running command and comes back when its win
 
     await expect(win.locator('.rail-row.remote')).toHaveCount(0)
     await expect(win.locator('.rail-row')).toHaveCount(1)
-    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+    await expect(win.locator('.ghostty-host')).toHaveCount(1, { timeout: 15_000 })
     const atReturn = await lastTick(win, marker)
     await expect
       .poll(() => lastTick(win, marker), { timeout: 15_000 })
@@ -119,11 +119,11 @@ test('a detached window reopens where it was after a restart, idle', async () =>
     await openWorkspace(first.win)
     project = (await first.win.locator('.rail-row .tab-title').first().innerText()).trim()
     await typeInTerminal(first.win, `echo ${marker}`)
-    await expect(first.win.locator('.xterm-rows').first()).toContainText(marker, {
+    await expect(first.win.locator('.terminal-text').first()).toContainText(marker, {
       timeout: 15_000,
     })
     const detached = await detachFirstWorkspace(first.app, first.win)
-    await expect(detached.locator('.xterm-rows').first()).toContainText(marker, {
+    await expect(detached.locator('.terminal-text').first()).toContainText(marker, {
       timeout: 15_000,
     })
     await expect.poll(() => windowTitles(first.app)).toContainEqual(expect.stringMatching(project))

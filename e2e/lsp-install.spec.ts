@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
 import { type Locator, type Page, _electron as electron, expect, test } from './test'
 
@@ -22,8 +22,8 @@ test('a fresh install with no marketplace shows a notice for a TypeScript file, 
   mkdirSync(project, { recursive: true })
   writeFileSync(join(project, 'main.ts'), "export const count: number = 'three'\n")
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
+    ...CANVAS_RENDERER_SETTINGS,
+    workspaces: { ...CANVAS_RENDERER_SETTINGS.workspaces, defaultFolder: project },
   })
   const options = isolatedLaunch(dataHome)
   const app = await electron.launch({ ...options, env: { ...options.env, HOME: home } })

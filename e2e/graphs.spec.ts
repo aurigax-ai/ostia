@@ -121,7 +121,7 @@ test('GRF-C140 GRF-C141 GRF-C142 GRF-C58 the Graphs panel lists, enables, runs a
     await click(app, '[data-node="work"] button', 'Show pane')
     await expect(
       win
-        .locator('.pane-slot:not([data-hidden]) .xterm-rows', { hasText: 'fake-agent-ready' })
+        .locator('.pane-slot:not([data-hidden]) .terminal-text', { hasText: 'fake-agent-ready' })
         .first(),
     ).toBeVisible({
       timeout: 15_000,

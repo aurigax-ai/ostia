@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
 import { PROMPT, openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -36,7 +36,7 @@ interface Launched {
 
 async function launchWithAgent(): Promise<Launched> {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
   const bin = fakeAgentBin(dataHome, AGENT)
   writeFileSync(join(bin, 'agent.js'), AGENT_PROGRAM)
   const home = isolatedHome(dataHome)
@@ -48,11 +48,11 @@ async function launchWithAgent(): Promise<Launched> {
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
-  await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
-  await win.locator('.xterm').first().click()
+  await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, { timeout: 15_000 })
+  await win.locator('.ghostty-host').first().click()
   await win.keyboard.type('claude')
   await win.keyboard.press('Enter')
-  await expect(win.locator('.xterm-rows').first()).toContainText(`${MARK} up`, {
+  await expect(win.locator('.terminal-text').first()).toContainText(`${MARK} up`, {
     timeout: 15_000,
   })
   return { app, win, home }

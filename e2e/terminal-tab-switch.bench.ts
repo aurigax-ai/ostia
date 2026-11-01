@@ -1,14 +1,12 @@
 import { chords } from './chords'
-import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
 import { BENCH_ENGINES } from './ghostty'
 import { openWorkspace } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 const TABS = 10
 const SWITCHES = 20
 const SWITCH_GAP_MS = 400
-const MIXED_XTERM_PANES = 3
-const MIXED_GHOSTTY_TABS = 14
 const TOO_MANY_CONTEXTS = /Too many active WebGL contexts/
 const CONTEXT_PROBE = `(() => {
   const p = { created: 0, lost: 0, restored: 0 }
@@ -170,7 +168,7 @@ for (const engine of BENCH_ENGINES) {
     const { app, win, warnings } = await launch(engine.settings)
     try {
       await openWorkspace(win)
-      await win.locator('.xterm, .ghostty-screen').first().click()
+      await win.locator('.ghostty-host, .ghostty-screen').first().click()
       await fill(win)
       for (let tab = 2; tab <= TABS; tab++) {
         await addTerminalTab(win, tab)
@@ -190,40 +188,3 @@ for (const engine of BENCH_ENGINES) {
     }
   })
 }
-
-test('bench mixed engines share the WebGL budget', async () => {
-  test.setTimeout(240_000)
-  const { app, win, warnings } = await launch({
-    behavior: { gpuAcceleration: true },
-    terminal: { renderer: 'xterm' },
-    capabilities: { grants: ['settings-write'] },
-  })
-  try {
-    await openWorkspace(win)
-    await win.locator('.xterm').first().click()
-    for (let pane = 2; pane <= MIXED_XTERM_PANES + 1; pane++) {
-      if (pane === MIXED_XTERM_PANES + 1) {
-        await win.keyboard.type(`ostia settings set terminal.renderer '"ghostty"'`)
-        await win.keyboard.press('Enter')
-        await win.waitForTimeout(1_000)
-      }
-      await win.keyboard.press(chords.splitRight)
-      await expect(win.locator('.xterm, .ghostty-host')).toHaveCount(pane, { timeout: 15_000 })
-      await win.waitForTimeout(500)
-    }
-    await expect(win.locator('.ghostty-host')).toHaveCount(1)
-    for (let tab = 2; tab <= MIXED_GHOSTTY_TABS; tab++) {
-      await addTerminalTab(win, MIXED_XTERM_PANES + tab)
-    }
-    const before = warnings()
-    const result = await switchTabs(win, MIXED_GHOSTTY_TABS * 2)
-    const contexts = await contextCounts(win)
-    const memory = await memoryMb(app)
-    const renderer = await gpuRenderer(win)
-    console.log(
-      `BENCH mixed xterm${MIXED_XTERM_PANES}+ghostty${MIXED_GHOSTTY_TABS} ${JSON.stringify({ ...result, contexts, memory, renderer, evictionWarnings: warnings(), warningsWhileSwitching: warnings() - before })}`,
-    )
-  } finally {
-    await app.close()
-  }
-})

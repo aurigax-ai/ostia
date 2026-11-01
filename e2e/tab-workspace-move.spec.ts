@@ -36,15 +36,15 @@ test('a running tab moves to another workspace by its menu and back by a rail dr
     const [home, moving] = await visibleTabs(win).evaluateAll((tabs) =>
       tabs.map((t) => t.getAttribute('data-tab-id') ?? ''),
     )
-    await expect(win.locator('.xterm-rows:visible')).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(win.locator('.terminal-text:visible')).toContainText(PROMPT, { timeout: 15_000 })
 
     await runIn(win, moving, "sh -c 'echo pid-$$-up; exec sleep 777'")
-    const screen = win.locator('.pane-slot:not([data-hidden]) .xterm-rows:visible')
+    const screen = win.locator('.pane-slot:not([data-hidden]) .terminal-text:visible')
     await expect(screen).toContainText(/pid-\d+-up/, { timeout: 15_000 })
     const pid = (await screen.textContent())?.match(/pid-(\d+)-up/)?.[1]
     if (!pid) throw new Error('no pid')
     await win
-      .locator('.pane-slot:not([data-hidden]) .xterm:visible')
+      .locator('.pane-slot:not([data-hidden]) .ghostty-host:visible')
       .evaluate((el) => el.setAttribute('data-move-mark', 'moving'))
 
     await newTerminalWorkspace(win)
@@ -62,9 +62,9 @@ test('a running tab moves to another workspace by its menu and back by a rail dr
     await win.locator('.rail-tab-main').nth(1).click()
     await expect(visibleTabs(win)).toHaveCount(2)
     await expect(win.locator(`.pane-tab[data-tab-id="${moving}"]:visible`)).toHaveCount(1)
-    await expect(win.locator('.xterm[data-move-mark="moving"]')).toHaveCount(1)
-    await expect(win.locator('.xterm[data-move-mark="moving"]')).toBeVisible()
-    await expect(win.locator('.xterm[data-move-mark="moving"] .xterm-rows')).toContainText(
+    await expect(win.locator('.ghostty-host[data-move-mark="moving"]')).toHaveCount(1)
+    await expect(win.locator('.ghostty-host[data-move-mark="moving"]')).toBeVisible()
+    await expect(win.locator('.ghostty-host[data-move-mark="moving"] ~ .terminal-text')).toContainText(
       `pid-${pid}-up`,
     )
 
@@ -74,7 +74,7 @@ test('a running tab moves to another workspace by its menu and back by a rail dr
     )
     if (!targetHome) throw new Error('no target tab')
     await runIn(win, targetHome, `kill -0 ${pid} && echo alive-$((${pid}+0))`)
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows:visible')).toContainText(
+    await expect(win.locator('.pane-slot:not([data-hidden]) .terminal-text:visible')).toContainText(
       `alive-${pid}`,
       { timeout: 10_000 },
     )
@@ -85,10 +85,10 @@ test('a running tab moves to another workspace by its menu and back by a rail dr
     await win.locator('.rail-tab-main').nth(0).click()
     await expect(visibleTabs(win)).toHaveCount(2)
     await expect(win.locator(`.pane-tab[data-tab-id="${home}"]:visible`)).toHaveCount(1)
-    await expect(win.locator('.xterm[data-move-mark="moving"]')).toBeVisible()
+    await expect(win.locator('.ghostty-host[data-move-mark="moving"]')).toBeVisible()
 
     await runIn(win, home, `kill -0 ${pid} && echo again-$((${pid}+0))`)
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows:visible')).toContainText(
+    await expect(win.locator('.pane-slot:not([data-hidden]) .terminal-text:visible')).toContainText(
       `again-${pid}`,
       { timeout: 10_000 },
     )

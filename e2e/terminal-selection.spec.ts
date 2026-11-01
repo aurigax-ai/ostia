@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  DOM_RENDERER_SETTINGS,
+  CANVAS_RENDERER_SETTINGS,
   SOFTWARE_WEBGL,
   freshDataHome,
   isolatedLaunch,
@@ -66,7 +66,7 @@ for (const renderer of ['webgl', 'dom'] as const) {
   test(`a Shift-drag over an agent's painted output makes a visible selection (${renderer})`, async () => {
     const dataHome = freshDataHome()
     seedSettings(dataHome, {
-      ...DOM_RENDERER_SETTINGS,
+      ...CANVAS_RENDERER_SETTINGS,
       appearance: { theme: 'oxocarbon' },
       behavior: { gpuAcceleration: renderer === 'webgl', inputMode: 'editor' },
     })
@@ -80,23 +80,23 @@ for (const renderer of ['webgl', 'dom'] as const) {
     try {
       const win = await app.firstWindow()
       await newTerminal(win)
-      const screen = win.locator('.xterm-screen').first()
+      const screen = win.locator('.ghostty-screen').first()
       if (renderer === 'webgl') {
         await expect(screen.locator('canvas').first()).toBeVisible({ timeout: 15_000 })
       } else {
-        await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, {
+        await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, {
           timeout: 15_000,
         })
       }
       await expect(win.getByRole('textbox', { name: 'Command input' })).toBeVisible({
         timeout: 15_000,
       })
-      await win.locator('.xterm').first().click()
+      await win.locator('.ghostty-host').first().click()
       await win.keyboard.type('claude')
       await win.keyboard.press('Enter')
       const sizeFile = join(launch.home, 'agent-size')
       await expect.poll(() => existsSync(sizeFile), { timeout: 15_000 }).toBe(true)
-      await expect(win.locator('.xterm').first()).toHaveClass(/enable-mouse-events/)
+      await expect(win.locator('.ghostty-host').first()).toHaveClass(/enable-mouse-events/)
       const [rows, cols] = readFileSync(sizeFile, 'utf8').trim().split(' ').map(Number)
       const box = await screen.boundingBox()
       if (!box) throw new Error('no terminal screen')

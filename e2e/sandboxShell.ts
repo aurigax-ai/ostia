@@ -13,7 +13,7 @@ export async function sandboxedShell(win: Page): Promise<void> {
   const restart = win.getByRole('button', { name: 'Restart to apply' })
   await restart.click()
   await expect(restart).toHaveCount(0)
-  const rows = win.locator('.xterm-rows').first()
+  const rows = win.locator('.terminal-text').first()
   await expect(async () => {
     await runInTerminal(win, 'echo sandbox=${HTTPS_PROXY:+on}')
     await expect(rows).toContainText('sandbox=on', { timeout: 2_000 })

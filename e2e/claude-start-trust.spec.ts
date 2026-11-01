@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  DOM_RENDERER_SETTINGS,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   isolatedLaunch,
   seedSettings,
@@ -27,7 +27,7 @@ const FAKE_CLAUDE = [
 
 test('CFT-C61 ostia agent run starts Claude in the workspace folder with no trust dialog while agents.trustWorkspaceFolders is on', async () => {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, agents: { trustWorkspaceFolders: true } })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, agents: { trustWorkspaceFolders: true } })
   const home = testHome(dataHome)
   const project = join(home, 'work', 'shop')
   mkdirSync(project, { recursive: true })
@@ -67,9 +67,9 @@ test('CFT-C61 ostia agent run starts Claude in the workspace folder with no trus
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    const caller = win.locator('.xterm-rows').first()
+    const caller = win.locator('.terminal-text').first()
     await expect(caller).toContainText('❯', { timeout: 20_000 })
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await typeLine(win, 'ostia agent run claude go --name worker; echo run-exit-$?')
     await expect(caller).toContainText('run-exit-0', { timeout: 40_000 })
     const trust = JSON.parse(readFileSync(config, 'utf8')).projects?.[project]

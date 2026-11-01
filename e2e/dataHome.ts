@@ -26,7 +26,7 @@ export function freshDataHome(): string {
 
 export const SOFTWARE_WEBGL = process.env.OSTIA_E2E_GL_ARG ?? '--enable-unsafe-swiftshader'
 
-export const DOM_RENDERER_SETTINGS = {
+export const CANVAS_RENDERER_SETTINGS = {
   behavior: { gpuAcceleration: false },
   workspaces: { confirmQuit: false },
 }
@@ -66,7 +66,7 @@ export function isolatedLaunch(dataHome: string = freshDataHome()): {
   home: string
 } {
   if (!existsSync(join(dataHome, 'userData', 'settings.json'))) {
-    seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+    seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
   }
   if (!existsSync(join(dataHome, 'userData', 'telemetry.json'))) seedTelemetryAnswered(dataHome)
   const { ZDOTDIR: _zdotdir, ...inherited } = process.env as Record<string, string>

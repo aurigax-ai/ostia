@@ -32,7 +32,7 @@ function typingProbe(): void {
     true,
   )
   const length = () =>
-    [...document.querySelectorAll('.xterm-rows')]
+    [...document.querySelectorAll('.terminal-text')]
       .filter((el) => !el.closest('[data-hidden]'))
       .reduce((sum, el) => sum + (el.textContent?.length ?? 0), 0)
   let last = length()

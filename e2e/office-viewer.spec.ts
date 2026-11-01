@@ -410,7 +410,7 @@ async function cellsAreCopiedAndSent(win: Page, app: ElectronApplication): Promi
   await win.getByRole('menuitem').first().click()
 
   await terminalTab(win).click()
-  const terminal = shownTerminal(win).locator('.xterm-rows')
+  const terminal = shownTerminal(win).locator('.terminal-text')
   const pasted = /Check the total @(\S*selection-\d+\.md)/
   await expect(terminal).toContainText(pasted, { timeout: 15_000 })
   const reportPath = (((await terminal.textContent()) ?? '').match(pasted) as RegExpMatchArray)[1]

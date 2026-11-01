@@ -7,7 +7,7 @@ function otherWorkspaceRow(win: Page) {
 }
 
 function shownRows(win: Page) {
-  return win.locator('.workzone-workspace:not([data-hidden]) .xterm-rows')
+  return win.locator('.workzone-workspace:not([data-hidden]) .terminal-text')
 }
 
 test('typing right after a click on a workspace row lands in its active terminal', async () => {

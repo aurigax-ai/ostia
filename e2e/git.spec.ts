@@ -108,7 +108,7 @@ test('the top bar has one git entry, a button-sized chip that follows the shown 
     await addTab(win)
     const tabs = win.getByRole('tablist').getByRole('tab')
     await expect(tabs).toHaveCount(2, { timeout: 15_000 })
-    await win.locator('.xterm:visible').click()
+    await win.locator('.ghostty-host:visible').click()
     await win.keyboard.type(`cd ${tree}`)
     await win.keyboard.press('Enter')
     await expect(chip).toHaveText('feature/tree · +2', { timeout: 15_000 })

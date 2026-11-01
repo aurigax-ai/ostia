@@ -46,17 +46,17 @@ test(
       await openWorkspace(win)
       await answerDialogsWith(app, 0)
 
-      const agent = win.locator('.xterm').first()
+      const agent = win.locator('.ghostty-host').first()
       await agent.click()
       await win.keyboard.type('ostia system install ripgrep --manager pacman --reason e2e-check')
       await win.keyboard.press('Enter')
 
-      await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
-      const installer = win.locator('.xterm-rows').filter({ hasText: 'fake pacman installed' })
+      await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 20_000 })
+      const installer = win.locator('.terminal-text').filter({ hasText: 'fake pacman installed' })
       await expect(installer).toContainText('fake pacman installed: -S --needed ripgrep', {
         timeout: 20_000,
       })
-      const agentRows = win.locator('.xterm-rows').filter({ hasText: 'e2e-check' })
+      const agentRows = win.locator('.terminal-text').filter({ hasText: 'e2e-check' })
       await expect(agentRows).toContainText('"approved": true', { timeout: 15_000 })
       const asked = await askedDialogs(app)
       expect(asked).toHaveLength(1)

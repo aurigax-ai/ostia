@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type FakeProvider, startFakeProvider } from './fakeProvider'
 import { openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
@@ -42,7 +42,7 @@ test.describe('agent pane', () => {
     const notes = join(project, 'notes.txt')
     writeFileSync(notes, ORIGINAL)
     seedSettings(dataHome, {
-      ...DOM_RENDERER_SETTINGS,
+      ...CANVAS_RENDERER_SETTINGS,
       workspaces: { confirmQuit: false, defaultFolder: project },
       agent: {
         providers: [{ id: 'fake', name: 'Fake', baseUrl: provider.url, models: ['fake-model'] }],

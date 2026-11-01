@@ -6,9 +6,9 @@ async function launch() {
   const app = await electron.launch(isolatedLaunch())
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
-  const rows = win.locator('.xterm-rows').first()
+  const rows = win.locator('.terminal-text').first()
   await openWorkspace(win)
-  await win.locator('.xterm').first().click()
+  await win.locator('.ghostty-host').first().click()
   return { app, win, rows }
 }
 

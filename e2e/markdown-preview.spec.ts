@@ -133,7 +133,7 @@ test('the preview shows unsaved text, draws diagrams, lists headings, sends a se
       await win.getByRole('menuitem').first().click()
 
       await terminalTab(win).click()
-      const terminal = shownTerminal(win).locator('.xterm-rows')
+      const terminal = shownTerminal(win).locator('.terminal-text')
       const pasted = /@(\S+\.md)/
       await expect(terminal).toContainText(pasted, { timeout: 15_000 })
       const reportPath = (

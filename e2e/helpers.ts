@@ -57,7 +57,7 @@ export async function waitForTerminalFocus(win: Page): Promise<void> {
   await expect
     .poll(() =>
       win.evaluate(
-        () => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false,
+        () => document.activeElement?.classList.contains('ghostty-host textarea') ?? false,
       ),
     )
     .toBe(true)
@@ -92,12 +92,12 @@ export async function newTerminal(win: Page): Promise<void> {
   await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
 }
 
-const TERMINALS = '.xterm, .ghostty-host'
+const TERMINALS = '.ghostty-host, .ghostty-host'
 
 async function promptShown(win: Page): Promise<boolean> {
-  const rows = win.locator('.xterm-rows').first()
+  const rows = win.locator('.terminal-text').first()
   if ((await rows.count()) > 0) return PROMPT.test((await rows.textContent()) ?? '')
-  const painted = win.locator('.xterm-screen, .ghostty-host').first()
+  const painted = win.locator('.ghostty-screen, .ghostty-host').first()
   if ((await painted.count()) === 0) return false
   return textPainted(await painted.screenshot(), win)
 }
@@ -164,11 +164,11 @@ export async function changeSettings(
 }
 
 export async function newTerminalWorkspace(win: Page): Promise<void> {
-  const before = await win.locator('.xterm').count()
+  const before = await win.locator('.ghostty-host').count()
   await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
   await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-  await expect(win.locator('.xterm')).toHaveCount(before + 1, { timeout: 15_000 })
-  await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()).toContainText(
+  await expect(win.locator('.ghostty-host')).toHaveCount(before + 1, { timeout: 15_000 })
+  await expect(win.locator('.pane-slot:not([data-hidden]) .terminal-text').last()).toContainText(
     PROMPT,
     { timeout: 15_000 },
   )
@@ -196,13 +196,13 @@ export async function typeLineToEnd(win: Page, line: string): Promise<void> {
 }
 
 export function shownTerminal(win: Page): Locator {
-  return win.locator('.pane-slot:not([data-hidden]) .xterm:visible').first()
+  return win.locator('.pane-slot:not([data-hidden]) .ghostty-host:visible').first()
 }
 
 export async function runInTerminal(
   win: Page,
   line: string,
-  terminal: Locator = win.locator('.xterm').first(),
+  terminal: Locator = win.locator('.ghostty-host').first(),
 ): Promise<void> {
   await terminal.click()
   await typeLine(win, line)

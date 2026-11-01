@@ -44,7 +44,7 @@ test(
     await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
     await expectHeld(
       async () => ({
-        terminals: await win.locator('.xterm').count(),
+        terminals: await win.locator('.ghostty-host').count(),
         workspaces: await win.locator('.rail-tab').count(),
       }),
       { terminals: 0, workspaces: 0 },
@@ -54,10 +54,10 @@ test(
     await win.keyboard.press(chords.newWorkspace)
 
     await expect(win.locator('.rail-tab')).toHaveCount(1)
-    await expect(win.locator('.xterm')).toHaveCount(0)
+    await expect(win.locator('.ghostty-host')).toHaveCount(0)
     await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
-    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(win.locator('.ghostty-host')).toHaveCount(1, { timeout: 15_000 })
+    await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, { timeout: 15_000 })
     await expect(win.locator('.rail-tab')).toHaveCount(1)
     await expect(emptyState(win)).toHaveCount(0)
     expect(bootErrors).toEqual([])
@@ -80,11 +80,11 @@ test(
 
     await openWorkspace(win)
     await expect(tab).toHaveCount(1)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await waitForTerminalFocus(win)
     await win.keyboard.type('echo "ostia_cwd:$PWD:"')
     await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows').first()).toContainText(`ostia_cwd:${home}:`, {
+    await expect(win.locator('.terminal-text').first()).toContainText(`ostia_cwd:${home}:`, {
       timeout: 15_000,
     })
   },
@@ -99,7 +99,7 @@ test('Ctrl+1 jumps to the first workspace from a focused terminal', async () => 
   await name.fill('second')
   await name.press('Enter')
 
-  await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
+  await win.locator('.pane-slot:not([data-hidden]) .ghostty-host').last().click()
   await waitForTerminalFocus(win)
   await win.keyboard.press(chords.firstWorkspace)
   await expect(win.locator('.rail-tab.active .tab-title')).toHaveText('home')

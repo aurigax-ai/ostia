@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import {
-  DOM_RENDERER_SETTINGS,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   isolatedLaunch,
   seedSettings,
@@ -14,7 +14,7 @@ test.describe.configure({ timeout: 90_000 })
 
 const RESUME_ID = 'e2e-trust-4242'
 const SHOWN_ROWS =
-  '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .xterm-rows'
+  '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .terminal-text'
 
 interface Setup {
   dataHome: string
@@ -26,7 +26,7 @@ interface Setup {
 function setup(trustWorkspaceFolders: boolean, resuming = true): Setup {
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     agents: { autoResume: true, trustWorkspaceFolders },
   })
   const project = join(testHome(dataHome), 'work', 'shop')
@@ -147,7 +147,7 @@ test('CFT-C64 agent run answers folder-not-trusted at once for Claude outside th
   const { app, win } = await launch(s)
   try {
     await expect(win.locator(SHOWN_ROWS)).toContainText('❯', { timeout: 20_000 })
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await typeLine(win, `ostia agent run claude hi --cwd '${outside}'; echo ran-$?`)
     await expect(win.locator(SHOWN_ROWS)).toContainText(
       `folder-not-trusted: ${outside} is outside the workspace folder`,

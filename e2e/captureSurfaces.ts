@@ -21,7 +21,7 @@ export const terminalSurface: CaptureSurface = {
     const { app, win } = await launchWindow(freshDataHome())
     await openWorkspace(win)
     await runInTerminal(win, 'printf "\\n%.0s" 1 2 3 4 5 6 7 8 9; echo terminal-capture-4821')
-    const output = win.locator('.xterm-rows > div').filter({ hasText: /^terminal-capture-4821$/ })
+    const output = win.locator('.terminal-text > div').filter({ hasText: /^terminal-capture-4821$/ })
     await expect(output).toBeVisible({ timeout: 15_000 })
     const at = await output.boundingBox()
     if (!at) throw new Error('terminal output row has no box')

@@ -12,9 +12,9 @@ test(
     try {
       const win = await app.firstWindow()
       await win.waitForLoadState('domcontentloaded')
-      const rows = win.locator('.xterm-rows').first()
+      const rows = win.locator('.terminal-text').first()
       await openWorkspace(win)
-      await win.locator('.xterm').first().click()
+      await win.locator('.ghostty-host').first().click()
       const clipboard = () => app.evaluate(({ clipboard }) => clipboard.readText())
 
       await win.keyboard.type('echo ostia_first_$((1+1))')
@@ -38,7 +38,7 @@ test(
       await expect
         .poll(() =>
           win.evaluate(
-            () => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false,
+            () => document.activeElement?.classList.contains('ghostty-host textarea') ?? false,
           ),
         )
         .toBe(true)

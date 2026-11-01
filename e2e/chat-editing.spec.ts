@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
   type FakeProvider,
   type FakeReply,
@@ -80,7 +80,7 @@ async function start(first: FakeProvider, second?: FakeProvider): Promise<Sessio
   const notes = join(project, 'notes.txt')
   writeFileSync(notes, ORIGINAL)
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     workspaces: { confirmQuit: false, defaultFolder: project },
     assistant: assistantModelSettings(
       [

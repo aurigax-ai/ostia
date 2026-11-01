@@ -119,7 +119,7 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
     )
     await click('[data-key="work-start-claude"]')
 
-    const agentTerminal = win.locator('.xterm-rows').filter({ hasText: 'fake-agent-ready' })
+    const agentTerminal = win.locator('.terminal-text').filter({ hasText: 'fake-agent-ready' })
     await expect(agentTerminal).toHaveCount(1, { timeout: 30_000 })
     await expect.poll(() => existsSync(promptFile), { timeout: 15_000 }).toBe(true)
     expect(readFileSync(promptFile, 'utf8')).toContain('DEMO-3')
@@ -157,7 +157,7 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
         timeout: 15_000,
       })
       .toContain('An agent is working on this')
-    await win.locator('.xterm', { has: agentTerminal }).click()
+    await win.locator('.ghostty-host', { has: agentTerminal }).click()
     await win.keyboard.type('flush_marker')
     await expect(agentTerminal).toContainText('flush_marker', { timeout: 15_000 })
     await expectHeld(

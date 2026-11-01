@@ -6,8 +6,8 @@ import { type Page, _electron as electron, expect, test } from './test'
 const shownTerminalFocused = (win: Page) =>
   win.waitForFunction(() => {
     const el = document.activeElement
-    if (!el?.classList.contains('xterm-helper-textarea')) return false
-    const term = el.closest('.xterm')
+    if (!el?.classList.contains('ghostty-host textarea')) return false
+    const term = el.closest('.ghostty-host')
     return term instanceof HTMLElement && term.offsetParent !== null
   })
 
@@ -25,7 +25,7 @@ test(
       await expect(tabs).toHaveCount(2, { timeout: 15_000 })
       await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
 
-      await win.locator('.xterm:visible').click()
+      await win.locator('.ghostty-host:visible').click()
       await shownTerminalFocused(win)
       await win.keyboard.press(chords.nextTab)
       await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true')

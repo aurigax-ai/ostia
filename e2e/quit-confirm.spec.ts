@@ -1,10 +1,10 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { launchWindow, openWorkspace, pressQuit, runInTerminal } from './helpers'
 import { expect, test } from './test'
 
 const CONFIRM_QUIT = {
-  ...DOM_RENDERER_SETTINGS,
-  workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
+  ...CANVAS_RENDERER_SETTINGS,
+  workspaces: { ...CANVAS_RENDERER_SETTINGS.workspaces, confirmQuit: true },
 }
 
 const PLAIN_SHELL = {
@@ -27,7 +27,7 @@ test(
     const { app, win, proc } = await launch(PLAIN_SHELL)
     try {
       await runInTerminal(win, 'echo plain-$((6*7)); sleep 100')
-      await expect(win.locator('.xterm-rows').first()).toContainText('plain-42', {
+      await expect(win.locator('.terminal-text').first()).toContainText('plain-42', {
         timeout: 15_000,
       })
       const paneId = await win.locator('.pane').first().getAttribute('data-pane-id')

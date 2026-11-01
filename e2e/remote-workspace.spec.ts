@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const FAKE_SSH_BIN = resolve(__dirname, '../test/fixtures/ssh/bin')
@@ -19,7 +19,7 @@ async function answerDialogsWith(app: ElectronApplication, response: number): Pr
 test('REM-E1 a remote workspace is set up from the menu, shows Online and lists its job', async () => {
   test.setTimeout(150_000)
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
   const launch = isolatedLaunch(dataHome)
   mkdirSync(join(launch.env.HOME, '.ssh'), { recursive: true })
   writeFileSync(join(launch.env.HOME, '.ssh', 'config'), 'Host build-box\n  HostName 10.0.0.5\n')

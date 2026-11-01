@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace, readPaneEnv } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
@@ -51,7 +51,7 @@ test(
     const server = await serve()
     const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
     const dataHome = freshDataHome()
-    seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, capabilities: { grants: ['browse'] } })
+    seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, capabilities: { grants: ['browse'] } })
     const app = await electron.launch(isolatedLaunch(dataHome))
     try {
       const win = await app.firstWindow()
@@ -59,7 +59,7 @@ test(
       await openWorkspace(win)
 
       const envFile = join(dataHome, 'pane.env')
-      await win.locator('.xterm').first().click()
+      await win.locator('.ghostty-host').first().click()
       await win.keyboard.type(`env | grep '^OSTIA_' > ${envFile}`)
       await win.keyboard.press('Enter')
       await expect

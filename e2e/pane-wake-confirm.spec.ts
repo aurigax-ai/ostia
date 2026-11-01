@@ -35,8 +35,8 @@ function reportsOnceGated(gate: string): string {
 }
 
 async function hibernateWorker(win: Page): Promise<void> {
-  const caller = win.locator('.xterm-rows').first()
-  await win.locator('.xterm').first().click()
+  const caller = win.locator('.terminal-text').first()
+  await win.locator('.ghostty-host').first().click()
   await typeLine(win, 'ostia agent run claude go --name worker; echo run-exit-$?')
   await expect(caller).toContainText('run-exit-0', { timeout: 30_000 })
   await typeLine(win, 'ostia pane hibernate worker; echo sleep-exit-$?')
@@ -68,7 +68,7 @@ test(
     test.setTimeout(120_000)
     const { app, win } = await launch((marker) => agentScript(marker, EXITS_AT_ONCE))
     try {
-      const caller = win.locator('.xterm-rows').first()
+      const caller = win.locator('.terminal-text').first()
       await hibernateWorker(win)
       await typeLine(win, 'ostia pane wake worker; echo wake-exit-$?')
       await expect(caller).toContainText('wake-exit-1', { timeout: 30_000 })
@@ -90,7 +90,7 @@ test(
     const gate = join(freshDataHome(), 'report-now')
     const { app, win } = await launch((marker) => agentScript(marker, reportsOnceGated(gate)))
     try {
-      const caller = win.locator('.xterm-rows').first()
+      const caller = win.locator('.terminal-text').first()
       await hibernateWorker(win)
       await typeLine(
         win,

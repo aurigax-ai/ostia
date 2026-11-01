@@ -1,4 +1,4 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { closeAllWorkspaces, expectHeld, openWorkspace } from './helpers'
 import { type ElectronApplication, expect, launchShared, type Page, test } from './test'
 
@@ -8,8 +8,8 @@ let win: Page
 test.beforeAll(async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    behavior: { ...DOM_RENDERER_SETTINGS.behavior, wheelZoom: true },
+    ...CANVAS_RENDERER_SETTINGS,
+    behavior: { ...CANVAS_RENDERER_SETTINGS.behavior, wheelZoom: true },
   })
   app = await launchShared(isolatedLaunch(dataHome))
   win = await app.firstWindow()
@@ -30,7 +30,7 @@ for (const order of ['enter-first', 'resize-first'] as const) {
   }, async () => {
     test.setTimeout(60_000)
     await openWorkspace(win)
-    const rows = win.locator('.xterm-rows').first()
+    const rows = win.locator('.terminal-text').first()
     const paneId = await win.locator('.pane[data-pane-id]').first().getAttribute('data-pane-id')
     if (!paneId) throw new Error('no pane id')
 
@@ -42,7 +42,7 @@ for (const order of ['enter-first', 'resize-first'] as const) {
     await win.keyboard.down('Control')
     await win.evaluate(
       async ({ id, order }) => {
-        const host = document.querySelector(`.pane[data-pane-id="${id}"] .xterm-host`)
+        const host = document.querySelector(`.pane[data-pane-id="${id}"] .ghostty-host`)
         if (!host) throw new Error('no terminal host')
         const zoomIn = (): void => {
           host.dispatchEvent(

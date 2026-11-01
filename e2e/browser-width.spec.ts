@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
@@ -79,7 +79,7 @@ async function launch(
 ): Promise<{ app: ElectronApplication; win: Page; ostia: Ostia }> {
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     capabilities: { grants: ['browse'] },
     ...settings,
   })
@@ -89,7 +89,7 @@ async function launch(
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
   const envFile = join(dataHome, 'pane.env')
-  await win.locator('.xterm').first().click()
+  await win.locator('.ghostty-host').first().click()
   await win.keyboard.type(`env | grep '^OSTIA_' > ${envFile}`)
   await win.keyboard.press('Enter')
   await expect

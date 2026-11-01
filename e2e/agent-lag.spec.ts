@@ -62,9 +62,9 @@ test('an agent that redraws its spinner and title every frame does not re-render
       app.evaluate(() => (globalThis as unknown as { workspaceSaves: number }).workspaceSaves)
 
     await openWorkspace(win)
-    const rows = win.locator('.xterm-rows').first()
+    const rows = win.locator('.terminal-text').first()
     const title = win.locator('.pane-tab .title').first()
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.type('claude')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('output line 30', { timeout: 15_000 })

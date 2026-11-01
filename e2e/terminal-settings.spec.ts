@@ -19,7 +19,7 @@ async function openSettings(win: import('@playwright/test').Page, section: strin
 
 async function rowHeight(win: import('@playwright/test').Page): Promise<number> {
   return win
-    .locator('.xterm-rows > div')
+    .locator('.terminal-text > div')
     .first()
     .evaluate((el) => el.getBoundingClientRect().height)
 }
@@ -51,8 +51,8 @@ test('copy on select puts selected terminal text on the clipboard', async () => 
     await win.keyboard.press('Escape')
     await app.evaluate(({ clipboard }) => clipboard.writeText('before'))
 
-    const rows = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
+    const rows = win.locator('.terminal-text').first()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.type('clear; echo ostiacopy42')
     await win.keyboard.press('Enter')
     const output = rows.locator('div', { hasText: /^ostiacopy42\s*$/ }).first()

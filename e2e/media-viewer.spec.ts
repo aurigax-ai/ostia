@@ -135,7 +135,7 @@ test('a video and a long audio file play in the built-in player, and a video cro
       await win.getByRole('menuitem').first().click()
 
       await terminalTab(win).click()
-      const terminal = shownTerminal(win).locator('.xterm-rows')
+      const terminal = shownTerminal(win).locator('.terminal-text')
       const inserted = /@(\S*selection-\d+\S*\.md)/
       await expect(terminal).toContainText(inserted, { timeout: 15_000 })
       await expect(terminal).not.toContainText('agent-read:')

@@ -14,7 +14,7 @@ test('a split tab folds to one chip with its pane count and unfolds on an attent
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
 
     await typeLine(
       win,

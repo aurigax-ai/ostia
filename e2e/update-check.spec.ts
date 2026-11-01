@@ -83,8 +83,8 @@ test('an apt install offers Update with apt, runs the exact command after a conf
     const dialog = win.getByRole('dialog', { name: 'Update Ostia with apt' })
     await dialog.getByRole('button', { name: 'Open terminal' }).click()
 
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
-    const updater = win.locator('.xterm-rows').filter({ hasText: 'fake apt installed' })
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 20_000 })
+    const updater = win.locator('.terminal-text').filter({ hasText: 'fake apt installed' })
     await expect(updater).toContainText('fake apt installed: update', { timeout: 20_000 })
     await expect(updater).toContainText('fake apt installed: install --only-upgrade ostia')
     await expect(updater).toContainText(PROMPT)

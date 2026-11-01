@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
 import { _electron as electron, expect, type Page, test } from './test'
 
@@ -21,9 +21,9 @@ test('the input editor completes a quoted path and the shell runs it', async () 
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     behavior: {
-      ...DOM_RENDERER_SETTINGS.behavior,
+      ...CANVAS_RENDERER_SETTINGS.behavior,
       inputMode: 'editor',
       liveFileSuggestions: false,
     },
@@ -35,7 +35,7 @@ test('the input editor completes a quoted path and the shell runs it', async () 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const rows = win.locator('.xterm-rows').first()
+    const rows = win.locator('.terminal-text').first()
     const input = win.getByRole('textbox', { name: 'Command input' })
     await expect(input).toBeVisible({ timeout: 15_000 })
     await input.click()
@@ -56,8 +56,8 @@ for (const shell of ['/bin/zsh', '/bin/bash']) {
     test.setTimeout(120_000)
     const dataHome = freshDataHome()
     seedSettings(dataHome, {
-      ...DOM_RENDERER_SETTINGS,
-      behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
+      ...CANVAS_RENDERER_SETTINGS,
+      behavior: { ...CANVAS_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
     })
     const launch = isolatedLaunch(dataHome)
     const app = await electron.launch({ ...launch, env: { ...launch.env, SHELL: shell } })
@@ -65,7 +65,7 @@ for (const shell of ['/bin/zsh', '/bin/bash']) {
       const win = await app.firstWindow()
       await win.waitForLoadState('domcontentloaded')
       await openWorkspace(win)
-      const rows = win.locator('.xterm-rows').first()
+      const rows = win.locator('.terminal-text').first()
       const input = win.getByRole('textbox', { name: 'Command input' })
       await expect(input).toBeVisible({ timeout: 15_000 })
       await input.click()

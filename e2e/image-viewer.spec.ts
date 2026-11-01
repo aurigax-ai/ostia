@@ -180,7 +180,7 @@ test('images open in the viewer: a drag crops at native resolution and Send past
       await expect(bar).toHaveCount(0, { timeout: 15_000 })
 
       await terminalTab(win).click()
-      const terminal = shownTerminal(win).locator('.xterm-rows')
+      const terminal = shownTerminal(win).locator('.terminal-text')
       const inserted = /Sharper edge here @(\S+\.md)/
       await expect(terminal).toContainText(inserted, { timeout: 15_000 })
       const [, report] = ((await terminal.textContent()) ?? '').match(inserted) as RegExpMatchArray
@@ -210,7 +210,7 @@ test('images open in the viewer: a drag crops at native resolution and Send past
         [255, 0, 0],
         [0, 0, 255],
       ])
-      await win.locator('.xterm').first().click()
+      await win.locator('.ghostty-host').first().click()
       await win.keyboard.press('Enter')
       await expect
         .poll(async () => occurrences((await terminal.textContent()) ?? '', report))

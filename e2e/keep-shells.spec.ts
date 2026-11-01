@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
 import { chords } from './chords'
 import {
-  DOM_RENDERER_SETTINGS,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   HIBERNATE_FAST,
   isolatedLaunch,
@@ -35,7 +35,7 @@ import {
   waitForExit,
 } from './test'
 
-const KEEP = { ...DOM_RENDERER_SETTINGS, terminal: { keepShells: true } }
+const KEEP = { ...CANVAS_RENDERER_SETTINGS, terminal: { keepShells: true } }
 
 interface Launched {
   app: ElectronApplication
@@ -72,7 +72,7 @@ async function savedLayout(panes = 1): Promise<void> {
 }
 
 function screen(win: Page, index = 0) {
-  return win.locator('.xterm-rows').nth(index)
+  return win.locator('.terminal-text').nth(index)
 }
 
 function binWith(name: string, script: string): string {
@@ -113,7 +113,7 @@ test('KSH-C7 KSH-C13 KSH-C27 KSH-C32 KSH-C37 KSH-C72 a kept shell comes back aft
   const [, pid, pane] = /shell=(\d+) who=([^;\s]+);/.exec(text) ?? []
   const [, before] = /before=([0-9a-f]{64})/.exec(text) ?? []
   await runInTerminal(first.win, 'ostia process run "cat" --name demo')
-  await expect(first.win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+  await expect(first.win.locator('.ghostty-host')).toHaveCount(2, { timeout: 15_000 })
   await runInTerminal(
     first.win,
     'until ostia process list | grep -q running; do sleep 0.2; done; echo started',
@@ -222,11 +222,11 @@ test('KSH-C21 turning the setting off leaves a tmux pane running and the next te
     await openWorkspace(win)
     await runInTerminal(win, `${PARENT}; sleep 3; echo still-$((2*2))`)
     await expect(screen(win)).toContainText('parent=tmux', { timeout: 15_000 })
-    seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+    seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 15_000 })
     await expect(screen(win, 1)).toContainText(PROMPT, { timeout: 15_000 })
-    await runInTerminal(win, PARENT, win.locator('.xterm').nth(1))
+    await runInTerminal(win, PARENT, win.locator('.ghostty-host').nth(1))
     await expect(screen(win, 1)).toContainText(/parent=\S+/, { timeout: 15_000 })
     await expect(screen(win, 1)).not.toContainText('parent=tmux')
     await expect(screen(win)).toContainText('still-4', { timeout: 15_000 })
@@ -359,12 +359,12 @@ test('KSH-C67 text sent to an agent that kept running across a restart waits for
     const { win } = second
     await expect(screen(win)).toContainText('fake-agent-ready', { timeout: 15_000 })
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 15_000 })
     await expect(screen(win, 1)).toContainText(PROMPT, { timeout: 15_000 })
     await runInTerminal(
       win,
       `ostia pane send ${agentPane} typed-early; echo "text-rc=$?"`,
-      win.locator('.xterm').nth(1),
+      win.locator('.ghostty-host').nth(1),
     )
     const card = win.getByRole('region', { name: 'Agent permission request' })
     await expect(card).toBeVisible({ timeout: 20_000 })
@@ -373,18 +373,18 @@ test('KSH-C67 text sent to an agent that kept running across a restart waits for
     await expect(screen(win, 1)).toContainText('agent-waiting', { timeout: 15_000 })
     await expect(screen(win, 1)).toContainText(/text-rc=[1-9]/)
     await expect(screen(win)).not.toContainText('typed-early')
-    await runInTerminal(win, `ostia pane key ${agentPane} enter`, win.locator('.xterm').nth(1))
+    await runInTerminal(win, `ostia pane key ${agentPane} enter`, win.locator('.ghostty-host').nth(1))
     await expect(screen(win)).toContainText('reported-4', { timeout: 15_000 })
     await runInTerminal(
       win,
       `ostia pane send ${agentPane} "after-$((3*3))"`,
-      win.locator('.xterm').nth(1),
+      win.locator('.ghostty-host').nth(1),
     )
     await expect(screen(win)).toContainText('after-9', { timeout: 15_000 })
     await runInTerminal(
       win,
       `ostia pane send ${agentPane} "$(printf 'line-%s\\n' 1 2)"`,
-      win.locator('.xterm').nth(1),
+      win.locator('.ghostty-host').nth(1),
     )
     await expect(screen(win)).toContainText('^[[200~line-1^Mline-2^[[201~', { timeout: 15_000 })
   } finally {
@@ -417,7 +417,7 @@ test('KSH-C38 waking a hibernated agent with the setting on starts a fresh windo
     await expect(sleeping.getByLabel('Hibernated')).toBeVisible({ timeout: 30_000 })
     await sleeping.click()
     await win.locator('.hibernated-view').click()
-    const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
+    const rows = win.locator('.pane-slot:not([data-hidden]) .terminal-text')
     await expect(rows).toContainText(/fake agent up: .*--resume e2e-kept-tok/, { timeout: 15_000 })
   } finally {
     await quitApp(app)
@@ -485,7 +485,7 @@ function agentMidTurn(trigger: string): string {
 const KEEP_AND_ASK = {
   ...KEEP,
   agents: { autoResume: true },
-  workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
+  workspaces: { ...CANVAS_RENDERER_SETTINGS.workspaces, confirmQuit: true },
 }
 
 async function endUnattended(app: ElectronApplication): Promise<void> {
@@ -514,11 +514,11 @@ test('KSH-C36 KSH-C70 KSH-C103 an agent still mid-turn after a restart asks noth
     await expect(screen(win)).toContainText('fake-agent-ready', { timeout: 15_000 })
     await expect(screen(win)).not.toContainText('--resume')
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 15_000 })
     await expect(screen(win, 1)).toContainText(PROMPT, { timeout: 15_000 })
-    await runInTerminal(win, listAgents, win.locator('.xterm').nth(1))
+    await runInTerminal(win, listAgents, win.locator('.ghostty-host').nth(1))
     await expect(screen(win, 1)).toContainText('listed-"agent":"claude"', { timeout: 15_000 })
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await typeLine(win, 'agent-alive')
     await expect(screen(win)).toContainText('agent-alive', { timeout: 15_000 })
     await expect
@@ -526,7 +526,7 @@ test('KSH-C36 KSH-C70 KSH-C103 an agent still mid-turn after a restart asks noth
       .toBe(true)
     await win.keyboard.press('Control+D')
     await expect(screen(win)).toContainText(PROMPT, { timeout: 15_000 })
-    await runInTerminal(win, 'echo after-$((6*7))', win.locator('.xterm').first())
+    await runInTerminal(win, 'echo after-$((6*7))', win.locator('.ghostty-host').first())
     await expect(screen(win)).toContainText('after-42', { timeout: 15_000 })
     await expect(screen(win)).not.toContainText('--resume')
   } finally {

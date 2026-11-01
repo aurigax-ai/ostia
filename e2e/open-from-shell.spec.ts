@@ -16,7 +16,7 @@ function tab(win: Page, title: string) {
 }
 
 function terminal(win: Page) {
-  return win.locator('.xterm-rows').first()
+  return win.locator('.terminal-text').first()
 }
 
 async function backToTerminal(win: Page): Promise<void> {
@@ -64,7 +64,7 @@ test('GIT_EDITOR="ostia --wait" commits when the tab is closed, and Ctrl+C ends 
     await expect(tab(win, 'notes.txt')).toBeVisible({ timeout: 20_000 })
     await expect(win.getByTestId('editor-waited')).toBeVisible()
     await backToTerminal(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.press('Control+c')
     await expect(terminal(win)).toContainText('^C', { timeout: 15_000 })
     await runInTerminal(win, 'echo back-at-the-$((1 + 1))-prompt')

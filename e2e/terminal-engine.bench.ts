@@ -484,5 +484,5 @@ async function measure(
 
 async function openTerminal(win: Page): Promise<void> {
   await openWorkspace(win)
-  await win.locator('.xterm, .ghostty-screen').first().click()
+  await win.locator('.ghostty-host, .ghostty-screen').first().click()
 }

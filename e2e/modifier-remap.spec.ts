@@ -68,8 +68,8 @@ test('on macOS a remapped modifier key sends the bytes of the key it now stands 
         MetaLeft: 'option',
       },
     })
-    await win.locator('.xterm').first().click()
-    const rows = win.locator('.xterm-rows').first()
+    await win.locator('.ghostty-host').first().click()
+    const rows = win.locator('.terminal-text').first()
     await win.keyboard.type('cat -v')
     await win.keyboard.press('Enter')
 

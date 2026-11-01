@@ -38,14 +38,14 @@ test('boots and renders the main window', { tag: '@core' }, async () => {
 test('terminal spawns and runs a command', { tag: '@core' }, async () => {
   await openWorkspace(win)
 
-  const term = win.locator('.xterm').first()
+  const term = win.locator('.ghostty-host').first()
   await term.click()
   await waitForTerminalFocus(win)
 
   await win.keyboard.type('echo ostia_e2e_$((21+21))')
   await win.keyboard.press('Enter')
 
-  await expect(win.locator('.xterm-rows').first()).toContainText('ostia_e2e_42', {
+  await expect(win.locator('.terminal-text').first()).toContainText('ostia_e2e_42', {
     timeout: 15_000,
   })
 })
@@ -56,24 +56,24 @@ test(
   async () => {
     await openWorkspace(win)
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-    await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 15_000 })
+    await expect(win.locator('.terminal-text').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
 
-    await runInTerminal(win, 'echo keep-$$', win.locator('.xterm').nth(1))
-    const keptRows = win.locator('.xterm-rows').nth(1)
+    await runInTerminal(win, 'echo keep-$$', win.locator('.ghostty-host').nth(1))
+    const keptRows = win.locator('.terminal-text').nth(1)
     await expect(keptRows).toContainText(/keep-\d+/, { timeout: 15_000 })
     const keptPid = (await keptRows.innerText()).match(/keep-(\d+)/)?.[1] ?? ''
     expect(keptPid).not.toBe('')
 
-    await win.locator('.xterm').nth(0).click()
+    await win.locator('.ghostty-host').nth(0).click()
     await waitForTerminalFocus(win)
     await win.keyboard.press(chords.closePane)
 
-    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+    await expect(win.locator('.ghostty-host')).toHaveCount(1, { timeout: 15_000 })
     await expect(win.locator('.pane')).toHaveCount(1)
 
     await runInTerminal(win, 'echo still-$$')
-    const rows = win.locator('.xterm-rows').first()
+    const rows = win.locator('.terminal-text').first()
     await expect(rows).toContainText(`still-${keptPid}`, { timeout: 15_000 })
     expect(win.isClosed()).toBe(false)
   },

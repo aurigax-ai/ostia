@@ -120,7 +120,7 @@ test('PRT-C23 the packaged app builds a component with every runtime library fro
     )
     await expect.poll(() => guestTitle(app), { timeout: 60_000 }).toBe('d3 max 7')
     await terminalTab(win).click()
-    await expect(win.locator('.xterm-rows').first()).toContainText('esbuild-env:[]')
+    await expect(win.locator('.terminal-text').first()).toContainText('esbuild-env:[]')
 
     await runInTerminal(win, 'ostia open "$OSTIA_ARTIFACTS/Broken.tsx"')
     await expect(win.getByTestId('preview-errors')).toContainText(/Broken\.tsx:3:\d+:/, {

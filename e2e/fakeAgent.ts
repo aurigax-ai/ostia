@@ -24,12 +24,12 @@ export function fakeAgentBin(dataHome: string, script: string = ECHO_AGENT): str
 }
 
 export async function startFakeAgent(win: Page): Promise<void> {
-  const terminal = win.locator('.xterm').first()
-  await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
+  const terminal = win.locator('.ghostty-host').first()
+  await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, { timeout: 15_000 })
   await terminal.click()
   await win.keyboard.type('claude')
   await win.keyboard.press('Enter')
-  await expect(win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
+  await expect(win.locator('.terminal-text').first()).toContainText('fake-agent-ready', {
     timeout: 15_000,
   })
 }

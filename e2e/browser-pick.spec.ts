@@ -101,7 +101,7 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
 
     await expect(win.getByTestId('capture-chip')).toHaveText(/^Sent to /, { timeout: 15_000 })
     await terminalTab(win).click()
-    const terminal = shownTerminal(win).locator('.xterm-rows')
+    const terminal = shownTerminal(win).locator('.terminal-text')
     await expect(terminal).toContainText(/@\S*capture-\d+\S*\.md @\S*pick-\S*\.png/, {
       timeout: 15_000,
     })

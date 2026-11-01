@@ -26,7 +26,7 @@ function scratchRow(win: Page, name: string) {
 
 async function printValue(win: Page, label: string, variable: string): Promise<string> {
   await runInTerminal(win, `echo "${label}:""$${variable}"":END"`, shownTerminal(win))
-  const rows = win.locator('.xterm:visible .xterm-rows').first()
+  const rows = win.locator('.terminal-text').first()
   const pattern = new RegExp(`${label}:(/[^"]*?):END`)
   await expect(rows).toContainText(pattern, { timeout: 15_000 })
   const match = pattern.exec((await rows.textContent()) ?? '')
@@ -49,7 +49,7 @@ test('a scratch workspace runs in its private folder, deletes it on close, and n
     await expect(row).toBeVisible()
 
     await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, { timeout: 15_000 })
 
     folder = await printValue(win, 'DIR', 'PWD')
     expect(dirname(folder)).toMatch(/ostia-scratch-\d+$/)
@@ -67,7 +67,7 @@ test('a scratch workspace runs in its private folder, deletes it on close, and n
     const second = scratchRow(win, 'Scratch')
     await expect(second).toBeVisible()
     await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, { timeout: 15_000 })
     leftOpen = await printValue(win, 'DIR2', 'PWD')
     expect(existsSync(leftOpen)).toBe(true)
   } finally {

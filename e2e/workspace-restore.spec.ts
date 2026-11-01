@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
   PROMPT,
   addTab,
@@ -24,8 +24,8 @@ interface Launched {
 }
 
 async function waitForShellPrompt(win: Page): Promise<void> {
-  await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
-  await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
+  await expect(win.locator('.ghostty-host').first()).toBeVisible({ timeout: 15_000 })
+  await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, { timeout: 15_000 })
 }
 
 let dataHome: string
@@ -45,12 +45,12 @@ test(
       await openWorkspace(first.win)
       await expect(first.win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
 
-      const term = first.win.locator('.xterm').first()
+      const term = first.win.locator('.ghostty-host').first()
       await term.click()
       await waitForTerminalFocus(first.win)
       await first.win.keyboard.type(`echo ${marker}`)
       await first.win.keyboard.press('Enter')
-      await expect(first.win.locator('.xterm-rows').first()).toContainText(marker, {
+      await expect(first.win.locator('.terminal-text').first()).toContainText(marker, {
         timeout: 15_000,
       })
 
@@ -80,7 +80,7 @@ test(
 )
 
 test('the pane the human last used takes the keyboard after a restart, without a click', async () => {
-  const shownRows = '.pane-slot:not([data-hidden]) .xterm-rows'
+  const shownRows = '.pane-slot:not([data-hidden]) .terminal-text'
   const first = await launchWindow(dataHome)
   try {
     await openWorkspace(first.win)
@@ -89,7 +89,7 @@ test('the pane the human last used takes the keyboard after a restart, without a
       timeout: 15_000,
     })
     await expect(first.win.locator(shownRows)).toContainText(PROMPT, { timeout: 15_000 })
-    await first.win.locator('.pane-slot:not([data-hidden]) .xterm').click()
+    await first.win.locator('.pane-slot:not([data-hidden]) .ghostty-host').click()
     await waitForTerminalFocus(first.win)
   } finally {
     await quitApp(first.app)
@@ -120,11 +120,11 @@ test('restores terminal history after a crash (no before-quit)', { tag: '@core' 
   const first = await launchWindow(dataHome)
   try {
     await openWorkspace(first.win)
-    await first.win.locator('.xterm').first().click()
+    await first.win.locator('.ghostty-host').first().click()
     await waitForTerminalFocus(first.win)
     await first.win.keyboard.type(`echo ${marker}`)
     await first.win.keyboard.press('Enter')
-    await expect(first.win.locator('.xterm-rows').first()).toContainText(marker, {
+    await expect(first.win.locator('.terminal-text').first()).toContainText(marker, {
       timeout: 15_000,
     })
     const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
@@ -159,11 +159,11 @@ test('keeps the scrollback saved at quit when an autosave fires during teardown'
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await waitForTerminalFocus(win)
     await win.keyboard.type(`echo ${marker}_$((6*7))`)
     await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows').first()).toContainText(`${marker}_42`, {
+    await expect(win.locator('.terminal-text').first()).toContainText(`${marker}_42`, {
       timeout: 15_000,
     })
   } finally {
@@ -197,31 +197,31 @@ function promptsAfterSeam(lines: string[]): number {
 }
 
 async function paneLines(win: Page): Promise<string[]> {
-  const text = await win.locator('.xterm-rows').first().innerText()
+  const text = await win.locator('.terminal-text').first().innerText()
   return text.split('\n').map((l) => l.replace(/ /g, ' ').trimEnd())
 }
 
 test('restores a clean final screen at a different window size', async () => {
   test.setTimeout(90_000)
   const marker = `ostia_resized_${Date.now()}`
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, appearance: { terminal: { size: 8 } } })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, appearance: { terminal: { size: 8 } } })
 
   const first = await launchWindow(dataHome)
   try {
     await setWindowSize(first, 1580, 950)
     await openWorkspace(first.win)
     await wobbleWidth(first)
-    await first.win.locator('.xterm').first().click()
+    await first.win.locator('.ghostty-host').first().click()
     await waitForTerminalFocus(first.win)
     await first.win.keyboard.type(`printf '${marker}_%s\\n' 1 2`)
     await first.win.keyboard.press('Enter')
-    await expect(first.win.locator('.xterm-rows').first()).toContainText(`${marker}_2`, {
+    await expect(first.win.locator('.terminal-text').first()).toContainText(`${marker}_2`, {
       timeout: 15_000,
     })
     await wobbleWidth(first)
     await first.win.keyboard.type(`echo ${marker}_end_$((20+22))`)
     await first.win.keyboard.press('Enter')
-    await expect(first.win.locator('.xterm-rows').first()).toContainText(
+    await expect(first.win.locator('.terminal-text').first()).toContainText(
       new RegExp(`${marker}_end_42[^❯]*❯`),
       { timeout: 15_000 },
     )
@@ -232,14 +232,14 @@ test('restores a clean final screen at a different window size', async () => {
   const second = await launchWindow(dataHome)
   try {
     await setWindowSize(second, 1000, 980)
-    await expect(second.win.locator('.xterm-rows').first()).toContainText('workspace restored', {
+    await expect(second.win.locator('.terminal-text').first()).toContainText('workspace restored', {
       timeout: 15_000,
     })
     await waitForShellPrompt(second.win)
-    await second.win.locator('.xterm').first().click()
+    await second.win.locator('.ghostty-host').first().click()
     await second.win.keyboard.type(`echo ${marker}_flush_$((20+22))`)
     await second.win.keyboard.press('Enter')
-    await expect(second.win.locator('.xterm-rows').first()).toContainText(`${marker}_flush_42`, {
+    await expect(second.win.locator('.terminal-text').first()).toContainText(`${marker}_flush_42`, {
       timeout: 15_000,
     })
 

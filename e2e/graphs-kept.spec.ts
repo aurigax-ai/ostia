@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileS
 import { join } from 'node:path'
 import { chords } from './chords'
 import {
-  DOM_RENDERER_SETTINGS,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   isolatedLaunch,
   seedSettings,
@@ -13,7 +13,7 @@ import { type ElectronApplication, type Page, _electron as electron, expect, tes
 
 test.describe.configure({ timeout: 240_000 })
 
-const KEEP = { ...DOM_RENDERER_SETTINGS, terminal: { keepShells: true } }
+const KEEP = { ...CANVAS_RENDERER_SETTINGS, terminal: { keepShells: true } }
 
 const AGENT = (log: string, go: string, report: boolean) => `
 const { appendFileSync, existsSync, readFileSync } = require('node:fs')

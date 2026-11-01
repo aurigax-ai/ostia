@@ -11,7 +11,7 @@ import { expect, test } from '../test'
 import { launchPlain, measure, PROMPT_TEXT, SHOWN_INPUT, shownRows } from './flowApp'
 import { RUNS, Samples, WARMUP } from './flowResults'
 
-const SHOWN_ROWS = '.pane-slot:not([data-hidden]) .xterm-rows'
+const SHOWN_ROWS = '.pane-slot:not([data-hidden]) .terminal-text'
 const SETTINGS = { behavior: { gpuAcceleration: false }, workspaces: { confirmQuit: false } }
 
 test('bench panes: new tab and split to prompt', async () => {
@@ -41,7 +41,7 @@ test('bench panes: new tab and split to prompt', async () => {
         act: () => win.keyboard.press(chords.splitRight),
       })
       await win.keyboard.press(chords.closePane)
-      await expect(win.locator('.xterm')).toHaveCount(tabs, { timeout: 15_000 })
+      await expect(win.locator('.ghostty-host')).toHaveCount(tabs, { timeout: 15_000 })
       if (i < WARMUP) continue
       samples.add('tab.new-shown', tab.shown)
       samples.add('tab.new-prompt', tab.prompt)

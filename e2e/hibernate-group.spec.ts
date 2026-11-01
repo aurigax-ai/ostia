@@ -1,4 +1,4 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
 import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
 import { type Locator, type Page, _electron as electron, expect, test } from './test'
@@ -17,12 +17,12 @@ const AGENT = [
 ].join('\n')
 
 function shownRows(win: Page): Locator {
-  return win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()
+  return win.locator('.pane-slot:not([data-hidden]) .terminal-text').last()
 }
 
 async function startAgent(win: Page): Promise<void> {
   await expect(shownRows(win)).toContainText(PROMPT, { timeout: 15_000 })
-  await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
+  await win.locator('.pane-slot:not([data-hidden]) .ghostty-host').last().click()
   await win.keyboard.type('claude')
   await win.keyboard.press('Enter')
   await expect(shownRows(win)).toContainText(`${MARK} up`, { timeout: 15_000 })
@@ -45,7 +45,7 @@ async function expectResumedOnce(win: Page): Promise<void> {
 
 test('a group hibernates and resumes the agents of all its workspaces from its header menu', async () => {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
   const bin = fakeAgentBin(dataHome, AGENT)
   const options = isolatedLaunch(dataHome)
   const app = await electron.launch({

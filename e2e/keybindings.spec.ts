@@ -18,8 +18,8 @@ function paletteRow(win: Page) {
 }
 
 async function focusTerminal(win: Page) {
-  await win.locator('.xterm').first().click()
-  await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
+  await win.locator('.ghostty-host').first().click()
+  await expect(win.locator('.ghostty-host textarea').first()).toBeFocused()
 }
 
 test('scrolling the Keyboard settings never gives the window a scrollbar of its own', async () => {
@@ -59,7 +59,7 @@ test(
       await win.waitForLoadState('domcontentloaded')
       await openWorkspace(win)
       await focusTerminal(win)
-      const rows = win.locator('.xterm-rows').first()
+      const rows = win.locator('.terminal-text').first()
 
       await win.keyboard.type('echo ostia_wrong_line')
       await expect(rows).toContainText('echo ostia_wrong_line')

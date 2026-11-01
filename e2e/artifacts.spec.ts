@@ -1,17 +1,17 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { launchWindow, openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
 import { expect, type Page, test } from './test'
 import { viewerGuestText } from './viewerGuest'
 
 function run(win: Page, command: string): Promise<void> {
-  return runInTerminal(win, command, win.locator('.xterm:visible').first())
+  return runInTerminal(win, command, win.locator('.ghostty-host:visible').first())
 }
 
 async function printValue(win: Page, label: string, variable: string): Promise<string> {
   await run(win, `echo "${label}:""$${variable}"":END"`)
-  const rows = win.locator('.xterm:visible .xterm-rows').first()
+  const rows = win.locator('.terminal-text').first()
   const pattern = new RegExp(`${label}:(/[^"]*?):END`)
   await expect(rows).toContainText(pattern, { timeout: 15_000 })
   const match = pattern.exec((await rows.textContent()) ?? '')
@@ -88,7 +88,7 @@ test('a CSV artifact opens as a table and a Markdown artifact opens as a preview
   mkdirSync(home, { recursive: true })
   writeFileSync(join(home, 'cities.csv'), 'city,count\nTaipei,3\n"Hsinchu, East",4\n')
   writeFileSync(join(home, 'plan.md'), '# Plan\n')
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
   const { app, win } = await launchWindow(dataHome)
   try {
     await openWorkspace(win)

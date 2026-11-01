@@ -20,7 +20,7 @@ import { type Page, _electron as electron, expect, test } from './test'
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const KEYS = Number(process.env.OSTIA_ECHO_KEYS ?? 80)
 const ENGINES = (process.env.OSTIA_ECHO_ENGINES ?? '').split(',').filter(Boolean)
-const TERMINALS = '.xterm, .ghostty-host'
+const TERMINALS = '.ghostty-host, .ghostty-host'
 
 const SCENARIOS = [
   { name: 'idle', start: null },

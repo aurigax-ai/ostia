@@ -3,8 +3,8 @@ import { PROMPT, emptyState, emptyWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 async function typesIntoNewest(win: Page, count: number, marker: string): Promise<void> {
-  await expect(win.locator('.xterm:visible')).toHaveCount(count, { timeout: 15_000 })
-  const rows = win.locator('.xterm:visible .xterm-rows').last()
+  await expect(win.locator('.ghostty-host:visible')).toHaveCount(count, { timeout: 15_000 })
+  const rows = win.locator('.terminal-text').last()
   await expect(rows).toContainText(PROMPT, { timeout: 15_000 })
   await win.keyboard.type(`echo ${marker}`)
   await win.keyboard.press('Enter')

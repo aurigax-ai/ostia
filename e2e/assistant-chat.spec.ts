@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
   type FakeProvider,
   type FakeRequest,
@@ -13,7 +13,7 @@ import { type Page, _electron as electron, expect, test } from './test'
 const RUN_MARKER = 'ostia-ran-from-chat'
 
 function seedAssistant(dataHome: string, url: string): void {
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, assistant: fakeAssistantSettings(url) })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, assistant: fakeAssistantSettings(url) })
 }
 
 async function openAssistantMenu(win: Page) {
@@ -71,15 +71,15 @@ test.describe('assistant chat pane', () => {
       const reply = win.locator('.ask-answer').last()
       await expect(reply.locator('pre')).toContainText(`echo ${RUN_MARKER}`, { timeout: 15_000 })
 
-      const terminals = await win.locator('.xterm').count()
+      const terminals = await win.locator('.ghostty-host').count()
       await reply.locator('pre').hover()
       await reply.getByRole('button', { name: 'Run in new terminal' }).click()
       await win.getByRole('button', { name: 'Run', exact: true }).click()
-      await expect(win.locator('.xterm')).toHaveCount(terminals + 1, { timeout: 15_000 })
+      await expect(win.locator('.ghostty-host')).toHaveCount(terminals + 1, { timeout: 15_000 })
       await expect
         .poll(
           async () => {
-            const texts = await win.locator('.xterm-rows').allInnerTexts()
+            const texts = await win.locator('.terminal-text').allInnerTexts()
             return texts.some((t) => t.split('\n').some((l) => l.trim() === RUN_MARKER))
           },
           { timeout: 15_000 },

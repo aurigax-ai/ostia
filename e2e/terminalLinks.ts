@@ -8,7 +8,7 @@ export interface Point {
 
 export async function linkPoint(win: Page, rowText: RegExp, needle: string): Promise<Point> {
   const row = win
-    .locator('.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .xterm-rows')
+    .locator('.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .terminal-text')
     .first()
     .locator('div', { hasText: rowText })
     .first()

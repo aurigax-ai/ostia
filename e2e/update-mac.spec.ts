@@ -14,7 +14,7 @@ import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { withAsar } from './fakeAsar'
 import { expectHeld, openWorkspace, quitApp, runInTerminal, stubExternalOpener } from './helpers'
 import {
@@ -302,7 +302,7 @@ test('after an update restart, an agent resumes with --resume and the same sessi
   const github = await startFakeGitHub(l.files, l.digest)
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     behavior: { gpuAcceleration: false, updateChannel: 'beta' },
     agents: { autoResume: true },
   })
@@ -320,7 +320,7 @@ test('after an update restart, an agent resumes with --resume and the same sessi
   try {
     await openWorkspace(first.win)
     await runInTerminal(first.win, 'claude e2e-update-session-1')
-    await expect(first.win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
+    await expect(first.win.locator('.terminal-text').first()).toContainText('fake-agent-ready', {
       timeout: 15_000,
     })
     await expect
@@ -340,7 +340,7 @@ test('after an update restart, an agent resumes with --resume and the same sessi
   try {
     await expect(
       second.win
-        .locator('.xterm-rows')
+        .locator('.terminal-text')
         .filter({ hasText: /fake-agent-resumed .*--resume e2e-update-session-1\b/ }),
     ).toHaveCount(1, { timeout: 30_000 })
   } finally {
@@ -356,7 +356,7 @@ test('after an update restart with keep-shells on, the agent keeps running with 
   const github = await startFakeGitHub(l.files, l.digest)
   const dataHome = mkdtempSync('/tmp/ostia-ks-')
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     behavior: { gpuAcceleration: false, updateChannel: 'beta' },
     terminal: { keepShells: true },
     agents: { autoResume: true },
@@ -376,7 +376,7 @@ test('after an update restart with keep-shells on, the agent keeps running with 
   try {
     await openWorkspace(first.win)
     await runInTerminal(first.win, 'claude')
-    const screen = first.win.locator('.xterm-rows').first()
+    const screen = first.win.locator('.terminal-text').first()
     await expect(screen).toContainText(/fake-agent-ready pid=\d+/, { timeout: 15_000 })
     pid = Number(/fake-agent-ready pid=(\d+)/.exec((await screen.textContent()) ?? '')?.[1])
     expect(pid).toBeGreaterThan(0)
@@ -394,7 +394,7 @@ test('after an update restart with keep-shells on, the agent keeps running with 
 
   const second = await launch(dataHome, env)
   try {
-    const screen = second.win.locator('.xterm-rows').first()
+    const screen = second.win.locator('.terminal-text').first()
     await expect(screen).toContainText(`fake-agent-ready pid=${pid}`, { timeout: 30_000 })
     await runInTerminal(second.win, 'flush_marker')
     await expect(screen).toContainText('flush_marker', { timeout: 15_000 })
@@ -408,7 +408,7 @@ test('after an update restart with keep-shells on, the agent keeps running with 
             return false
           }
         })(),
-        resumes: await second.win.locator('.xterm-rows').filter({ hasText: '--resume' }).count(),
+        resumes: await second.win.locator('.terminal-text').filter({ hasText: '--resume' }).count(),
       }),
       { alive: true, resumes: 0 },
       2_000,

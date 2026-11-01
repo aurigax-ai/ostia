@@ -164,7 +164,7 @@ test('the PDF viewer selects text, crops text and image together, finds across p
       await bar(win).getByRole('button', { name: 'Send to agent' }).click()
       await win.getByRole('menuitem').first().click()
       await terminalTab(win).click()
-      const terminal = shownTerminal(win).locator('.xterm-rows')
+      const terminal = shownTerminal(win).locator('.terminal-text')
       await expect(terminal).toContainText(/@\S+\.md/, { timeout: 15_000 })
       const text = (await terminal.textContent()) ?? ''
       const report = /@(\S+\.md)/.exec(text)?.[1] ?? ''
