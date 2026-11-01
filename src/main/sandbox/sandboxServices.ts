@@ -13,6 +13,7 @@ import { configHome, dataHome, OLD_PRODUCT_NAME } from '../platform/userDirs'
 import type { PackageRequests } from '../sandboxPackages/packageRequests'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import { INTEGRATION_DIR } from '../terminal/shellIntegration'
+import { shellStateDir } from '../terminal/shellStateDir'
 import { keptHostChannel, keptShellsName } from '../tmux/keptPaths'
 import {
   type KeptHostMeta,
@@ -88,7 +89,7 @@ function createWorkspaceSandboxes({
         srtVendorDir: srtVendorDir(app.getAppPath()),
         runtimeReads: [
           INTEGRATION_DIR,
-          privateTmpDir(`${PRODUCT_NAME}-shell-state`),
+          shellStateDir(),
           app.getAppPath(),
           dirname(process.execPath),
           paneLauncherDir(),

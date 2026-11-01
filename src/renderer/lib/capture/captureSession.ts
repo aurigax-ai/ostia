@@ -18,7 +18,7 @@ export type CloseReason =
   | 'outside'
   | 'scroll'
   | 'key'
-  | 'guest-focus'
+  | 'guest-click'
   | 'copied'
   | 'sent'
   | 'cancel'
@@ -37,15 +37,19 @@ export interface CaptureAdapter {
 
 export interface OpenCapture {
   key: number
+  openedAt: number
   adapter: CaptureAdapter
   sendRequest: number
   pending: boolean
   error: string | null
 }
 
+export type CaptureChipTone = 'ok' | 'warn'
+
 export interface CaptureChipState {
   id: number
   label: string
+  tone: CaptureChipTone
 }
 
 interface CaptureState {
@@ -93,13 +97,16 @@ export function setCaptureStatus(paneId: string, text: string | null): void {
     )
 }
 
-function setCaptureChip(paneId: string, label: string | null): void {
+function setCaptureChip(paneId: string, label: string | null, tone: CaptureChipTone = 'ok'): void {
   clearTimeout(chipTimers.get(paneId))
   chipTimers.delete(paneId)
   counter += 1
   const id = counter
   useCaptureStore.setState((state) => ({
-    chip: label === null ? without(state.chip, paneId) : { ...state.chip, [paneId]: { id, label } },
+    chip:
+      label === null
+        ? without(state.chip, paneId)
+        : { ...state.chip, [paneId]: { id, label, tone } },
   }))
   if (label !== null)
     chipTimers.set(
@@ -115,6 +122,10 @@ export function closeCapture(paneId: string, reason: CloseReason): void {
   current.adapter.clear(reason)
 }
 
+export function showCaptureChip(paneId: string, label: string, tone: CaptureChipTone): void {
+  setCaptureChip(paneId, label, tone)
+}
+
 export function confirmCapture(paneId: string, label: string, reason: 'copied' | 'sent'): void {
   setCaptureChip(paneId, label)
   closeCapture(paneId, reason)
@@ -128,7 +139,14 @@ export function openCapture(paneId: string, adapter: CaptureAdapter): void {
   useCaptureStore.setState((state) => ({
     open: {
       ...state.open,
-      [paneId]: { key: counter, adapter, sendRequest: 0, pending: false, error: null },
+      [paneId]: {
+        key: counter,
+        openedAt: Date.now(),
+        adapter,
+        sendRequest: 0,
+        pending: false,
+        error: null,
+      },
     },
   }))
 }

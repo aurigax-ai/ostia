@@ -85,6 +85,7 @@ export function createAppState() {
     files: null as FileServices | null,
     histories: null as PaneHistories | null,
     requestQuit: null as (() => void) | null,
+    refreshResume: null as ((paneId: string) => Promise<void>) | null,
   }
 
   const hibernatedPanes = new Set<string>()

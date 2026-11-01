@@ -32,7 +32,7 @@ export const agentZhHant: typeof agentEn = {
     damagedFresh: '重新開始',
     defaultAccount: '預設帳號',
     defaultLabel: '預設',
-    duplicate: '{email} 已經加入。',
+    duplicate: '已經加入為 {account}。',
     enabledCurrent: '新的工作階段使用此帳號，因此它保持開啟。請先切換到其他帳號。',
     enabledDefault: '預設帳號一律開啟。',
     enabledFor: '使用 {account}',
@@ -50,6 +50,7 @@ export const agentZhHant: typeof agentEn = {
     removeFor: '移除 {account}',
     removeRunning: '這個帳號仍有 Claude 工作階段在執行。請先關閉，再移除帳號。',
     removeTitle: '要移除 {account} 嗎？',
+    sameLogin: '與 {account} 是同一個登入。請移除其中一個。',
     sharedDesc:
       '設定、MCP 伺服器、快速鍵、CLAUDE.md、技能、指令、代理、歷史與工作階段都來自預設帳號；設定與 MCP 伺服器會在每次工作階段啟動時複製，因此在其他帳號下所做的變更，會在該帳號下次啟動時被預設帳號的內容取代。外掛與登入則屬於各個帳號。',
     sharedTitle: '帳號共用的內容',

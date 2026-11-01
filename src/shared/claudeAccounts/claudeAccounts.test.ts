@@ -3,8 +3,22 @@ import { accountOfTarget, DEFAULT_ACCOUNT } from './claudeAccounts'
 
 describe('accountOfTarget', () => {
   const accounts = [
-    { id: DEFAULT_ACCOUNT, email: null, signedOut: false, enabled: true, usage: null },
-    { id: 'a'.repeat(16), email: 'Work@Example.com', signedOut: false, enabled: true, usage: null },
+    {
+      id: DEFAULT_ACCOUNT,
+      email: null,
+      signedOut: false,
+      enabled: true,
+      sameAs: null,
+      usage: null,
+    },
+    {
+      id: 'a'.repeat(16),
+      email: 'Work@Example.com',
+      signedOut: false,
+      enabled: true,
+      sameAs: null,
+      usage: null,
+    },
   ]
 
   it('picks by 1-based number', () => {

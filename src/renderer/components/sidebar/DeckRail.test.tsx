@@ -114,7 +114,7 @@ describe('DeckRail', () => {
     vi.restoreAllMocks()
   })
 
-  it('marks a scratch workspace row with a Scratch badge, and no other row', async () => {
+  it('shows a scratch workspace without a Scratch badge', async () => {
     seedWorkspaces()
     useWorkspacesStore.setState((st) => ({
       workspaces: [
@@ -130,8 +130,7 @@ describe('DeckRail', () => {
       ],
     }))
     await renderSettled(<DeckRail />)
-    expect(within(rowFor(/Scratch 2/)).getByText('Scratch')).toHaveClass('scratch-badge')
-    expect(within(rowFor(/beta/)).queryByText('Scratch')).toBeNull()
+    expect(within(rowFor(/Scratch 2/)).queryByText('Scratch')).toBeNull()
   })
 
   it('wraps long workspace titles only when the setting is on', async () => {
@@ -206,7 +205,7 @@ describe('DeckRail', () => {
     expect(screen.queryByText('/home/alpha')).toBeNull()
     const row = rowFor(/alpha/)
     expect(row.querySelector('.tab-after')).toBeNull()
-    expect(row.querySelector('.tab-lead-wrap .workspace-dot')).toHaveClass('working')
+    expect(row.querySelector('.tab-lead-wrap .workspace-badge')).toHaveClass('working')
     expect(screen.getByRole('button', { name: 'beta' })).toBeInTheDocument()
   })
 
@@ -367,17 +366,14 @@ describe('DeckRail', () => {
     expect(closeWorkspace).toHaveBeenCalledWith('s2')
   })
 
-  it('drives the status dot from the workspace state (working vs idle)', async () => {
+  it('draws a status dot for working and none for idle', async () => {
     seedWorkspaces()
     await renderSettled(<DeckRail />)
 
     const workingDot = screen.getByRole('img', { name: 'Working' })
-    const idleDot = screen.getByRole('img', { name: 'Idle' })
 
-    expect(workingDot).toHaveClass('workspace-dot', 'working')
-    expect(workingDot).not.toHaveClass('idle')
-    expect(idleDot).toHaveClass('workspace-dot', 'idle')
-    expect(idleDot).not.toHaveClass('working')
+    expect(workingDot).toHaveClass('workspace-badge', 'working')
+    expect(within(rowFor(/beta/)).queryByRole('img', { name: 'Idle' })).toBeNull()
   })
 
   it('shows the moon only when every terminal of the workspace is hibernated', async () => {
@@ -737,6 +733,20 @@ describe('DeckRail', () => {
       expect(screen.getByText(/fix refunds/)).toBeInTheDocument()
     })
 
+    it('puts the description on one line above the path, with no tooltip, and edits it on double-click', async () => {
+      seedRows()
+      await renderSettled(<DeckRail />)
+      const line = document.querySelector('.tab-description') as HTMLElement
+      const path = line.parentElement?.querySelector('.rail-meta.location') as HTMLElement
+      expect(line.compareDocumentPosition(path) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(line.closest('[data-slot="tooltip-trigger"]')).toBeNull()
+      expect(line).not.toHaveAttribute('title')
+      expect(document.querySelectorAll('.tab-description')).toHaveLength(1)
+
+      await userEvent.setup().dblClick(line)
+      expect(screen.getByRole('textbox', { name: 'Workspace description' })).toBeInTheDocument()
+    })
+
     it('pins a workspace to the top from its menu', async () => {
       seedRows()
       await renderSettled(<DeckRail />)
@@ -821,11 +831,10 @@ describe('DeckRail', () => {
 
     const rowTrigger = (name: RegExp) => rowFor(name).closest('.rail-row') as HTMLElement
 
-    it('shows a header with the name and member count and indents its members', async () => {
+    it('shows a header with the name and indents its members', async () => {
       seedGroups()
       await renderSettled(<DeckRail />)
       expect(header()).toHaveAttribute('aria-expanded', 'true')
-      expect(within(header()).getByLabelText('Members: 2')).toHaveTextContent('2')
       const group = header().closest('.rail-group') as HTMLElement
       expect(group).toHaveAttribute('data-color', 'blue')
       const members = group.querySelector('.rail-group-members') as HTMLElement
@@ -867,8 +876,7 @@ describe('DeckRail', () => {
       expect(useWorkspacesStore.getState().groups[0].collapsed).toBe(true)
       expect(header()).toHaveAttribute('aria-expanded', 'false')
       expect(screen.queryByRole('button', { name: /api/ })).toBeNull()
-      expect(within(header()).getByRole('img', { name: 'Waiting for input' })).toBeInTheDocument()
-      expect(within(header()).getByRole('img', { name: '1 unread' })).toBeInTheDocument()
+      expect(within(header()).getByRole('img', { name: '1 need you' })).toHaveTextContent('1')
     })
 
     it('adds a workspace to the group from the header button', async () => {
@@ -1107,18 +1115,17 @@ describe('DeckRail', () => {
         expect(useWorkspacesStore.getState().workspaces[1].customName).toBe('cli')
       })
 
-      it('a remote caller without an argument clears, as before, and opens no editor', async () => {
+      it('a remote caller without an argument clears the name, and opens no editor', async () => {
         seedGroups()
         useWorkspacesStore.getState().rename('s1', 'named')
         useWorkspacesStore.getState().describe('s1', 'notes')
         await renderSettled(<DeckRail />)
         const remote = { activeWorkspaceId: 's1', activePaneId: null, origin: 'remote' as const }
         await act(() => commands.execWith(remote, 'workspace.rename', undefined))
-        await act(() => commands.execWith(remote, 'workspace.describe', {}))
         const res = await act(() => commands.execWith(remote, 'workspace.renameGroup', undefined))
         expect(res).toMatchObject({ ok: false })
         expect(useWorkspacesStore.getState().workspaces[0].customName).toBeUndefined()
-        expect(useWorkspacesStore.getState().workspaces[0].description).toBeFalsy()
+        expect(useWorkspacesStore.getState().workspaces[0].description).toBe('notes')
         expect(screen.queryByRole('textbox')).toBeNull()
       })
 

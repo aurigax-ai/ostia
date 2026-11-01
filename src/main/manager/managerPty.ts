@@ -12,6 +12,7 @@ import { getByPaneId, markManager, registerPane } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
 import { managerSettings } from '../platform/settingsFile'
 import type { PtyRegistry } from '../terminal/pty/ptyRegistry'
+import { shellStateDir } from '../terminal/shellStateDir'
 import { spawnFolder } from '../terminal/spawnCwd'
 import {
   PTY_COLOR_ENV,
@@ -98,7 +99,7 @@ export function createManagerPty({ loadPty, primaryWindowId, trackPty, feedPty }
       rows: req.rows,
       subs: new Map(),
       spawnPath: env.PATH ?? '',
-      stateFile: join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID()),
+      stateFile: join(shellStateDir(), randomUUID()),
       keepAlive: true,
     })
     entry.exitListeners.add(() => req.onExit())

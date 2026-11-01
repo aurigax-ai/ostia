@@ -5,6 +5,8 @@ import { CoalescedOutput } from '../ptyFlow'
 import type { Subscriber, SubscriberRole } from '../ptySession'
 import type { PtyEntry } from './ptyRegistry'
 
+export const COVERED_REPLAY_MAX = 262_144
+
 interface LiveAttachDeps {
   windows: Map<string, BrowserWindow>
   movingPanes: Set<string>
@@ -33,11 +35,31 @@ export function createLiveAttach({ windows, movingPanes, recoveryHeld }: LiveAtt
         e.sender.send(`pty:data:${paneId}`, data)
         lane?.sent(data.length)
       })
+      let covered: { from: number; skipped: number } | null = null
+      const uncover = (): void => {
+        if (!covered) return
+        const { data } = entry.session.since(covered.from)
+        covered = null
+        output.push(data)
+      }
       return {
         id: subId,
         role,
-        send: (data) => output.push(data),
+        send: (data) => {
+          if (covered) {
+            covered.skipped += data.length
+            if (covered.skipped <= COVERED_REPLAY_MAX) return
+            uncover()
+            covered = { from: entry.session.cursor, skipped: 0 }
+            return
+          }
+          output.push(data)
+        },
         flush: () => output.flush(),
+        cover: (hidden) => {
+          if (!hidden) uncover()
+          else if (!covered) covered = { from: entry.session.cursor, skipped: 0 }
+        },
         close: () => {
           output.close()
           lane?.close()

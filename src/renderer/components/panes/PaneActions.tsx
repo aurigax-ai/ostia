@@ -49,7 +49,7 @@ export function PaneActions({
             paneId={shown.id}
             filePath={shown.filePath}
           />
-          <PortableActions workspaceId={workspaceId} filePath={shown.filePath} />
+          <PortableActions workspaceId={workspaceId} filePath={shown.filePath} paneId={shown.id} />
         </>
       ) : null}
       {session ? (

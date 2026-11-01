@@ -8,6 +8,7 @@ export const assistantZhHant: typeof assistantEn = {
     title: '傳送給代理程式：{label}',
   },
   agentSession: {
+    agy: 'Antigravity',
     branch: '分支',
     claude: 'Claude Code',
     codex: 'Codex',

@@ -6,6 +6,7 @@ export const assistantEn = {
     title: 'Send to agent: {label}',
   },
   agentSession: {
+    agy: 'Antigravity',
     branch: 'Branch',
     claude: 'Claude Code',
     codex: 'Codex',

@@ -44,6 +44,7 @@ export interface PortableExportDeps {
   writeClipboard: (text: string) => void
   version: string
   publishedTables: (windowId: string, path: string) => PublishedTables
+  awaitTables: (windowId: string, path: string) => Promise<PublishedTables>
   now?: () => number
 }
 
@@ -77,6 +78,7 @@ function normalizePortableRequest(value: unknown): PortableRequest | null {
   const publish = raw.publish === undefined ? undefined : normalizePublish(raw.publish)
   if (publish === null) return null
   return {
+    ...(raw.awaitTables === true ? { awaitTables: true } : {}),
     workspaceId: raw.workspaceId,
     path: raw.path,
     theme: normalizePreviewTheme(raw.theme),
@@ -126,7 +128,10 @@ export class PortableExport {
       return { ok: false, reason: 'not-allowed' }
     }
     const known = portableType(request.path)
-    const published = known ? null : this.deps.publishedTables(windowId, request.path)
+    let published = known ? null : this.deps.publishedTables(windowId, request.path)
+    if (!known && published === null && request.awaitTables) {
+      published = await this.deps.awaitTables(windowId, request.path)
+    }
     if (!known && published === null) return { ok: false, reason: 'no-tables' }
     if (published === 'too-large') return { ok: false, reason: 'too-large' }
     const type = known ?? 'tables'

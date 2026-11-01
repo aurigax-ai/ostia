@@ -1,4 +1,4 @@
-import { type AgentResume, forkCommand } from '@shared/agents/agentResume'
+import { type AgentResume, canFork, forkCommand } from '@shared/agents/agentResume'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { findPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
@@ -12,7 +12,7 @@ import { resumeFolderMissing } from './resumeFolder'
 
 export function forkableResume(pane: PaneNode): AgentResume | null {
   const resume = pane.resume
-  if (pane.kind !== 'terminal' || !resume) return null
+  if (pane.kind !== 'terminal' || !resume || !canFork(resume.agent)) return null
   return pane.hibernated === true || runningAgentOf(pane.id) === resume.agent ? resume : null
 }
 

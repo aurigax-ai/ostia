@@ -63,8 +63,8 @@ function deps(over: Partial<ClaudeAccountsDeps> = {}): ClaudeAccountsDeps {
     usage: null,
     root,
     defaultHome: () => join(base, 'home'),
-    defaultEmail: async () => 'me@example.com',
-    profileEmail: async () => null,
+    defaultLogin: async () => ({ uuid: null, email: 'me@example.com' }),
+    profileLogin: async () => null,
     loginState: async (dir) => (signedOut.has(dir) ? 'signed-out' : 'signed-in'),
     writeLogin: async (dir) => {
       writes.push(dir)
@@ -143,7 +143,17 @@ describe('signing in a new account', () => {
     await signIn(null)
     expect(store.accounts()).toEqual([])
     expect(existsSync(root)).toBe(false)
-    expect((await accounts.state()).duplicate).toBe('ME@example.com')
+    expect((await accounts.state()).duplicate).toBe('default')
+  })
+
+  it('refuses a login whose id is the default account’s even under another address', async () => {
+    accounts = new ClaudeAccounts(
+      deps({ defaultLogin: async () => ({ uuid: 'uuid', email: 'old@example.com' }) }),
+    )
+    profile = profileOf('new@example.com')
+    await signIn(null)
+    expect(store.accounts()).toEqual([])
+    expect((await accounts.state()).duplicate).toBe('default')
   })
 
   it('removes the new profile and lists nothing when the login cannot be written', async () => {

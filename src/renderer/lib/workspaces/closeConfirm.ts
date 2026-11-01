@@ -248,11 +248,13 @@ export function withScratchGroups(
 
 async function closeGroups(workspaces: readonly Workspace[]): Promise<RunningGroup[]> {
   const { confirmClose } = useSettingsStore.getState().workspaces
-  const counts: Record<string, number> = {}
-  for (const workspace of workspaces) {
-    if (workspace.kind !== 'scratch') continue
-    counts[workspace.id] = await window.ostia.scratch.files(workspace.id).catch(() => 0)
-  }
+  const scratch = workspaces.filter((w) => w.kind === 'scratch')
+  const filesOf = await Promise.all(
+    scratch.map((w) => window.ostia.scratch.files(w.id).catch(() => 0)),
+  )
+  const counts: Record<string, number> = Object.fromEntries(
+    scratch.map((w, i) => [w.id, filesOf[i]]),
+  )
   const activity = confirmClose ? await paneActivities(panesOf(workspaces)) : {}
   const groups = groupsToConfirm(workspaces, confirmClose, { ...PLAIN, activity })
   return withScratchGroups(workspaces, groups, counts)
@@ -340,7 +342,7 @@ async function paneGroup(
   return groupOf(workspace, [pane], { ...PLAIN, activity })
 }
 
-async function askClosePane(
+export async function requestClosePane(
   workspaceId: string,
   paneId: string,
   saveWaitMs?: number,
@@ -354,8 +356,14 @@ async function askClosePane(
   }
 }
 
-export function requestClosePane(workspaceId: string, paneId: string): Promise<void> {
-  return askClosePane(workspaceId, paneId)
+export function paneCloseBlock(workspaceId: string, paneId: string): 'locked' | 'unsaved' | null {
+  const layout = useLayoutStore.getState()
+  if (layout.isLocked(workspaceId, paneId)) return 'locked'
+  const tree = layout.byWorkspace[workspaceId]
+  const pane = tree ? findPane(tree.root, paneId) : null
+  if (!pane) return null
+  const { dirty, disk } = useEditorStatus.getState()
+  return unsavedFilesOf([pane], dirty, disk).length > 0 ? 'unsaved' : null
 }
 
 export async function closePaneForAgent(workspaceId: string, paneId: string): Promise<void> {
@@ -366,7 +374,7 @@ export async function closePaneForAgent(workspaceId: string, paneId: string): Pr
   }
   const { dirty, disk } = useEditorStatus.getState()
   const asks = pane?.kind === 'manager' || (pane && unsavedFilesOf([pane], dirty, disk).length > 0)
-  if (asks) await askClosePane(workspaceId, paneId, 0)
+  if (asks) await requestClosePane(workspaceId, paneId, 0)
   else useLayoutStore.getState().closePane(workspaceId, paneId)
 }
 

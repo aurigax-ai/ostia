@@ -4,7 +4,7 @@ import { sendViewerSelectionToPane } from '@/lib/agents/sendPick'
 import { currentDict } from '@/lib/app/useDict'
 import type { CaptureAdapter, CloseReason } from './captureSession'
 
-const GUEST_OWNS = new Set<CloseReason>(['source-gone', 'replaced', 'guest-focus'])
+const GUEST_OWNS = new Set<CloseReason>(['source-gone', 'replaced', 'guest-click'])
 
 export function viewerAdapter(
   paneId: string,

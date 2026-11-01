@@ -20,8 +20,22 @@ afterEach(() => {
 function open(over: Partial<ClaudeAccountsState> = {}) {
   vi.mocked(window.ostia.claudeAccounts.state).mockResolvedValue({
     accounts: [
-      { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
-      { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage: null },
+      {
+        id: 'default',
+        email: 'me@example.com',
+        signedOut: false,
+        enabled: true,
+        sameAs: null,
+        usage: null,
+      },
+      {
+        id: WORK,
+        email: 'work@example.com',
+        signedOut: false,
+        enabled: true,
+        sameAs: null,
+        usage: null,
+      },
     ],
     current: WORK,
     adding: false,
@@ -71,8 +85,22 @@ describe('ClaudeAccountsMenu', () => {
     await open({
       checkUsage: true,
       accounts: [
-        { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
-        { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage },
+        {
+          id: 'default',
+          email: 'me@example.com',
+          signedOut: false,
+          enabled: true,
+          sameAs: null,
+          usage: null,
+        },
+        {
+          id: WORK,
+          email: 'work@example.com',
+          signedOut: false,
+          enabled: true,
+          sameAs: null,
+          usage,
+        },
       ],
     })
     const work = await screen.findByRole('menuitemradio', { name: /work@example.com/ })
@@ -84,8 +112,22 @@ describe('ClaudeAccountsMenu', () => {
     await open({
       current: 'default',
       accounts: [
-        { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
-        { id: WORK, email: 'work@example.com', signedOut: false, enabled: false, usage: null },
+        {
+          id: 'default',
+          email: 'me@example.com',
+          signedOut: false,
+          enabled: true,
+          sameAs: null,
+          usage: null,
+        },
+        {
+          id: WORK,
+          email: 'work@example.com',
+          signedOut: false,
+          enabled: false,
+          sameAs: null,
+          usage: null,
+        },
       ],
     })
     await screen.findByRole('menuitemradio', { name: /me@example.com/ })

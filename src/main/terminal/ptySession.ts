@@ -6,6 +6,7 @@ export interface Subscriber {
   role: SubscriberRole
   send: (data: string, cursor: number) => void
   flush?: () => void
+  cover?: (covered: boolean) => void
   close?: () => void
 }
 
@@ -48,6 +49,10 @@ export class PtySession {
 
   since(sinceCursor = 0): RingSlice {
     return this.ring.since(sinceCursor)
+  }
+
+  cover(id: string, covered: boolean): void {
+    this.subs.get(id)?.cover?.(covered)
   }
 
   addLiveSubscriber(sub: Subscriber): void {

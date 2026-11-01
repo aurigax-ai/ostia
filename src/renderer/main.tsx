@@ -37,6 +37,7 @@ import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { applyStoredPanelWidths } from '@/lib/panes/panelWidth'
 import { startKeptReattach } from '@/lib/terminal/keptReattach'
 import { loadLocalHostName } from '@/lib/terminal/osc7'
+import { startWindowCoverReport } from '@/lib/terminal/windowCover'
 import { applyUiFonts, preloadFonts } from '@/lib/theme/uiFonts'
 import { registerViewCommands, startViews } from '@/lib/views/views'
 import { restoreSidePanels } from '@/lib/workspaces/restoreSidePanels'
@@ -167,6 +168,7 @@ async function boot(): Promise<void> {
   startActivationResume()
   startAgentDetection()
   startAgentRunningReport()
+  startWindowCoverReport()
   startWorkspaceProjects()
   startApprovals()
   startAgentGroupsSync()

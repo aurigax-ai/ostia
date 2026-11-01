@@ -31,14 +31,18 @@ export interface FitInput {
   available: number
   gap: number
   moreWidth: number
+  firstMin?: number
 }
 
-export function fitCount({ widths, available, gap, moreWidth }: FitInput): number {
-  const total = widths.reduce((sum, w, i) => sum + w + (i > 0 ? gap : 0), 0)
+export function fitCount({ widths, available, gap, moreWidth, firstMin }: FitInput): number {
+  const shrunk = widths.map((w, i) =>
+    i === 0 && firstMin !== undefined ? Math.min(w, firstMin) : w,
+  )
+  const total = shrunk.reduce((sum, w, i) => sum + w + (i > 0 ? gap : 0), 0)
   if (total <= available) return widths.length
   let used = moreWidth
   let count = 0
-  for (const width of widths) {
+  for (const width of shrunk) {
     const next = used + gap + width
     if (next > available) break
     used = next

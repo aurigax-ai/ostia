@@ -16,7 +16,7 @@ the setting does not list. The human's own keys are refused with `can only be ch
 Settings`: the roots `capabilities`, `privacy`, `terminalKeys`, `modifierRemap`, `workspaceGroups` and `playbooks`, and
 `behavior.externalEditor`, `behavior.checkForUpdates`, `behavior.updateChannel`,
 `behavior.discreteGpu`, `notifications.command`, `agents.autoResume`,
-`agents.hooks`, `agents.trustWorkspaceFolders`,
+`agents.hooks`, `agents.trustWorkspaceFolders`, `agents.finishedHibernateMinutes`,
 `terminal.warnOnRiskyPaste`, `terminal.shell`, `terminal.osc52Write`,
 `terminal.askBeforeOpeningApps`, `terminal.allowedAppSchemes`, `terminal.keepShells`,
 `terminal.scrollbackHistory`, `workspaces.globalHotkey`. Any other root that is not a settings

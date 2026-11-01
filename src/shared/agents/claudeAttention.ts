@@ -5,6 +5,7 @@ export const CLAUDE_ATTENTION_EVENTS = [
   'Notification',
   'PreToolUse',
   'PostToolUse',
+  'PermissionDenied',
   'Stop',
   'StopFailure',
 ] as const
@@ -53,6 +54,13 @@ function questionAttention(payload: Record<string, unknown>): ClaudeAttention | 
   return null
 }
 
+function deniedAttention(payload: Record<string, unknown>): ClaudeAttention {
+  const tool = text(payload.tool_name)
+  const reason = text(payload.reason).split('\n')[0] ?? ''
+  const subject = tool ? `Refused ${tool}` : 'Refused an action'
+  return { state: 'waiting', message: reason ? `${subject}: ${reason}` : subject }
+}
+
 export function claudeAttention(event: ClaudeAttentionEvent, raw: string): ClaudeAttention | null {
   const payload = parsePayload(raw)
   switch (event) {
@@ -64,6 +72,8 @@ export function claudeAttention(event: ClaudeAttentionEvent, raw: string): Claud
       return isClaudeQuestionTool(text(payload.tool_name))
         ? { state: 'working', message: '' }
         : null
+    case 'PermissionDenied':
+      return deniedAttention(payload)
     case 'Stop': {
       const closing = closingFromStop(raw)
       return { state: 'done', message: '', ...(closing ? { closing } : {}) }

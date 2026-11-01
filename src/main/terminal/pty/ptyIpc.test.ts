@@ -259,17 +259,26 @@ describe('pty:hibernate', () => {
   const hibernatePty = vi.fn(() => true)
   let reported: string | null
   let held: (paneId: string, writes: number) => boolean
+  const order: string[] = []
 
   beforeEach(() => {
     handlers.clear()
     ptys.clear()
     hibernatePty.mockClear()
+    order.length = 0
     reported = null
     held = () => false
     registerPtyIpc({
       ptys,
-      hibernatePty,
+      hibernatePty: (paneId: string) => {
+        order.push(`hibernate ${paneId}`)
+        return hibernatePty()
+      },
       hibernateHeld: (paneId: string, writes: number) => held(paneId, writes),
+      refreshResume: async (paneId: string) => {
+        await Promise.resolve()
+        order.push(`refresh ${paneId}`)
+      },
       agentWork: { reason: () => reported },
       keptShells: {},
     } as unknown as Parameters<typeof registerPtyIpc>[0])
@@ -284,6 +293,12 @@ describe('pty:hibernate', () => {
     reported = null
     expect(await hibernate('p1')).toBe('hibernated')
     expect(hibernatePty).toHaveBeenCalledTimes(1)
+  })
+
+  it('refreshes the resume folder before it stops the pane, so a Codex /cd before hibernation is kept', async () => {
+    ptys.set('p1', { pty: { pid: 1 }, input: new PaneInput(Date.now) })
+    expect(await hibernate('p1')).toBe('hibernated')
+    expect(order).toEqual(['refresh p1', 'hibernate p1'])
   })
 
   it('CLA-M4 answers typed and stops nothing when input reached the pane during an account move', async () => {

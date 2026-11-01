@@ -4,9 +4,13 @@ import type { PortableResult } from '@shared/artifacts/portable'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CaptureLayer } from '@/components/capture/CaptureLayer'
+import { useCaptureStore } from '@/lib/capture/captureSession'
+import type { PaneNode } from '@/lib/layout/types'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { renderSettled } from '../../../../test/render'
 import { PortableActions } from './PortableActions'
 import { portableDocument } from './portableDocuments'
@@ -30,18 +34,38 @@ const SHEETS = {
 } as unknown as ExtensionInfo
 
 function actions(path: string): JSX.Element {
-  return <PortableActions workspaceId="s1" filePath={`${DIR}/${path}`} />
+  return (
+    <>
+      <PortableActions workspaceId="s1" filePath={`${DIR}/${path}`} paneId="p1" />
+      <CaptureLayer workspaceId="s1" paneId="p1" />
+    </>
+  )
+}
+
+function seedPane(path: string): void {
+  const pane: PaneNode = {
+    type: 'pane',
+    id: 'p1',
+    title: path,
+    kind: 'editor',
+    filePath: `${DIR}/${path}`,
+  }
+  useLayoutStore.setState({
+    byWorkspace: { s1: { root: pane, activePaneId: 'p1', zoomedPaneId: null } },
+  })
 }
 
 describe('PortableActions', () => {
   let sandboxInit: ReturnType<typeof useSandboxStore.getState>
   let artifactsInit: ReturnType<typeof useArtifactsStore.getState>
   let extensionsInit: ReturnType<typeof useExtensionsStore.getState>
+  let layoutInit: ReturnType<typeof useLayoutStore.getState>
 
   beforeAll(() => {
     sandboxInit = useSandboxStore.getState()
     artifactsInit = useArtifactsStore.getState()
     extensionsInit = useExtensionsStore.getState()
+    layoutInit = useLayoutStore.getState()
   })
 
   beforeEach(() => {
@@ -60,6 +84,8 @@ describe('PortableActions', () => {
     useSandboxStore.setState(sandboxInit, true)
     useArtifactsStore.setState(artifactsInit, true)
     useExtensionsStore.setState(extensionsInit, true)
+    useLayoutStore.setState(layoutInit, true)
+    useCaptureStore.setState({ open: {}, status: {}, chip: {} })
   })
 
   it('PRT-C37 puts one Open in Browser split button on each type with a portable form, none on a PNG', async () => {
@@ -73,14 +99,16 @@ describe('PortableActions', () => {
       ).toBeInTheDocument()
       view.unmount()
     }
-    const png = await renderSettled(actions('photo.png'))
-    expect(png.container).toBeEmptyDOMElement()
+    await renderSettled(actions('photo.png'))
+    expect(screen.queryByRole('group', { name: 'Portable file' })).not.toBeInTheDocument()
   })
 
   it('PRT-C69 offers nothing for a project file that is not in the artifact folder', async () => {
     for (const path of ['/repo/src/App.tsx', '/repo/README.md', '/repo/index.html']) {
-      const view = await renderSettled(<PortableActions workspaceId="s1" filePath={path} />)
-      expect(view.container, path).toBeEmptyDOMElement()
+      const view = await renderSettled(
+        <PortableActions workspaceId="s1" filePath={path} paneId="p1" />,
+      )
+      expect(screen.queryByRole('group', { name: 'Portable file' }), path).not.toBeInTheDocument()
       view.unmount()
     }
   })
@@ -89,7 +117,7 @@ describe('PortableActions', () => {
     useSandboxStore.setState({ enabled: { s1: true } })
     for (const path of ['chart.tsx', 'page.html']) {
       const view = await renderSettled(actions(path))
-      expect(view.container, path).toBeEmptyDOMElement()
+      expect(screen.queryByRole('group', { name: 'Portable file' }), path).not.toBeInTheDocument()
       view.unmount()
     }
     await renderSettled(actions('plan.md'))
@@ -117,31 +145,78 @@ describe('PortableActions', () => {
     }
     await save()
     await waitFor(() => expect(window.ostia.artifacts.portable).toHaveBeenCalledTimes(1))
-    expect(screen.queryByTestId('portable-problem')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('capture-chip')).not.toBeInTheDocument()
     await save()
-    expect(await screen.findByTestId('portable-problem')).toHaveTextContent(
-      'EACCES: permission denied',
-    )
+    const chip = await screen.findByTestId('capture-chip')
+    expect(chip).toHaveTextContent('EACCES: permission denied')
+    expect(chip).toHaveClass('text-warn-fg')
+    expect(screen.queryByTestId('portable-problem')).not.toBeInTheDocument()
   })
 
-  it('offers a file a viewer opens, and says to open it first when its viewer published nothing', async () => {
+  it('PRT-C75 confirms each action in the one floating chip and shows nothing inline', async () => {
+    await renderSettled(actions('plan.md'))
+    await userEvent.click(screen.getByRole('button', { name: 'Open in Browser' }))
+    expect(await screen.findByTestId('capture-chip')).toHaveTextContent('Opened in browser')
+    await userEvent.click(screen.getByRole('button', { name: 'More ways to take this file' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Copy Portable HTML' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('capture-chip')).toHaveTextContent('Copied portable HTML'),
+    )
+    expect(screen.getByTestId('capture-chip')).not.toHaveClass('text-warn-fg')
+    await userEvent.click(screen.getByRole('button', { name: 'More ways to take this file' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Save Portable File…' }))
+    await waitFor(() => expect(screen.getByTestId('capture-chip')).toHaveTextContent('Saved'))
+    expect(screen.queryByTestId('portable-problem')).not.toBeInTheDocument()
+  })
+
+  it('PRT-C76 shows a file too large for a portable copy as an amber chip with the reason', async () => {
+    vi.mocked(window.ostia.artifacts.portable).mockResolvedValue({
+      ok: false,
+      reason: 'too-large',
+    })
+    await renderSettled(actions('plan.md'))
+    await userEvent.click(screen.getByRole('button', { name: 'Open in Browser' }))
+    const chip = await screen.findByTestId('capture-chip')
+    expect(chip).toHaveTextContent('The portable file would be over 16 MiB.')
+    expect(chip).toHaveClass('text-warn-fg')
+  })
+
+  it('PRT-C74 opens a table file in its viewer, waits for its tables, then makes the copy', async () => {
     const none = await renderSettled(actions('sales.xlsx'))
-    expect(none.container).toBeEmptyDOMElement()
+    expect(screen.queryByRole('group', { name: 'Portable file' })).not.toBeInTheDocument()
     none.unmount()
     useExtensionsStore.setState({ list: [SHEETS] })
-    vi.mocked(window.ostia.artifacts.portable).mockResolvedValueOnce({
+    seedPane('sales.xlsx')
+    vi.mocked(window.ostia.artifacts.portable)
+      .mockResolvedValueOnce({ ok: false, reason: 'no-tables' })
+      .mockResolvedValueOnce({ ok: true })
+    await renderSettled(actions('sales.xlsx'))
+    await userEvent.click(screen.getByRole('button', { name: 'More ways to take this file' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Copy Portable HTML' }))
+    expect(await screen.findByTestId('capture-chip')).toHaveTextContent('Copied portable HTML')
+    const calls = vi.mocked(window.ostia.artifacts.portable).mock.calls
+    expect(calls).toHaveLength(2)
+    expect(calls[0][1].awaitTables).toBeUndefined()
+    expect(calls[1][1]).toMatchObject({ path: `${DIR}/sales.xlsx`, awaitTables: true })
+    expect(calls[1][1].document).toBeUndefined()
+    expect(window.ostia.fs.read).not.toHaveBeenCalled()
+    const pane = useLayoutStore.getState().byWorkspace.s1.root
+    expect(pane).toMatchObject({ viewType: 'office.spreadsheet' })
+    expect(screen.queryByTestId('portable-problem')).not.toBeInTheDocument()
+  })
+
+  it('PRT-C77 says in the chip that a viewer without tables has none to copy', async () => {
+    useExtensionsStore.setState({ list: [SHEETS] })
+    seedPane('sales.xlsx')
+    vi.mocked(window.ostia.artifacts.portable).mockResolvedValue({
       ok: false,
       reason: 'no-tables',
     })
     await renderSettled(actions('sales.xlsx'))
     await userEvent.click(screen.getByRole('button', { name: 'Open in Browser' }))
-    expect(await screen.findByTestId('portable-problem')).toHaveTextContent(
-      'Open this file in its viewer first to make its portable copy.',
-    )
-    const request = vi.mocked(window.ostia.artifacts.portable).mock.calls[0][1]
-    expect(request.path).toBe(`${DIR}/sales.xlsx`)
-    expect(request.document).toBeUndefined()
-    expect(window.ostia.fs.read).not.toHaveBeenCalled()
+    const chip = await screen.findByTestId('capture-chip')
+    expect(chip).toHaveTextContent('This file’s viewer has no tables to copy.')
+    expect(chip).toHaveClass('text-warn-fg')
   })
 
   it('PRT-C40 shows the build error when a component does not build', async () => {
@@ -152,7 +227,7 @@ describe('PortableActions', () => {
     })
     await renderSettled(actions('broken.tsx'))
     await userEvent.click(screen.getByRole('button', { name: 'Open in Browser' }))
-    expect(await screen.findByTestId('portable-problem')).toHaveTextContent(
+    expect(await screen.findByTestId('capture-chip')).toHaveTextContent(
       'broken.tsx:2:1: Unexpected end of file',
     )
   })

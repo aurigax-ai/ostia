@@ -37,7 +37,7 @@ export function CaptureLayer({
           <StatusLine onDismiss={() => setCaptureStatus(paneId, null)}>{status}</StatusLine>
         </div>
       ) : null}
-      {chip ? <CaptureChip key={chip.id} label={chip.label} /> : null}
+      {chip ? <CaptureChip key={chip.id} label={chip.label} tone={chip.tone} /> : null}
       {capture ? (
         <CaptureBar key={capture.key} workspaceId={workspaceId} paneId={paneId} capture={capture} />
       ) : null}

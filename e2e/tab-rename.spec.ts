@@ -21,7 +21,7 @@ test('a tab renamed by double-click keeps its name across a restart', async () =
     const main = win.locator('.pane-tab .pane-tab-main').first()
 
     await main.dblclick()
-    const input = win.getByRole('textbox', { name: 'Rename Tab…' })
+    const input = win.getByRole('textbox', { name: 'Rename…' })
     await expect(input).toBeVisible()
     await frames(win)
     await expect(input).toBeFocused()

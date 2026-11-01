@@ -15,9 +15,30 @@ const SPARE = 'b'.repeat(16)
 
 const state = (over: Partial<ClaudeAccountsState> = {}): ClaudeAccountsState => ({
   accounts: [
-    { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
-    { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage: null },
-    { id: SPARE, email: 'spare@example.com', signedOut: false, enabled: true, usage: null },
+    {
+      id: 'default',
+      email: 'me@example.com',
+      signedOut: false,
+      enabled: true,
+      sameAs: null,
+      usage: null,
+    },
+    {
+      id: WORK,
+      email: 'work@example.com',
+      signedOut: false,
+      enabled: true,
+      sameAs: null,
+      usage: null,
+    },
+    {
+      id: SPARE,
+      email: 'spare@example.com',
+      signedOut: false,
+      enabled: true,
+      sameAs: null,
+      usage: null,
+    },
   ],
   current: WORK,
   adding: false,
@@ -61,7 +82,16 @@ describe('ClaudeAccountsSection', () => {
   it('names a default account without a known login', async () => {
     show(
       state({
-        accounts: [{ id: 'default', email: null, signedOut: false, enabled: true, usage: null }],
+        accounts: [
+          {
+            id: 'default',
+            email: null,
+            signedOut: false,
+            enabled: true,
+            sameAs: null,
+            usage: null,
+          },
+        ],
         current: 'default',
       }),
     )
@@ -139,10 +169,22 @@ describe('ClaudeAccountsSection', () => {
   })
 
   it('says, without a warning tone, that the account signed in is already added', async () => {
-    show(state({ duplicate: 'work@example.com' }))
+    show(state({ duplicate: WORK }))
     render(<ClaudeAccountsSection />)
-    const note = await screen.findByText('work@example.com is already added.')
+    const note = await screen.findByText('Already added as work@example.com.')
     expect(note.closest('[role="alert"]')?.className).not.toContain('warn')
+  })
+
+  it('notes an account that shares a login with an earlier one and keeps its Remove', async () => {
+    const base = state()
+    show(
+      state({
+        accounts: base.accounts.map((a) => (a.id === WORK ? { ...a, sameAs: 'default' } : a)),
+      }),
+    )
+    render(<ClaudeAccountsSection />)
+    expect(await screen.findByText('Same login as me@example.com. Remove one.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Remove work@example.com/ })).toBeInTheDocument()
   })
 
   it('offers Start fresh and blocks Add while the list is damaged', async () => {
@@ -183,12 +225,20 @@ describe('ClaudeAccountsSection', () => {
       state({
         checkUsage: true,
         accounts: [
-          { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
+          {
+            id: 'default',
+            email: 'me@example.com',
+            signedOut: false,
+            enabled: true,
+            sameAs: null,
+            usage: null,
+          },
           {
             id: WORK,
             email: 'work@example.com',
             signedOut: false,
             enabled: true,
+            sameAs: null,
             usage: {
               session: { percent: 91, resetsAt: now + 1_800_000 },
               weekly: { percent: 67, resetsAt: now + 2 * 86_400_000 },
@@ -216,9 +266,30 @@ describe('ClaudeAccountsSection', () => {
     show(
       state({
         accounts: [
-          { id: 'default', email: 'me@example.com', signedOut: false, enabled: true, usage: null },
-          { id: WORK, email: 'work@example.com', signedOut: false, enabled: true, usage: null },
-          { id: SPARE, email: 'spare@example.com', signedOut: false, enabled: false, usage: null },
+          {
+            id: 'default',
+            email: 'me@example.com',
+            signedOut: false,
+            enabled: true,
+            sameAs: null,
+            usage: null,
+          },
+          {
+            id: WORK,
+            email: 'work@example.com',
+            signedOut: false,
+            enabled: true,
+            sameAs: null,
+            usage: null,
+          },
+          {
+            id: SPARE,
+            email: 'spare@example.com',
+            signedOut: false,
+            enabled: false,
+            sameAs: null,
+            usage: null,
+          },
         ],
       }),
     )
@@ -290,9 +361,17 @@ describe('ClaudeAccountsSection', () => {
               email: 'me@example.com',
               signedOut: false,
               enabled: true,
+              sameAs: null,
               usage: null,
             },
-            { id: SPARE, email: 'spare@example.com', signedOut: true, enabled: true, usage: null },
+            {
+              id: SPARE,
+              email: 'spare@example.com',
+              signedOut: true,
+              enabled: true,
+              sameAs: null,
+              usage: null,
+            },
           ],
           current: 'default',
         }),

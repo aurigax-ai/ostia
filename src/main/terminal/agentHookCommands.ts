@@ -11,6 +11,8 @@ export const CLI_RUN = `ELECTRON_RUN_AS_NODE=1 "${shellEnv('NODE')}" "${CLI_PATH
 export const IN_PANE = `[ -n "${shellEnv('SOCKET')}" ]`
 export const AGENT_DIR = shellEnv('AGENT_DIR')
 
+export const commandHook = (command: string) => ({ type: 'command', command })
+
 export function hookCommand(cliArgs: string): string {
   return `${IN_PANE} && ${CLI_RUN} ${cliArgs} >/dev/null 2>&1 || true`
 }

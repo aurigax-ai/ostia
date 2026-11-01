@@ -61,6 +61,7 @@ export const sharesZhHant: typeof sharesEn = {
     publish: '發佈',
     publishAnyway: '仍要發佈',
     publishMenu: '發佈…',
+    publishedLinkCopied: '已發佈 · 已複製連結',
     publishing: '發佈中…',
     signedOut: '請登入您的 {product} 帳號以發佈檔案並管理已分享的內容。',
     title: '已分享的成品',

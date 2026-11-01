@@ -1,5 +1,5 @@
 import { lstat, realpath, stat } from 'node:fs/promises'
-import { basename, dirname, join, resolve as resolvePath } from 'node:path'
+import { basename, delimiter, dirname, join, resolve as resolvePath } from 'node:path'
 import { writeFileAtomicAsync } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { lock } from 'proper-lockfile'
 import type { FolderTrust } from '../../shared/agents/agentsApi'
@@ -60,8 +60,10 @@ async function readText(path: string, max: number): Promise<string | null> {
 }
 
 async function gitRoot(folder: string): Promise<string | null> {
+  const ceilings = (process.env.GIT_CEILING_DIRECTORIES ?? '').split(delimiter).filter(Boolean)
   let dir = folder
   for (;;) {
+    if (ceilings.includes(dir)) return null
     const entry = await lstat(join(dir, '.git')).catch(() => null)
     if (entry && !entry.isSymbolicLink() && (entry.isDirectory() || entry.isFile())) return dir
     if (isRoot(dir)) return null

@@ -98,15 +98,17 @@ describe('workspace row meta lines', () => {
     act(() => useExtensionsStore.setState({ sidebar: items }))
   }
 
-  it('puts the folder and branch on one line and ports on their own line', async () => {
-    await seed([branch, port(3000), port(5173)])
+  it('puts the folder on its own line and the branch and ports on the chip line, branch first', async () => {
+    await seed([port(3000), branch, port(5173)])
     const location = row().querySelector('.rail-meta.location') as HTMLElement
-    const live = row().querySelector('.rail-meta.live') as HTMLElement
+    const chips = row().querySelector('.rail-chips .rail-meta.live') as HTMLElement
     expect(within(location).getByText('~/Personal/goji/avail')).toHaveClass('rail-meta-path')
-    expect(within(location).getByText('dev +2')).toBeInTheDocument()
-    expect(within(live).getByText(':3000')).toBeInTheDocument()
-    expect(within(live).getByText(':5173')).toBeInTheDocument()
-    expect(within(location).queryByText(':3000')).toBeNull()
+    expect(within(location).queryByText('dev +2')).toBeNull()
+    expect([...chips.querySelectorAll('.ext-item')].map((item) => item.textContent)).toEqual([
+      'dev +2',
+      ':3000',
+      ':5173',
+    ])
   })
 
   it('labels an item with its badge before the text', async () => {
@@ -121,15 +123,14 @@ describe('workspace row meta lines', () => {
         kind: 'live',
       },
     ])
-    const item = row().querySelector('.rail-meta.live .ext-item') as HTMLElement
+    const item = row().querySelector('.rail-chips .ext-item') as HTMLElement
     expect(item).toHaveTextContent('SSH192.168.2.25')
     expect(within(item).getByText('SSH')).not.toBe(within(item).getByText('192.168.2.25'))
   })
 
-  it('shows no live line without live items', async () => {
-    await seed([branch])
-    expect(row().querySelector('.rail-meta.location')).not.toBeNull()
-    expect(row().querySelector('.rail-meta.live')).toBeNull()
+  it('shows no chip line for a workspace with nothing to count or list', async () => {
+    await seed([])
+    expect(row().querySelector('.rail-chips')).toBeEmptyDOMElement()
   })
 
   it('treats an item without a location kind as live', async () => {
@@ -158,14 +159,14 @@ describe('workspace row meta lines', () => {
     })
   })
 
-  it('shortens the folder from the middle to fit beside the branch', async () => {
+  it('shortens the folder from the middle to fit its line', async () => {
     stubLayout()
     vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
       this: HTMLElement,
     ) {
-      return this.classList.contains('rail-meta-path') ? (this.textContent?.length ?? 0) * 5 : 0
+      return this.classList.contains('rail-meta-path') ? (this.textContent?.length ?? 0) * 8 : 0
     })
-    await seed([branch])
+    await seed([])
     expect(row().querySelector('.rail-meta-path')).toHaveTextContent('~/…/goji/avail')
   })
 })

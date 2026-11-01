@@ -21,7 +21,11 @@ export interface SettingsFile {
     askBeforeOpeningApps?: unknown
     allowedAppSchemes?: unknown
   }
-  agents?: { hooks?: unknown; trustWorkspaceFolders?: unknown }
+  agents?: {
+    hooks?: unknown
+    trustWorkspaceFolders?: unknown
+    finishedHibernateMinutes?: unknown
+  }
   behavior?: { historySuggestions?: unknown }
 }
 

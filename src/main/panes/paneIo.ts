@@ -4,6 +4,7 @@ import { shortId } from '../../shared/panes/paneStatus'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
+import { type CloseFinishedDeps, closeFinished } from './paneCloseFinished'
 import { CONFIRM_MAX_MS, createPaneConfirms } from './paneConfirm'
 import { ensurePaneReach, fail, type PaneReach, paneRefs, paneTarget, record } from './paneReach'
 import { refFailure, resolvePaneRef } from './paneRef'
@@ -122,7 +123,9 @@ export function readLineCount(raw: unknown): number {
   return Math.min(n, READ_LINES_MAX)
 }
 
-export interface PaneIoDeps extends PaneWakeDeps {
+export interface PaneIoDeps
+  extends PaneWakeDeps,
+    Pick<CloseFinishedDeps, 'lifecycle' | 'childrenOf' | 'closeBlock'> {
   io: PaneIo
   state: (paneId: string) => TerminalStateSnapshot | undefined
   managerAllowsInput: () => boolean
@@ -243,6 +246,9 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
   registerControlMethod('pane.close', {
     scripts: true,
     handler: async (raw, ctx) => {
+      if (record(raw).finished === true) {
+        return closeFinished({ ...deps, confirmGone }, ctx)
+      }
       const given = record(raw).panes
       const own = given === undefined && ctx.identity.kind === 'pane'
       const refs = own ? [ctx.identity.externalId] : paneRefs(given)

@@ -2,7 +2,10 @@ import { ipcRenderer } from 'electron'
 import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
-export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'credentials'> = {
+export const browserBridge: Pick<
+  OstiaBridge,
+  'browser' | 'guestChords' | 'guestInput' | 'credentials'
+> = {
   browser: {
     claimProfile: (paneId, profile) => ipcRenderer.invoke('browser:claim-profile', paneId, profile),
     register: (paneId, webContentsId) =>
@@ -30,6 +33,9 @@ export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'crede
     set: (signatures) => ipcRenderer.send('guest-chords:set', signatures),
     setRemap: (table) => ipcRenderer.send('guest-chords:remap', table),
     onFire: (cb) => listen('guest-chords:fire', cb),
+  },
+  guestInput: {
+    onPointerDown: (cb) => listen('guest-input:pointer-down', cb),
   },
   credentials: {
     forPage: (paneId) => ipcRenderer.invoke('credentials:for-page', paneId),

@@ -11,6 +11,7 @@
         "remote.agentCodex",
         "remote.jobAgentShell",
         "agentSession.codex",
+        "agentSession.agy",
         "browserSettings.google",
         "browserSettings.duckduckgo",
         "browserSettings.bing",

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ClaudeAccountsState } from '../../../shared/claudeAccounts/claudeAccounts'
-import { createProfile } from './accountProfiles'
+import { type AccountLogin, createProfile } from './accountProfiles'
 import { ClaudeAccountsStore } from './accountsStore'
 import { ClaudeAccounts } from './claudeAccounts'
 
@@ -12,7 +12,8 @@ let root: string
 let home: string
 let store: ClaudeAccountsStore
 let emails: Map<string, string>
-let defaultEmail: string | null
+let uuids: Map<string, string>
+let defaultLogin: AccountLogin | null
 let opened: string[]
 let openResult: string | null
 let published: ClaudeAccountsState[]
@@ -25,9 +26,10 @@ function dirOf(index = 0): string {
   return opened[index].replace(/^.*CLAUDE_CONFIG_DIR=/, '')
 }
 
-function signIn(dir: string, email: string): void {
+function signIn(dir: string, email: string, uuid?: string): void {
   writeFileSync(join(dir, '.credentials.json'), 'x')
   emails.set(dir, email)
+  if (uuid) uuids.set(dir, uuid)
 }
 
 beforeEach(() => {
@@ -38,7 +40,8 @@ beforeEach(() => {
   mkdirSync(home)
   store = new ClaudeAccountsStore(join(base, 'claude-accounts.json'))
   emails = new Map()
-  defaultEmail = 'me@example.com'
+  uuids = new Map()
+  defaultLogin = { uuid: null, email: 'me@example.com' }
   opened = []
   openResult = 'pane-ext-1'
   published = []
@@ -48,8 +51,9 @@ beforeEach(() => {
     store,
     root,
     defaultHome: () => home,
-    defaultEmail: async () => defaultEmail,
-    profileEmail: async (dir) => emails.get(dir) ?? null,
+    defaultLogin: async () => defaultLogin,
+    profileLogin: async (dir) =>
+      emails.has(dir) ? { uuid: uuids.get(dir) ?? null, email: emails.get(dir) as string } : null,
     loginState: async () => 'signed-in',
     writeLogin: async () => true,
     signIn: null,
@@ -104,8 +108,8 @@ describe('usage', () => {
       store,
       root,
       defaultHome: () => home,
-      defaultEmail: async () => defaultEmail,
-      profileEmail: async () => null,
+      defaultLogin: async () => defaultLogin,
+      profileLogin: async () => null,
       loginState: async (dir) => (dir.endsWith(OUT_ID) ? 'signed-out' : 'signed-in'),
       writeLogin: async () => true,
       signIn: null,
@@ -232,8 +236,8 @@ describe('adding an account', () => {
       store,
       root,
       defaultHome: () => home,
-      defaultEmail: async () => null,
-      profileEmail: async () => null,
+      defaultLogin: async () => null,
+      profileLogin: async () => null,
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
@@ -270,18 +274,55 @@ describe('adding an account', () => {
   })
 
   it.each([
-    ['the default account', 'ME@example.com'],
-    ['an account already added', 'work@example.com'],
-  ])('refuses %s signed in again, removes the folder and says which', async (_name, email) => {
+    ['the default account', 'ME@example.com', 'default'],
+    ['an account already added', 'work@example.com', 'a'.repeat(16)],
+  ])('refuses %s signed in again, removes the folder and says which', async (_name, email, of) => {
     store.add({ id: 'a'.repeat(16), email: 'work@example.com', addedAt: 1 })
     await accounts.add(TARGET)
     signIn(dirOf(), email)
     await vi.advanceTimersByTimeAsync(1000)
     expect(store.accounts()).toHaveLength(1)
-    await vi.waitFor(() => expect(published.at(-1)?.duplicate).toBe(email))
+    await vi.waitFor(() => expect(published.at(-1)?.duplicate).toBe(of))
     expect(existsSync(dirOf())).toBe(false)
     await vi.advanceTimersByTimeAsync(5000)
     expect(published.at(-1)?.duplicate).toBeNull()
+  })
+})
+
+describe('the same login under another address', () => {
+  const WORK_ID = 'a'.repeat(16)
+
+  it('refuses a new profile whose login id is the default account’s', async () => {
+    defaultLogin = { uuid: 'same-id', email: 'me@example.com' }
+    await accounts.add(TARGET)
+    signIn(dirOf(), 'renamed@example.com', 'same-id')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(store.accounts()).toHaveLength(0)
+    await vi.waitFor(() => expect(published.at(-1)?.duplicate).toBe('default'))
+    expect(existsSync(dirOf())).toBe(false)
+  })
+
+  it('flags a listed account that shares the default account’s login and removes nothing', async () => {
+    defaultLogin = { uuid: 'same-id', email: 'me@example.com' }
+    store.add({ id: WORK_ID, email: 'renamed@example.com', addedAt: 1 })
+    uuids.set(join(root, WORK_ID), 'same-id')
+    emails.set(join(root, WORK_ID), 'renamed@example.com')
+    const state = await accounts.state()
+    expect(state.accounts.map((a) => a.sameAs)).toEqual([null, 'default'])
+    expect(store.accounts()).toHaveLength(1)
+  })
+
+  it('flags the later of two listed accounts with one login', async () => {
+    const other = 'b'.repeat(16)
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+    store.add({ id: other, email: 'Work@example.com', addedAt: 2 })
+    const state = await accounts.state()
+    expect(state.accounts.map((a) => a.sameAs)).toEqual([null, null, WORK_ID])
+  })
+
+  it('flags nothing for different logins', async () => {
+    store.add({ id: WORK_ID, email: 'work@example.com', addedAt: 1 })
+    expect((await accounts.state()).accounts.map((a) => a.sameAs)).toEqual([null, null])
   })
 })
 
@@ -345,8 +386,9 @@ describe('boot', () => {
       store: new ClaudeAccountsStore(file),
       root,
       defaultHome: () => home,
-      defaultEmail: async () => 'me@example.com',
-      profileEmail: async (dir) => emails.get(dir) ?? null,
+      defaultLogin: async () => ({ uuid: null, email: 'me@example.com' }),
+      profileLogin: async (dir) =>
+        emails.has(dir) ? { uuid: uuids.get(dir) ?? null, email: emails.get(dir) as string } : null,
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
@@ -484,8 +526,8 @@ describe('a Claude still running after Ostia restarted', () => {
       store: new ClaudeAccountsStore(join(base, 'claude-accounts.json')),
       root,
       defaultHome: () => home,
-      defaultEmail: async () => null,
-      profileEmail: async () => null,
+      defaultLogin: async () => null,
+      profileLogin: async () => null,
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,

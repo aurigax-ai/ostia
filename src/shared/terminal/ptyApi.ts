@@ -93,6 +93,7 @@ interface PtyApi {
   releaseHold: (paneId: string) => void
   retryLink: (paneId: string) => void
   ack: (paneId: string, chars: number) => void
+  cover: (covered: boolean) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
   foreground: (paneId: string) => Promise<string | null>
