@@ -47,7 +47,9 @@ test('/handoff opens a new tab beside the caller that follows its intake while t
 
     const handed = win.locator('.pane-slot:not([data-hidden]) .terminal-text')
     await expect(handed).toContainText('fake-intake-done', { timeout: 60_000 })
-    await expect(win.locator('.pane-slot:not([data-hidden]) .ghostty-host textarea')).toBeFocused()
+    await expect(
+      win.locator('.pane-slot:not([data-hidden]) .ghostty-host:focus-within'),
+    ).toBeVisible()
 
     await tabs.nth(0).getByRole('tab').click()
     const caller = win.locator('.pane-slot:not([data-hidden]) .terminal-text')

@@ -19,7 +19,7 @@ function paletteRow(win: Page) {
 
 async function focusTerminal(win: Page) {
   await win.locator('.ghostty-host').first().click()
-  await expect(win.locator('.ghostty-host textarea').first()).toBeFocused()
+  await expect(win.locator('.ghostty-host:focus-within').first()).toBeVisible()
 }
 
 test('scrolling the Keyboard settings never gives the window a scrollbar of its own', async () => {

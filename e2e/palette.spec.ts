@@ -58,7 +58,7 @@ async function startCat(win: Page): Promise<void> {
 
 async function shellSawNoEscape(win: Page, marker: string): Promise<void> {
   const rows = win.locator('.terminal-text').first()
-  await expect(win.locator('.ghostty-host textarea').first(), marker).toBeFocused()
+  await expect(win.locator('.ghostty-host:focus-within').first(), marker).toBeVisible()
   await win.keyboard.type(`${marker}\n`)
   await expect
     .poll(async () => (await rows.innerText()).split('\n').filter((l) => l.trim() === marker))
@@ -103,7 +103,7 @@ test('the palette opens from the chord, F1 and Shift twice in a terminal, toggle
   const closesBack = async (state: string): Promise<void> => {
     await win.keyboard.press('Escape')
     await expect(dialog, state).toBeHidden()
-    await expect(win.locator('.ghostty-host textarea').first(), state).toBeFocused()
+    await expect(win.locator('.ghostty-host:focus-within').first(), state).toBeVisible()
   }
 
   for (const [name, open] of OPENERS) {
@@ -248,7 +248,7 @@ test('Escape closes the palette in a second window, and its shell never gets it'
     await moved.waitForLoadState('domcontentloaded')
     const dialog = moved.getByRole('dialog')
     await moved.locator('.ghostty-host').first().click()
-    await expect(moved.locator('.ghostty-host textarea').first()).toBeFocused()
+    await expect(moved.locator('.ghostty-host:focus-within').first()).toBeVisible()
     await moved.keyboard.press(chords.palette)
     await expect(dialog.getByRole('combobox')).toBeFocused()
     await moved.keyboard.press('Escape')

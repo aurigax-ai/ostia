@@ -33,7 +33,6 @@ export function attachTerminalText(
 
   const nodes: HTMLElement[] = []
   const texts: string[] = []
-  let visible = shown()
   let committedAt = Number.NEGATIVE_INFINITY
   let timer = 0
 
@@ -51,7 +50,7 @@ export function attachTerminalText(
 
   const commit = (): void => {
     timer = 0
-    if (!visible) return
+    if (!shown()) return
     committedAt = performance.now()
     const shownTerm = source.displayed()
     const buffer = shownTerm.buffer.active
@@ -78,7 +77,7 @@ export function attachTerminalText(
   }
 
   const schedule = (): void => {
-    if (!visible || timer) return
+    if (!shown() || timer) return
     timer = window.setTimeout(commit, Math.max(0, committedAt + STREAM_MS - performance.now()))
   }
 
@@ -95,7 +94,6 @@ export function attachTerminalText(
   return {
     region,
     setShown: (next) => {
-      visible = next
       if (!next) {
         window.clearTimeout(timer)
         timer = 0
