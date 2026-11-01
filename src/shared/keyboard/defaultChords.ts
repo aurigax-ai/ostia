@@ -110,6 +110,7 @@ export const DEFAULT_CHORDS: Readonly<
   'terminal.scrollPageDown': ['Cmd+PageDown', ''],
   'terminal.scrollLineUp': ['', ''],
   'terminal.scrollLineDown': ['', ''],
+  'terminal.reviewOutput': ['Alt+Cmd+O', ''],
   'tab.moveLeft': ['Shift+Cmd+Left', ''],
   'tab.moveRight': ['Shift+Cmd+Right', ''],
   'browser.focusAddress': ['Cmd+L', ['Ctrl+L', 'Ctrl+Shift+L']],

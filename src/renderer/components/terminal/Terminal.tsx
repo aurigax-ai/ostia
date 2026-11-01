@@ -4,7 +4,7 @@ import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'
 import { StatusLine } from '@/components/common/StatusLine'
 import { InputEditor } from '@/components/prompt/InputEditor'
-import { fmt, useDict } from '@/lib/app/useDict'
+import { currentDict, fmt, useDict } from '@/lib/app/useDict'
 import { attachWheelZoom } from '@/lib/app/wheelZoom'
 import { forgetPaneActivity } from '@/lib/attention/paneActivity'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
@@ -24,7 +24,12 @@ import {
 } from '@/lib/terminal/ostiaTerminal'
 import { attachSmoothScroll } from '@/lib/terminal/smoothScroll'
 import { drawOnGpu } from '@/lib/terminal/softwareGl'
-import { registerHistoryScroll, registerTerminal } from '@/lib/terminal/terminalHandles'
+import {
+  registerHistoryScroll,
+  registerTerminal,
+  registerTerminalText,
+} from '@/lib/terminal/terminalHandles'
+import { attachTerminalText, type TerminalText } from '@/lib/terminal/terminalText'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
 import { attachWheelReports } from '@/lib/terminal/wheelReports'
 import { useScheme } from '@/lib/theme/colorScheme'
@@ -158,9 +163,12 @@ function TerminalSurface({ workspaceId, paneId, cwd }: TerminalViewProps): JSX.E
   const [findOpen, setFindOpen] = useState(false)
   const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
+  const [finishNote, setFinishNote] = useState('')
+  const textRef = useRef<TerminalText | null>(null)
   const shown = usePaneVisible(paneId)
   const shownRef = useRef(shown)
   shownRef.current = shown
+  useEffect(() => textRef.current?.setShown(shown), [shown])
   useSurfaceFocus(
     paneId,
     () =>
@@ -193,6 +201,8 @@ function TerminalSurface({ workspaceId, paneId, cwd }: TerminalViewProps): JSX.E
       pasteClipboardRef,
       dismissLinkHintRef,
       findStepRef,
+      textRef,
+      setFinishNote,
       setPendingPaste,
       setSearch,
       setLinkHint,
@@ -223,6 +233,9 @@ function TerminalSurface({ workspaceId, paneId, cwd }: TerminalViewProps): JSX.E
           onPaste={() => pasteClipboardRef.current()}
           trigger={<div ref={hostRef} className="ghostty-host" />}
         />
+        <output className="terminal-announce" aria-live="polite">
+          {finishNote}
+        </output>
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
         <InputEditor
           paneId={paneId}
@@ -285,6 +298,8 @@ interface StartTerminalDeps {
   pasteClipboardRef: { current: () => void }
   dismissLinkHintRef: { current: () => void }
   findStepRef: { current: ((by: number) => void) | null }
+  textRef: { current: TerminalText | null }
+  setFinishNote: (note: string) => void
   setPendingPaste: (text: string | null) => void
   setSearch: (search: TerminalSearch | null) => void
   setLinkHint: (hint: LinkHintBox | null) => void
@@ -349,12 +364,27 @@ function startTerminal(deps: StartTerminalDeps): () => void {
   const bufferChange = term.buffer.onBufferChange((buffer) =>
     setAlternateScreen(buffer.type === 'alternate'),
   )
+  const text = attachTerminalText(
+    host.parentElement ?? host,
+    { term, displayed: history.displayed, onDisplay: history.onDisplay },
+    currentDict().engine.output,
+    () => deps.shownRef.current,
+  )
+  deps.textRef.current = text
+  const unregisterText = registerTerminalText(paneId, text)
+  let finishTick = false
   const shell = createShellIntegration({
     term,
     paneId,
     workspaceIdRef,
     session,
     suppressPrompt: deps.setSuppressedPrompt,
+    commandFinished: (exitCode) => {
+      finishTick = !finishTick
+      deps.setFinishNote(
+        `${fmt(currentDict().engine.finished, { code: exitCode })}${finishTick ? '' : '\u200b'}`,
+      )
+    },
   })
   const detachSignals = attachTerminalSignals({ host, term, paneId, workspaceIdRef, session })
   const unregisterLinks = links.registerProviders()
@@ -384,6 +414,10 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     pasteRef.current = () => {}
     pasteClipboardRef.current = () => {}
     shell.dispose()
+    unregisterText()
+    text.dispose()
+    deps.textRef.current = null
+    deps.setFinishNote('')
     detachSignals()
     unregisterLinks()
     detachWheelZoom()

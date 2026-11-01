@@ -41,12 +41,14 @@ export function createShellIntegration({
   workspaceIdRef,
   session,
   suppressPrompt,
+  commandFinished,
 }: {
   term: OstiaTerminal
   paneId: string
   workspaceIdRef: { current: string }
   session: TerminalSession
   suppressPrompt: (prompt: LineAnchor) => void
+  commandFinished?: (exitCode: number) => void
 }): ShellIntegration {
   const markers = new Set<TerminalMarker>()
   const anchor = (): LineAnchor => {
@@ -76,6 +78,7 @@ export function createShellIntegration({
       whole?.typed ? whole.command : undefined,
     )
     if (!block || session.replaying) return
+    if (isPaneViewed(paneId)) commandFinished?.(exitCode)
     const long = shouldNotifyCommandEnd(
       Date.now() - block.startedAt,
       document.hasFocus(),

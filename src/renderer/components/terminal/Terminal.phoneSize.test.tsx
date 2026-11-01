@@ -164,7 +164,7 @@ describe('TerminalView phone size hold', () => {
     const { paneId, sized } = await shown()
     act(() => sized(40, 20, true))
     act(() => usePhoneSizeStore.getState().byPane[paneId]?.useDesktop())
-    expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30)
+    await waitFor(() => expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30))
   })
 
   it('keeps the hold when the grid change makes the terminal observe itself, and ends it when the pane box changes', async () => {

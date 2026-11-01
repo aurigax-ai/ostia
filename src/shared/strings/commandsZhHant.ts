@@ -151,6 +151,7 @@ export const commandsZhHant: typeof commandsEn = {
       'terminal.scrollPageDown': '往下捲一頁',
       'terminal.scrollPageUp': '往上捲一頁',
       'terminal.scrollToBottom': '捲到最下面',
+      'terminal.reviewOutput': '檢閱終端機輸出',
       'terminal.scrollToTop': '捲到最上面',
       'terminal.showHistory': '顯示較早的輸出',
       'terminal.toggleInputEditor': '切換輸入編輯器',

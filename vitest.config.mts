@@ -20,6 +20,7 @@ export default defineConfig({
     },
   },
   test: {
+    server: { deps: { inline: [/ghostty-vt\.wasm$/] } },
     maxWorkers: 8,
     testTimeout: process.platform === 'darwin' ? 60_000 : 15_000,
     coverage: {

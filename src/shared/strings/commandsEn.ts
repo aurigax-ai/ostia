@@ -149,6 +149,7 @@ export const commandsEn = {
       'terminal.scrollPageDown': 'Scroll Down One Page',
       'terminal.scrollPageUp': 'Scroll Up One Page',
       'terminal.scrollToBottom': 'Scroll to Bottom',
+      'terminal.reviewOutput': 'Review Terminal Output',
       'terminal.scrollToTop': 'Scroll to Top',
       'terminal.showHistory': 'Show Earlier Output',
       'terminal.toggleInputEditor': 'Toggle Input Editor',

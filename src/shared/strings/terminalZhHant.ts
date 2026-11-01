@@ -24,6 +24,8 @@ export const terminalZhHant: typeof terminalEn = {
     previous: '上一個符合項目',
   },
   engine: {
+    output: '終端機輸出',
+    finished: '指令已結束，結束碼 {code}',
     failed: 'Ghostty 無法啟動，此終端機無法開啟：{reason}',
   },
   history: {

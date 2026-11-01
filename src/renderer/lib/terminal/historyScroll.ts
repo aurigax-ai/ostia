@@ -57,6 +57,8 @@ interface Layer {
 }
 
 export interface HistoryScroll {
+  displayed: () => OstiaTerminal
+  onDisplay: (listener: () => void) => () => void
   interceptWheel: (e: WheelEvent) => boolean
   scrollLines: (amount: number) => void
   scrollPages: (count: number) => void
@@ -99,6 +101,10 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
   let noHistoryUntil = 0
   let dropTimer = 0
   let bar: HistoryScrollbar | null = null
+  const displayListeners = new Set<() => void>()
+  const notifyDisplay = (): void => {
+    for (const listener of displayListeners) listener()
+  }
 
   const liveBuffer = (): OstiaTerminal['buffer']['normal'] => term.buffer.normal
 
@@ -172,7 +178,10 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
         return null
       }
       pane.el.style.visibility = 'hidden'
-      pane.term.onScroll(() => onLayerScroll(pane))
+      pane.term.onScroll(() => {
+        onLayerScroll(pane)
+        notifyDisplay()
+      })
       pane.el.addEventListener('focusin', () => queueMicrotask(focusLive))
       panes.push(pane)
     }
@@ -194,6 +203,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     if (!engaged) return
     engaged = false
     if (layer) layer.box.style.visibility = 'hidden'
+    notifyDisplay()
     if (shown()) pause(false)
     if (to === 'bottom') term.scrollToBottom()
     else term.scrollToLine(to)
@@ -257,6 +267,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
         engaged = true
         pause(true)
       }
+      notifyDisplay()
       updateBar()
     } finally {
       busy = false
@@ -400,6 +411,11 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
   ]
 
   return {
+    displayed: () => (engaged ? (visible()?.term ?? term) : term),
+    onDisplay: (listener) => {
+      displayListeners.add(listener)
+      return () => displayListeners.delete(listener)
+    },
     interceptWheel: (e) => {
       if (engaged || e.deltaY >= 0 || e.shiftKey || e.ctrlKey || e.metaKey) return false
       if (!atLiveTop() || Date.now() < noHistoryUntil) return false

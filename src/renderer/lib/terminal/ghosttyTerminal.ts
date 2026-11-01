@@ -398,7 +398,13 @@ export function createGhosttyTerminal(
 
   return {
     term,
-    fit,
+    fit: {
+      proposeDimensions: () => fit.proposeDimensions(),
+      fit: () => {
+        const dims = fit.proposeDimensions()
+        if (dims && (dims.cols !== t.cols || dims.rows !== t.rows)) t.resize(dims.cols, dims.rows)
+      },
+    },
     search: {
       findNext: (text, findOptions) => search.findNext(text, findOptions),
       findPrevious: (text, findOptions) => search.findPrevious(text, findOptions),

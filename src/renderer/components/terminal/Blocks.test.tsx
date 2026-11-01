@@ -50,11 +50,11 @@ const ROW_HEIGHT = 17
 function terminalHost(): { host: HTMLDivElement; measured: () => number } {
   const stack = document.createElement('div')
   const host = document.createElement('div')
-  host.innerHTML = '<div class="xterm-screen"></div>'
+  host.innerHTML = '<div class="ghostty-screen"></div>'
   stack.append(host)
   document.body.append(stack)
   let reads = 0
-  const screen = host.querySelector('.xterm-screen') as HTMLElement
+  const screen = host.querySelector('.ghostty-screen') as HTMLElement
   screen.getBoundingClientRect = () => {
     reads++
     return { top: 0, height: ROW_HEIGHT * 24 } as DOMRect

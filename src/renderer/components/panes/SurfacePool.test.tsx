@@ -2,16 +2,13 @@ import '@testing-library/jest-dom/vitest'
 import { act, cleanup, waitFor } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane, findSplitTabByName, firstPaneId, splitOf } from '@/lib/layout/tree'
+import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { renderSettled } from '../../../../test/render'
 import { SurfacePool } from './SurfacePool'
-
-vi.mock('@/lib/terminal/xtermRenderer', () => ({
-  createXtermRenderer: () => ({ pause: () => {}, dispose: () => {} }),
-}))
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
@@ -49,7 +46,8 @@ describe('SurfacePool', () => {
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    await loadGhostty()
     layoutInit = useLayoutStore.getState()
     workspacesInit = useWorkspacesStore.getState()
     HTMLCanvasElement.prototype.getContext = function getContext(
@@ -82,7 +80,7 @@ describe('SurfacePool', () => {
     useWorkspacesStore.setState(workspacesInit, true)
   })
 
-  it('never fades in the host of a terminal or the manager, which hold an xterm', async () => {
+  it('never fades in the host of a terminal or the manager, which hold a terminal', async () => {
     useWorkspacesStore.setState({
       workspaces: [{ id: 'w1', name: 'me', kind: 'terminal', workDir: '/home/me', state: 'idle' }],
       activeWorkspaceId: 'w1',
@@ -117,17 +115,17 @@ describe('SurfacePool', () => {
     const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
     act(() => deliver('survivor_42\r\n'))
     await waitFor(() => expect(screenText(original)).toContain('survivor_42'))
-    const survivor = surfaceHost(original).querySelector('.xterm')
+    const survivor = surfaceHost(original).querySelector('.ghostty-host')
     expect(survivor).not.toBeNull()
 
     act(() => useLayoutStore.getState().split('w1', original, 'horizontal'))
     const second = useLayoutStore.getState().byWorkspace.w1.activePaneId
     act(() => useLayoutStore.getState().split('w1', second, 'vertical'))
     const third = useLayoutStore.getState().byWorkspace.w1.activePaneId
-    await waitFor(() => expect(surfaceHost(third).querySelector('.xterm')).not.toBeNull())
+    await waitFor(() => expect(surfaceHost(third).querySelector('.ghostty-host')).not.toBeNull())
 
     expect(new Set([original, second, third]).size).toBe(3)
-    expect(surfaceHost(original).querySelector('.xterm')).toBe(survivor)
+    expect(surfaceHost(original).querySelector('.ghostty-host')).toBe(survivor)
     expect(screenText(original)).toContain('survivor_42')
     expect(
       vi.mocked(window.ostia.pty.attach).mock.calls.filter(([paneId]) => paneId === original),
@@ -151,10 +149,12 @@ describe('SurfacePool', () => {
     await waitFor(() => {
       for (const id of panes) expect(attaches(id)).toHaveLength(1)
     })
-    const hosts = panes.map((id) => surfaceHost(id).querySelector('.xterm'))
+    const hosts = panes.map((id) => surfaceHost(id).querySelector('.ghostty-host'))
     expect(hosts).not.toContain(null)
     const expectSameHosts = () => {
-      panes.forEach((id, i) => expect(surfaceHost(id).querySelector('.xterm')).toBe(hosts[i]))
+      panes.forEach((id, i) =>
+        expect(surfaceHost(id).querySelector('.ghostty-host')).toBe(hosts[i]),
+      )
     }
 
     act(() => {

@@ -566,8 +566,9 @@ describe('Pane tab rename', () => {
 
   it('the second click of a double-click does not hand focus back to the terminal', async () => {
     setup()
-    const surface = document.createElement('textarea')
-    surface.className = 'xterm-helper-textarea'
+    const surface = document.createElement('div')
+    surface.className = 'ghostty-host'
+    surface.appendChild(document.createElement('textarea'))
     const host = surfaceHost('r1')
     host.appendChild(surface)
     if (!host.isConnected) document.body.appendChild(host)

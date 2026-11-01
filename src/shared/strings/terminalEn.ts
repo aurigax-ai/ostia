@@ -22,6 +22,8 @@ export const terminalEn = {
     previous: 'Previous match',
   },
   engine: {
+    output: 'Terminal output',
+    finished: 'Command finished, exit {code}',
     failed: 'Ghostty could not start, so this terminal cannot open: {reason}',
   },
   history: {
