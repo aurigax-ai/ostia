@@ -89,7 +89,7 @@ for (const engine of BENCH_ENGINES) {
       await win.waitForLoadState('domcontentloaded')
       await openTerminal(win)
       await win.keyboard.type(
-        `seq -f 'line %g of the bulk output test with some padding text' ${BULK_LINES}; printf '\\033]0;BULKDONE\\007'`,
+        `seq -f 'line %g of the bulk output test with some padding text' ${BULK_LINES}; printf '\\033]0;BULKDONE\\007'; sleep 1`,
       )
       await win.evaluate(() => {
         const w = window as unknown as { __doneAt?: number }

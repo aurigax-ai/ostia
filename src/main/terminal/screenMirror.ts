@@ -4,7 +4,7 @@ import { type CwdReport, parseOsc7 } from '../../shared/terminal/osc7'
 import type { HistoryFeed } from './history/historyFeed'
 import type { PaneBannerText } from './paneBanner'
 
-const MIRROR_SCROLLBACK = 4000
+const MIRROR_SCROLLBACK = 2500
 export const HISTORY_LINES = 1000
 const PROMPT_START = 'A'
 const COMMAND_START = 'C'

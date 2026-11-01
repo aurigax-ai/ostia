@@ -2,7 +2,7 @@ import type { HeadlessTerminal } from '@aurigax-ai/ghostty-web'
 import { createHeadlessTerminal } from '../../../shared/terminal/ghosttyHeadless'
 import { HistorySpill, SPILL_BATCH, type SpillSink } from './historySpill'
 
-export const SPILL_SCROLLBACK = 6 * SPILL_BATCH
+export const SPILL_SCROLLBACK = 4 * SPILL_BATCH
 const MODES_RESET = '\x1b[?1049l\x1b[!p\x1b[0m'
 
 export class SpillTerminal {
