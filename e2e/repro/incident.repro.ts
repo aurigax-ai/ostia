@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { type IncidentScenario, scenarioOf } from '../../test/incidentScenario'
 import {
-  DOM_RENDERER_SETTINGS,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   isolatedLaunch,
   seedSettings,
@@ -53,7 +53,7 @@ function seedProject(dataHome: string): void {
 }
 
 async function waitForProject(win: Page): Promise<void> {
-  await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 20_000 })
+  await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, { timeout: 20_000 })
 }
 
 test('replays an incident report against the built app', async () => {
@@ -72,7 +72,7 @@ test('replays an incident report against the built app', async () => {
   const { scenario } = parsed
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     agents: {
       trustWorkspaceFolders: true,
       ...(scenario.hooksOff ? { hooks: { claude: false } } : {}),
@@ -106,8 +106,8 @@ test('replays an incident report against the built app', async () => {
     await win.waitForLoadState('domcontentloaded')
     if (scenario.replay === 'run-outside') await waitForProject(win)
     else await openWorkspace(win)
-    const caller = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
+    const caller = win.locator('.terminal-text').first()
+    await win.locator('.ghostty-host').first().click()
     await typeLine(win, 'ostia agent run claude go --name worker; echo run-exit-$?')
     await expect(caller).toContainText('run-exit-0', { timeout: 30_000 })
     if (scenario.draft) {
