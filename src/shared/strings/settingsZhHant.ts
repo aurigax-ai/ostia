@@ -296,6 +296,10 @@ export const settingsZhHant: typeof settingsEn = {
       '{product} 提示字元會在輸入編輯器中顯示情境標籤，並讓新的 shell 使用簡易的「目錄」提示字元，讓捲動記錄保持易讀。',
     promptStylePine: '{product} 提示字元',
     promptStyleShell: 'Shell 提示字元',
+    recoveredBody: '無法讀取設定。已將副本儲存為 {path}，並還原為預設值。',
+    recoveredLabel: '設定',
+    recoveredOpen: '開啟副本',
+    recoveredTitle: '設定已重設',
     remote: '遠端',
     remoteAddressUnavailable: '這台電腦已沒有 {address}。請選擇其他位址。',
     remoteAddressWarning:

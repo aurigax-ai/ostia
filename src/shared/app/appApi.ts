@@ -47,6 +47,7 @@ interface SystemApi {
 
 interface SettingsApi {
   path: () => Promise<string>
+  recovered: () => Promise<string | null>
   onChanged: (cb: () => void) => () => void
   setPlaybooks: (playbooks: unknown) => void
 }

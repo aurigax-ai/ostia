@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { chmodSync, readFileSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { app } from 'electron'
 import { parseManagerSettings } from '../../shared/agents/managerSettings'
 
@@ -51,4 +52,35 @@ export function readLocale(): string | undefined {
 
 export function managerSettings() {
   return parseManagerSettings(readSettingsFile().manager)
+}
+
+let recoveredCopy: string | null = null
+
+export function recoveredSettingsCopy(): string | null {
+  return recoveredCopy
+}
+
+export function recoverCorruptSettings(now: () => number = Date.now): void {
+  const file = join(app.getPath('userData'), 'settings.json')
+  let text: string
+  try {
+    text = readFileSync(file, 'utf8')
+  } catch {
+    return
+  }
+  if (text.trim() === '') return
+  try {
+    const parsed: unknown = JSON.parse(text)
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) return
+  } catch {}
+  const copy = `${file}.corrupt-${now()}`
+  try {
+    renameSync(file, copy)
+    chmodSync(copy, 0o600)
+    writeFileAtomic(file, '{}\n')
+  } catch (err) {
+    console.error('[settings] could not set a corrupt settings.json aside', err)
+    return
+  }
+  recoveredCopy = copy
 }

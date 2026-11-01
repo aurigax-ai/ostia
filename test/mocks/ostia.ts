@@ -142,6 +142,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     settings: {
       path: vi.fn().mockResolvedValue('/tmp/ostia-test/settings.json'),
+      recovered: vi.fn().mockResolvedValue(null),
       onChanged: vi.fn(noopUnsub),
       setPlaybooks: vi.fn(),
     },

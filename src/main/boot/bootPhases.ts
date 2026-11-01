@@ -42,7 +42,7 @@ import { listPanes } from '../panes/paneList'
 import { registerPaneMethodsWiring } from '../panes/paneMethodsWiring'
 import { registerParkWiring } from '../park/parkWiring'
 import { storePath } from '../platform/jsonStore'
-import { readLocale, readSettingsFile } from '../platform/settingsFile'
+import { readLocale, readSettingsFile, recoverCorruptSettings } from '../platform/settingsFile'
 import { resolveLoginPath } from '../platform/toolPath'
 import { appDataDir } from '../platform/userDirs'
 import { registerPrivacyIpc } from '../privacy/privacyIpc'
@@ -88,6 +88,7 @@ export function boot(wiring: Wiring): void {
     windowIds,
     windows,
   } = wiring
+  recoverCorruptSettings()
   setPaneIdSalt(loadPaneIdSalt(storePath('pane-id-salt', 'global')))
   const appMenu = installAppMenu(process.platform, {
     productName: PRODUCT_DISPLAY_NAME,

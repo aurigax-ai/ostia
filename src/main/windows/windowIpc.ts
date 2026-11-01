@@ -22,6 +22,7 @@ import { createNativeMenuKey } from '../browser/nativeMenuKeys'
 import { openInExternalEditor } from '../files/externalEditor'
 import type { FileServices } from '../files/filesWiring'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from '../platform/discreteGpu'
+import { recoveredSettingsCopy } from '../platform/settingsFile'
 import { appVersion } from '../updates/appVersion'
 import type { AppQuit } from './appQuit'
 import { type ClipboardEdits, clipboardItemData, registerClipboardEdits } from './clipboardEdits'
@@ -36,6 +37,7 @@ interface WindowIpcDeps {
 export function registerWindowIpc({ requestQuit, broadcast }: WindowIpcDeps) {
   ipcMain.handle('app:ping', () => 'pong' as const)
   ipcMain.handle('settings:path', () => join(app.getPath('userData'), 'settings.json'))
+  ipcMain.handle('settings:recovered', () => recoveredSettingsCopy())
   ipcMain.handle('editor:open-external', (_e, req: ExternalEditorRequest) =>
     openInExternalEditor(req),
   )
