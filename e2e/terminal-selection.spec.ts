@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   CANVAS_RENDERER_SETTINGS,
@@ -8,7 +8,7 @@ import {
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { newTerminal, PROMPT } from './helpers'
+import { newTerminal, PROMPT, terminalRowBox } from './helpers'
 import { _electron as electron, expect, type Page, test } from './test'
 
 const AGENT_PANEL = [55, 55, 55]
@@ -93,13 +93,15 @@ for (const renderer of ['gpu', 'software'] as const) {
       await win.keyboard.press('Enter')
       const sizeFile = join(launch.home, 'agent-size')
       await expect.poll(() => existsSync(sizeFile), { timeout: 15_000 }).toBe(true)
-      await expect(win.locator('.terminal-text').first()).toContainText('agent output line 1')
-      const [rows, cols] = readFileSync(sizeFile, 'utf8').trim().split(' ').map(Number)
+      await expect(win.locator('.terminal-text').first()).toContainText('agent output line 2')
+      const region = win.locator('.pane-slot:not([data-hidden]) .terminal-text').first()
+      const cols = Number(await region.getAttribute('data-cols'))
+      const row = await terminalRowBox(win, /^painted agent output line 2/)
       const box = await screen.boundingBox()
       if (!box) throw new Error('no terminal screen')
       const cellWidth = box.width / cols
-      const cellHeight = box.height / rows
-      const rowCenter = box.y + cellHeight * 1.5
+      const cellHeight = row.height
+      const rowCenter = row.y + row.height / 2
       const colX = (col: number): number => box.x + cellWidth * (col + 0.5)
 
       await win.keyboard.down('Shift')
@@ -114,15 +116,15 @@ for (const renderer of ['gpu', 'software'] as const) {
       await win.keyboard.press('Control+Shift+C')
       await expect
         .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
-        .toContain('agent output line 1')
+        .toContain('agent output line 2')
 
       const png = await screen.screenshot()
       const scale = (png.readUInt32BE(16) || box.width) / box.width
       const band = (from: number, to: number) => ({
         x0: Math.round(cellWidth * from * scale),
         x1: Math.round(cellWidth * to * scale),
-        y0: Math.round(cellHeight * 1 * scale),
-        y1: Math.round(cellHeight * 2 * scale),
+        y0: Math.round((row.y - box.y) * scale),
+        y1: Math.round((row.y - box.y + cellHeight) * scale),
       })
       const [selected, unselected] = await dominantColors(win, png, [band(3, 36), band(40, 58)])
       expect(distance(unselected, AGENT_PANEL)).toBeLessThan(6)
