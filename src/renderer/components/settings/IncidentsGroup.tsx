@@ -6,7 +6,7 @@ import {
 import { useEffect, useState } from 'react'
 import { Segmented } from '@/components/common/Segmented'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
-import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Button } from '@/components/ui/button'
@@ -67,7 +67,7 @@ export function IncidentsGroup(): JSX.Element {
           onChange={setPeriod}
         />
       </ControlRow>
-      <h4 className="mt-3 mb-1.5 font-medium text-fg text-ui-sm">{d.recent}</h4>
+      <SettingsSubgroup title={d.recent} />
       <SettingsList label={d.recent} empty={d.none}>
         {items.map((item) => (
           <SettingsListRow

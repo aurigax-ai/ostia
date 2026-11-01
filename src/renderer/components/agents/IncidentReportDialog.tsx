@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useIncidentReportStore } from '@/stores/agents/incidentReportStore'
@@ -68,9 +69,9 @@ export function IncidentReportDialog(): JSX.Element {
           <DialogDescription>{d.dialogDesc}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-1">
-          <label htmlFor={happenedId} className="text-fg-muted text-ui-xs">
+          <Label htmlFor={happenedId} className="text-fg-muted text-ui-xs">
             {d.happened}
-          </label>
+          </Label>
           <Textarea
             id={happenedId}
             rows={2}
@@ -81,9 +82,9 @@ export function IncidentReportDialog(): JSX.Element {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor={expectedId} className="text-fg-muted text-ui-xs">
+          <Label htmlFor={expectedId} className="text-fg-muted text-ui-xs">
             {d.expected}
-          </label>
+          </Label>
           <Textarea
             id={expectedId}
             rows={2}

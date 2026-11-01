@@ -54,14 +54,14 @@ export interface IncidentTake {
   callers: string[]
 }
 
-export interface IncidentListed {
+interface IncidentListed {
   ref: string
   trigger: string
   agent: string
   ageMs: number
 }
 
-export interface IncidentTotals {
+interface IncidentTotals {
   sinceMin: number
   counts: Record<string, number>
 }

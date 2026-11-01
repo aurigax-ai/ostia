@@ -87,7 +87,7 @@ export interface IncidentSummary {
   count: number
 }
 
-export const TRIGGER_WORDS: Readonly<Record<string, string>> = {
+const TRIGGER_WORDS: Readonly<Record<string, string>> = {
   'call-open': 'A call never returned',
   'slow-call': 'A call was slow',
   'call-cancelled': 'A call was cancelled',
