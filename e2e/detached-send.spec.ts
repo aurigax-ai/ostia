@@ -95,7 +95,17 @@ test('a browser pane moved to its own window sends a picked element to the agent
 
     const bar = detached.getByRole('toolbar', { name: 'Selection actions' })
     await expect(bar).toBeVisible({ timeout: 15_000 })
-    await bar.getByRole('button', { name: 'Add a note' }).click()
+    const addNote = bar.getByRole('button', { name: 'Add a note' })
+    await expect
+      .poll(
+        async () => {
+          await addNote.hover()
+          return addNote.evaluate((el) => el.matches(':hover'))
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true)
+    await addNote.click()
     await detached
       .getByRole('textbox', { name: 'Add a note' })
       .fill('Checkout button is misaligned')
