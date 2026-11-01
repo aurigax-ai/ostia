@@ -89,8 +89,7 @@ describe('installAgyPlugin', () => {
     expect(existsSync(join(config, 'plugins', 'ostia-0000000000000000', 'hooks.json'))).toBe(true)
   })
 
-  it('pins the digest so a changed hook is a deliberate change', () => {
-    expect(agyPluginDigest()).toBe(agyPluginDigest())
+  it('lists the hook events agy runs', () => {
     expect(Object.keys(JSON.parse(agyHooksJson()).ostia)).toEqual([
       'SessionStart',
       'PreInvocation',

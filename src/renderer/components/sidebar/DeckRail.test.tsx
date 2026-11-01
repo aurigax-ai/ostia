@@ -114,7 +114,7 @@ describe('DeckRail', () => {
     vi.restoreAllMocks()
   })
 
-  it('shows a scratch workspace by its flask icon, not a Scratch badge', async () => {
+  it('shows a scratch workspace without a Scratch badge', async () => {
     seedWorkspaces()
     useWorkspacesStore.setState((st) => ({
       workspaces: [
