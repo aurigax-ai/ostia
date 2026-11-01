@@ -289,7 +289,7 @@ for (const engine of BENCH_ENGINES) {
         await expect(busy).toHaveCount(pane, { timeout: 15_000 })
         if (pane === AGENT_PANES) break
         await win.keyboard.press(pane % 2 ? 'Control+Alt+Backslash' : 'Control+Alt+Minus')
-        await expect(win.locator('.pane-tab .title', { hasText: /^zsh$/ })).toHaveCount(1, {
+        await expect(win.locator('.ghostty-host:visible')).toHaveCount(pane + 1, {
           timeout: 15_000,
         })
         await win.waitForTimeout(1_000)
