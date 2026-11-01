@@ -144,8 +144,8 @@ importers:
         specifier: ^4.0.125
         version: 4.0.125(react@18.3.1)(zod@4.6.5)
       '@aurigax-ai/ghostty-web':
-        specifier: 0.3.8
-        version: 0.3.8
+        specifier: 0.3.9
+        version: 0.3.9
       '@aurigax-ai/ostia-extension-sdk':
         specifier: workspace:*
         version: link:packages/extension-sdk
@@ -566,8 +566,8 @@ packages:
   '@asamuzakjp/nwsapi@2.3.9':
     resolution: {integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==}
 
-  '@aurigax-ai/ghostty-web@0.3.8':
-    resolution: {integrity: sha512-8yFg+wVsmtmB4Zki98RgkjISQW94g/ww0TTa1RU1NxJJhMF8MbDNdhyrt0yBsXx1/1BipQqLqpBI8CwSDFs91A==}
+  '@aurigax-ai/ghostty-web@0.3.9':
+    resolution: {integrity: sha512-sNjtUss1+gu67WotmcP4G1T5GV40RkfFIOH/WwuXvYWXI2ut5ktbOUtyfix7o2zsB+s5LFlMkLDj2PuEnSsh6w==}
 
   '@aurigax-ai/wire@0.1.15':
     resolution: {integrity: sha512-IQSew84Rl9D3Px0bkW2zPadB0gYF7FtZCrZv4u+8y5ntCT13Sbff8ACPJiZb738tUWVdbMi9ml58DAIDTI2mAQ==}
@@ -6676,7 +6676,7 @@ snapshots:
 
   '@asamuzakjp/nwsapi@2.3.9': {}
 
-  '@aurigax-ai/ghostty-web@0.3.8': {}
+  '@aurigax-ai/ghostty-web@0.3.9': {}
 
   '@aurigax-ai/wire@0.1.15':
     dependencies:
