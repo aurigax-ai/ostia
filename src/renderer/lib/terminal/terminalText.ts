@@ -69,6 +69,8 @@ export function attachTerminalText(
       nodes.pop()?.remove()
       texts.pop()
     }
+    region.dataset.cols = String(shownTerm.cols)
+    region.dataset.rows = String(rows)
     const top = buffer.viewportY
     for (let y = 0; y < rows; y++) {
       const text = buffer.getLine(top + y)?.translateToString(true) ?? ''

@@ -1,4 +1,4 @@
-import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
 import { addTab, openWorkspace, typeLine } from './helpers'
 import { RED_BLOCKS, redRowGaps } from './pixels'
 import { _electron as electron, expect, test } from './test'
@@ -12,7 +12,6 @@ test('the GPU renderer draws stacked block characters without gaps between rows'
     const win = await app.firstWindow()
     await openWorkspace(win)
     const screen = win.locator('.ghostty-screen').first()
-    await expect(win.locator('.terminal-text')).toHaveCount(0)
     await win.locator('.ghostty-host').first().click()
     await typeLine(win, RED_BLOCKS)
     await expect.poll(async () => redRowGaps(await screen.screenshot(), win)).toBe(0)
@@ -21,7 +20,7 @@ test('the GPU renderer draws stacked block characters without gaps between rows'
   }
 })
 
-test('a hidden xterm pane keeps its WebGL context and draws what it printed once shown', async () => {
+test('a hidden pane keeps its WebGL context and draws what it printed once shown', async () => {
   test.setTimeout(60_000)
   const dataHome = freshDataHome()
   seedSettings(dataHome, { behavior: { gpuAcceleration: true } })
@@ -31,7 +30,7 @@ test('a hidden xterm pane keeps its WebGL context and draws what it printed once
     const win = await app.firstWindow()
     await openWorkspace(win)
     const first = win.locator('.ghostty-host').first()
-    const canvas = first.locator('.ghostty-screen canvas').first()
+    const canvas = first.locator('.ghostty-screen').first()
     await expect(canvas).toHaveCount(1)
     await canvas.evaluate((el) => {
       el.setAttribute('data-kept', 'first')
@@ -47,7 +46,6 @@ test('a hidden xterm pane keeps its WebGL context and draws what it printed once
 
     await tabs.nth(0).click()
     await expect(first.locator('canvas[data-kept="first"]')).toHaveCount(1)
-    await expect(win.locator('.terminal-text')).toHaveCount(0)
     const screen = first.locator('.ghostty-screen')
     await expect.poll(async () => redRowGaps(await screen.screenshot(), win)).toBe(0)
   } finally {

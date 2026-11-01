@@ -38,6 +38,7 @@ import { isLinux, isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
+import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
 import { Blocks } from './Blocks'
 import { findOptions, TerminalFind } from './TerminalFind'
 import { type LinkHintBox, TerminalLinkHint } from './TerminalLinkHint'
@@ -187,7 +188,7 @@ function TerminalSurface({ workspaceId, paneId, cwd }: TerminalViewProps): JSX.E
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
-    return startTerminal({
+    const stop = startTerminal({
       host,
       paneId,
       workspaceIdRef,
@@ -210,6 +211,8 @@ function TerminalSurface({ workspaceId, paneId, cwd }: TerminalViewProps): JSX.E
       setAlternateScreen,
       setSuppressedPrompt,
     })
+    retryPendingFocus()
+    return stop
   }, [paneId])
 
   useEffect(() => () => useHistoryViewStore.getState().close(paneId), [paneId])

@@ -35,6 +35,7 @@ import { livePaneIds } from '@/lib/panes/livePanes'
 import { startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { applyStoredPanelWidths } from '@/lib/panes/panelWidth'
+import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { startKeptReattach } from '@/lib/terminal/keptReattach'
 import { loadLocalHostName } from '@/lib/terminal/osc7'
 import { applyUiFonts, preloadFonts } from '@/lib/theme/uiFonts'
@@ -112,7 +113,12 @@ const root = createRoot(container)
 async function boot(): Promise<void> {
   await initWindow()
   registerWindowCommands(useWindowsStore.getState().detached)
-  await Promise.all([loadLocalHostName(), loadHomeDir(), loadDesktops()])
+  await Promise.all([
+    loadLocalHostName(),
+    loadHomeDir(),
+    loadDesktops(),
+    loadGhostty().catch(() => undefined),
+  ])
   try {
     await useSettingsStore.getState().init()
   } catch (err) {

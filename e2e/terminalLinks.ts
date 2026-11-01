@@ -1,5 +1,5 @@
 import { typeLineToEnd } from './helpers'
-import { type Locator, type Page, expect } from './test'
+import { expect, type Locator, type Page } from './test'
 
 export interface Point {
   x: number
@@ -7,27 +7,32 @@ export interface Point {
 }
 
 export async function linkPoint(win: Page, rowText: RegExp, needle: string): Promise<Point> {
-  const row = win
-    .locator('.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .terminal-text')
-    .first()
-    .locator('div', { hasText: rowText })
-    .first()
+  const slot = win.locator('.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden])')
+  const region = slot.locator('.terminal-text').first()
+  const row = region.locator('div', { hasText: rowText }).first()
   await expect(row).toHaveCount(1, { timeout: 15_000 })
-  const target = await row.evaluate((el, text) => {
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const at = node.textContent?.indexOf(text) ?? -1
-      if (at < 0) continue
-      const range = document.createRange()
-      range.setStart(node, at)
-      range.setEnd(node, at + 1)
-      const rect = range.getBoundingClientRect()
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
-    }
-    return null
-  }, needle)
-  if (!target) throw new Error(`${needle} not found in the row`)
-  return target
+  const located = await region.evaluate(
+    (el, { source, flags, text }) => {
+      const pattern = new RegExp(source, flags)
+      const rows = [...el.children].map((child) => child.textContent ?? '')
+      const index = rows.findIndex((line) => pattern.test(line))
+      return {
+        index,
+        col: index < 0 ? -1 : rows[index].indexOf(text),
+        cols: Number(el.dataset.cols),
+        rowCount: Number(el.dataset.rows),
+      }
+    },
+    { source: rowText.source, flags: rowText.flags, text: needle },
+  )
+  if (located.index < 0 || located.col < 0) throw new Error(`${needle} not found in the row`)
+  const screen = slot.locator('.ghostty-screen').first()
+  return cellPoint(
+    screen,
+    { rows: located.rowCount, cols: located.cols },
+    located.col,
+    located.index,
+  )
 }
 
 export async function printOnFirstRow(win: Page, screen: Locator, text: string): Promise<Point> {
