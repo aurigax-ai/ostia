@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { parseAgentHooks } from '../../shared/agents/agentHooks'
+import { isResumableAgent } from '../../shared/agents/agentResume'
+import { parsePrivacySettings } from '../../shared/privacy/redaction'
 import { parseScrollbackHistory } from '../../shared/terminal/scrollbackHistory'
 import { startAgent } from '../agent/agentWiring'
 import { registerAgentTranscriptIpc } from '../agents/agentTranscript'
@@ -22,7 +24,7 @@ import { registerBrowserGuestIpc } from '../browser/browserGuestIpc'
 import { registerBrowserWiring } from '../browser/browserWiring'
 import { startChat } from '../chat/chatWiring'
 import { startControlServer } from '../control/controlWiring'
-import { setPaneIdSalt } from '../control/idRegistry'
+import { getByPaneId, resolveExternal, setPaneIdSalt } from '../control/idRegistry'
 import { loadPaneIdSalt } from '../control/paneIdSalt'
 import {
   AGENT_JOURNAL_FILE_NAME,
@@ -33,6 +35,8 @@ import {
 import { createAppLog, LOG_FILE_NAME } from '../diagnostics/appLog'
 import { registerDiagnostics } from '../diagnostics/diagnostics'
 import { registerGpuReport } from '../diagnostics/gpuReport'
+import { registerIncidentIpc } from '../diagnostics/incidentIpc'
+import { createIncidentTimeline } from '../diagnostics/incidentTimeline'
 import { registerTelemetry, TELEMETRY_FILE } from '../diagnostics/telemetry'
 import { extensionHostParts, startExtensionHost } from '../extensions/extensionWiring'
 import { startMarketplace } from '../extensions/marketplace/marketplaceWiring'
@@ -87,6 +91,7 @@ export function boot(wiring: Wiring): void {
     handleQuitSignals,
     isWaking,
     mainStrings,
+    openExternalSafe,
     openSettingsInFocusedWindow,
     ptyPid,
     reachesPane,
@@ -114,11 +119,16 @@ export function boot(wiring: Wiring): void {
   })
   const logDir = join(app.getPath('userData'), 'logs')
   services.appLog = createAppLog(join(logDir, LOG_FILE_NAME))
+  services.incidents = createIncidentTimeline({
+    now: Date.now,
+    snapshot: (paneId) => services.incidentSnapshot(paneId),
+  })
   services.agentJournal = createAgentJournal(
     createAppLog(join(logDir, AGENT_JOURNAL_FILE_NAME), {
       maxBytes: AGENT_JOURNAL_MAX_BYTES,
       keep: AGENT_JOURNAL_KEEP,
     }),
+    services.incidents,
   )
   void resolveLoginPath().then(({ path, ms }) =>
     services.appLog?.info('login-path', { found: path !== null, ms }),
@@ -181,6 +191,23 @@ export function boot(wiring: Wiring): void {
   registerSelectionIpc(reachesPane, redactor.text, () => services.files?.viewers ?? null)
   registerArtifactViewIpc({ ...wiring })
   registerPrivacyIpc(redactor)
+  if (services.incidents) {
+    registerIncidentIpc({
+      incidents: services.incidents,
+      redact: redactor.redact,
+      appWindows: () => windows.values(),
+      externalOf: (ref) => getByPaneId(ref)?.externalId ?? resolveExternal(ref)?.externalId,
+      agentOf: async (id) =>
+        (await services.incidentSnapshot(id))?.agent ??
+        (resolveExternal(id)?.kind === 'pane' ? 'other' : undefined),
+      settings: (agent) => ({
+        hooks: isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
+        redaction: parsePrivacySettings(readSettingsFile().privacy).redaction.enabled,
+      }),
+      app: appVersion,
+      openExternal: openExternalSafe,
+    })
+  }
   registerApprovalsWiring({ ...wiring })
   startUpdates({ ...wiring })
   registerAgentTranscriptIpc()

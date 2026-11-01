@@ -524,6 +524,13 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       exportMarkdown: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
       saveFile: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
     },
+    incidents: {
+      list: vi.fn().mockResolvedValue([]),
+      report: vi.fn().mockResolvedValue(null),
+      save: vi.fn().mockResolvedValue(false),
+      openIssue: vi.fn().mockResolvedValue(false),
+      clear: vi.fn().mockResolvedValue(true),
+    },
     privacy: {
       kinds: vi.fn().mockResolvedValue([]),
       redact: vi.fn(async (texts: string[]) =>

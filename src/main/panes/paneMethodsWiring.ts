@@ -2,19 +2,21 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { parseAgentHooks } from '../../shared/agents/agentHooks'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import { finishedHibernateMinutes } from '../../shared/agents/finishedHibernate'
+import type { IncidentSnapshot } from '../../shared/agents/incident'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import type { CommandTarget } from '../../shared/control/commands'
 import { statusLine } from '../../shared/panes/paneStatus'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { AgentWiring } from '../agents/agentWiring'
 import { type ReportedAgentWork, readProcessTable } from '../agents/agentWork'
-import { postEvent } from '../agents/busStore'
+import { postEvent, queuedCounts } from '../agents/busStore'
 import { readTail, transcriptPath } from '../agents/transcriptFiles'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
 import { getByPaneId, type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { AgentJournal } from '../diagnostics/agentJournal'
+import type { IncidentTimeline } from '../diagnostics/incidentTimeline'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { worktreeKey } from '../git/repo'
 import { readSettingsFile } from '../platform/settingsFile'
@@ -36,7 +38,12 @@ import { listPanes } from './paneList'
 import { registerPaneMoveToMethods } from './paneMoveTo'
 import { nameOf } from './paneNames'
 import type { PaneReachDeps } from './paneReach'
-import { collectStatus, type PaneStatusDeps, registerPaneStatusMethods } from './paneStatus'
+import {
+  collectStatus,
+  type PaneStatusDeps,
+  paneStateOf,
+  registerPaneStatusMethods,
+} from './paneStatus'
 import { registerPaneTranscriptMethods } from './paneTranscript'
 import { type PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { wakeHibernatedPane } from './paneWake'
@@ -63,6 +70,8 @@ interface PaneMethodsWiringDeps {
   services: {
     extensionHost: ExtensionHost | null
     agentJournal: AgentJournal | null
+    incidents: IncidentTimeline | null
+    incidentSnapshot: (paneId: string) => Promise<IncidentSnapshot | undefined>
   }
   scratchFolders: ScratchFolders
   workspaceCommandTarget: (workspaceId: string) => CommandTarget
@@ -262,6 +271,31 @@ export function registerPaneMethodsWiring({
     },
   })
   paneJournal.subscribe(paneEvents.onJournal)
+  services.incidentSnapshot = async (externalId) => {
+    const found = resolveExternal(externalId)
+    if (found?.kind !== 'pane') return undefined
+    const entry = (await listAll()).find((p) => p.paneId === externalId)
+    if (!entry) return undefined
+    const exited = paneExited(found.paneId)
+    return {
+      agent: !entry.agent ? 'none' : isResumableAgent(entry.agent) ? entry.agent : 'other',
+      state: paneStateOf(entry, exited),
+      drafting: ptys.get(found.paneId)?.input.drafting() === true,
+      mail: Math.min(queuedCounts().get(externalId) ?? 0, 999),
+      alive: !exited,
+    }
+  }
+  paneJournal.subscribe((paneId, event) => {
+    const external = getByPaneId(paneId)?.externalId
+    if (external && event.kind === 'state') {
+      services.incidents?.state(external, event.state, event.from)
+    }
+  })
+  paneWatch.tap((paneId, change) => {
+    if (change.kind !== 'closed') return
+    const external = getByPaneId(paneId)?.externalId
+    if (external) services.incidents?.forget(external)
+  })
   paneWatch.tap(paneEvents.onChange)
   registerPaneWatchMethods(paneReachDeps)
 

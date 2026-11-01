@@ -11,6 +11,7 @@ import type { Reach } from '../approvals/reach'
 import { registerAttentionMethods, targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
 import { getByPaneId } from '../control/idRegistry'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { ManagerService } from '../manager/manager'
@@ -60,6 +61,7 @@ interface AgentWiringDeps {
     telemetry: Telemetry | null
     extensionHost: ExtensionHost | null
     refreshResume: ((paneId: string) => Promise<void>) | null
+    agentJournal: AgentJournal | null
   }
   paneWaking: PaneWaking
   startedAgents: Set<string>
@@ -117,6 +119,7 @@ export function registerAgentWiring({
   registerAttentionMethods({
     execCommand,
     reported: (paneId) => keptAttention.reported(paneId),
+    journal: services.agentJournal ?? undefined,
     closing: (paneId, state, message, stop) => paneJournal.report(paneId, state, message, stop),
   })
   registerAgentWorkMethods(agentWork)

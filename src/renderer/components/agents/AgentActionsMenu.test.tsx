@@ -61,7 +61,7 @@ describe('AgentActionsMenu', () => {
   it('lists Fork then Park, with no chord and no hint on an enabled item', async () => {
     await open()
     const items = await screen.findAllByRole('menuitem')
-    expect(items.map((i) => i.textContent)).toEqual(['Fork', 'Park'])
+    expect(items.map((i) => i.textContent)).toEqual(['Fork', 'Park', 'Report this stall…'])
     expect(items[1]).not.toHaveAttribute('aria-disabled', 'true')
   })
 
@@ -85,7 +85,7 @@ describe('AgentActionsMenu', () => {
     seed(bare)
     const { user } = await open(bare)
     const items = await screen.findAllByRole('menuitem')
-    expect(items).toHaveLength(1)
+    expect(items).toHaveLength(2)
     expect(items[0]).toHaveAttribute('aria-disabled', 'true')
     expect(items[0]).toHaveTextContent('Park')
     expect(items[0]).not.toHaveTextContent('no agent is running in it')
@@ -144,7 +144,12 @@ describe('AgentActionsMenu', () => {
       const openPalette = vi.spyOn(useUIStore.getState(), 'openPalette')
       const { user } = await open()
       const items = await screen.findAllByRole('menuitem')
-      expect(items.map((i) => i.textContent)).toEqual(['Fork', 'Hand off', 'Park'])
+      expect(items.map((i) => i.textContent)).toEqual([
+        'Fork',
+        'Hand off',
+        'Park',
+        'Report this stall…',
+      ])
       await user.click(items[1])
       expect(openPalette).toHaveBeenCalledWith('search', 'Hand off…')
     })
@@ -153,7 +158,7 @@ describe('AgentActionsMenu', () => {
       on = false
       await open()
       const items = await screen.findAllByRole('menuitem')
-      expect(items.map((i) => i.textContent)).toEqual(['Fork', 'Park'])
+      expect(items.map((i) => i.textContent)).toEqual(['Fork', 'Park', 'Report this stall…'])
     })
 
     it('is not there for a scratch workspace or a pane that is not a Claude session', async () => {

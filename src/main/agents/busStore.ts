@@ -233,7 +233,7 @@ function deliverMail(mail: Mail, via: MailVia, at: string): void {
 function failMail(mail: Mail, reason: string, at: string): void {
   mail.reason = reason
   mail.failedAt = at
-  journal?.mail(reason, Date.parse(at) - Date.parse(mail.ts))
+  journal?.mail(reason, Date.parse(at) - Date.parse(mail.ts), mail.to)
   settle(mail, 'failed')
 }
 
@@ -342,7 +342,7 @@ export function sweepBus(now = Date.now()): void {
   const at = new Date(now).toISOString()
   for (const mail of store().mail) {
     if (mail.state === 'leased' && (mail.leasedUntil ?? 0) <= now) {
-      journal?.leaseTimeout(now - Date.parse(mail.ts))
+      journal?.leaseTimeout(now - Date.parse(mail.ts), mail.to)
       mail.state = 'queued'
       mail.lease = undefined
       mail.leasedUntil = undefined
