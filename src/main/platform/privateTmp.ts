@@ -38,11 +38,7 @@ export function privateRunDir(
   home: string = homedir(),
 ): string {
   if (platform === 'darwin') {
-    try {
-      return ownedPrivateDir(join(appDataDir(env, home), 'run', name), process.getuid?.() ?? 0)
-    } catch (err) {
-      console.error(`[platform] ${name} stays in the temp folder:`, err)
-    }
+    return ownedPrivateDir(join(appDataDir(env, home), 'run', name), process.getuid?.() ?? 0)
   }
   return privateTmpDir(`${PRODUCT_NAME}-${name}`)
 }
