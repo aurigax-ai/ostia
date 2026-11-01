@@ -57,7 +57,7 @@ export async function waitForTerminalFocus(win: Page): Promise<void> {
   await expect
     .poll(() =>
       win.evaluate(
-        () => document.activeElement?.classList.contains('ghostty-host textarea') ?? false,
+        () => document.activeElement?.matches('.ghostty-host, .ghostty-host *') ?? false,
       ),
     )
     .toBe(true)

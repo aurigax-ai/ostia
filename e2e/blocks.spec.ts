@@ -38,7 +38,7 @@ test(
       await expect
         .poll(() =>
           win.evaluate(
-            () => document.activeElement?.classList.contains('ghostty-host textarea') ?? false,
+            () => document.activeElement?.matches('.ghostty-host, .ghostty-host *') ?? false,
           ),
         )
         .toBe(true)

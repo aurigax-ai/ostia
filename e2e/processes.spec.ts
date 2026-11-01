@@ -14,7 +14,7 @@ function callerHasFocus(win: Page): Promise<boolean> {
   return win.evaluate(() => {
     const active = document.activeElement
     return (
-      active?.classList.contains('ghostty-host textarea') === true &&
+      active?.matches('.ghostty-host, .ghostty-host *') === true &&
       active.closest('.ghostty-host') === document.querySelectorAll('.ghostty-host')[0]
     )
   })

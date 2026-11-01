@@ -6,7 +6,7 @@ import { type Page, _electron as electron, expect, test } from './test'
 const shownTerminalFocused = (win: Page) =>
   win.waitForFunction(() => {
     const el = document.activeElement
-    if (!el?.classList.contains('ghostty-host textarea')) return false
+    if (!el?.matches('.ghostty-host, .ghostty-host *')) return false
     const term = el.closest('.ghostty-host')
     return term instanceof HTMLElement && term.offsetParent !== null
   })

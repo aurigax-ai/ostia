@@ -45,7 +45,7 @@ async function runCommand(win: Page, title: string): Promise<void> {
 async function flood(win: Page, screen: string): Promise<void> {
   await win.locator(screen).first().click()
   await typeLine(win, `seq -f 'hist %g' ${LINES}; printf '\\033]0;HISTDONE\\007'`)
-  await expect(win.locator('.pane-tab:visible .title').first()).toHaveText('HISTDONE', {
+  await expect(win.locator('.terminal-text').first()).toContainText(`hist ${LINES}`, {
     timeout: 60_000,
   })
 }

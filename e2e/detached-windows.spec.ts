@@ -15,7 +15,7 @@ async function typeInTerminal(win: Page, text: string): Promise<void> {
   await expect
     .poll(() =>
       win.evaluate(
-        () => document.activeElement?.classList.contains('ghostty-host textarea') ?? false,
+        () => document.activeElement?.matches('.ghostty-host, .ghostty-host *') ?? false,
       ),
     )
     .toBe(true)

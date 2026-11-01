@@ -2577,7 +2577,6 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: pre;
-  outline: none;
 }
 
 .manager-host {

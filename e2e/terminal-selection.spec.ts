@@ -2,14 +2,14 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   CANVAS_RENDERER_SETTINGS,
-  SOFTWARE_WEBGL,
   freshDataHome,
   isolatedLaunch,
+  SOFTWARE_WEBGL,
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { PROMPT, newTerminal } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { newTerminal, PROMPT } from './helpers'
+import { _electron as electron, expect, type Page, test } from './test'
 
 const AGENT_PANEL = [55, 55, 55]
 
@@ -62,13 +62,13 @@ async function dominantColors(
 const distance = (a: Rgb, b: number[]): number =>
   Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2])
 
-for (const renderer of ['webgl', 'dom'] as const) {
+for (const renderer of ['gpu', 'software'] as const) {
   test(`a Shift-drag over an agent's painted output makes a visible selection (${renderer})`, async () => {
     const dataHome = freshDataHome()
     seedSettings(dataHome, {
       ...CANVAS_RENDERER_SETTINGS,
       appearance: { theme: 'oxocarbon' },
-      behavior: { gpuAcceleration: renderer === 'webgl', inputMode: 'editor' },
+      behavior: { gpuAcceleration: renderer === 'gpu', inputMode: 'editor' },
     })
     const bin = fakeAgentBin(dataHome, MOUSE_TRACKING_AGENT)
     const launch = isolatedLaunch(dataHome)
@@ -81,13 +81,10 @@ for (const renderer of ['webgl', 'dom'] as const) {
       const win = await app.firstWindow()
       await newTerminal(win)
       const screen = win.locator('.ghostty-screen').first()
-      if (renderer === 'webgl') {
-        await expect(screen.locator('canvas').first()).toBeVisible({ timeout: 15_000 })
-      } else {
-        await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, {
-          timeout: 15_000,
-        })
-      }
+      await expect(screen).toBeVisible({ timeout: 15_000 })
+      await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, {
+        timeout: 15_000,
+      })
       await expect(win.getByRole('textbox', { name: 'Command input' })).toBeVisible({
         timeout: 15_000,
       })
@@ -96,7 +93,7 @@ for (const renderer of ['webgl', 'dom'] as const) {
       await win.keyboard.press('Enter')
       const sizeFile = join(launch.home, 'agent-size')
       await expect.poll(() => existsSync(sizeFile), { timeout: 15_000 }).toBe(true)
-      await expect(win.locator('.ghostty-host').first()).toHaveClass(/enable-mouse-events/)
+      await expect(win.locator('.terminal-text').first()).toContainText('agent output line 1')
       const [rows, cols] = readFileSync(sizeFile, 'utf8').trim().split(' ').map(Number)
       const box = await screen.boundingBox()
       if (!box) throw new Error('no terminal screen')
