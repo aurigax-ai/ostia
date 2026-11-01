@@ -153,7 +153,7 @@ export function createQuitTeardown({
     portForwarder.stopAll()
     services.gitService?.stop()
     services.portsService?.stop()
-    services.extensionHost?.processes.stopAll()
+    await services.extensionHost?.processes.stopAll()
     services.mcpOAuth?.closeAll()
     services.mcpHost?.closeAll()
     services.viewHost?.stop()
