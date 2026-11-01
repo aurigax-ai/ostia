@@ -91,7 +91,6 @@ for (const engine of BENCH_ENGINES) {
       await win.keyboard.type(
         `seq -f 'line %g of the bulk output test with some padding text' ${BULK_LINES}; printf '\\033]0;BULKDONE\\007'`,
       )
-      const title = win.locator('.pane-tab .title').first()
       await win.evaluate(() => {
         const w = window as unknown as { __doneAt?: number }
         const el = document.querySelector('.pane-tab .title')
@@ -104,7 +103,14 @@ for (const engine of BENCH_ENGINES) {
       await win.evaluate(PAGE_PROBE)
       const startAt = await win.evaluate(() => performance.now())
       await win.keyboard.press('Enter')
-      await expect(title).toHaveText('BULKDONE', { timeout: 100_000 })
+      await expect
+        .poll(
+          () => win.evaluate(() => (window as unknown as { __doneAt?: number }).__doneAt ?? 0),
+          {
+            timeout: 100_000,
+          },
+        )
+        .toBeGreaterThan(0)
       const doneAt = await win.evaluate(() => (window as unknown as { __doneAt: number }).__doneAt)
       const main = await app.evaluate(
         () => (globalThis as unknown as { __mainBench: Metrics }).__mainBench,
