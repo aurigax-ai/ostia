@@ -1,4 +1,4 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
 import { openWorkspace, PROMPT } from './helpers'
 import { _electron as electron, expect, type Locator, type Page, test } from './test'
@@ -16,12 +16,12 @@ const AGENT = [
 ].join('\n')
 
 function shownRows(win: Page): Locator {
-  return win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()
+  return win.locator('.pane-slot:not([data-hidden]) .terminal-text').last()
 }
 
 test('hibernating a tab kept awake ends keep-awake', async () => {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
   const bin = fakeAgentBin(dataHome, AGENT)
   const options = isolatedLaunch(dataHome)
   const app = await electron.launch({
@@ -37,7 +37,7 @@ test('hibernating a tab kept awake ends keep-awake', async () => {
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     await expect(shownRows(win)).toContainText(PROMPT, { timeout: 15_000 })
-    await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
+    await win.locator('.pane-slot:not([data-hidden]) .ghostty-host').last().click()
     await win.keyboard.type('claude')
     await win.keyboard.press('Enter')
     await expect(shownRows(win)).toContainText(`${MARK} up`, { timeout: 15_000 })

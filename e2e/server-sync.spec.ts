@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { API_HOST, type RunningServer, startServer } from './serverHarness'
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
@@ -21,7 +21,7 @@ interface Machine {
 async function launchMachine(server: RunningServer): Promise<Machine> {
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     appearance: { followSystem: false, theme: SEEDED_THEME },
   })
   const launch = isolatedLaunch(dataHome)

@@ -2,8 +2,8 @@ import {
   chmodSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
@@ -11,7 +11,7 @@ import { join, resolve } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 const FAKE_SSH_BIN = resolve(__dirname, '../test/fixtures/ssh/bin')
 const SSH_CAPTURES = resolve(__dirname, '../test/fixtures/ssh')
@@ -72,16 +72,16 @@ async function sessionInProject(): Promise<Session> {
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
   await approveNativeDialogs(app)
-  await win.locator('.xterm').first().click()
+  await win.locator('.ghostty-host').first().click()
   await win.keyboard.type('ostia ssh connect db')
   await win.keyboard.press('Enter')
-  await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 40_000 })
+  await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 40_000 })
   const sshPane = win.locator('[data-pane-id]').filter({ hasText: 'fake ssh session' })
-  await expect(sshPane.locator('.xterm-rows')).toContainText('remote$', { timeout: 40_000 })
-  await sshPane.locator('.xterm').click()
+  await expect(sshPane.locator('.terminal-text')).toContainText('remote$', { timeout: 40_000 })
+  await sshPane.locator('.ghostty-host').click()
   await win.keyboard.type('cd ~/project && echo in-$((40+2))')
   await win.keyboard.press('Enter')
-  await expect(sshPane.locator('.xterm-rows')).toContainText(/in-42\s*remote\$/, {
+  await expect(sshPane.locator('.terminal-text')).toContainText(/in-42\s*remote\$/, {
     timeout: 15_000,
   })
   return { app, win, remoteHome, project, sshLog }

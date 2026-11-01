@@ -1,13 +1,13 @@
 import { isolatedLaunch } from './dataHome'
 import { newTerminalWorkspace, openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 function otherWorkspaceRow(win: Page) {
   return win.locator('.rail-row .rail-tab:not(.active) .rail-tab-main')
 }
 
 function shownRows(win: Page) {
-  return win.locator('.workzone-workspace:not([data-hidden]) .xterm-rows')
+  return win.locator('.workzone-workspace:not([data-hidden]) .terminal-text')
 }
 
 test('typing right after a click on a workspace row lands in its active terminal', async () => {

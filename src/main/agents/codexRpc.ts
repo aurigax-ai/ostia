@@ -54,25 +54,30 @@ export function connectCodexRpc(
         })
       })
     ws.on('message', (data) => {
+      let message: {
+        id?: number
+        method?: string
+        params?: unknown
+        result?: unknown
+        error?: { message?: string }
+      }
       try {
-        const message = JSON.parse(String(data)) as {
-          id?: number
-          method?: string
-          params?: unknown
-          result?: unknown
-          error?: { message?: string }
-        }
-        if (typeof message.method === 'string') {
-          if (message.id === undefined) onNotice?.(message.method, message.params)
-          return
-        }
-        const entry = message.id === undefined ? undefined : pending.get(message.id)
-        if (!entry || message.id === undefined) return
-        pending.delete(message.id)
-        clearTimeout(entry.timer)
-        if (message.error) entry.reject(new Error(message.error.message ?? 'codex refused'))
-        else entry.resolve(message.result)
-      } catch {}
+        message = JSON.parse(String(data))
+      } catch (err) {
+        if (err instanceof SyntaxError) return
+        throw err
+      }
+      if (typeof message !== 'object' || message === null) return
+      if (typeof message.method === 'string') {
+        if (message.id === undefined) onNotice?.(message.method, message.params)
+        return
+      }
+      const entry = message.id === undefined ? undefined : pending.get(message.id)
+      if (!entry || message.id === undefined) return
+      pending.delete(message.id)
+      clearTimeout(entry.timer)
+      if (message.error) entry.reject(new Error(message.error.message ?? 'codex refused'))
+      else entry.resolve(message.result)
     })
     ws.on('close', () => {
       fail(new Error('codex closed the connection'))

@@ -1,5 +1,5 @@
-import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { OstiaTerminal as Terminal } from '@/lib/terminal/ostiaTerminal'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { wirePaneRunBridge } from './paneRunBridge'

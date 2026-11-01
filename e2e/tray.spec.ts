@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
@@ -9,15 +9,15 @@ async function launch() {
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, closeToTray: true },
+    ...CANVAS_RENDERER_SETTINGS,
+    workspaces: { ...CANVAS_RENDERER_SETTINGS.workspaces, closeToTray: true },
   })
   const launchOptions = isolatedLaunch(dataHome)
   const app = await electron.launch({ ...launchOptions, env: { ...launchOptions.env, HOME: home } })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
-  await win.locator('.xterm').first().click()
+  await win.locator('.ghostty-host').first().click()
   return { app, win }
 }
 
@@ -40,7 +40,7 @@ test('MGR-C1 closing the window with close-to-tray on hides it and the shell kee
     await app.evaluate(({ BrowserWindow }) => {
       for (const w of BrowserWindow.getAllWindows()) w.show()
     })
-    await expect(win.locator('.xterm-rows').first()).toContainText('after_hide_42', {
+    await expect(win.locator('.terminal-text').first()).toContainText('after_hide_42', {
       timeout: 15_000,
     })
     expect(win.isClosed()).toBe(false)

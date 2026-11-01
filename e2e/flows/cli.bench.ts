@@ -5,7 +5,7 @@ import { expect, type Page, test } from '../test'
 import { launchPlain } from './flowApp'
 import { RUNS, Samples, WARMUP } from './flowResults'
 
-const SHOWN_ROWS = '.pane-slot:not([data-hidden]) .xterm-rows'
+const SHOWN_ROWS = '.pane-slot:not([data-hidden]) .terminal-text'
 const TURN_AGENT = `#!/bin/sh
 ${REPORT_SESSION}
 ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" state done >/dev/null 2>&1

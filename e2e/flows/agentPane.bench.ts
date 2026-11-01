@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from '../chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from '../dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, seedSettings } from '../dataHome'
 import { startFakeProvider } from '../fakeProvider'
 import { openWorkspace, quitApp } from '../helpers'
 import { expect, test } from '../test'
@@ -15,7 +15,7 @@ test('bench agent pane: prompt to first streamed token', async () => {
   const project = join(dataHome, 'userData', 'project')
   mkdirSync(project, { recursive: true })
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     workspaces: { confirmQuit: false, defaultFolder: project },
     agent: {
       providers: [{ id: 'fake', name: 'Fake', baseUrl: provider.url, models: ['fake-model'] }],

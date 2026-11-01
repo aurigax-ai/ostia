@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { SearchAddon } from '@xterm/addon-search'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FindStepRef } from '@/components/common/FindBar'
+import type { TerminalSearch as SearchAddon } from '@/lib/terminal/ostiaTerminal'
 import { TerminalFind } from './TerminalFind'
 
 afterEach(cleanup)

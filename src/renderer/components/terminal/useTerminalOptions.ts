@@ -1,6 +1,5 @@
-import type { FontWeight } from '@xterm/xterm'
 import { useEffect } from 'react'
-import type { OstiaTerminal, TerminalOptions } from '@/lib/terminal/ostiaTerminal'
+import type { FontWeight, OstiaTerminal, TerminalOptions } from '@/lib/terminal/ostiaTerminal'
 import { currentScheme, terminalTheme } from '@/lib/theme/colorScheme'
 import type { TerminalColors } from '@/lib/theme/types'
 import { terminalFontStack } from '@/lib/theme/uiFonts'

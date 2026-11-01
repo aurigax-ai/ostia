@@ -103,10 +103,10 @@ test('bench restore: saved workspace with a split tab and two more tabs to shown
     await openWorkspace(seed.win)
     for (const count of [2, 3]) {
       await seed.win.keyboard.press(chords.newTab)
-      await expect(seed.win.locator('.xterm')).toHaveCount(count, { timeout: 15_000 })
+      await expect(seed.win.locator('.ghostty-host')).toHaveCount(count, { timeout: 15_000 })
     }
     await seed.win.keyboard.press(chords.splitRight)
-    await expect(seed.win.locator('.xterm')).toHaveCount(4, { timeout: 15_000 })
+    await expect(seed.win.locator('.ghostty-host')).toHaveCount(4, { timeout: 15_000 })
     await seed.win.waitForTimeout(1_500)
   } finally {
     await quitApp(seed.app)

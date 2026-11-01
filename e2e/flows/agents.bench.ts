@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, HIBERNATE_FAST, seedSettings } from '../dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, HIBERNATE_FAST, seedSettings } from '../dataHome'
 import { fakeAgentBin, REPORT_SESSION } from '../fakeAgent'
 import { openWorkspace, quitApp, runInTerminal, shownTerminal, typeLine } from '../helpers'
 import { expect, type Page, test } from '../test'
@@ -8,8 +8,8 @@ import { launchPlain, measure, shownRows } from './flowApp'
 import { RUNS, Samples, WARMUP } from './flowResults'
 
 const OSTIA = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"'
-const SHOWN_ROWS = '.pane-slot:not([data-hidden]) .xterm-rows'
-const SETTINGS = { ...DOM_RENDERER_SETTINGS, hibernation: HIBERNATE_FAST }
+const SHOWN_ROWS = '.pane-slot:not([data-hidden]) .terminal-text'
+const SETTINGS = { ...CANVAS_RENDERER_SETTINGS, hibernation: HIBERNATE_FAST }
 
 function resumableAgent(): string {
   return `#!/bin/sh

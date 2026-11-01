@@ -10,8 +10,8 @@ test('ostia pane move --tab moves running panes into a split tab and back out', 
     await openWorkspace(win)
     const strip = win.getByRole('tablist')
     const tabs = strip.getByRole('tab')
-    const caller = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
+    const caller = win.locator('.terminal-text').first()
+    await win.locator('.ghostty-host').first().click()
 
     await typeLine(win, 'ostia process run "sleep 300" --name w1')
     await typeLine(win, 'ostia process run "sleep 300" --name w2')

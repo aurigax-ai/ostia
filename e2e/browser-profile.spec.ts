@@ -1,11 +1,11 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
-import { type Server, createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { launchWindow, openWorkspace, quitApp, readPaneEnv } from './helpers'
-import { type Page, expect, test } from './test'
+import { expect, type Page, test } from './test'
 
 const CLI = resolve(__dirname, '../out/cli/index.js')
 const COOKIE = 'ostia_profile=kept'
@@ -71,14 +71,14 @@ test('the human’s browser panes share one profile that survives a restart, and
   const server = await serve(seen)
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, capabilities: { grants: ['browse'] } })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, capabilities: { grants: ['browse'] } })
 
   const first = await launchWindow(dataHome)
   try {
     const { win } = first
     await openWorkspace(win)
     const envFile = join(dataHome, 'pane.env')
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.type(`env | grep '^OSTIA_' > ${envFile}`)
     await win.keyboard.press('Enter')
     await expect

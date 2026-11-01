@@ -1,13 +1,13 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch, testHome } from './dataHome'
-import { PROMPT, openWorkspace, quitApp } from './helpers'
+import { openWorkspace, PROMPT, quitApp } from './helpers'
 import {
   type ElectronApplication,
-  type Locator,
-  type Page,
   _electron as electron,
   expect,
+  type Locator,
+  type Page,
   test,
 } from './test'
 
@@ -49,8 +49,8 @@ test('a restored tab is named after the shell it runs now, and a title a program
     await expect(first.win.locator('.pane')).toHaveCount(2)
     await expect(tabTitles(first.win)).toHaveText(['bash', 'bash'], { timeout: 15_000 })
     const second = first.win.locator('.pane').nth(1)
-    await expect(second.locator('.xterm-rows')).toContainText(PROMPT, { timeout: 15_000 })
-    await second.locator('.xterm').click()
+    await expect(second.locator('.terminal-text')).toContainText(PROMPT, { timeout: 15_000 })
+    await second.locator('.ghostty-host').click()
     await first.win.keyboard.type("printf '\\033]0;build logs\\007'")
     await first.win.keyboard.press('Enter')
     await expect(tabTitles(first.win)).toHaveText(['bash', 'build logs'], { timeout: 15_000 })

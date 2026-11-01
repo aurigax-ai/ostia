@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
-import { expectHeld, openWorkspace, shownTerminal, terminalTab } from './helpers'
+import { expectHeld, openWorkspace, shownTerminalText, terminalTab } from './helpers'
 import { recordWebm, silentWav } from './mediaFixtures'
 import { clickAt, dragBetween, viewerGuestInput } from './mediaGuest'
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
@@ -135,7 +135,7 @@ test('a video and a long audio file play in the built-in player, and a video cro
       await win.getByRole('menuitem').first().click()
 
       await terminalTab(win).click()
-      const terminal = shownTerminal(win).locator('.xterm-rows')
+      const terminal = shownTerminalText(win)
       const inserted = /@(\S*selection-\d+\S*\.md)/
       await expect(terminal).toContainText(inserted, { timeout: 15_000 })
       await expect(terminal).not.toContainText('agent-read:')

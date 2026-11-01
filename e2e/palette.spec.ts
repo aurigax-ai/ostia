@@ -4,14 +4,14 @@ import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { SLOW_FRAME_MS, fastFrames, slowFrames } from './frames'
+import { fastFrames, SLOW_FRAME_MS, slowFrames } from './frames'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   expect,
   launchShared,
+  type Page,
   test,
 } from './test'
 
@@ -51,14 +51,14 @@ function notesLaunch(): ReturnType<typeof isolatedLaunch> {
 }
 
 async function startCat(win: Page): Promise<void> {
-  await win.locator('.xterm').first().click()
-  await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
+  await win.locator('.ghostty-host').first().click()
+  await expect(win.locator('.ghostty-host:focus-within').first()).toBeVisible()
   await win.keyboard.type('cat -v\n')
 }
 
 async function shellSawNoEscape(win: Page, marker: string): Promise<void> {
-  const rows = win.locator('.xterm-rows').first()
-  await expect(win.locator('.xterm-helper-textarea').first(), marker).toBeFocused()
+  const rows = win.locator('.terminal-text').first()
+  await expect(win.locator('.ghostty-host:focus-within').first(), marker).toBeVisible()
   await win.keyboard.type(`${marker}\n`)
   await expect
     .poll(async () => (await rows.innerText()).split('\n').filter((l) => l.trim() === marker))
@@ -81,23 +81,21 @@ test.afterAll(async () => {
   await app?.close()
 })
 
-test(
-  'Escape right after the palette chord in a terminal closes the palette and never reaches the shell',
-  { tag: '@core' },
-  async () => {
-    await slowFrames(win)
-    try {
-      await win.keyboard.press(chords.palette)
-      await win.keyboard.press('Escape')
-      await expect(win.getByRole('dialog', { name: 'Command palette' })).toBeHidden({
-        timeout: SLOW_FRAME_MS * 4,
-      })
-    } finally {
-      await fastFrames(win)
-    }
-    await shellSawNoEscape(win, 'after-palette')
-  },
-)
+test('Escape right after the palette chord in a terminal closes the palette and never reaches the shell', {
+  tag: '@core',
+}, async () => {
+  await slowFrames(win)
+  try {
+    await win.keyboard.press(chords.palette)
+    await win.keyboard.press('Escape')
+    await expect(win.getByRole('dialog', { name: 'Command palette' })).toBeHidden({
+      timeout: SLOW_FRAME_MS * 4,
+    })
+  } finally {
+    await fastFrames(win)
+  }
+  await shellSawNoEscape(win, 'after-palette')
+})
 
 test('the palette opens from the chord, F1 and Shift twice in a terminal, toggles closed, and Escape closes it without the shell getting the key', async () => {
   const dialog = win.getByRole('dialog')
@@ -105,7 +103,7 @@ test('the palette opens from the chord, F1 and Shift twice in a terminal, toggle
   const closesBack = async (state: string): Promise<void> => {
     await win.keyboard.press('Escape')
     await expect(dialog, state).toBeHidden()
-    await expect(win.locator('.xterm-helper-textarea').first(), state).toBeFocused()
+    await expect(win.locator('.ghostty-host:focus-within').first(), state).toBeVisible()
   }
 
   for (const [name, open] of OPENERS) {
@@ -123,7 +121,7 @@ test('the palette opens from the chord, F1 and Shift twice in a terminal, toggle
   await expect(input).toHaveValue('>')
   await win.keyboard.press('F1')
   await expect(dialog).toBeHidden()
-  await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
+  await expect(win.locator('.ghostty-host:focus-within').first()).toBeVisible()
 
   await win.keyboard.press(chords.palette)
   await expect(input).toBeFocused()
@@ -131,26 +129,26 @@ test('the palette opens from the chord, F1 and Shift twice in a terminal, toggle
   await win.keyboard.press(chords.palette)
   await expect(dialog).toBeHidden()
   await shellSawNoEscape(win, 'after-toggle')
-  await expect(win.locator('.xterm-rows').first()).not.toContainText('needle')
+  await expect(win.locator('.terminal-text').first()).not.toContainText('needle')
 
   await win.keyboard.press('Shift')
   await win.keyboard.press('Shift')
   await expect(
     win.getByRole('dialog', { name: 'Search everywhere' }).getByRole('combobox'),
   ).toBeFocused()
-  await expect(win.locator('.xterm')).toHaveCount(1)
+  await expect(win.locator('.ghostty-host')).toHaveCount(1)
   await win.keyboard.type('Split Pane Right')
   await waitForPaletteSelection(win, 'Split Pane Right')
   await win.keyboard.press('Enter')
-  await expect(win.locator('.xterm')).toHaveCount(2)
-  await expect(win.locator('.xterm-rows').first()).not.toContainText('Split Pane Right')
+  await expect(win.locator('.ghostty-host')).toHaveCount(2)
+  await expect(win.locator('.terminal-text').first()).not.toContainText('Split Pane Right')
   await win.keyboard.press(chords.closePane)
-  await expect(win.locator('.xterm')).toHaveCount(1)
+  await expect(win.locator('.ghostty-host')).toHaveCount(1)
 })
 
 test('Search Everywhere opens a file at the line typed after its name', async () => {
   const search = win.getByRole('dialog', { name: 'Search everywhere' })
-  await win.locator('.xterm').first().click()
+  await win.locator('.ghostty-host').first().click()
   await win.keyboard.press('Shift')
   await win.keyboard.press('Shift')
   await expect(search.getByRole('combobox')).toBeFocused()
@@ -249,8 +247,8 @@ test('Escape closes the palette in a second window, and its shell never gets it'
     ])
     await moved.waitForLoadState('domcontentloaded')
     const dialog = moved.getByRole('dialog')
-    await moved.locator('.xterm').first().click()
-    await expect(moved.locator('.xterm-helper-textarea').first()).toBeFocused()
+    await moved.locator('.ghostty-host').first().click()
+    await expect(moved.locator('.ghostty-host:focus-within').first()).toBeVisible()
     await moved.keyboard.press(chords.palette)
     await expect(dialog.getByRole('combobox')).toBeFocused()
     await moved.keyboard.press('Escape')

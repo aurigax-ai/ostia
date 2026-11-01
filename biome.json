@@ -14,7 +14,7 @@
         "useHookAtTopLevel": "off",
         "useParseIntRadix": "off",
         "noPlaywrightMissingAwait": "off",
-                "usePlaywrightValidDescribeCallback": "off"
+        "usePlaywrightValidDescribeCallback": "off"
       },
       "performance": { "useDomNodeTextContent": "off" },
       "style": { "noDescendingSpecificity": "off" },

@@ -34,6 +34,7 @@ import {
 } from '../diagnostics/agentJournal'
 import { createAppLog, LOG_FILE_NAME } from '../diagnostics/appLog'
 import { registerDiagnostics } from '../diagnostics/diagnostics'
+import { setErrorSink } from '../diagnostics/errorReport'
 import { registerGpuReport } from '../diagnostics/gpuReport'
 import { registerIncidentIpc } from '../diagnostics/incidentIpc'
 import { createIncidentTimeline } from '../diagnostics/incidentTimeline'
@@ -48,7 +49,7 @@ import { listPanes } from '../panes/paneList'
 import { registerPaneMethodsWiring } from '../panes/paneMethodsWiring'
 import { registerParkWiring } from '../park/parkWiring'
 import { storePath } from '../platform/jsonStore'
-import { readLocale, readSettingsFile } from '../platform/settingsFile'
+import { readLocale, readSettingsFile, recoverCorruptSettings } from '../platform/settingsFile'
 import { resolveLoginPath } from '../platform/toolPath'
 import { appDataDir } from '../platform/userDirs'
 import { registerPrivacyIpc } from '../privacy/privacyIpc'
@@ -105,6 +106,7 @@ export function boot(wiring: Wiring): void {
     windowIds,
     windows,
   } = wiring
+  recoverCorruptSettings()
   setPaneIdSalt(loadPaneIdSalt(storePath('pane-id-salt', 'global')))
   const appMenu = installAppMenu(process.platform, {
     productName: PRODUCT_DISPLAY_NAME,
@@ -119,6 +121,7 @@ export function boot(wiring: Wiring): void {
   })
   const logDir = join(app.getPath('userData'), 'logs')
   services.appLog = createAppLog(join(logDir, LOG_FILE_NAME))
+  setErrorSink(services.appLog)
   services.incidents = createIncidentTimeline({
     now: Date.now,
     snapshot: (paneId) => services.incidentSnapshot(paneId),

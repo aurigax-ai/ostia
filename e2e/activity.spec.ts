@@ -75,7 +75,7 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     await runInTerminal(win, 'claude', shownTerminal(win))
-    await expect(win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
+    await expect(win.locator('.terminal-text').first()).toContainText('fake-agent-ready', {
       timeout: 30_000,
     })
 
@@ -103,16 +103,16 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     await win.keyboard.press(chords.splitRight)
     await expect.poll(() => text(app, '.stream-text'), { timeout: 15_000 }).toMatch(/\b2 started\b/)
     await panelEval(app, `document.querySelector('.agent-head').click(); 'ok'`)
-    await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused({ timeout: 15_000 })
+    await expect(win.locator('.ghostty-host:focus-within').first()).toBeVisible({ timeout: 15_000 })
     expect(await text(app, '.note:not([hidden])')).toBe('')
     expect(await text(app, '.note-text')).toBe('')
     const panel = win.locator('#right-panel')
     await panel.getByRole('tab', { name: 'Inbox 1' }).click()
     const card = panel.locator('[data-inbox-note]')
     await expect(card).toContainText(NOTE, { timeout: 15_000 })
-    await win.locator('.xterm-helper-textarea').first().blur()
+    await win.locator('.ghostty-host textarea').first().blur()
     await card.getByText(NOTE).click()
-    await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused({ timeout: 15_000 })
+    await expect(win.locator('.ghostty-host:focus-within').first()).toBeVisible({ timeout: 15_000 })
     await panel.getByRole('tab', { name: 'Activity' }).click()
     await expect
       .poll(
@@ -131,7 +131,7 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
+    await expect(win.locator('.ghostty-host').first()).toBeVisible({ timeout: 30_000 })
     await openActivity(win)
     await expect
       .poll(() => panelEval(app, `document.querySelector('[data-timeline="true"]').ariaPressed`), {

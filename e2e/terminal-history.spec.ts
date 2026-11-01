@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { GHOSTTY } from './ghostty'
 import {
   emptyWorkspace,
@@ -17,10 +17,7 @@ const LINES = 3000
 const SEAM_WHEEL_PX = 6000
 const ROOM_ABOVE_SEAM = 600
 const WHEEL_BURST = 40
-const ENGINES = {
-  xterm: { settings: DOM_RENDERER_SETTINGS, screen: '.xterm-screen' },
-  ghostty: { settings: GHOSTTY, screen: '.ghostty-screen' },
-}
+const SCREEN = '.ghostty-screen'
 
 function historyRoot(dataHome: string): string {
   return join(dataHome, 'ostia', 'scrollback')
@@ -49,12 +46,12 @@ async function runCommand(win: Page, title: string): Promise<void> {
 async function flood(win: Page, screen: string): Promise<void> {
   await win.locator(screen).first().click()
   await typeLine(win, `seq -f 'hist %g' ${LINES}; printf '\\033]0;HISTDONE\\007'`)
-  await expect(win.locator('.pane-tab:visible .title').first()).toHaveText('HISTDONE', {
+  await expect(win.locator('.terminal-text').first()).toContainText(`hist ${LINES}`, {
     timeout: 60_000,
   })
 }
 
-const historyScreen = (win: Page) => win.locator('.history-pane:not([style*="hidden"]) .xterm-rows')
+const historyScreen = (win: Page) => win.locator('.terminal-text').first()
 
 const layer = (win: Page) => win.locator('.history-layer')
 
@@ -121,16 +118,11 @@ async function launch(settings: Record<string, unknown> & { terminal?: object })
   return { app, win, dataHome }
 }
 
-async function readBackHistory(
-  app: ElectronApplication,
-  win: Page,
-  engine: keyof typeof ENGINES,
-): Promise<void> {
-  const { screen } = ENGINES[engine]
+async function readBackHistory(app: ElectronApplication, win: Page): Promise<void> {
   const showsText = async (text: string | RegExp): Promise<void> => {
-    if (engine === 'xterm') await expect(historyScreen(win)).toContainText(text)
+    await expect(historyScreen(win)).toContainText(text)
   }
-  await wheelIntoHistory(win, screen)
+  await wheelIntoHistory(win, SCREEN)
   await expect(win.locator('.history-view, .history-bar, .history-edge')).toHaveCount(0)
   await expect(win.locator('.history-scrollbar')).toHaveCount(1)
   const entered = await layerTop(win)
@@ -152,7 +144,7 @@ async function readBackHistory(
   await expect(layer(win)).toBeHidden()
   await win.keyboard.press('Backspace')
 
-  await win.locator(screen).first().click()
+  await win.locator(SCREEN).first().click()
   await win.keyboard.press(chords.find)
   await win.getByRole('textbox', { name: 'Find in terminal' }).fill('hist 15')
   await win.getByRole('button', { name: /earlier$/ }).click()
@@ -161,7 +153,7 @@ async function readBackHistory(
   await runCommand(win, 'Scroll to Bottom')
   await expect(layer(win)).toBeHidden()
 
-  await win.locator(screen).first().click()
+  await win.locator(SCREEN).first().click()
   await win.keyboard.press(chords.blockPrev)
   await expect(layer(win)).toBeVisible()
   await showsText(/hist 1(?!\d)/)
@@ -173,31 +165,29 @@ async function readBackHistory(
     .toEqual(Array.from({ length: LINES }, (_, i) => `hist ${i + 1}`))
 }
 
-for (const engine of ['xterm', 'ghostty'] as const) {
-  test(`${engine}: output past the live terminal is kept on disk, read back, selected and searched`, async () => {
-    test.setTimeout(120_000)
-    const { app, win, dataHome } = await launch(ENGINES[engine].settings)
-    try {
-      await flood(win, ENGINES[engine].screen)
-      await expect.poll(() => historyFiles(dataHome).length, { timeout: 15_000 }).toBeGreaterThan(0)
-      await readBackHistory(app, win, engine)
-    } finally {
-      await app.close()
-    }
-  })
-}
+test(`output past the live terminal is kept on disk, read back, selected and searched`, async () => {
+  test.setTimeout(120_000)
+  const { app, win, dataHome } = await launch(GHOSTTY)
+  try {
+    await flood(win, SCREEN)
+    await expect.poll(() => historyFiles(dataHome).length, { timeout: 15_000 }).toBeGreaterThan(0)
+    await readBackHistory(app, win)
+  } finally {
+    await app.close()
+  }
+})
 
 test('clear, closing a pane, closing a scratch workspace and quitting leave no history behind, and a restart restores the screen', async () => {
   test.setTimeout(180_000)
-  const first = await launch(DOM_RENDERER_SETTINGS)
+  const first = await launch(GHOSTTY)
   const { win, dataHome } = first
   try {
-    await flood(win, '.xterm-screen')
+    await flood(win, '.ghostty-screen')
     await expect.poll(() => historyFiles(dataHome).length, { timeout: 15_000 }).toBeGreaterThan(0)
     await typeLine(win, 'clear')
     await expect.poll(() => historyFiles(dataHome).length, { timeout: 15_000 }).toBe(0)
 
-    await flood(win, '.xterm-screen')
+    await flood(win, '.ghostty-screen')
     await expect.poll(() => historyFiles(dataHome).length, { timeout: 15_000 }).toBeGreaterThan(0)
     await runCommand(win, 'Scroll to Top')
     await expect(layer(win)).toBeVisible()
@@ -205,8 +195,8 @@ test('clear, closing a pane, closing a scratch workspace and quitting leave no h
     await expect(layer(win)).toBeHidden()
 
     await win.keyboard.press(chords.splitRight)
-    await expect(win.locator('.xterm-screen')).toHaveCount(2, { timeout: 15_000 })
-    await flood(win, '.pane.active .xterm-screen')
+    await expect(win.locator('.ghostty-screen')).toHaveCount(2, { timeout: 15_000 })
+    await flood(win, '.pane.active .ghostty-screen')
     await expect.poll(() => paneFolders(dataHome).length, { timeout: 15_000 }).toBe(2)
     await win.keyboard.press(chords.closePane)
     await expect.poll(() => paneFolders(dataHome).length, { timeout: 15_000 }).toBe(1)
@@ -219,7 +209,7 @@ test('clear, closing a pane, closing a scratch workspace and quitting leave no h
     const row = scratchRow(win)
     await expect(row).toBeVisible()
     await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-    await flood(win, '.xterm-screen:visible')
+    await flood(win, '.ghostty-screen:visible')
     await expect.poll(() => paneFolders(dataHome).length, { timeout: 15_000 }).toBe(2)
     await typeLine(win, 'echo kept > a.txt')
     await row.hover()
@@ -235,12 +225,12 @@ test('clear, closing a pane, closing a scratch workspace and quitting leave no h
   const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const restored = await app.firstWindow()
-    await expect(restored.locator('.xterm-rows').first()).toContainText(`hist ${LINES}`, {
+    await expect(restored.locator('.terminal-text').first()).toContainText(`hist ${LINES}`, {
       timeout: 30_000,
     })
-    await restored.locator('.xterm-screen').first().click()
+    await restored.locator('.ghostty-screen').first().click()
     await typeLine(restored, `seq -f 'more %g' 3000`)
-    await expect(restored.locator('.xterm-rows').first()).toContainText('more 3000', {
+    await expect(restored.locator('.terminal-text').first()).toContainText('more 3000', {
       timeout: 30_000,
     })
     await runCommand(restored, 'Scroll to Top')

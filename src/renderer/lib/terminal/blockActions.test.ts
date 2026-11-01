@@ -1,5 +1,5 @@
-import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { OstiaTerminal as Terminal } from '@/lib/terminal/ostiaTerminal'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
 import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'

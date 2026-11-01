@@ -181,7 +181,7 @@ describe('attachWheelReports', () => {
     expect(t.ticks().map((e) => e.deltaY)).toEqual([-1, -1])
   })
 
-  it('leaves scrollback, Shift, line deltas and unmeasured cells to xterm', () => {
+  it('leaves scrollback, Shift, line deltas and unmeasured cells to the terminal', () => {
     const scrollback = fakeTerminal({ mode: 'none', buffer: 'normal' })
     const plain = scrollback.wheel(51)
     expect(scrollback.handled).toEqual([plain])

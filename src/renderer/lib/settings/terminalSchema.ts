@@ -107,14 +107,6 @@ export const terminalSchema = {
         'macOS: send Option+key as Meta (Esc+key) so readline and fzf Alt shortcuts work; ' +
         'Option then no longer types special characters. Default: false.',
     },
-    renderer: {
-      type: 'string',
-      enum: ['xterm', 'ghostty'],
-      description:
-        'Experimental. Engine for terminals opened from now on and terminals restored at ' +
-        'the next start; an open terminal keeps its engine. "ghostty" runs Ghostty\'s own ' +
-        'emulator (libghostty-vt) and falls back to "xterm" if it cannot start. Default: "xterm".',
-    },
     keepShells: {
       type: 'boolean',
       description:

@@ -7,6 +7,7 @@ import type { CommandResult, CommandTarget } from '../../shared/control/commands
 import type { Reach } from '../approvals/reach'
 import type { AuthedConn } from '../control/controlAuth'
 import type { PaneIdentity } from '../control/idRegistry'
+import { reportError } from '../diagnostics/errorReport'
 import { resolveSafe } from '../platform/pathGuard'
 import { privateTmpDir } from '../platform/privateTmp'
 import { runInBrowseWorld } from './browseWorld'
@@ -82,11 +83,17 @@ export function commandTarget(identity: PaneIdentity): CommandTarget {
 
 export async function waitFor(check: () => Promise<boolean>, timeoutMs: number): Promise<boolean> {
   const deadline = Date.now() + timeoutMs
+  let failure: unknown
   for (;;) {
     try {
       if (await check()) return true
-    } catch {}
-    if (Date.now() >= deadline) return false
+    } catch (err) {
+      failure = err
+    }
+    if (Date.now() >= deadline) {
+      if (failure !== undefined) reportError('browseWait', failure)
+      return false
+    }
     await sleep(POLL_MS)
   }
 }

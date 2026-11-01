@@ -1,12 +1,12 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
-import { type Server, createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
 import { chords } from './chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { launchWindow, openWorkspace, quitApp, readPaneEnv } from './helpers'
-import { type ElectronApplication, type Page, expect, test } from './test'
+import { type ElectronApplication, expect, type Page, test } from './test'
 
 const CLI = resolve(__dirname, '../out/cli/index.js')
 const COOKIE = 'ostia_provider=signed'
@@ -221,11 +221,11 @@ test('an agent’s click opens no popup, in its own pane or in the human’s', a
   test.setTimeout(240_000)
   const { server, site } = await serve()
   const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, capabilities: { grants: ['browse'] } })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, capabilities: { grants: ['browse'] } })
   const { app, win } = await launch(dataHome)
   try {
     const envFile = join(dataHome, 'pane.env')
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.type(`env | grep '^OSTIA_' > ${envFile}`)
     await win.keyboard.press('Enter')
     await expect

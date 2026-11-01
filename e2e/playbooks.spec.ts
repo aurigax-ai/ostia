@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import {
   addTab,
@@ -26,7 +26,7 @@ const FAKE_CLAUDE = [
 
 test('a playbook turned on and edited in Settings reaches the next terminal’s agent, not a running shell’s', async () => {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
   const launch = isolatedLaunch(dataHome)
   const bin = fakeAgentBin(dataHome, FAKE_CLAUDE)
   const env = { ...launch.env, PATH: `${bin}:${launch.env.PATH ?? ''}` }
@@ -35,7 +35,7 @@ test('a playbook turned on and edited in Settings reaches the next terminal’s 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const rows = win.locator('.xterm-rows').first()
+    const rows = win.locator('.terminal-text').first()
 
     await runInTerminal(win, 'claude', shownTerminal(win))
     await expect(rows).toContainText('human-only:0', { timeout: 30_000 })
@@ -70,7 +70,7 @@ test('a playbook turned on and edited in Settings reaches the next terminal’s 
 
     await addTab(win)
     await runInTerminal(win, 'claude', shownTerminal(win))
-    const fresh = win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()
+    const fresh = win.locator('.pane-slot:not([data-hidden]) .terminal-text').last()
     await expect(fresh).toContainText('playbooks:onboard,', { timeout: 30_000 })
     await expect(fresh).toContainText('edited:1')
     await expect(fresh).toContainText('human-only:0')

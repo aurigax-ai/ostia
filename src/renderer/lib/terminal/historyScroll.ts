@@ -1,7 +1,6 @@
 import type { HistoryMatch } from '@shared/terminal/scrollbackHistory'
 import { copyTextConfirmed } from '@/lib/capture/copyConfirm'
 import { terminalKeyData } from '@/lib/keyboard/keyPresets'
-import type { TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
 import { isMac } from '@/platform'
 import { type HistoryTarget, useHistoryViewStore } from '@/stores/terminal/historyViewStore'
 import { createLayerPane, type LayerPane } from './historyLayerPane'
@@ -58,6 +57,8 @@ interface Layer {
 }
 
 export interface HistoryScroll {
+  displayed: () => OstiaTerminal
+  onDisplay: (listener: () => void) => () => void
   interceptWheel: (e: WheelEvent) => boolean
   scrollLines: (amount: number) => void
   scrollPages: (count: number) => void
@@ -70,7 +71,6 @@ export interface HistoryScrollDeps {
   host: HTMLElement
   paneId: string
   term: OstiaTerminal
-  engine: TerminalRenderer
   options: () => TerminalOptions
   pause: (paused: boolean) => void
   shown: () => boolean
@@ -84,7 +84,7 @@ function isTypedKey(e: KeyboardEvent): boolean {
 }
 
 export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
-  const { host, paneId, term, engine, pause, shown } = deps
+  const { host, paneId, term, pause, shown } = deps
   const stack = host.closest<HTMLElement>('.terminal-stack') ?? host.parentElement ?? host
   let alive = true
   let layer: Layer | null = null
@@ -101,6 +101,10 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
   let noHistoryUntil = 0
   let dropTimer = 0
   let bar: HistoryScrollbar | null = null
+  const displayListeners = new Set<() => void>()
+  const notifyDisplay = (): void => {
+    for (const listener of displayListeners) listener()
+  }
 
   const liveBuffer = (): OstiaTerminal['buffer']['normal'] => term.buffer.normal
 
@@ -128,7 +132,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     if (!info || !hasHistory()) return
     if (!bar) {
       stack.dataset.historyScroll = ''
-      if (engine === 'ghostty') term.options.nativeScrollbar = false
+      term.options.nativeScrollbar = false
       bar = createHistoryScrollbar(stack, seek)
     }
     const rows = term.rows
@@ -167,19 +171,17 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     stack.appendChild(box)
     const panes: LayerPane[] = []
     for (let i = 0; i < 2; i++) {
-      const pane = createLayerPane(
-        engine,
-        box,
-        { cols: term.cols, rows: term.rows },
-        deps.options(),
-      )
+      const pane = createLayerPane(box, { cols: term.cols, rows: term.rows }, deps.options())
       if (!pane) {
         for (const made of panes) made.dispose()
         box.remove()
         return null
       }
       pane.el.style.visibility = 'hidden'
-      pane.term.onScroll(() => onLayerScroll(pane))
+      pane.term.onScroll(() => {
+        onLayerScroll(pane)
+        notifyDisplay()
+      })
       pane.el.addEventListener('focusin', () => queueMicrotask(focusLive))
       panes.push(pane)
     }
@@ -201,6 +203,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     if (!engaged) return
     engaged = false
     if (layer) layer.box.style.visibility = 'hidden'
+    notifyDisplay()
     if (shown()) pause(false)
     if (to === 'bottom') term.scrollToBottom()
     else term.scrollToLine(to)
@@ -264,6 +267,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
         engaged = true
         pause(true)
       }
+      notifyDisplay()
       updateBar()
     } finally {
       busy = false
@@ -407,6 +411,11 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
   ]
 
   return {
+    displayed: () => (engaged ? (visible()?.term ?? term) : term),
+    onDisplay: (listener) => {
+      displayListeners.add(listener)
+      return () => displayListeners.delete(listener)
+    },
     interceptWheel: (e) => {
       if (engaged || e.deltaY >= 0 || e.shiftKey || e.ctrlKey || e.metaKey) return false
       if (!atLiveTop() || Date.now() < noHistoryUntil) return false

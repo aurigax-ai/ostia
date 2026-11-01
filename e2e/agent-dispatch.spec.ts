@@ -1,5 +1,5 @@
 import { chords } from './chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
 import { type FakeReply, type FakeRequest, startFakeProvider } from './fakeProvider'
 import { openWorkspace, typeLine } from './helpers'
@@ -32,7 +32,7 @@ test('pi lists panes, starts an agent after a card, messages it over the bus wit
   const provider = await startFakeProvider((request) => answer(request, seen++))
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     agent: {
       providers: [{ id: 'fake', name: 'Fake', baseUrl: provider.url, models: ['fake-model'] }],
     },
@@ -82,8 +82,8 @@ test('pi lists panes, starts an agent after a card, messages it over the bus wit
     ).toBeVisible({
       timeout: 15_000,
     })
-    const caller = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
+    const caller = win.locator('.terminal-text').first()
+    await win.locator('.ghostty-host').first().click()
     await typeLine(win, 'clear; ostia pane read worker; echo read-done')
     await win.getByRole('button', { name: 'Allow once' }).click()
     await expect(caller).toContainText('read-done', { timeout: 20_000 })

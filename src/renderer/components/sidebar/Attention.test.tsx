@@ -16,6 +16,7 @@ import { runAppChord } from '@/lib/keyboard/chords'
 import { findPane, resetIds } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import { instanceKey } from '@/lib/panes/panelKeepAlive'
+import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { resetOffscreenStartForTests, startOffscreen } from '@/lib/terminal/offscreenStart'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -26,6 +27,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { stubCanvas } from '../../../../test/ghosttyTerminal'
 import { renderSettled } from '../../../../test/render'
 import { DeckRail } from './DeckRail'
 
@@ -40,7 +42,10 @@ let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let attentionInit: ReturnType<typeof useAttentionStore.getState>
 let uiInit: ReturnType<typeof useUIStore.getState>
 
-beforeAll(() => {
+stubCanvas()
+
+beforeAll(async () => {
+  await loadGhostty()
   workspacesInit = useWorkspacesStore.getState()
   layoutInit = useLayoutStore.getState()
   attentionInit = useAttentionStore.getState()
@@ -588,7 +593,7 @@ describe('NotificationCenter', () => {
     expect(screen.queryByRole('img', { name: '1 unread' })).toBeNull()
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        view.container.querySelector('.pane .xterm-helper-textarea'),
+        view.container.querySelector('.pane .ghostty-host textarea'),
       ),
     )
   })

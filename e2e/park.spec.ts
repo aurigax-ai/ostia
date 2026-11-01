@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { join } from 'node:path'
 import { chords } from './chords'
 import {
-  DOM_RENDERER_SETTINGS,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   isolatedLaunch,
   seedSettings,
@@ -14,7 +14,7 @@ import { type ElectronApplication, expect, launchShared, type Page, test } from 
 test.describe.configure({ mode: 'serial', timeout: 150_000 })
 
 const CLOSING = 'Export test is flaky; next: rerun with --repeat 20'
-const SHOWN_ROWS = '.pane-slot:not([data-hidden]) .xterm-rows'
+const SHOWN_ROWS = '.pane-slot:not([data-hidden]) .terminal-text'
 const WORKSPACE_KEY = process.platform === 'darwin' ? 'Meta' : 'Control'
 
 interface Place {
@@ -195,7 +195,7 @@ test.beforeAll(async () => {
   dataHome = freshDataHome()
   log = join(dataHome, 'resumed.log')
   release = join(dataHome, 'release')
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
   seedWorkspaces()
   const launch = isolatedLaunch(dataHome)
   app = await launchShared({
@@ -208,7 +208,7 @@ test.beforeAll(async () => {
   })
   win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
-  await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
+  await expect(win.locator('.ghostty-host').first()).toBeVisible({ timeout: 30_000 })
 })
 
 test.afterAll(async () => {

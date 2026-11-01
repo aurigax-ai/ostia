@@ -31,8 +31,8 @@ test('the compiled-code cache is private to the human, and a damaged or foreign 
 
   const second = await launchWindow(dataHome)
   try {
-    await expect(second.win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
-    await expect(second.win.locator('.xterm-rows').first()).toContainText(PROMPT, {
+    await expect(second.win.locator('.ghostty-host').first()).toBeVisible({ timeout: 15_000 })
+    await expect(second.win.locator('.terminal-text').first()).toContainText(PROMPT, {
       timeout: 15_000,
     })
   } finally {

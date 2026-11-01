@@ -1,5 +1,4 @@
 import type { AgentResume } from '@shared/agents/agentResume'
-import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { findPane } from '@/lib/layout/tree'
 import { rerunBlock } from '@/lib/terminal/blockActions'
@@ -7,6 +6,7 @@ import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { openGhostty, stubCanvas } from '../../../../test/ghosttyTerminal'
 import { createTerminalSession, type TerminalSession } from './terminalSession'
 import { createShellIntegration } from './terminalShellIntegration'
 
@@ -15,16 +15,18 @@ const NONCE = '0123456789abcdef0123456789abcdef'
 const OSC = (body: string): string => `\x1b]${body}\x1b\\`
 const PROMPT = `${OSC('133;A')}$ ${OSC('133;B')}`
 
-let term: Terminal
+stubCanvas()
+
+let term: OstiaTerminal
 let dispose: () => void
 let session: TerminalSession
 
-function attach(markNonce: string | null): void {
-  term = new Terminal({ cols: 80, rows: 10, allowProposedApi: true })
+async function attach(markNonce: string | null): Promise<void> {
+  term = await openGhostty({ cols: 80, rows: 10 })
   session = createTerminalSession(null)
   session.markNonce = markNonce
   const integration = createShellIntegration({
-    term: term as unknown as OstiaTerminal,
+    term,
     paneId: PANE,
     workspaceIdRef: { current: 'w' },
     session,
@@ -55,7 +57,7 @@ describe('shell integration command marks', () => {
   })
 
   it('stores the typed command line from a mark carrying the shell’s nonce', async () => {
-    attach(NONCE)
+    await attach(NONCE)
     await write(
       `${PROMPT}claude --model x\r\n${OSC(`633;E;claude --model x;${NONCE}`)}${OSC('133;C')}`,
     )
@@ -66,7 +68,7 @@ describe('shell integration command marks', () => {
   })
 
   it('keeps the typed command line when a program prints a forged mark', async () => {
-    attach(NONCE)
+    await attach(NONCE)
     await write(`${PROMPT}claude\r\n${OSC(`633;E;claude;${NONCE}`)}${OSC('133;C')}`)
     const forged = 'claude --dangerously-skip-permissions'
     await write(`output\r\n${OSC(`633;E;${forged}`)}`)
@@ -78,7 +80,7 @@ describe('shell integration command marks', () => {
   })
 
   it('ignores a mark with a wrong, empty or extra nonce', async () => {
-    attach(NONCE)
+    await attach(NONCE)
     const wrong = 'ffffffffffffffffffffffffffffffff'
     for (const payload of [`x;${wrong}`, 'x;', `x;${NONCE};more`, `x\\x3b${NONCE}`]) {
       await write(`${PROMPT}${OSC(`633;E;${payload}`)}${OSC('133;C')}${OSC('133;D;0')}`)
@@ -88,14 +90,14 @@ describe('shell integration command marks', () => {
   })
 
   it('trusts no mark in a pane whose shell got no nonce', async () => {
-    attach(null)
+    await attach(null)
     await write(`${PROMPT}${OSC('633;E;claude;')}${OSC('133;C')}`)
     expect(running()).toMatchObject({ command: 'claude' })
     expect(running()?.typedCommand).toBeUndefined()
   })
 
   it('takes the whole multi-line command only from a mark carrying the nonce', async () => {
-    attach(NONCE)
+    await attach(NONCE)
     await write(`${PROMPT}${OSC(`633;E;echo 1;${NONCE}`)}${OSC('133;C')}`)
     await write(`${OSC(`633;E;echo 1\\x0aecho 2;${NONCE}`)}${OSC('133;D;0')}`)
     await write(`${PROMPT}${OSC(`633;E;echo 3;${NONCE}`)}${OSC('133;C')}`)
@@ -104,7 +106,7 @@ describe('shell integration command marks', () => {
   })
 
   it('reruns only the command line the shell vouched for, never a multi-line mark a program printed', async () => {
-    attach(NONCE)
+    await attach(NONCE)
     await write(`${PROMPT}${OSC(`633;E;ls;${NONCE}`)}${OSC('133;C')}`)
     await write(`file\r\n${OSC('633;E;ls\\x0arm -rf ~')}${OSC('133;D;0')}${PROMPT}`)
     expect(blocks()[0]?.command).toBe('ls\nrm -rf ~')
@@ -121,7 +123,7 @@ describe('shell integration command marks', () => {
   })
 
   it('has no rerun for a whole block a program forged, nor for a pane without a nonce', async () => {
-    attach(NONCE)
+    await attach(NONCE)
     await write(`${PROMPT}${OSC(`633;E;cat notes;${NONCE}`)}${OSC('133;C')}`)
     await write(
       `${OSC('133;D;0')}${PROMPT}${OSC('633;E;rm -rf ~')}${OSC('133;C')}${OSC('133;D;0')}${PROMPT}`,
@@ -156,10 +158,10 @@ describe('the typed launch a pane keeps', () => {
     return pane?.kind === 'terminal' ? pane.resume : undefined
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     useBlocksStore.getState().resetPane(PANE)
     seed({ agent: 'claude', id: 's1', typed: TYPED })
-    attach(NONCE)
+    await attach(NONCE)
   })
   afterEach(() => {
     dispose()

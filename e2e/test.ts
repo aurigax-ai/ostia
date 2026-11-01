@@ -1,11 +1,11 @@
 import type { ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
-import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  test as base,
   type Electron,
   type ElectronApplication,
-  test as base,
   _electron as playwrightElectron,
 } from '@playwright/test'
 
@@ -240,7 +240,7 @@ async function warmUp(): Promise<void> {
       .locator('.workspace-empty:visible')
       .getByRole('button', { name: 'New terminal' })
       .click({ timeout: WARM_UP_WAIT_MS })
-    await win.locator('.xterm, .ghostty-host').first().waitFor({ timeout: WARM_UP_WAIT_MS })
+    await win.locator('.ghostty-host, .ghostty-host').first().waitFor({ timeout: WARM_UP_WAIT_MS })
     console.log(`e2e warm-up: the app opened a terminal in ${Date.now() - started} ms`)
   } catch (error) {
     console.log(`e2e warm-up: gave up after ${Date.now() - started} ms: ${error}`)

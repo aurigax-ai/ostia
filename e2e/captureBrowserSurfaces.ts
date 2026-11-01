@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { CaptureSurface } from './captureMatrix'
 import { chords } from './chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { guestKeys, pressInPage } from './guestKeys'
 import { launchWindow, openWorkspace, runInTerminal, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, type Page } from './test'
@@ -159,7 +159,7 @@ function previewSurface(name: string, gesture: 'pick-table' | 'region'): Capture
       const home = join(dataHome, 'home')
       mkdirSync(home, { recursive: true })
       writeFileSync(join(home, 'page.html'), PREVIEW_PAGE)
-      seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
+      seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
       const { app, win } = await launchWindow(dataHome)
       await openWorkspace(win)
       await runInTerminal(win, 'ostia open ~/page.html')

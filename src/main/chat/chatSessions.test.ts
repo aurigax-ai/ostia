@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   CHAT_EDIT_TEXT_MAX,
   type ChatSession,
@@ -72,6 +72,21 @@ describe('createChatSessionStore', () => {
     expect(saved?.messages[0].role).toBe('user')
     expect(saved?.messages.at(-1)?.id).toBe('m9')
     expect(readFileSync(join(dir, 'a.json')).length).toBeLessThanOrEqual(2000)
+  })
+
+  it('finds how many turns to drop without measuring the session once per turn', () => {
+    const store = createChatSessionStore({ dir, sessionMaxBytes: 20_000 })
+    const messages = Array.from({ length: 400 }, (_, i) =>
+      msg(i, i % 2 === 0 ? 'user' : 'assistant', `${i}-${'x'.repeat(2000)}`),
+    )
+    const stringify = vi.spyOn(JSON, 'stringify')
+    const res = store.save(session('big', 1, messages))
+    const calls = stringify.mock.calls.length
+    stringify.mockRestore()
+    expect(res.ok && res.trimmedMessages).toBeGreaterThan(380)
+    expect(calls).toBeLessThan(40)
+    expect(readFileSync(join(dir, 'big.json')).length).toBeLessThanOrEqual(20_000)
+    expect(store.get('big')?.messages[0].role).toBe('user')
   })
 
   it('keeps what Undo needs for each edit, without texts past the cap or for calls no longer in it', () => {

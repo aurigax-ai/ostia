@@ -57,7 +57,7 @@ export async function waitForTerminalFocus(win: Page): Promise<void> {
   await expect
     .poll(() =>
       win.evaluate(
-        () => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false,
+        () => document.activeElement?.matches('.ghostty-host, .ghostty-host *') ?? false,
       ),
     )
     .toBe(true)
@@ -96,12 +96,12 @@ export async function newTerminal(win: Page): Promise<void> {
   await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
 }
 
-const TERMINALS = '.xterm, .ghostty-host'
+const TERMINALS = '.ghostty-host, .ghostty-host'
 
 async function promptShown(win: Page): Promise<boolean> {
-  const rows = win.locator('.xterm-rows').first()
+  const rows = win.locator('.terminal-text').first()
   if ((await rows.count()) > 0) return PROMPT.test((await rows.textContent()) ?? '')
-  const painted = win.locator('.xterm-screen, .ghostty-host').first()
+  const painted = win.locator('.ghostty-screen, .ghostty-host').first()
   if ((await painted.count()) === 0) return false
   return textPainted(await painted.screenshot(), win)
 }
@@ -168,11 +168,11 @@ export async function changeSettings(
 }
 
 export async function newTerminalWorkspace(win: Page): Promise<void> {
-  const before = await win.locator('.xterm').count()
+  const before = await win.locator('.ghostty-host').count()
   await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
   await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-  await expect(win.locator('.xterm')).toHaveCount(before + 1, { timeout: 15_000 })
-  await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()).toContainText(
+  await expect(win.locator('.ghostty-host')).toHaveCount(before + 1, { timeout: 15_000 })
+  await expect(win.locator('.pane-slot:not([data-hidden]) .terminal-text').last()).toContainText(
     PROMPT,
     { timeout: 15_000 },
   )
@@ -199,14 +199,54 @@ export async function typeLineToEnd(win: Page, line: string): Promise<void> {
     .toBe(true)
 }
 
+export interface TerminalBox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export async function terminalRowBox(win: Page, hasText: RegExp): Promise<TerminalBox> {
+  const slot = win.locator('.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden])')
+  const region = slot.locator('.terminal-text').first()
+  await expect(region.locator('div', { hasText }).first()).toBeAttached({ timeout: 15_000 })
+  const found = await region.evaluate(
+    (el, { source, flags }) => {
+      const pattern = new RegExp(source, flags)
+      const rows = [...el.children].map((child) => child.textContent ?? '')
+      const index = rows.map((line) => pattern.test(line)).lastIndexOf(true)
+      return { index, rows: Number(el.dataset.rows) }
+    },
+    { source: hasText.source, flags: hasText.flags },
+  )
+  const box = await slot.locator('.ghostty-screen').first().boundingBox()
+  if (!box || found.index < 0) throw new Error('terminal row has no box')
+  const height = box.height / found.rows
+  return { x: box.x, y: box.y + found.index * height, width: box.width, height }
+}
+
+export async function terminalRowHeight(win: Page): Promise<number> {
+  const slot = win.locator('.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden])')
+  const rows = await slot.locator('.terminal-text').first().getAttribute('data-rows')
+  const box = await slot.locator('.ghostty-screen').first().boundingBox()
+  if (!box || !rows) throw new Error('terminal has no grid')
+  return box.height / Number(rows)
+}
+
+export function shownTerminalText(win: Page): Locator {
+  return win
+    .locator('.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .terminal-text')
+    .first()
+}
+
 export function shownTerminal(win: Page): Locator {
-  return win.locator('.pane-slot:not([data-hidden]) .xterm:visible').first()
+  return win.locator('.pane-slot:not([data-hidden]) .ghostty-host:visible').first()
 }
 
 export async function runInTerminal(
   win: Page,
   line: string,
-  terminal: Locator = win.locator('.xterm').first(),
+  terminal: Locator = win.locator('.ghostty-host').first(),
 ): Promise<void> {
   await terminal.click()
   await typeLine(win, line)

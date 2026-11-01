@@ -193,18 +193,10 @@ describe('SettingsPanel terminal and pane rows', () => {
   it('marks the terminal engine and keeping shells as experimental', async () => {
     tmuxReport([])
     await openSection('Terminal')
-    expect(within(rowOf('Terminal engine')).getByText('Experimental')).toBeVisible()
     expect(
       within(rowOf('Keep shells running across a restart')).getByText('Experimental'),
     ).toBeVisible()
     expect(within(rowOf('Scroll speed')).queryByText('Experimental')).toBeNull()
-  })
-
-  it('switches the terminal engine to Ghostty', async () => {
-    const user = await openSection('Terminal')
-    await user.click(screen.getByRole('combobox', { name: 'Terminal engine' }))
-    await user.click(await screen.findByRole('option', { name: 'Ghostty' }))
-    expect(useSettingsStore.getState().terminal.renderer).toBe('ghostty')
   })
 
   it('KSH-C18 lets the switch turn on once a re-check finds tmux, without reopening Settings', async () => {

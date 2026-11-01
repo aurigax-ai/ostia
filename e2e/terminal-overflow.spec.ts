@@ -1,13 +1,13 @@
 import {
-  DOM_RENDERER_SETTINGS,
-  SOFTWARE_WEBGL,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   isolatedLaunch,
+  SOFTWARE_WEBGL,
   seedSettings,
 } from './dataHome'
 import { openWorkspace } from './helpers'
 import { textPainted } from './pixels'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 interface Placement {
   pastRight: number
@@ -18,7 +18,7 @@ interface Placement {
 function placement(win: Page): Promise<Placement> {
   return win.evaluate(() => {
     const body = document.querySelector<HTMLElement>('.pane-body-term')
-    const screen = document.querySelector<HTMLElement>('.xterm-screen')
+    const screen = document.querySelector<HTMLElement>('.ghostty-screen')
     if (!body || !screen) throw new Error('no terminal')
     const bodyRect = body.getBoundingClientRect()
     const screenRect = screen.getBoundingClientRect()
@@ -38,8 +38,8 @@ for (const renderer of ['WebGL', 'DOM'] as const) {
     const dataHome = freshDataHome()
     const gpu = renderer === 'WebGL'
     seedSettings(dataHome, {
-      ...DOM_RENDERER_SETTINGS,
-      behavior: { ...DOM_RENDERER_SETTINGS.behavior, gpuAcceleration: gpu },
+      ...CANVAS_RENDERER_SETTINGS,
+      behavior: { ...CANVAS_RENDERER_SETTINGS.behavior, gpuAcceleration: gpu },
     })
     const launch = isolatedLaunch(dataHome)
     const app = await electron.launch(
@@ -48,8 +48,8 @@ for (const renderer of ['WebGL', 'DOM'] as const) {
     try {
       const win = await app.firstWindow()
       await openWorkspace(win)
-      const screen = win.locator('.xterm-screen').first()
-      await win.locator('.xterm').first().click()
+      const screen = win.locator('.ghostty-screen').first()
+      await win.locator('.ghostty-host').first().click()
 
       const cdp = await win.context().newCDPSession(win)
       for (const scale of [1.5, 2, 1.25]) {

@@ -21,7 +21,7 @@ import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
-import type { ClipboardKeys, TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
+import type { ClipboardKeys } from '@/lib/settings/terminalPaneSettings'
 import {
   CONTRAST_MAX,
   CONTRAST_MIN,
@@ -29,9 +29,7 @@ import {
   SCROLL_SPEED_MIN,
   SCROLLBACK_MAX,
   SCROLLBACK_MIN,
-  TERMINAL_RENDERERS,
 } from '@/lib/settings/terminalPaneSettings'
-import { ghosttyFailure } from '@/lib/terminal/ghosttyEngine'
 import { isLinux, isMac } from '@/platform'
 import {
   CURSOR_STYLES,
@@ -316,12 +314,6 @@ function TerminalRenderingGroup(): JSX.Element {
   const d = useDict()
   const gpuAcceleration = useSettingsStore((s) => s.behavior.gpuAcceleration)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
-  const setTerminal = useSettingsStore((s) => s.setTerminal)
-  const renderer = useSettingsStore((s) => s.terminal.renderer)
-  const rendererLabel: Record<TerminalRenderer, string> = {
-    xterm: d.settings.rendererXterm,
-    ghostty: d.settings.rendererGhostty,
-  }
   return (
     <SettingsGroup title={d.settings.groupRendering}>
       <ToggleRow
@@ -331,21 +323,6 @@ function TerminalRenderingGroup(): JSX.Element {
         onChange={(v) => setBehavior({ gpuAcceleration: v })}
       />
       {isLinux ? <DiscreteGpuRow /> : null}
-      <ControlRow
-        label={d.settings.terminalRenderer}
-        desc={d.settings.terminalRendererDesc}
-        labelHint={<ExperimentalBadge />}
-      >
-        <SelectField
-          value={renderer}
-          onChange={(r) => setTerminal({ renderer: r })}
-          label={d.settings.terminalRenderer}
-          options={TERMINAL_RENDERERS.map((r) => ({ value: r, label: rendererLabel[r] }))}
-        />
-      </ControlRow>
-      {renderer === 'ghostty' && ghosttyFailure() ? (
-        <Notice>{fmt(d.settings.ghosttyFailed, { reason: ghosttyFailure() ?? '' })}</Notice>
-      ) : null}
     </SettingsGroup>
   )
 }

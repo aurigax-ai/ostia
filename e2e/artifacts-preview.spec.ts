@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type AddressInfo, createServer, type Server } from 'node:net'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { expectHeld, launchWindow, openWorkspace, runInTerminal } from './helpers'
 import { type ElectronApplication, expect, type Page, test } from './test'
 
@@ -185,7 +185,7 @@ const attempt = async (name, run) => {
 }
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
   const launched = await launchWindow(dataHome)
   await openWorkspace(launched.win)
   return launched
@@ -676,7 +676,9 @@ test('PRT-C30 a .tsx component runs with the bundled libraries, no eval, no netw
     await clickInGuest(app, 280, 20)
     await expect(win.getByTestId('preview-not-responding')).toBeVisible({ timeout: 20_000 })
     await runInTerminal(win, 'echo alive-$((40 + 2))')
-    await expect(win.locator('.xterm-rows').first()).toContainText('alive-42', { timeout: 5_000 })
+    await expect(win.locator('.terminal-text').first()).toContainText('alive-42', {
+      timeout: 5_000,
+    })
     expect(
       await win.evaluate(
         () =>

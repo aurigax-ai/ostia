@@ -2,14 +2,14 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
 import {
   type ElectronApplication,
-  type Locator,
-  type Page,
   _electron as electron,
   expect,
+  type Locator,
+  type Page,
   test,
 } from './test'
 
@@ -30,8 +30,8 @@ async function launch(files: Record<string, string>, fixture = 'fake-lang'): Pro
   writeFileSync(join(home, 'secret.txt'), 'TOP-SECRET\n')
   for (const [name, text] of Object.entries(files)) writeFileSync(join(project, name), text)
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
+    ...CANVAS_RENDERER_SETTINGS,
+    workspaces: { ...CANVAS_RENDERER_SETTINGS.workspaces, defaultFolder: project },
   })
   const options = isolatedLaunch(dataHome)
   installFakeLanguageExtension(

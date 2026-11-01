@@ -1,15 +1,15 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  DOM_RENDERER_SETTINGS,
-  SOFTWARE_WEBGL,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   isolatedLaunch,
+  SOFTWARE_WEBGL,
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { PROMPT, newTerminal } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { newTerminal, PROMPT, terminalRowBox } from './helpers'
+import { _electron as electron, expect, type Page, test } from './test'
 
 const AGENT_PANEL = [55, 55, 55]
 
@@ -62,13 +62,13 @@ async function dominantColors(
 const distance = (a: Rgb, b: number[]): number =>
   Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2])
 
-for (const renderer of ['webgl', 'dom'] as const) {
+for (const renderer of ['gpu', 'software'] as const) {
   test(`a Shift-drag over an agent's painted output makes a visible selection (${renderer})`, async () => {
     const dataHome = freshDataHome()
     seedSettings(dataHome, {
-      ...DOM_RENDERER_SETTINGS,
+      ...CANVAS_RENDERER_SETTINGS,
       appearance: { theme: 'oxocarbon' },
-      behavior: { gpuAcceleration: renderer === 'webgl', inputMode: 'editor' },
+      behavior: { gpuAcceleration: renderer === 'gpu', inputMode: 'editor' },
     })
     const bin = fakeAgentBin(dataHome, MOUSE_TRACKING_AGENT)
     const launch = isolatedLaunch(dataHome)
@@ -80,29 +80,28 @@ for (const renderer of ['webgl', 'dom'] as const) {
     try {
       const win = await app.firstWindow()
       await newTerminal(win)
-      const screen = win.locator('.xterm-screen').first()
-      if (renderer === 'webgl') {
-        await expect(screen.locator('canvas').first()).toBeVisible({ timeout: 15_000 })
-      } else {
-        await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, {
-          timeout: 15_000,
-        })
-      }
+      const screen = win.locator('.ghostty-screen').first()
+      await expect(screen).toBeVisible({ timeout: 15_000 })
+      await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, {
+        timeout: 15_000,
+      })
       await expect(win.getByRole('textbox', { name: 'Command input' })).toBeVisible({
         timeout: 15_000,
       })
-      await win.locator('.xterm').first().click()
+      await win.locator('.ghostty-host').first().click()
       await win.keyboard.type('claude')
       await win.keyboard.press('Enter')
       const sizeFile = join(launch.home, 'agent-size')
       await expect.poll(() => existsSync(sizeFile), { timeout: 15_000 }).toBe(true)
-      await expect(win.locator('.xterm').first()).toHaveClass(/enable-mouse-events/)
-      const [rows, cols] = readFileSync(sizeFile, 'utf8').trim().split(' ').map(Number)
+      await expect(win.locator('.terminal-text').first()).toContainText('agent output line 2')
+      const region = win.locator('.pane-slot:not([data-hidden]) .terminal-text').first()
+      const cols = Number(await region.getAttribute('data-cols'))
+      const row = await terminalRowBox(win, /^painted agent output line 2/)
       const box = await screen.boundingBox()
       if (!box) throw new Error('no terminal screen')
       const cellWidth = box.width / cols
-      const cellHeight = box.height / rows
-      const rowCenter = box.y + cellHeight * 1.5
+      const cellHeight = row.height
+      const rowCenter = row.y + row.height / 2
       const colX = (col: number): number => box.x + cellWidth * (col + 0.5)
 
       await win.keyboard.down('Shift')
@@ -117,15 +116,15 @@ for (const renderer of ['webgl', 'dom'] as const) {
       await win.keyboard.press('Control+Shift+C')
       await expect
         .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
-        .toContain('agent output line 1')
+        .toContain('agent output line 2')
 
       const png = await screen.screenshot()
       const scale = (png.readUInt32BE(16) || box.width) / box.width
       const band = (from: number, to: number) => ({
         x0: Math.round(cellWidth * from * scale),
         x1: Math.round(cellWidth * to * scale),
-        y0: Math.round(cellHeight * 1 * scale),
-        y1: Math.round(cellHeight * 2 * scale),
+        y0: Math.round((row.y - box.y) * scale),
+        y1: Math.round((row.y - box.y + cellHeight) * scale),
       })
       const [selected, unselected] = await dominantColors(win, png, [band(3, 36), band(40, 58)])
       expect(distance(unselected, AGENT_PANEL)).toBeLessThan(6)

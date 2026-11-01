@@ -1,5 +1,6 @@
 import { lastTurns, type StreamEnd, turnsStarted } from '../../shared/agents/agentStream'
 import { ClaudeStream } from '../../shared/agents/claudeStream'
+import { isErrno, reportError } from '../diagnostics/errorReport'
 import type { StreamSource } from './streamSource'
 import { readNewLines, readTailWindow } from './transcriptFiles'
 
@@ -65,8 +66,9 @@ export function claudeSource({ find, session, closed }: ClaudeSourceDeps): Strea
             if (events.length > 0) emit(events)
           }
           failures = 0
-        } catch {
-          failures += 1
+        } catch (err) {
+          if (!isErrno(err)) reportError('streamClaude', err)
+          failures = isErrno(err) ? failures + 1 : FAILURES_MAX
           if (failures >= FAILURES_MAX) {
             if (timer) clearInterval(timer)
             timer = null

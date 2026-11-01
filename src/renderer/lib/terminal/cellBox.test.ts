@@ -13,17 +13,15 @@ function hostWithScreen(screenClass: string, height: number): HTMLElement {
 }
 
 describe('measureCellBox', () => {
-  it('reads the cell height and the screen offset inside the stack, for either engine', () => {
-    for (const screen of ['xterm-screen', 'ghostty-screen']) {
-      expect(measureCellBox(hostWithScreen(screen, 17 * 24), 24)).toEqual({
-        cellHeight: 17,
-        originTop: 8,
-      })
-    }
+  it('reads the cell height and the screen offset inside the stack', () => {
+    expect(measureCellBox(hostWithScreen('ghostty-screen', 17 * 24), 24)).toEqual({
+      cellHeight: 17,
+      originTop: 8,
+    })
   })
 
   it('answers null while the screen has no height or there is no screen', () => {
-    expect(measureCellBox(hostWithScreen('xterm-screen', 0), 24)).toBeNull()
+    expect(measureCellBox(hostWithScreen('ghostty-screen', 0), 24)).toBeNull()
     expect(measureCellBox(document.createElement('div'), 24)).toBeNull()
   })
 })

@@ -4,10 +4,10 @@ import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { askToQuit, newTerminalWorkspace, openWorkspace, runInTerminal } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   exitedWithin,
   expect,
+  type Page,
   stopTrace,
   test,
 } from './test'
@@ -131,10 +131,14 @@ function saved(dataHome: string): Saved | null {
   }
 }
 
-const shownRows = (win: Page) => win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
+const shownRows = (win: Page) => win.locator('.pane-slot:not([data-hidden]) .terminal-text')
 
 async function runInShownTerminal(win: Page, command: string): Promise<void> {
-  await runInTerminal(win, command, win.locator('.pane-slot:not([data-hidden]) .xterm').last())
+  await runInTerminal(
+    win,
+    command,
+    win.locator('.pane-slot:not([data-hidden]) .ghostty-host').last(),
+  )
 }
 
 const agentWorkspace = (i: number): boolean => i >= 2 && i % 2 === 0
@@ -146,7 +150,7 @@ function agentSession(i: number): string {
 async function openWorkspaces(win: Page, dataHome: string, agents = false): Promise<Saved> {
   await openWorkspace(win)
   await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-  await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+  await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 15_000 })
   let agentCount = 0
   for (let i = 1; i < WORKSPACES; i++) {
     await newTerminalWorkspace(win)
@@ -175,7 +179,7 @@ async function expectRestored(dataHome: string, expected: Saved): Promise<void> 
     await expect(next.win.locator('.rail-row')).toHaveCount(expected.workspaces, {
       timeout: 15_000,
     })
-    await expect(next.win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
+    await expect(next.win.locator('.ghostty-host').first()).toBeVisible({ timeout: 15_000 })
     for (let i = 1; i < WORKSPACES; i++) {
       if (expected.agentsRunning === 0 || !agentWorkspace(i)) continue
       await next.win.locator('.rail-row').nth(i).click()

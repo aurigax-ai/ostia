@@ -8,11 +8,10 @@ export function usePauseWhenHidden(
   syncSizeRef: RefObject<() => void>,
   shown: boolean,
   paneId: string,
-  engine: string,
 ): void {
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new pane or engine creates a new terminal
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new pane creates a new terminal
   useEffect(() => {
     pauseRef.current?.(!shown)
     if (shown) syncSizeRef.current?.()
-  }, [pauseRef, syncSizeRef, shown, paneId, engine])
+  }, [pauseRef, syncSizeRef, shown, paneId])
 }

@@ -1,10 +1,10 @@
-import { type IBufferLine, type IMarker, Terminal } from '@xterm/headless'
+import type { HeadlessTerminal, IBufferLine, IMarker } from '@aurigax-ai/ghostty-web'
+import { createHeadlessTerminal } from '../../shared/terminal/ghosttyHeadless'
 import { type CwdReport, parseOsc7 } from '../../shared/terminal/osc7'
 import type { HistoryFeed } from './history/historyFeed'
 import type { PaneBannerText } from './paneBanner'
-import { serializeLines } from './screenSerialize'
 
-const MIRROR_SCROLLBACK = 2000
+const MIRROR_SCROLLBACK = 2500
 export const HISTORY_LINES = 1000
 const PROMPT_START = 'A'
 const COMMAND_START = 'C'
@@ -12,12 +12,17 @@ const seam = (label: string): string => `\x1b]133;D\x07\r\n\x1b[2m── ${label
 export const restoreSeam = (t: PaneBannerText): string => seam(t.restored)
 export const hibernateSeam = (t: PaneBannerText): string => seam(t.woke)
 
+function isAlternateScreenMode(param: number | number[]): boolean {
+  const code = Array.isArray(param) ? (param[0] ?? 0) : param
+  return code === 47 || code === 1047 || code === 1049
+}
+
 function isBlank(line: IBufferLine | undefined): boolean {
   return !line || line.translateToString(true).trim() === ''
 }
 
 export class ScreenMirror {
-  private readonly term: Terminal
+  private readonly term: HeadlessTerminal
   private promptStart: IMarker | undefined
   private promptStartCol = 0
   private untouched: { history: string; seamEnd: IMarker; prompted: boolean } | undefined
@@ -36,11 +41,10 @@ export class ScreenMirror {
   ) {
     this.targetCols = Math.max(1, cols)
     this.targetRows = Math.max(1, rows)
-    this.term = new Terminal({
+    this.term = createHeadlessTerminal({
       cols: this.targetCols,
       rows: this.targetRows,
       scrollback: MIRROR_SCROLLBACK,
-      allowProposedApi: true,
     })
     this.term.parser.registerOscHandler(133, (data) => {
       this.onPromptMark(data.split(';')[0])
@@ -51,6 +55,10 @@ export class ScreenMirror {
       return false
     })
     this.term.onWriteParsed(() => this.changes++)
+    this.term.parser.registerCsiHandler({ prefix: '?', final: 'h' }, (params) => {
+      if (params.some(isAlternateScreenMode))
+        this.serialized = { at: this.changes, text: this.serializeHistory() }
+    })
     this.blockSeqBase = feed?.seqBase ?? 0
     feed?.watchScreen(() => this.serialize())
   }
@@ -87,25 +95,21 @@ export class ScreenMirror {
     this.targetCols = cols
     this.targetRows = rows
     this.feed?.resize(cols, rows)
-    this.term.write('', () => {
-      if (!this.disposed) this.term.resize(cols, rows)
-    })
+    this.term.resize(cols, rows)
+    this.changes++
   }
 
   flush(): Promise<void> {
-    if (this.disposed) return Promise.resolve()
-    return new Promise((resolve) => this.term.write('', resolve))
+    return Promise.resolve()
   }
 
   restore(history: string): void {
     if (this.disposed || !history) return
     this.feed?.restore(history)
-    this.term.write(`${history}\r\n`, () => {
-      if (this.disposed) return
-      this.clearUntouched()
-      const seamEnd = this.term.registerMarker(0)
-      if (seamEnd) this.untouched = { history, seamEnd, prompted: false }
-    })
+    this.term.write(`${history}\r\n`)
+    this.clearUntouched()
+    const seamEnd = this.term.registerMarker(0)
+    if (seamEnd) this.untouched = { history, seamEnd, prompted: false }
   }
 
   async pendingBlockEnd(
@@ -120,6 +124,7 @@ export class ScreenMirror {
 
   serialize(): string {
     if (this.disposed) return ''
+    if (this.term.buffer.active.type === 'alternate') return this.serialized?.text ?? ''
     if (this.serialized?.at === this.changes) return this.serialized.text
     const text = this.serializeHistory()
     this.serialized = { at: this.changes, text }
@@ -139,7 +144,7 @@ export class ScreenMirror {
     while (start < end && isBlank(buffer.getLine(start)) && !buffer.getLine(start + 1)?.isWrapped) {
       start++
     }
-    return serializeLines(buffer, start, end)
+    return this.term.serialize({ from: start, to: end }).join('\r\n')
   }
 
   async screenText(maxLines: number): Promise<string> {

@@ -14,7 +14,7 @@ function mount(
   syncSizeRef = { current: vi.fn() },
 ) {
   return renderHook(
-    ({ shown, paneId }) => usePauseWhenHidden(pauseRef, syncSizeRef, shown, paneId, 'ghostty'),
+    ({ shown, paneId }) => usePauseWhenHidden(pauseRef, syncSizeRef, shown, paneId),
     { initialProps: { shown, paneId: 'p1' } },
   )
 }

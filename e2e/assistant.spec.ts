@@ -1,7 +1,7 @@
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type FakeRequest, fakeAssistantSettings, startFakeProvider } from './fakeProvider'
-import { PROMPT, expectHeld, openWorkspace } from './helpers'
+import { expectHeld, openWorkspace, PROMPT } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 const SUGGESTED = 'echo ostia-assist-suggested'
@@ -30,7 +30,7 @@ test('an Ask answer fits its inline command chip to the code, and a suggested co
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
 
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.press(chords.palette)
     const palette = win.getByRole('dialog')
     await expect(palette).toBeVisible()
@@ -50,7 +50,7 @@ test('an Ask answer fits its inline command chip to the code, and a suggested co
     await win.keyboard.press('Escape')
     await expect(palette).toBeHidden()
 
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.press('Control+Shift+J')
     const composer = win.getByRole('region', { name: 'Describe a command' })
     await expect(composer).toBeVisible({ timeout: 5_000 })
@@ -64,9 +64,9 @@ test('an Ask answer fits its inline command chip to the code, and a suggested co
     expect(await suggestion.evaluate(background)).not.toBe(await composer.evaluate(background))
     await win.keyboard.press('Enter')
     await expect(composer).toBeHidden()
-    const rows = win.locator('.xterm-rows').first()
+    const rows = win.locator('.terminal-text').first()
     await expect(rows).toContainText(SUGGESTED, { timeout: 10_000 })
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.press('Control+C')
     await expect
       .poll(async () => (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length)

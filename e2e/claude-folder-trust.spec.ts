@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  DOM_RENDERER_SETTINGS,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   isolatedLaunch,
   seedSettings,
@@ -13,7 +13,7 @@ test.describe.configure({ timeout: 90_000 })
 
 const RESUME_ID = 'e2e-trust-4242'
 const SHOWN_ROWS =
-  '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .xterm-rows'
+  '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .terminal-text'
 
 interface Setup {
   dataHome: string
@@ -25,7 +25,7 @@ interface Setup {
 function setup(trustWorkspaceFolders: boolean, resuming = true): Setup {
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     agents: { autoResume: true, trustWorkspaceFolders },
   })
   const project = join(testHome(dataHome), 'work', 'shop')

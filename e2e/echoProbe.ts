@@ -9,10 +9,7 @@ export interface MainProbe {
   recv: (Stamp & { pid: number })[]
   flush: (Stamp & { pid: number })[]
   send: (Stamp & { channel: string })[]
-  parse: { s: number; e: number }[]
-  mirrorWrite: { s: number; e: number }[]
   spawns: number[]
-  parseHooked: boolean
   lag: number[]
 }
 
@@ -32,10 +29,7 @@ export function installMainProbe({ app, ipcMain, BrowserWindow }: typeof import(
     recv: [],
     flush: [],
     send: [],
-    parse: [],
-    mirrorWrite: [],
     spawns: [],
-    parseHooked: false,
     lag: [],
   }
   ;(globalThis as unknown as { __echoMain: MainProbe }).__echoMain = probe
@@ -59,30 +53,6 @@ export function installMainProbe({ app, ipcMain, BrowserWindow }: typeof import(
     })
     return proc
   }
-
-  type Hooked = { _core?: { __echoHooked?: boolean; _inputHandler?: HandlerLike } }
-  type HandlerLike = { parse: (data: unknown, result?: unknown) => unknown }
-  const { Terminal } = load('@xterm/headless') as typeof import('@xterm/headless')
-  const write = Terminal.prototype.write
-  Terminal.prototype.write = function (this: Hooked, data: string | Uint8Array, cb?: () => void) {
-    const core = this._core
-    const handler = core?._inputHandler
-    if (core && handler && !core.__echoHooked) {
-      core.__echoHooked = true
-      const parse = handler.parse.bind(handler)
-      handler.parse = (chunk, result) => {
-        const s = now()
-        const out = parse(chunk, result)
-        probe.parse.push({ s, e: now() })
-        return out
-      }
-      probe.parseHooked = true
-    }
-    const s = now()
-    const out = write.call(this as never, data, cb)
-    probe.mirrorWrite.push({ s, e: now() })
-    return out
-  } as typeof write
 
   const contents = BrowserWindow.getAllWindows()[0].webContents
   const send = contents.send.bind(contents)
@@ -233,10 +203,7 @@ const STEPS = [
 
 type StepName = (typeof STEPS)[number]
 
-export interface KeyTimeline extends Record<StepName, number> {
-  mirrorParse: number
-  mirrorWrite: number
-}
+export interface KeyTimeline extends Record<StepName, number> {}
 
 function after<T extends Stamp>(
   list: T[],
@@ -245,16 +212,6 @@ function after<T extends Stamp>(
   accept: (v: T) => boolean,
 ): T | undefined {
   return list.find((v) => v.t >= t && v.t < limit && accept(v))
-}
-
-function overlap(spans: { s: number; e: number }[], from: number, to: number): number {
-  let total = 0
-  for (const span of spans) {
-    if (span.e < from) continue
-    if (span.s > to) break
-    total += Math.min(span.e, to) - Math.max(span.s, from)
-  }
-  return total
 }
 
 export function alignKeys(
@@ -294,8 +251,6 @@ export function alignKeys(
       renderWait: render.t - written.t,
       frameEnd: frameEnd.t - render.t,
       total: frameEnd.t - key.t,
-      mirrorParse: overlap(main.parse, received.t, sent.t),
-      mirrorWrite: overlap(main.mirrorWrite, echo.t, sent.t),
     })
   })
   return timelines
@@ -309,7 +264,7 @@ export function percentile(values: number[], q: number): number {
 }
 
 export function summarize(timelines: KeyTimeline[]): Record<string, [number, number]> {
-  const names = [...STEPS, 'mirrorParse', 'mirrorWrite'] as const
+  const names = STEPS
   return Object.fromEntries(
     names.map((name) => {
       const values = timelines.map((t) => t[name])

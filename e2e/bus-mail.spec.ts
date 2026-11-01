@@ -44,8 +44,8 @@ test('a message to an idle agent shows as a mail count until the agent takes it'
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const caller = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
+    const caller = win.locator('.terminal-text').first()
+    await win.locator('.ghostty-host').first().click()
 
     await typeLine(win, 'ostia agent run claude go --name worker; echo run-exit-$?')
     await expect(caller).toContainText('run-exit-0', { timeout: 30_000 })
@@ -56,8 +56,10 @@ test('a message to an idle agent shows as a mail count until the agent takes it'
     await expect(caller).toContainText('send-exit-0', { timeout: 30_000 })
     await expect(caller).toContainText('"state":"queued"')
 
-    const mark = win.getByRole('img', { name: '1 unread message for this agent' })
-    await expect(mark.first()).toBeVisible({ timeout: 15_000 })
+    const mark = win
+      .getByRole('tab', { name: /worker/ })
+      .getByRole('img', { name: '1 unread message for this agent' })
+    await expect(mark).toBeVisible({ timeout: 15_000 })
 
     await typeLine(win, 'clear; ostia pane send worker --enter; echo enter-exit-$?')
     await expect(caller).toContainText('enter-exit-0', { timeout: 30_000 })

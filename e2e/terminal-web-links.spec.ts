@@ -3,9 +3,9 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, newTerminalWorkspace, openWorkspace } from './helpers'
+import { newTerminalWorkspace, openWorkspace, PROMPT } from './helpers'
 import { clickWith, hoverPoint, linkPoint } from './terminalLinks'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 async function listen(
   onRequest: (url: string) => void,
@@ -63,7 +63,7 @@ function seedBrowserAboveTerminal(dataHome: string): void {
 }
 
 async function printLink(win: Page, url: string): Promise<void> {
-  await win.locator('.xterm').filter({ visible: true }).first().click()
+  await win.locator('.ghostty-host').filter({ visible: true }).first().click()
   await win.keyboard.type(`clear; printf '%s\\n' '${url}'`)
   await win.keyboard.press('Enter')
 }
@@ -76,9 +76,12 @@ test('the link hint goes away when a Ctrl+click opens a browser tab in front and
   const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(PROMPT, {
-      timeout: 15_000,
-    })
+    await expect(win.locator('.pane-slot:not([data-hidden]) .terminal-text')).toContainText(
+      PROMPT,
+      {
+        timeout: 15_000,
+      },
+    )
     await expect(win.locator('webview')).toHaveCount(1, { timeout: 15_000 })
     const url = `http://127.0.0.1:${server.port}/front`
     await printLink(win, url)
@@ -122,7 +125,7 @@ test('a hyperlink in a mouse-reporting program leaves plain clicks to the progra
   try {
     const win = await app.firstWindow()
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     const url = `http://127.0.0.1:${server.port}/osc`
     await win.keyboard.type(
       `clear; printf '\\033[?1000h\\033[?1006h\\033]8;;${url}\\033\\\\docs page\\033]8;;\\033\\\\\\n'; stty raw -echo; cat > ${reports}`,

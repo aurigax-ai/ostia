@@ -41,7 +41,7 @@ test('an app link asks first, remembers a scheme the human allowed and starts th
     await openWorkspace(win)
     const card = win.getByRole('region', { name: 'Open link in an app' })
     const print = async (line: string): Promise<void> => {
-      await win.locator('.xterm').filter({ visible: true }).first().click()
+      await win.locator('.ghostty-host').filter({ visible: true }).first().click()
       await win.keyboard.type(`clear; printf '%s\\n' '${line}'`)
       await win.keyboard.press('Enter')
     }

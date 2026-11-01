@@ -52,7 +52,7 @@ const facts: SessionFacts = {
   restore: 'ok',
   inEffect: {
     features: { input_mode: 'terminal', prompt_style: 'shell' },
-    terminal: { engine: 'xterm', gpu: 'on' },
+    terminal: { gpu: 'on' },
   },
   installedExtensions: ['trellis'],
   enabledExtensions: ['trellis'],
@@ -214,7 +214,6 @@ describe('createTelemetry', () => {
     expect(event.properties['usage.windows']).toBe('1')
     expect(event.properties['usage.workspaces']).toBe('2-3')
     expect(event.properties['usage.restore']).toBe('ok')
-    expect(event.properties['terminal.engine']).toBe('xterm')
     expect(event.properties['terminal.gpu']).toBe('on')
     expect(event.properties['terminal.shell.zsh']).toBe(1)
     expect(event.properties['terminal.wake']).toBe(1)

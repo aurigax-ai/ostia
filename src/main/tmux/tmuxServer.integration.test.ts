@@ -2,9 +2,9 @@ import { execFileSync } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import { Terminal } from '@xterm/headless'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { skipWithoutTmux, tmuxPath } from '../../../test/tmux'
+import { createHeadlessTerminal } from '../../shared/terminal/ghosttyHeadless'
 import { programPath } from '../platform/systemRequirements'
 import { shellIntegrationSpawnOptions } from '../terminal/shellIntegration'
 import type { TmuxPane } from './tmuxPane'
@@ -48,8 +48,8 @@ function collect(pane: TmuxPane): { text: () => string } {
 const POLL = { timeout: 5000, interval: 20 }
 
 async function rendered(...chunks: string[]): Promise<string> {
-  const term = new Terminal({ cols: 80, rows: 24, scrollback: 10_000, allowProposedApi: true })
-  for (const chunk of chunks) await new Promise<void>((resolve) => term.write(chunk, resolve))
+  const term = createHeadlessTerminal({ cols: 80, rows: 24, scrollback: 10_000 })
+  for (const chunk of chunks) term.write(chunk)
   const buffer = term.buffer.active
   const lines: string[] = []
   for (let y = 0; y < buffer.length; y++) {
@@ -312,7 +312,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     writeFileSync(join(home, '.zshrc'), "PROMPT='%~ ❯ '\n")
     const server = await connect()
     const integration = shellIntegrationSpawnOptions(zsh, { HOME: home })
-    const term = new Terminal({ cols: 100, rows: 30, allowProposedApi: true })
+    const term = createHeadlessTerminal({ cols: 100, rows: 30 })
     const pane = await server.spawn({
       file: zsh,
       args: integration.args,
@@ -334,7 +334,6 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     const settled = async (check: () => boolean): Promise<void> => {
       await vi.waitUntil(check, { timeout: 10_000, interval: 20 })
       await new Promise((r) => setTimeout(r, 300))
-      await new Promise<void>((resolve) => term.write('', resolve))
     }
     await settled(() => shown().includes('❯'))
     pane.write('echo before-resize\r')

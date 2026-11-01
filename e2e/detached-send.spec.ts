@@ -68,7 +68,7 @@ test('a browser pane moved to its own window sends a picked element to the agent
       timeout: 15_000,
     })
     await expect(win.getByRole('textbox', { name: 'Address' })).toHaveCount(0)
-    await expect(detached.locator('.xterm')).toHaveCount(0)
+    await expect(detached.locator('.ghostty-host')).toHaveCount(0)
     await expect.poll(buttonReady, { timeout: 15_000 }).toBe(true)
 
     await detached.getByRole('button', { name: 'Point at element' }).click()
@@ -95,7 +95,17 @@ test('a browser pane moved to its own window sends a picked element to the agent
 
     const bar = detached.getByRole('toolbar', { name: 'Selection actions' })
     await expect(bar).toBeVisible({ timeout: 15_000 })
-    await bar.getByRole('button', { name: 'Add a note' }).click()
+    const addNote = bar.getByRole('button', { name: 'Add a note' })
+    await expect
+      .poll(
+        async () => {
+          await addNote.hover()
+          return addNote.evaluate((el) => el.matches(':hover'))
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true)
+    await addNote.click()
     await detached
       .getByRole('textbox', { name: 'Add a note' })
       .fill('Checkout button is misaligned')
@@ -108,12 +118,12 @@ test('a browser pane moved to its own window sends a picked element to the agent
     await expect(detached.getByTestId('capture-chip')).toHaveText(/^Sent to /, {
       timeout: 15_000,
     })
-    const terminal = win.locator('.xterm-rows').first()
+    const terminal = win.locator('.terminal-text').first()
     await expect(terminal).toContainText(/Checkout button is misaligned @\S*capture-\d+\S*\.md/, {
       timeout: 15_000,
     })
     await expect(terminal).not.toContainText('agent-read:')
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.press('Enter')
     await expect(terminal).toContainText(/agent-read: [^@]*@\S*capture-\d+\S*\.md/, {
       timeout: 15_000,

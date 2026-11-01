@@ -138,7 +138,7 @@ for (const engine of BENCH_ENGINES.filter((e) => !ENGINE_FILTER || e.name === EN
       const win = await app.firstWindow()
       await win.waitForLoadState('domcontentloaded')
       await newTerminal(win)
-      const surfaces = win.locator('.xterm-host, .ghostty-host')
+      const surfaces = win.locator('.ghostty-host, .ghostty-host')
       let count = 1
       await expect(surfaces).toHaveCount(count, { timeout: 15_000 })
       const split = async (name: string) => {

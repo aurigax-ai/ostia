@@ -1,5 +1,5 @@
-import type { ILink, Terminal } from '@xterm/xterm'
 import { describe, expect, it, vi } from 'vitest'
+import type { TerminalLink as ILink, OstiaTerminal as Terminal } from '@/lib/terminal/ostiaTerminal'
 import { pathLinkTarget } from './linkModifier'
 import {
   createFileLinkProvider,

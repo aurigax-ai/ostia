@@ -43,7 +43,6 @@ describe('settingsStore terminal and pane settings', () => {
       keepShells: false,
       primarySelection: true,
       macOptionIsMeta: false,
-      renderer: 'xterm',
     })
     expect(store().panes).toEqual({
       dimInactive: true,
@@ -86,7 +85,6 @@ describe('settingsStore terminal and pane settings', () => {
       keepShells: false,
       primarySelection: true,
       macOptionIsMeta: false,
-      renderer: 'xterm',
     })
     expect(store().panes.dimInactive).toBe(false)
     expect(store().panes.focusOnHover).toBe(false)

@@ -3,6 +3,7 @@ import {
   type RemoteFileError,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import type { MutableRefObject } from 'react'
+import { reportError } from '@/lib/app/errorReporting'
 import { changedLines, minimalLineEdit } from '@/lib/files/diskReload'
 import { saveFormatted } from '@/lib/files/editorSave'
 import { trackSave } from '@/lib/files/pendingSaves'
@@ -44,6 +45,11 @@ interface EditorSaveParams {
   setDiskBar: (bar: DiskBar | null) => void
 }
 
+function saveFailed(err: unknown): false {
+  reportError('rejection', err, 'editorSave')
+  return false
+}
+
 export function createEditorSave({
   editor,
   saveRef,
@@ -75,7 +81,7 @@ export function createEditorSave({
         )
         return attempt.outcome.kind === 'saved'
       },
-    }).catch(() => false)
+    }).catch(saveFailed)
     const { outcome } = attempt
     if (outcome?.kind === 'saved') {
       remoteVersions.set(key, outcome.version)
@@ -126,7 +132,7 @@ export function createEditorSave({
         setDiskBase(key, text)
         return window.ostia.fs.write(fp, text)
       },
-    }).catch(() => false)
+    }).catch(saveFailed)
     if (!ok) {
       setUnsavedPath(fp)
       return

@@ -145,6 +145,7 @@ export const commandsEn = {
       'tab.next': 'Next Tab',
       'tab.previous': 'Previous Tab',
       'terminal.clear': 'Clear Terminal',
+      'terminal.reviewOutput': 'Review Terminal Output',
       'terminal.scrollLineDown': 'Scroll Down One Line',
       'terminal.scrollLineUp': 'Scroll Up One Line',
       'terminal.scrollPageDown': 'Scroll Down One Page',

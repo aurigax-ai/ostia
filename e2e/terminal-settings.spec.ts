@@ -1,5 +1,5 @@
 import { isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
+import { openWorkspace, PROMPT, terminalRowHeight } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 async function launch() {
@@ -17,31 +17,24 @@ async function openSettings(win: import('@playwright/test').Page, section: strin
   return settings
 }
 
-async function rowHeight(win: import('@playwright/test').Page): Promise<number> {
-  return win
-    .locator('.xterm-rows > div')
-    .first()
-    .evaluate((el) => el.getBoundingClientRect().height)
-}
+const rowHeight = terminalRowHeight
 
-test(
-  'changing the terminal line height in Settings resizes terminal rows',
-  { tag: '@core' },
-  async () => {
-    const { app, win } = await launch()
-    try {
-      const before = await rowHeight(win)
-      const settings = await openSettings(win, 'Appearance')
-      const lineHeight = settings.getByRole('spinbutton', { name: 'Terminal line height' })
-      await lineHeight.fill('2')
-      await lineHeight.press('Enter')
-      await win.keyboard.press('Escape')
-      await expect.poll(() => rowHeight(win)).toBeGreaterThan(before * 1.5)
-    } finally {
-      await app.close()
-    }
-  },
-)
+test('changing the terminal line height in Settings resizes terminal rows', {
+  tag: '@core',
+}, async () => {
+  const { app, win } = await launch()
+  try {
+    const before = await rowHeight(win)
+    const settings = await openSettings(win, 'Appearance')
+    const lineHeight = settings.getByRole('spinbutton', { name: 'Terminal line height' })
+    await lineHeight.fill('2')
+    await lineHeight.press('Enter')
+    await win.keyboard.press('Escape')
+    await expect.poll(() => rowHeight(win)).toBeGreaterThan(before * 1.5)
+  } finally {
+    await app.close()
+  }
+})
 
 test('copy on select puts selected terminal text on the clipboard', async () => {
   const { app, win } = await launch()
@@ -51,8 +44,8 @@ test('copy on select puts selected terminal text on the clipboard', async () => 
     await win.keyboard.press('Escape')
     await app.evaluate(({ clipboard }) => clipboard.writeText('before'))
 
-    const rows = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
+    const rows = win.locator('.terminal-text').first()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.type('clear; echo ostiacopy42')
     await win.keyboard.press('Enter')
     const output = rows.locator('div', { hasText: /^ostiacopy42\s*$/ }).first()

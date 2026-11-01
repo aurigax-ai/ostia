@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
@@ -20,8 +20,8 @@ test('SSH-C39 a session with shell integration shows remote commands as blocks a
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
+    ...CANVAS_RENDERER_SETTINGS,
+    behavior: { ...CANVAS_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
     appearance: { windowTitle: 'cwd={cwd}' },
   })
   const launch = isolatedLaunch(dataHome)
@@ -54,10 +54,10 @@ test('SSH-C39 a session with shell integration shows remote commands as blocks a
     await win.keyboard.press('Enter')
 
     const sshPane = win.locator('[data-pane-id]').filter({ hasText: 'fake ssh session' })
-    await expect(sshPane.locator('.xterm-rows')).toContainText('remote$', { timeout: 20_000 })
+    await expect(sshPane.locator('.terminal-text')).toContainText('remote$', { timeout: 20_000 })
     await expect(sshPane.getByRole('textbox', { name: 'Command input' })).toHaveCount(0)
     expect(readdirSync(remoteTmp)).toEqual([])
-    await sshPane.locator('.xterm').click()
+    await sshPane.locator('.ghostty-host').click()
     const localTitle = await win.title()
     expect(localTitle).toMatch(/^cwd=\//)
 
@@ -65,7 +65,7 @@ test('SSH-C39 a session with shell integration shows remote commands as blocks a
     await win.keyboard.press('Enter')
     await win.keyboard.type('echo hello-$((40+2))')
     await win.keyboard.press('Enter')
-    await expect(sshPane.locator('.xterm-rows')).toContainText('hello-42', { timeout: 15_000 })
+    await expect(sshPane.locator('.terminal-text')).toContainText('hello-42', { timeout: 15_000 })
     await expect
       .poll(() => sshPane.locator('.block-gutter').count(), { timeout: 10_000 })
       .toBeGreaterThanOrEqual(2)

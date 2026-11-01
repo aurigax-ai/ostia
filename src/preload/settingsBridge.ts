@@ -5,6 +5,7 @@ import { listen } from './listen'
 export const settingsBridge: Pick<OstiaBridge, 'settings' | 'sync'> = {
   settings: {
     path: () => ipcRenderer.invoke('settings:path'),
+    recovered: () => ipcRenderer.invoke('settings:recovered'),
     onChanged: (cb) => listen('settings:changed', () => cb()),
     setPlaybooks: (playbooks) => ipcRenderer.send('settings:playbooks', playbooks),
   },

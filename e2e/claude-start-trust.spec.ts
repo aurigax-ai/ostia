@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  DOM_RENDERER_SETTINGS,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   isolatedLaunch,
   seedSettings,
@@ -15,7 +15,7 @@ test.describe.configure({ timeout: 90_000 })
 
 const CARD = 'Claude folder trust'
 const SHOWN_ROWS =
-  '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .xterm-rows'
+  '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .terminal-text'
 
 const FAKE_CLAUDE = [
   '#!/bin/sh',
@@ -39,7 +39,7 @@ interface Setup {
 
 async function launch(trustWorkspaceFolders: boolean): Promise<Setup> {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, agents: { trustWorkspaceFolders } })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, agents: { trustWorkspaceFolders } })
   const home = testHome(dataHome)
   const project = join(home, 'work', 'shop')
   const outside = join(home, 'work', 'elsewhere')
@@ -81,8 +81,8 @@ async function launch(trustWorkspaceFolders: boolean): Promise<Setup> {
   })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
-  await expect(win.locator('.xterm-rows').first()).toContainText('❯', { timeout: 20_000 })
-  await win.locator('.xterm').first().click()
+  await expect(win.locator('.terminal-text').first()).toContainText('❯', { timeout: 20_000 })
+  await win.locator('.ghostty-host').first().click()
   return { app, win, project, outside, config }
 }
 

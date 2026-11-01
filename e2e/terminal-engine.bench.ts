@@ -2,11 +2,11 @@ import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { OstiaBridge } from '../src/shared/types'
 import { chords } from './chords'
-import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { BENCH_ENGINES } from './ghostty'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const WINDOW_MS = 6_000
@@ -15,10 +15,9 @@ const CONTINUOUS_MS = 30_000
 const HISTORY_OFF = process.env.OSTIA_BENCH_HISTORY === 'off'
 
 function benchSettings(engine: (typeof BENCH_ENGINES)[number]): object {
-  const terminal = 'terminal' in engine.settings ? engine.settings.terminal : {}
   return {
     ...engine.settings,
-    ...(HISTORY_OFF ? { terminal: { ...terminal, scrollbackHistory: 'off' } } : {}),
+    ...(HISTORY_OFF ? { terminal: { scrollbackHistory: 'off' } } : {}),
     workspaces: { confirmQuit: false },
   }
 }
@@ -90,9 +89,8 @@ for (const engine of BENCH_ENGINES) {
       await win.waitForLoadState('domcontentloaded')
       await openTerminal(win)
       await win.keyboard.type(
-        `seq -f 'line %g of the bulk output test with some padding text' ${BULK_LINES}; printf '\\033]0;BULKDONE\\007'`,
+        `seq -f 'line %g of the bulk output test with some padding text' ${BULK_LINES}; printf '\\033]0;BULKDONE\\007'; sleep 1`,
       )
-      const title = win.locator('.pane-tab .title').first()
       await win.evaluate(() => {
         const w = window as unknown as { __doneAt?: number }
         const el = document.querySelector('.pane-tab .title')
@@ -105,7 +103,14 @@ for (const engine of BENCH_ENGINES) {
       await win.evaluate(PAGE_PROBE)
       const startAt = await win.evaluate(() => performance.now())
       await win.keyboard.press('Enter')
-      await expect(title).toHaveText('BULKDONE', { timeout: 100_000 })
+      await expect
+        .poll(
+          () => win.evaluate(() => (window as unknown as { __doneAt?: number }).__doneAt ?? 0),
+          {
+            timeout: 100_000,
+          },
+        )
+        .toBeGreaterThan(0)
       const doneAt = await win.evaluate(() => (window as unknown as { __doneAt: number }).__doneAt)
       const main = await app.evaluate(
         () => (globalThis as unknown as { __mainBench: Metrics }).__mainBench,
@@ -289,7 +294,7 @@ for (const engine of BENCH_ENGINES) {
         await expect(busy).toHaveCount(pane, { timeout: 15_000 })
         if (pane === AGENT_PANES) break
         await win.keyboard.press(pane % 2 ? 'Control+Alt+Backslash' : 'Control+Alt+Minus')
-        await expect(win.locator('.pane-tab .title', { hasText: /^zsh$/ })).toHaveCount(1, {
+        await expect(win.locator('.ghostty-host:visible')).toHaveCount(pane + 1, {
           timeout: 15_000,
         })
         await win.waitForTimeout(1_000)
@@ -484,5 +489,5 @@ async function measure(
 
 async function openTerminal(win: Page): Promise<void> {
   await openWorkspace(win)
-  await win.locator('.xterm, .ghostty-screen').first().click()
+  await win.locator('.ghostty-host, .ghostty-screen').first().click()
 }

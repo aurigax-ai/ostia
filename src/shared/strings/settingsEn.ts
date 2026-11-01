@@ -160,7 +160,6 @@ export const settingsEn = {
     fontSearch: 'Search installed fonts',
     fontSizeFor: '{label}, Size',
     fontWeightFor: '{label}, Weight',
-    ghosttyFailed: 'Ghostty could not start, so terminals use xterm.js: {reason}',
     gpuAcceleration: 'GPU acceleration',
     gpuAccelerationDesc:
       'Draw terminals with WebGL so block and box-drawing characters fill their cells. Applies to new terminals.',
@@ -305,6 +304,11 @@ export const settingsEn = {
       '{product} prompt shows context chips in the input editor and gives new shells a plain "directory" prompt, so scrollback stays readable.',
     promptStylePine: '{product} prompt',
     promptStyleShell: 'Shell prompt',
+    recoveredBody:
+      'Settings could not be read. A copy was saved as {path} and defaults were restored.',
+    recoveredLabel: 'Settings',
+    recoveredOpen: 'Open the copy',
+    recoveredTitle: 'Settings were reset',
     remote: 'Remote',
     remoteAddressUnavailable: '{address} is no longer on this computer. Pick another address.',
     remoteAddressWarning:
@@ -428,8 +432,6 @@ export const settingsEn = {
       '{name} is disconnected at once and has to pair again to reach this computer.',
     remoteUnpairTitle: 'Unpair {name}?',
     removeAppLink: 'Remove {scheme}',
-    rendererGhostty: 'Ghostty',
-    rendererXterm: 'xterm.js',
     resetFor: 'Reset {label} to {value}',
     resetTo: 'Reset to {value}',
     restoreWorkspace: 'Restore workspace on launch',
@@ -474,9 +476,6 @@ export const settingsEn = {
     terminal: 'Terminal',
     terminalColors: 'Terminal colors',
     terminalFont: 'Terminal font',
-    terminalRenderer: 'Terminal engine',
-    terminalRendererDesc:
-      'Terminals opened from now on, and terminals restored at the next start, use this engine. A terminal that is already open keeps its engine.',
     themePreview: 'Preview: {theme} {product} theme, {terminal} terminal, {editor} editor',
     title: 'Settings',
     trustWorkspaceFolders: 'Trust workspace folders for Claude',

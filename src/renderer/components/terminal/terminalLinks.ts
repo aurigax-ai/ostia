@@ -1,8 +1,7 @@
-import type { IBufferRange } from '@xterm/xterm'
 import { isPaneVisible } from '@/lib/attention/workspaceActivity'
 import { openBrowserAs, openBrowserTabAs } from '@/lib/browser/browserProfile'
 import { measureCells } from '@/lib/prompt/usePromptGeometry'
-import type { OstiaTerminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
+import type { OstiaTerminal, TerminalRange, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
 import { openAppLink } from '@/lib/terminalLinks/appLinkOpen'
 import { createLinkHint } from '@/lib/terminalLinks/linkHint'
 import {
@@ -42,7 +41,7 @@ export interface TerminalLinks {
   openWebLink: (e: MouseEvent, uri: string) => void
   showLinkHint: (
     kind: LinkKind,
-    range: IBufferRange,
+    range: TerminalRange,
     url?: string,
     offers?: PathLinkTarget[],
   ) => void
@@ -74,7 +73,7 @@ export function createTerminalLinks({
   )
   const showLinkHint = (
     kind: LinkKind,
-    range: IBufferRange,
+    range: TerminalRange,
     url?: string,
     offers?: PathLinkTarget[],
   ): void => {

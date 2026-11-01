@@ -4,9 +4,9 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { chords, isMac } from './chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 const RED_DOT_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=='
@@ -25,8 +25,8 @@ async function launch(
 ): Promise<Launched> {
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: settings.inputMode ?? 'terminal' },
+    ...CANVAS_RENDERER_SETTINGS,
+    behavior: { ...CANVAS_RENDERER_SETTINGS.behavior, inputMode: settings.inputMode ?? 'terminal' },
     terminal: { clipboardKeys: settings.clipboardKeys ?? 'shift' },
   })
   const launchOptions = isolatedLaunch(dataHome)
@@ -106,7 +106,7 @@ async function copyFileOnMac(app: ElectronApplication, path: string, flavors: Fl
 
 async function selectTerminalWord(win: Page, word: string): Promise<void> {
   const row = win
-    .locator('.xterm-rows > div')
+    .locator('.terminal-text > div')
     .filter({ hasText: new RegExp(`^${word}`) })
     .first()
   const box = await row.boundingBox()
@@ -114,53 +114,51 @@ async function selectTerminalWord(win: Page, word: string): Promise<void> {
   await win.mouse.dblclick(box.x + 12, box.y + box.height / 2)
 }
 
-test(
-  'the copy and paste chords work in a terminal and paste an image as Ctrl+V for a program',
-  { tag: '@core' },
-  async () => {
-    const { app, win } = await launch()
-    try {
-      const rows = win.locator('.xterm-rows').first()
-      await win.locator('.xterm').first().click()
-      await writeClipboard(app, 'echo pasted_$((6*7))')
-      await win.keyboard.press('Control+v')
-      await win.keyboard.press('x')
-      await expect(rows).toContainText(/[❯$%#] x/)
-      await expect(rows).not.toContainText('pasted_')
-      await win.keyboard.press('Control+c')
-      await expect(rows).toContainText(/[❯$%#] x.*[❯$%#]/)
-      await win.keyboard.type('echo ostiacopyword')
-      await win.keyboard.press('Enter')
-      await expect(rows.locator('> div', { hasText: /^ostiacopyword/ })).toHaveCount(1)
-      await selectTerminalWord(win, 'ostiacopyword')
-      await win.keyboard.press(chords.copy)
-      await expect.poll(() => readClipboard(app)).toBe('ostiacopyword')
-      await expect(win.getByTestId('capture-chip')).toHaveText('Copied')
+test('the copy and paste chords work in a terminal and paste an image as Ctrl+V for a program', {
+  tag: '@core',
+}, async () => {
+  const { app, win } = await launch()
+  try {
+    const rows = win.locator('.terminal-text').first()
+    await win.locator('.ghostty-host').first().click()
+    await writeClipboard(app, 'echo pasted_$((6*7))')
+    await win.keyboard.press('Control+v')
+    await win.keyboard.press('x')
+    await expect(rows).toContainText(/[❯$%#] x/)
+    await expect(rows).not.toContainText('pasted_')
+    await win.keyboard.press('Control+c')
+    await expect(rows).toContainText(/[❯$%#] x.*[❯$%#]/)
+    await win.keyboard.type('echo ostiacopyword')
+    await win.keyboard.press('Enter')
+    await expect(rows.locator('> div', { hasText: /^ostiacopyword/ })).toHaveCount(1)
+    await selectTerminalWord(win, 'ostiacopyword')
+    await win.keyboard.press(chords.copy)
+    await expect.poll(() => readClipboard(app)).toBe('ostiacopyword')
+    await expect(win.getByTestId('capture-chip')).toHaveText('Copied')
 
-      await writeClipboard(app, 'echo pasted_$((6*7))')
-      await win.keyboard.press(chords.paste)
-      await expect(rows).toContainText('echo pasted_')
-      await win.keyboard.press('Enter')
-      await expect(rows).toContainText('pasted_42')
+    await writeClipboard(app, 'echo pasted_$((6*7))')
+    await win.keyboard.press(chords.paste)
+    await expect(rows).toContainText('echo pasted_')
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('pasted_42')
 
-      await win.keyboard.type(READ_ONE_BYTE)
-      await win.keyboard.press('Enter')
-      await expect(rows).toContainText('reading_7')
-      await writeClipboardImage(app)
-      await win.keyboard.press(chords.paste)
-      await expect(rows).toContainText('byte_16', { timeout: 10_000 })
-    } finally {
-      await app.close()
-    }
-  },
-)
+    await win.keyboard.type(READ_ONE_BYTE)
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('reading_7')
+    await writeClipboardImage(app)
+    await win.keyboard.press(chords.paste)
+    await expect(rows).toContainText('byte_16', { timeout: 10_000 })
+  } finally {
+    await app.close()
+  }
+})
 
 test('copying a terminal selection with smart Ctrl+C or the context menu shows the Copied chip', async () => {
   test.skip(isMac, 'smart clipboard keys are off on macOS')
   const { app, win } = await launch({ clipboardKeys: 'smart' })
   try {
-    const rows = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
+    const rows = win.locator('.terminal-text').first()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.type('echo ostiasmartword')
     await win.keyboard.press('Enter')
     await expect(rows.locator('> div', { hasText: /^ostiasmartword/ })).toHaveCount(1)
@@ -172,7 +170,7 @@ test('copying a terminal selection with smart Ctrl+C or the context menu shows t
 
     await app.evaluate(({ clipboard }) => clipboard.clear())
     await selectTerminalWord(win, 'ostiasmartword')
-    await win.locator('.xterm').first().click({ button: 'right' })
+    await win.locator('.ghostty-host').first().click({ button: 'right' })
     await win.getByRole('menuitem', { name: 'Copy', exact: true }).click()
     await expect.poll(() => readClipboard(app)).toBe('ostiasmartword')
     await expect(win.getByTestId('capture-chip')).toHaveText('Copied')
@@ -185,10 +183,10 @@ test('Cmd+V pastes a copied file as a quoted path and hands an image to the prog
   test.skip(!isMac, 'the native pasteboard types only exist on macOS')
   const { app, win, home } = await launch()
   try {
-    const rows = win.locator('.xterm-rows').first()
+    const rows = win.locator('.terminal-text').first()
     const shot = join(home, 'my shot.png')
     writeFileSync(shot, Buffer.from(RED_DOT_PNG.split(',')[1], 'base64'))
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     const contents = () => win.evaluate(() => window.ostia.clipboard.contents())
     let n = 0
 

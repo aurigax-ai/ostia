@@ -1,14 +1,15 @@
 import { findAppLinks, linkKind } from '@shared/common/externalLinks'
-import type { IBufferRange, ILink, ILinkHandler, ILinkProvider } from '@xterm/xterm'
-import type { OstiaTerminal as Terminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
+import type {
+  OstiaTerminal as Terminal,
+  TerminalLink,
+  TerminalLinkProvider,
+  TerminalRange,
+  WebLinkHandler,
+} from '@/lib/terminal/ostiaTerminal'
 import { readLogicalLine } from './terminalFileLinks'
 
-export function xtermLinkHandler(links: WebLinkHandler): ILinkHandler {
-  return { ...links, allowNonHttpProtocols: true }
-}
-
 export interface LinkHint {
-  show(range: IBufferRange, uri: string): void
+  show(range: TerminalRange, uri: string): void
   hide(): void
 }
 
@@ -25,16 +26,16 @@ export function hintedLinkHandler(
   }
 }
 
-export function createAppLinkProvider(term: Terminal, deps: WebLinkHandler): ILinkProvider {
+export function createAppLinkProvider(term: Terminal, deps: WebLinkHandler): TerminalLinkProvider {
   return {
     provideLinks(row, callback) {
       const { text, cells } = readLogicalLine(term, row)
-      const links: ILink[] = []
+      const links: TerminalLink[] = []
       for (const m of findAppLinks(text)) {
         const start = cells[m.start]
         const end = cells[m.end - 1]
         if (!start || !end || start.y > row || end.y < row) continue
-        const range: IBufferRange = { start, end }
+        const range: TerminalRange = { start, end }
         links.push({
           range,
           text: m.url,
