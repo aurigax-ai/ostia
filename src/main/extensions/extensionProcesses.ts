@@ -27,6 +27,13 @@ export const MAX_RESTARTS = 3
 
 const RESCAN_DEBOUNCE_MS = 250
 
+const STOP_EXIT_WAIT_MS = 5000
+
+function exited(proc: ChildProcess): Promise<void> {
+  if (proc.exitCode !== null || proc.signalCode !== null) return Promise.resolve()
+  return new Promise((resolve) => proc.once('exit', () => resolve()))
+}
+
 function startsWithWindow(rt: Runtime): boolean {
   const c = rt.ext.manifest.contributes
   return (
@@ -335,12 +342,18 @@ export class ExtensionProcesses {
     proc?.kill('SIGKILL')
   }
 
-  stopAll(): void {
+  async stopAll(): Promise<void> {
     this.watching = false
     this.closeWatchers()
     this.scheduleRescan.cancel()
-    for (const rt of this.host.runtimes.values()) this.stop(rt)
+    const procs: ChildProcess[] = []
+    for (const rt of this.host.runtimes.values()) {
+      if (rt.proc) procs.push(rt.proc)
+      this.stop(rt)
+    }
     this.host.deps.exec?.killAll()
+    const timer = new Promise<void>((resolve) => setTimeout(resolve, STOP_EXIT_WAIT_MS).unref())
+    await Promise.race([Promise.all(procs.map(exited)), timer])
   }
 
   private waitFor(rt: Runtime, predicate: () => boolean): Promise<void> {

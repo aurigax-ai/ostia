@@ -47,6 +47,9 @@ if [ -n "$control_op" ]; then
   if [ -z "$control_socket" ] && [ -n "$control_path" ]; then
     control_socket=$(printf '%s' "$control_path" | sed "s|%C|$(printf '%s %s' "$route" "$dest" | cksum | cut -d' ' -f1)|")
   fi
+  case "${control_socket##*/}" in
+    *.*) echo "Control socket connect($control_socket): Not a socket" >&2; exit 255 ;;
+  esac
   if [ ! -e "$control_socket" ]; then
     echo "Control socket connect($control_socket): No such file or directory" >&2
     exit 255
@@ -68,7 +71,10 @@ if [ -n "$control_op" ]; then
     check) echo "Master running (pid=1)" ;;
     exit)
       if [ -f "$control_socket.pids" ]; then
-        while read -r spec pid; do kill "$pid" 2>/dev/null; done < "$control_socket.pids"
+        while read -r spec pid; do
+          kill "$pid" 2>/dev/null
+          while kill -0 "$pid" 2>/dev/null; do sleep 0.02; done
+        done < "$control_socket.pids"
       fi
       rm -f "$control_socket" "$control_socket.forwards" "$control_socket.pids"; echo "Exit request sent." ;;
   esac
