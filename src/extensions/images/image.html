@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <link rel="stylesheet" href="base.css" />
     <style>
+      :root {
+        --image-cursor-dark: image-set(url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%22-8%20-8%20272%20272%22%3E%3Cpath%20d%3D%22M248%2C121.58a15.76%2C15.76%2C0%2C0%2C1-11.29%2C15l-.2.06-78%2C21.84-21.84%2C78-.06.2a15.77%2C15.77%2C0%2C0%2C1-15%2C11.29h-.3a15.77%2C15.77%2C0%2C0%2C1-15.07-10.67L41%2C61.41a1%2C1%2C0%2C0%2C1-.05-.16A16%2C16%2C0%2C0%2C1%2C61.25%2C40.9l.16.05%2C175.92%2C65.26A15.78%2C15.78%2C0%2C0%2C1%2C248%2C121.58Z%22%20fill%3D%22%23ffffff%22%20stroke%3D%22%231a1a1a%22%20stroke-width%3D%2234%22%20stroke-linejoin%3D%22round%22%20paint-order%3D%22stroke%22%2F%3E%3C%2Fsvg%3E") 1x, url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2248%22%20height%3D%2248%22%20viewBox%3D%22-8%20-8%20272%20272%22%3E%3Cpath%20d%3D%22M248%2C121.58a15.76%2C15.76%2C0%2C0%2C1-11.29%2C15l-.2.06-78%2C21.84-21.84%2C78-.06.2a15.77%2C15.77%2C0%2C0%2C1-15%2C11.29h-.3a15.77%2C15.77%2C0%2C0%2C1-15.07-10.67L41%2C61.41a1%2C1%2C0%2C0%2C1-.05-.16A16%2C16%2C0%2C0%2C1%2C61.25%2C40.9l.16.05%2C175.92%2C65.26A15.78%2C15.78%2C0%2C0%2C1%2C248%2C121.58Z%22%20fill%3D%22%23ffffff%22%20stroke%3D%22%231a1a1a%22%20stroke-width%3D%2234%22%20stroke-linejoin%3D%22round%22%20paint-order%3D%22stroke%22%2F%3E%3C%2Fsvg%3E") 2x) 5 5, default;
+        --image-cursor-light: image-set(url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%22-8%20-8%20272%20272%22%3E%3Cpath%20d%3D%22M248%2C121.58a15.76%2C15.76%2C0%2C0%2C1-11.29%2C15l-.2.06-78%2C21.84-21.84%2C78-.06.2a15.77%2C15.77%2C0%2C0%2C1-15%2C11.29h-.3a15.77%2C15.77%2C0%2C0%2C1-15.07-10.67L41%2C61.41a1%2C1%2C0%2C0%2C1-.05-.16A16%2C16%2C0%2C0%2C1%2C61.25%2C40.9l.16.05%2C175.92%2C65.26A15.78%2C15.78%2C0%2C0%2C1%2C248%2C121.58Z%22%20fill%3D%22%231a1a1a%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%2234%22%20stroke-linejoin%3D%22round%22%20paint-order%3D%22stroke%22%2F%3E%3C%2Fsvg%3E") 1x, url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2248%22%20height%3D%2248%22%20viewBox%3D%22-8%20-8%20272%20272%22%3E%3Cpath%20d%3D%22M248%2C121.58a15.76%2C15.76%2C0%2C0%2C1-11.29%2C15l-.2.06-78%2C21.84-21.84%2C78-.06.2a15.77%2C15.77%2C0%2C0%2C1-15%2C11.29h-.3a15.77%2C15.77%2C0%2C0%2C1-15.07-10.67L41%2C61.41a1%2C1%2C0%2C0%2C1-.05-.16A16%2C16%2C0%2C0%2C1%2C61.25%2C40.9l.16.05%2C175.92%2C65.26A15.78%2C15.78%2C0%2C0%2C1%2C248%2C121.58Z%22%20fill%3D%22%231a1a1a%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%2234%22%20stroke-linejoin%3D%22round%22%20paint-order%3D%22stroke%22%2F%3E%3C%2Fsvg%3E") 2x) 5 5, default;
+      }
       html,
       body,
       #root {
@@ -35,8 +39,13 @@
         position: relative;
         flex: none;
         margin: auto;
-        cursor: default;
+        cursor: var(--image-cursor-dark);
         user-select: none;
+      }
+      @container style(--ostia-color-scheme: light) {
+        .canvas {
+          cursor: var(--image-cursor-light);
+        }
       }
       .stage[data-pan] .canvas {
         cursor: inherit;
