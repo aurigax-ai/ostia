@@ -350,6 +350,7 @@ export function createGhosttyTerminal(
     onScroll: t.onScroll,
     onResize: t.onResize,
     onRender: t.onRender,
+    onWriteParsed: t.onWriteParsed,
     open: (parent) => {
       t.open(parent)
       if (slot) parent.addEventListener('webglcontextlost', () => queueMicrotask(slot.lost), true)

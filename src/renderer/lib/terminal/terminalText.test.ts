@@ -36,6 +36,7 @@ function fakeTerminal(lines: string[], rows: number, viewportY = 0) {
       onBufferChange: change.event,
     },
     onRender: render.event,
+    onWriteParsed: emitter().event,
     onScroll: scroll.event,
     onResize: resize.event,
   } as unknown as OstiaTerminal

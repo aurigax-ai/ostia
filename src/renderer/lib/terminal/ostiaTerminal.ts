@@ -143,6 +143,7 @@ export interface OstiaTerminal {
   readonly onScroll: TerminalEvent<number>
   readonly onResize: TerminalEvent<{ cols: number; rows: number }>
   readonly onRender: TerminalEvent<{ start: number; end: number }>
+  readonly onWriteParsed: TerminalEvent<void>
   open(parent: HTMLElement): void
   write(data: string | Uint8Array, callback?: () => void): void
   writeln(data: string | Uint8Array, callback?: () => void): void

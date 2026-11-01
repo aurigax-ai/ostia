@@ -1,4 +1,3 @@
-import { frameCoalesce } from './frameCoalesce'
 import type { OstiaTerminal } from './ostiaTerminal'
 import { TERMINAL_INPUT_SELECTOR } from './ostiaTerminal'
 
@@ -35,7 +34,6 @@ export function attachTerminalText(
   const nodes: HTMLElement[] = []
   const texts: string[] = []
   let visible = shown()
-  let dirty = true
   let committedAt = Number.NEGATIVE_INFINITY
   let timer = 0
 
@@ -54,7 +52,6 @@ export function attachTerminalText(
   const commit = (): void => {
     timer = 0
     if (!visible) return
-    dirty = false
     committedAt = performance.now()
     const shownTerm = source.displayed()
     const buffer = shownTerm.buffer.active
@@ -80,24 +77,14 @@ export function attachTerminalText(
     }
   }
 
-  const frame = frameCoalesce(commit)
-
   const schedule = (): void => {
-    dirty = true
     if (!visible || timer) return
-    const wait = committedAt + STREAM_MS - performance.now()
-    if (wait <= 0) {
-      frame()
-      return
-    }
-    timer = window.setTimeout(() => {
-      timer = 0
-      frame()
-    }, wait)
+    timer = window.setTimeout(commit, Math.max(0, committedAt + STREAM_MS - performance.now()))
   }
 
   const subscriptions = [
     term.onRender(schedule),
+    term.onWriteParsed(schedule),
     term.onScroll(schedule),
     term.onResize(schedule),
     term.buffer.onBufferChange(schedule),
@@ -110,18 +97,14 @@ export function attachTerminalText(
     setShown: (next) => {
       visible = next
       if (!next) {
-        frame.cancel()
         window.clearTimeout(timer)
         timer = 0
-      } else if (dirty) {
-        frame()
       } else {
         schedule()
       }
     },
     review: () => region.focus(),
     dispose: () => {
-      frame.cancel()
       window.clearTimeout(timer)
       offDisplay()
       for (const sub of subscriptions) sub.dispose()
