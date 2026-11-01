@@ -52,7 +52,7 @@ function notesLaunch(): ReturnType<typeof isolatedLaunch> {
 
 async function startCat(win: Page): Promise<void> {
   await win.locator('.ghostty-host').first().click()
-  await expect(win.locator('.ghostty-host textarea').first()).toBeFocused()
+  await expect(win.locator('.ghostty-host:focus-within').first()).toBeVisible()
   await win.keyboard.type('cat -v\n')
 }
 
@@ -121,7 +121,7 @@ test('the palette opens from the chord, F1 and Shift twice in a terminal, toggle
   await expect(input).toHaveValue('>')
   await win.keyboard.press('F1')
   await expect(dialog).toBeHidden()
-  await expect(win.locator('.ghostty-host textarea').first()).toBeFocused()
+  await expect(win.locator('.ghostty-host:focus-within').first()).toBeVisible()
 
   await win.keyboard.press(chords.palette)
   await expect(input).toBeFocused()

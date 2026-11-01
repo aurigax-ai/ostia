@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { expectHeld, openWorkspace } from './helpers'
+import { expectHeld, openWorkspace, terminalRowBox } from './helpers'
 import { _electron as electron, expect, type Page, test } from './test'
 
 async function switchToEditorMode(win: Page): Promise<void> {
@@ -146,9 +146,8 @@ test('the input editor sits on the shell prompt line and takes what is aimed at 
     const input = win.getByRole('textbox', { name: 'Command input' })
     const line = win.locator('.input-editor-line')
     await expect(input).toBeVisible({ timeout: 15_000 })
-    const promptRow = rows.locator('div', { hasText: 'ostia_left❯' }).last()
     const lineBox = await line.boundingBox()
-    const rowBox = await promptRow.boundingBox()
+    const rowBox = await terminalRowBox(win, /ostia_left❯/)
     expect(lineBox && rowBox && Math.abs(lineBox.y - rowBox.y)).toBeLessThan(2)
     expect(lineBox && rowBox && lineBox.x).toBeGreaterThan(rowBox?.x ?? 0)
     await expect(rows).toContainText('ostia_right')

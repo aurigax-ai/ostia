@@ -1,5 +1,5 @@
 import { isolatedLaunch } from './dataHome'
-import { openWorkspace, PROMPT } from './helpers'
+import { openWorkspace, PROMPT, terminalRowHeight } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 async function launch() {
@@ -17,12 +17,7 @@ async function openSettings(win: import('@playwright/test').Page, section: strin
   return settings
 }
 
-async function rowHeight(win: import('@playwright/test').Page): Promise<number> {
-  return win
-    .locator('.terminal-text > div')
-    .first()
-    .evaluate((el) => el.getBoundingClientRect().height)
-}
+const rowHeight = terminalRowHeight
 
 test('changing the terminal line height in Settings resizes terminal rows', {
   tag: '@core',

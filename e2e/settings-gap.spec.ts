@@ -1,6 +1,6 @@
 import { isMac } from './chords'
 import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace, runInTerminal } from './helpers'
+import { openWorkspace, runInTerminal, terminalRowBox } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test('selecting terminal text fills the primary selection, and middle click pastes it', async () => {
@@ -14,10 +14,7 @@ test('selecting terminal text fills the primary selection, and middle click past
     await openWorkspace(win)
     await runInTerminal(win, 'echo ostia-primary-word')
     const rows = win.locator('.terminal-text').first()
-    const line = rows.locator('div', { hasText: /^ostia-primary-word\s*$/ }).first()
-    await expect(line).toBeAttached({ timeout: 15_000 })
-    const box = await line.boundingBox()
-    if (!box) throw new Error('no line box')
+    const box = await terminalRowBox(win, /^ostia-primary-word\s*$/)
     await win.mouse.move(box.x + 2, box.y + box.height / 2)
     await win.mouse.down()
     await win.mouse.move(box.x + 120, box.y + box.height / 2, { steps: 5 })

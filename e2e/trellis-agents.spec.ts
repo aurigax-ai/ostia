@@ -157,7 +157,7 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
         timeout: 15_000,
       })
       .toContain('An agent is working on this')
-    await win.locator('.ghostty-host', { has: agentTerminal }).click()
+    await win.locator('.terminal-stack', { has: agentTerminal }).locator('.ghostty-host').click()
     await win.keyboard.type('flush_marker')
     await expect(agentTerminal).toContainText('flush_marker', { timeout: 15_000 })
     await expectHeld(

@@ -9,6 +9,7 @@ import {
   type ReadOnlyTerminal,
   useReadOnlyTerminalBackground,
 } from '@/lib/terminal/readOnlyTerminal'
+import { attachTerminalText } from '@/lib/terminal/terminalText'
 import { initialTerminalOptions } from './useTerminalOptions'
 
 const MODIFIER_KEYS: ReadonlySet<string> = new Set(['Shift', 'Control', 'Alt', 'Meta'])
@@ -55,6 +56,12 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
     const term = createReadOnlyTerminal({ ...initialTerminalOptions(), cursorBlink: false })
     termRef.current = term
     term.open(host)
+    const text = attachTerminalText(
+      host.parentElement ?? host,
+      { term, displayed: () => term, onDisplay: () => () => {} },
+      d.engine.output,
+      () => true,
+    )
     let disposed = false
     const pending: string[] = []
     let replayed = false
@@ -84,6 +91,7 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
       offSize()
       offExit()
       window.ostia.pty.detach(paneId)
+      text.dispose()
       term.dispose()
       termRef.current = null
     }

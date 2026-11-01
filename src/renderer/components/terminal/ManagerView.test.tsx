@@ -13,6 +13,16 @@ class FakeTerminal {
     this.options = options
     terms.push(this)
   }
+  rows = 24
+  cols = 80
+  buffer = {
+    active: { viewportY: 0, getLine: () => undefined },
+    onBufferChange: () => ({ dispose: () => {} }),
+  }
+  onRender = () => ({ dispose: () => {} })
+  onWriteParsed = () => ({ dispose: () => {} })
+  onScroll = () => ({ dispose: () => {} })
+  onResize = () => ({ dispose: () => {} })
   open(): void {}
   write(data: string): void {
     this.written.push(data)
