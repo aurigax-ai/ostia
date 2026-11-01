@@ -8,5 +8,7 @@ const server = net.createServer((client) => {
   upstream.on('error', () => client.destroy())
 })
 server.on('error', () => process.exit(255))
-server.listen(Number(localPort), bind)
+server.listen(Number(localPort), bind, () => {
+  if (process.argv[3]) require('node:fs').writeFileSync(process.argv[3], '')
+})
 process.on('SIGTERM', () => process.exit(0))

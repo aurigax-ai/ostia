@@ -106,7 +106,7 @@ test('REM-E1 a remote workspace is set up from the menu, comes online and lists 
     await expect.poll(sessions, { timeout: 20_000 }).not.toContain(closed)
     await expectJobs(1)
     await expect(jobs.getByRole('listitem')).toContainText('claude')
-    await jobs.getByRole('button', { name: 'Close' }).click()
+    await win.keyboard.press('Escape')
     await expect(jobs).toBeHidden()
 
     const server = createServer((socket) => socket.end('pong')).listen(0, '127.0.0.1')

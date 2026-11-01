@@ -325,6 +325,16 @@ describe('HostForwards on a shared master', () => {
     expect(argv).not.toContain('ControlMaster=auto')
   })
 
+  it('SHR-C25 lists the local port only after the master accepted the forward', async () => {
+    const { forwards } = make()
+    await forwards.onLink(true)
+    await forwards.onPorts([])
+    await forwards.onPorts([{ port: 3000 }])
+    expect(forwards.rows()).toEqual([{ remote: 3000 }])
+    children[0].emit('close', 0)
+    expect(forwards.rows()).toEqual([{ remote: 3000, local: 3000 }])
+  })
+
   it('SHR-C6 cancels the forward on the master when it is stopped', async () => {
     const { forwards } = make()
     await forwards.onLink(true)

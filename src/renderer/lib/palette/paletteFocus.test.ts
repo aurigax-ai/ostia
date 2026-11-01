@@ -32,4 +32,22 @@ describe('paletteReturnFocus', () => {
     })
     expect(paletteReturnFocus()).toBe(false)
   })
+
+  it('leaves focus alone when a command opened a dialog, so Escape reaches that dialog', () => {
+    releaseFocusForPalette()
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    dialog.setAttribute('data-open', '')
+    document.body.append(dialog)
+    expect(paletteReturnFocus()).toBe(false)
+  })
+
+  it('still returns focus when the only dialog left is the closing palette', () => {
+    releaseFocusForPalette()
+    const closing = document.createElement('div')
+    closing.setAttribute('role', 'dialog')
+    closing.setAttribute('data-closed', '')
+    document.body.append(closing)
+    expect(paletteReturnFocus()).toBe(terminal)
+  })
 })

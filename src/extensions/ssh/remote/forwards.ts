@@ -29,6 +29,7 @@ export interface HostForwardsDeps {
 interface Running {
   remote: number
   local: number
+  pending?: true
   child: ChildProcessWithoutNullStreams | null
   timer?: ReturnType<typeof setTimeout>
 }
@@ -57,7 +58,7 @@ export class HostForwards {
       return {
         remote: p.port,
         ...(p.name ? { name: p.name } : {}),
-        ...(forward ? { local: forward.local } : {}),
+        ...(forward && !forward.pending ? { local: forward.local } : {}),
         ...(error ? { error } : {}),
       }
     })
@@ -189,12 +190,18 @@ export class HostForwards {
   }
 
   private addToMaster(remote: number, forward: Running, argv: string[]): void {
+    forward.pending = true
     const child = this.deps.spawn(argv)
     child.stdin.on('error', () => {})
     child.stdout.on('data', () => {})
     child.stderr.on('data', () => {})
     const ended = (code: number | null): void => {
-      if (code === 0 || this.running.get(remote) !== forward) return
+      if (this.running.get(remote) !== forward) return
+      if (code === 0) {
+        delete forward.pending
+        this.deps.changed()
+        return
+      }
       this.running.delete(remote)
       this.errors.set(remote, 'forward-failed')
       this.deps.changed()
