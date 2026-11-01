@@ -5,7 +5,6 @@ import type {
   IMarker,
 } from '@aurigax-ai/ghostty-web'
 import { decodeCommandLine } from '../../../shared/terminal/commandLine'
-import { serializeLogicalLines } from '../screenSerialize'
 
 export const SPILL_BATCH = 500
 
@@ -35,11 +34,9 @@ interface PendingMark {
   command: string | null
 }
 
-function setsBlankStyle(params: (number | number[])[]): boolean {
-  return params.some((param) => {
-    const code = Array.isArray(param) ? (param[0] ?? 0) : param
-    return code === 7 || (code >= 40 && code <= 49) || (code >= 100 && code <= 107)
-  })
+function isAlternateScreenMode(param: number | number[]): boolean {
+  const code = Array.isArray(param) ? (param[0] ?? 0) : param
+  return code === 47 || code === 1047 || code === 1049
 }
 
 function firstParam(params: (number | number[])[]): number {
@@ -50,7 +47,7 @@ function firstParam(params: (number | number[])[]): number {
 export class HistorySpill {
   private frontier: IMarker | undefined
   private held = false
-  private blankStyles = false
+  private altTail: string[] | null = null
   private finished = false
   private marks: PendingMark[] = []
   private seq: number
@@ -78,13 +75,14 @@ export class HistorySpill {
           this.command = decodeCommandLine(data.slice(2).split(';')[0] ?? '')
         return false
       }),
-      term.parser.registerCsiHandler({ final: 'm' }, (params) => {
-        if (!this.blankStyles && setsBlankStyle(params)) this.blankStyles = true
-        return false
+      term.parser.registerCsiHandler({ prefix: '?', final: 'h' }, (params) => {
+        if (params.some(isAlternateScreenMode)) this.altTail = this.tail()
+      }),
+      term.parser.registerCsiHandler({ prefix: '?', final: 'l' }, (params) => {
+        if (params.some(isAlternateScreenMode)) this.altTail = null
       }),
       term.parser.registerCsiHandler({ final: 'J' }, (params) => {
         if (firstParam(params) === 3) this.wipe()
-        return false
       }),
     ]
   }
@@ -104,11 +102,9 @@ export class HistorySpill {
   tail(): string[] {
     const frontier = this.frontier
     if (this.held || this.finished || !frontier || frontier.isDisposed) return []
-    const buffer = this.buffers.normal
+    if (this.buffers.active.type !== 'normal') return this.altTail ?? []
     const last = this.lastContentRow()
-    return last < frontier.line
-      ? []
-      : serializeLogicalLines(buffer, frontier.line, last, this.blankStyles)
+    return last < frontier.line ? [] : this.term.serialize({ from: frontier.line, to: last })
   }
 
   get seqEnd(): number {
@@ -209,7 +205,7 @@ export class HistorySpill {
     if (!whole) while (last >= from && buffer.getLine(last + 1)?.isWrapped) last--
     if (last < from) return
     const firstLine = this.history.end
-    const lines = serializeLogicalLines(buffer, from, last, this.blankStyles)
+    const lines = this.term.serialize({ from, to: last })
     this.history.append(lines)
     this.recordMarks(from, last, firstLine)
     this.frontier?.dispose()

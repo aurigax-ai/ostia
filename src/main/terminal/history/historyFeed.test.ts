@@ -275,7 +275,10 @@ describe('history feed', () => {
     const second = client.open(history, 80, 24)
     second.write(`${mark('C')}${numbered(30, 3)}${mark('D;0')}${mark('A')}$ `)
     await second.close()
-    expect(await plain(history)).toEqual([...Array.from({ length: 33 }, (_, i) => `out ${i}`), '$'])
+    expect(await plain(history)).toEqual([
+      ...Array.from({ length: 33 }, (_, i) => `out ${i}`),
+      '$ ',
+    ])
     expect(history.block(1)).toMatchObject({ start: 30, end: 33 })
   })
 

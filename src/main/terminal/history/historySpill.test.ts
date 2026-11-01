@@ -71,15 +71,15 @@ describe('HistorySpill', () => {
     expect(await plain(history)).toEqual(Array.from({ length: 10_000 }, (_, i) => `out ${i}`))
   })
 
-  it('keeps a background-coloured blank run and trims plain trailing blanks', async () => {
+  it('keeps a background-coloured blank run', async () => {
     const { history, mirror } = pane()
     const m = mirror(20)
     m.write(`plain   \r\n${ESC}[44mfill${ESC}[K${ESC}[0m\r\n`)
     m.write(numbered(0, 30))
     await closed(m)
     expect(await history.read(0, 2)).toEqual([
-      'plain',
-      `${ESC}[0;44mfill${' '.repeat(16)}${ESC}[0m`,
+      'plain   ',
+      `${ESC}[0m${ESC}[48;5;4mfill${' '.repeat(16)}${ESC}[0m`,
     ])
   })
 
@@ -90,7 +90,7 @@ describe('HistorySpill', () => {
     m.write(numbered(0, SPILL_BATCH + 40))
     await spilled(m)
     const [first] = await history.read(0, 1)
-    expect(first).toContain(`${ESC}[0;31mred`)
+    expect(first).toContain(`${ESC}[0m${ESC}[38;5;1mred`)
     expect(stripVTControlCharacters(first)).toBe(`red ${'w'.repeat(50)}`)
   })
 

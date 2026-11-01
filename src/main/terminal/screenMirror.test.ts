@@ -105,7 +105,9 @@ describe('ScreenMirror', () => {
 
   it('keeps colors and ends with an SGR reset', async () => {
     const history = await serialized(`${ESC}[31mred${ESC}[0m plain ${ESC}[38;2;1;2;3mrgb`)
-    expect(history).toBe(`${ESC}[0;31mred${ESC}[0m plain ${ESC}[0;38;2;1;2;3mrgb${ESC}[0m`)
+    expect(history).toBe(
+      `${ESC}[0m${ESC}[38;5;1mred${ESC}[0m plain ${ESC}[0m${ESC}[38;2;1;2;3mrgb${ESC}[0m`,
+    )
   })
 
   it('joins soft-wrapped rows into one line that rewraps at the new width', async () => {

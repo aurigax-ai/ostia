@@ -3,7 +3,6 @@ import { createHeadlessTerminal } from '../../shared/terminal/ghosttyHeadless'
 import { type CwdReport, parseOsc7 } from '../../shared/terminal/osc7'
 import type { HistoryFeed } from './history/historyFeed'
 import type { PaneBannerText } from './paneBanner'
-import { serializeLines } from './screenSerialize'
 
 const MIRROR_SCROLLBACK = 4000
 export const HISTORY_LINES = 1000
@@ -12,6 +11,11 @@ const COMMAND_START = 'C'
 const seam = (label: string): string => `\x1b]133;D\x07\r\n\x1b[2m── ${label} ──\x1b[0m\r\n`
 export const restoreSeam = (t: PaneBannerText): string => seam(t.restored)
 export const hibernateSeam = (t: PaneBannerText): string => seam(t.woke)
+
+function isAlternateScreenMode(param: number | number[]): boolean {
+  const code = Array.isArray(param) ? (param[0] ?? 0) : param
+  return code === 47 || code === 1047 || code === 1049
+}
 
 function isBlank(line: IBufferLine | undefined): boolean {
   return !line || line.translateToString(true).trim() === ''
@@ -51,6 +55,10 @@ export class ScreenMirror {
       return false
     })
     this.term.onWriteParsed(() => this.changes++)
+    this.term.parser.registerCsiHandler({ prefix: '?', final: 'h' }, (params) => {
+      if (params.some(isAlternateScreenMode))
+        this.serialized = { at: this.changes, text: this.serializeHistory() }
+    })
     this.blockSeqBase = feed?.seqBase ?? 0
     feed?.watchScreen(() => this.serialize())
   }
@@ -116,6 +124,7 @@ export class ScreenMirror {
 
   serialize(): string {
     if (this.disposed) return ''
+    if (this.term.buffer.active.type === 'alternate') return this.serialized?.text ?? ''
     if (this.serialized?.at === this.changes) return this.serialized.text
     const text = this.serializeHistory()
     this.serialized = { at: this.changes, text }
@@ -135,7 +144,7 @@ export class ScreenMirror {
     while (start < end && isBlank(buffer.getLine(start)) && !buffer.getLine(start + 1)?.isWrapped) {
       start++
     }
-    return serializeLines(buffer, start, end)
+    return this.term.serialize({ from: start, to: end }).join('\r\n')
   }
 
   async screenText(maxLines: number): Promise<string> {
