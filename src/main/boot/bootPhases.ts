@@ -184,7 +184,9 @@ export function boot(wiring: Wiring): void {
       redact: redactor.redact,
       appWindows: () => windows.values(),
       externalOf: (ref) => getByPaneId(ref)?.externalId ?? resolveExternal(ref)?.externalId,
-      agentOf: async (id) => (await services.incidentSnapshot(id))?.agent,
+      agentOf: async (id) =>
+        (await services.incidentSnapshot(id))?.agent ??
+        (resolveExternal(id)?.kind === 'pane' ? 'other' : undefined),
       settings: (agent) => ({
         hooks: isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
         redaction: parsePrivacySettings(readSettingsFile().privacy).redaction.enabled,

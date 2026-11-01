@@ -68,7 +68,7 @@ export function IncidentsGroup(): JSX.Element {
           {d.openTelemetry}
         </Button>
       </ControlRow>
-      <ControlRow label={d.clear} desc={d.clearDesc}>
+      <ControlRow label={d.clearRow} desc={d.clearDesc}>
         <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
           {d.clear}
         </Button>

@@ -49,4 +49,14 @@ describe('IncidentsGroup', () => {
     await waitFor(() => expect(window.ostia.incidents.clear).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.queryByText('Enter was not submitted')).toBeNull())
   })
+
+  it('names a refused agent run and undelivered mail, not a generic problem', async () => {
+    vi.mocked(window.ostia.incidents.list).mockResolvedValue([
+      { ...incident, ref: 'a', trigger: 'folder-not-trusted' },
+      { ...incident, ref: 'b', trigger: 'undelivered-hooks-off' },
+    ])
+    render(<IncidentsGroup />)
+    expect(await screen.findByText('Agent run refused: folder not trusted')).toBeInTheDocument()
+    expect(screen.getByText('Mail not delivered: hooks are off')).toBeInTheDocument()
+  })
 })

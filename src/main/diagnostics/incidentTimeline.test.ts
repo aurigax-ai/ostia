@@ -86,4 +86,13 @@ describe('incident timeline', () => {
     expect(timeline.list().map((i) => [i.paneId, i.trigger])).toEqual([['pane-1', 'not-submitted']])
     expect(timeline.take('pane-1')?.events).toHaveLength(2)
   })
+
+  it('names the specific cause over a slow call', () => {
+    const { timeline, advance } = make()
+    const call = timeline.begin('pane-1', 'pane.wake')
+    timeline.wake('pane-1', 'wake-not-ready', 12_000)
+    advance(12_000)
+    call.end()
+    expect(timeline.list().map((i) => i.trigger)).toEqual(['wake-not-ready'])
+  })
 })

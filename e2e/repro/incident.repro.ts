@@ -1,67 +1,63 @@
-import { readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { type IncidentScenario, scenarioOf } from '../../test/incidentScenario'
-import { freshDataHome, isolatedLaunch } from '../dataHome'
+import {
+  DOM_RENDERER_SETTINGS,
+  freshDataHome,
+  isolatedLaunch,
+  seedSettings,
+  testHome,
+} from '../dataHome'
 import { fakeAgentBin, isolatedHome } from '../fakeAgent'
-import { openWorkspace, typeLine } from '../helpers'
-import { _electron as electron, expect, test } from '../test'
+import { openWorkspace, PROMPT, typeLine } from '../helpers'
+import { _electron as electron, expect, type Page, test } from '../test'
 
-const FAKE_AGENT = `
-const { spawnSync } = require('node:child_process')
-const ostia = (...args) =>
-  spawnSync(process.env.OSTIA_NODE, [process.env.OSTIA_CLI, ...args], {
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-    stdio: 'ignore',
-  })
-const swallow = process.env.REPRO_SWALLOW_ENTER === '1'
-const neverDone = process.env.REPRO_NEVER_DONE === '1'
-ostia('resume-token', 'claude', 'repro-incident')
-process.stdout.write('\\x1b[?2004hfake-agent-ready\\r\\n')
-process.stdin.setRawMode(true)
-let pending = ''
-let afterPaste = false
-let swallowed = false
-process.stdin.on('data', (chunk) => {
-  pending += chunk.toString()
-  while (pending) {
-    if (pending.startsWith('\\x1b[200~')) {
-      const end = pending.indexOf('\\x1b[201~')
-      if (end < 0) return
-      process.stdout.write(pending.slice(6, end).replace(/\\r/g, '\\r\\n'))
-      pending = pending.slice(end + 6)
-      afterPaste = true
-      continue
-    }
-    const key = pending[0]
-    pending = pending.slice(1)
-    if (key !== '\\r') {
-      process.stdout.write(key)
-      continue
-    }
-    if (swallow && afterPaste && !swallowed) {
-      swallowed = true
-      afterPaste = false
-      process.stdout.write('\\r\\nswallowed-enter\\r\\n')
-      continue
-    }
-    process.stdout.write('\\r\\nsubmitted\\r\\n')
-    ostia('state', 'working')
-    if (!neverDone) setTimeout(() => ostia('state', 'done'), 300)
-  }
-})
-`
+const AGENT = resolve(__dirname, '../../test/fixtures/tools/bin/incident-agent/agent.mjs')
 
 const REPLAY_NOTE =
   'This replays Ostia side only: its calls, timings and pane states against a fake agent. It cannot replay what a real agent did inside.'
 
-function replayLine(scenario: IncidentScenario): string {
-  return scenario.method === 'pane.input'
-    ? "printf 'line one\\nline two' | ostia pane send worker - --enter; echo send-exit-$?"
-    : 'ostia pane wait worker --until done --timeout 40 & echo wait-started'
+const LINES: Record<IncidentScenario['replay'], (dataHome: string) => string> = {
+  'send-enter': () =>
+    "printf 'line one\\nline two' | ostia pane send worker - --enter; echo step-exit-$?",
+  wait: () => 'ostia pane wait worker --until done --timeout 40 & echo step-exit-0',
+  wake: () => 'ostia pane wake worker --timeout 12; echo step-exit-$?',
+  mail: () => 'ostia bus send worker "please review"; echo step-exit-$?',
+  'run-outside': (dataHome) =>
+    `ostia agent run claude hi --cwd '${join(dataHome, 'elsewhere')}'; echo step-exit-$?`,
+}
+
+function seedProject(dataHome: string): void {
+  const project = join(testHome(dataHome), 'work', 'shop')
+  mkdirSync(project, { recursive: true })
+  mkdirSync(join(dataHome, 'ostia'), { recursive: true })
+  writeFileSync(
+    join(dataHome, 'ostia', 'workspaces.json'),
+    JSON.stringify({
+      v: 1,
+      savedAt: new Date().toISOString(),
+      activeWorkspaceId: 's1',
+      groups: [],
+      workspaces: [
+        {
+          id: 's1',
+          name: 'shop',
+          kind: 'terminal',
+          workDir: project,
+          root: { type: 'pane', id: 'pane-1', title: 'shell', kind: 'terminal', cwd: project },
+          activePaneId: 'pane-1',
+        },
+      ],
+    }),
+  )
+}
+
+async function waitForProject(win: Page): Promise<void> {
+  await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 20_000 })
 }
 
 test('replays an incident report against the built app', async () => {
-  test.setTimeout(180_000)
+  test.setTimeout(240_000)
   const file = process.env.OSTIA_REPRO_INCIDENT
   const resultFile = process.env.OSTIA_REPRO_RESULT
   expect(file, 'OSTIA_REPRO_INCIDENT names the report file').toBeTruthy()
@@ -75,11 +71,21 @@ test('replays an incident report against the built app', async () => {
   }
   const { scenario } = parsed
   const dataHome = freshDataHome()
-  const script = join(dataHome, 'fake-claude.cjs')
-  writeFileSync(script, FAKE_AGENT)
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    agents: {
+      trustWorkspaceFolders: true,
+      ...(scenario.hooksOff ? { hooks: { claude: false } } : {}),
+    },
+  })
+  mkdirSync(join(dataHome, 'elsewhere'), { recursive: true })
+  if (scenario.replay === 'run-outside') seedProject(dataHome)
+  const configDir = join(dataHome, 'claude-config')
+  mkdirSync(configDir, { recursive: true })
+  writeFileSync(join(configDir, '.claude.json'), JSON.stringify({ userID: 'e2e', projects: {} }))
   const bin = fakeAgentBin(
     dataHome,
-    `#!/bin/sh\nexec env ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "${script}"\n`,
+    `#!/bin/sh\nexec env ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "${AGENT}"\n`,
   )
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
@@ -88,14 +94,18 @@ test('replays an incident report against the built app', async () => {
       ...launch.env,
       HOME: isolatedHome(dataHome),
       PATH: `${bin}:${launch.env.PATH ?? ''}`,
+      CLAUDE_CONFIG_DIR: configDir,
+      REPRO_MARKER: join(dataHome, 'agent-started'),
       REPRO_SWALLOW_ENTER: scenario.swallowEnter ? '1' : '0',
-      REPRO_NEVER_DONE: scenario.silentAgent ? '1' : '0',
+      REPRO_NEVER_DONE: scenario.neverDone ? '1' : '0',
+      REPRO_SILENT_WAKE: scenario.silentWake ? '1' : '0',
     },
   })
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
+    if (scenario.replay === 'run-outside') await waitForProject(win)
+    else await openWorkspace(win)
     const caller = win.locator('.xterm-rows').first()
     await win.locator('.xterm').first().click()
     await typeLine(win, 'ostia agent run claude go --name worker; echo run-exit-$?')
@@ -104,22 +114,30 @@ test('replays an incident report against the built app', async () => {
       await typeLine(win, 'ostia pane send worker "a draft"; echo draft-exit-$?')
       await expect(caller).toContainText('draft-exit-0', { timeout: 15_000 })
     }
-    await typeLine(win, replayLine(scenario))
-    await expect(caller).toContainText(
-      scenario.method === 'pane.input' ? 'send-exit-' : 'wait-started',
-      { timeout: 30_000 },
-    )
+    if (scenario.replay === 'wake') {
+      await typeLine(
+        win,
+        'ostia pane wait worker --until done --timeout 20; ostia pane hibernate worker; echo hib-exit-$?',
+      )
+      await expect(caller).toContainText('hib-exit-', { timeout: 40_000 })
+      await typeLine(win, 'clear; ostia pane status worker')
+      await expect(caller).toContainText('hibernated', { timeout: 20_000 })
+    }
+    await typeLine(win, LINES[scenario.replay](dataHome))
+    await expect(caller).toContainText('step-exit-', { timeout: 60_000 })
     const observed = new Set<string>()
+    const hit = () => scenario.accept.some((code) => observed.has(code))
     const deadline = Date.now() + 30_000
-    while (Date.now() < deadline && !observed.has(scenario.trigger)) {
+    while (Date.now() < deadline && !hit()) {
       const list = await win.evaluate(() => window.ostia.incidents.list())
       for (const item of list) observed.add(item.trigger)
-      if (!observed.has(scenario.trigger)) await win.waitForTimeout(1000)
+      if (!hit()) await win.waitForTimeout(1000)
     }
     write({
-      verdict: observed.has(scenario.trigger) ? 'reproduced' : 'not-reproduced',
-      expected: scenario.trigger,
+      verdict: hit() ? 'reproduced' : 'not-reproduced',
+      expected: scenario.accept.join(' or '),
       observed: [...observed],
+      ...(hit() ? {} : { screen: (await caller.innerText()).slice(-1500) }),
     })
   } finally {
     await app.close()

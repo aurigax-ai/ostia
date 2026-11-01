@@ -249,7 +249,17 @@ function incidentCall(
   incidents: ControlServerDeps['incidents'],
 ) {
   if (!incidents || name === 'hello') return undefined
-  return incidents.begin(calledTarget(params).paneId, name, caller)
+  const target = calledTarget(params).paneId ?? (name === 'agent.run' ? caller : undefined)
+  return incidents.begin(target, name, caller)
+}
+
+function refusalOf(result: unknown): string | undefined {
+  if (typeof result !== 'object' || result === null) return undefined
+  const { ok, error } = result as { ok?: unknown; error?: unknown }
+  if (ok !== false) return undefined
+  if (typeof error === 'string') return verbCode(error)
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'string' ? verbCode(code) : undefined
 }
 
 export async function callControlMethod(
@@ -265,7 +275,6 @@ export async function callControlMethod(
     callIncidents,
   )
   const journaled = (bytes: number, code?: string): void => {
-    incident?.end(code)
     callJournal?.call({
       method: name,
       caller: ctx.identity.kind,
@@ -284,9 +293,11 @@ export async function callControlMethod(
       await ensureCaps(ctx.authed, ctx.identity, [m.cap], name, describeParams(name, params))
     }
     const result = await runInIncident(incident, () => m.handler(params, ctx))
+    incident?.end(refusalOf(result))
     journaled(callJournal ? answerBytes(result) : 0)
     return result
   } catch (err) {
+    incident?.end(verbCode(err instanceof Error ? err.message : ''))
     journaled(0, verbCode(err instanceof Error ? err.message : ''))
     throw err
   }
@@ -324,7 +335,6 @@ function callsOn(conn: MessageConnection, session: ConnectionSession, deps: Cont
         deps.incidents,
       )
       const journaled = (bytes: number, code?: string): void => {
-        incident?.end(code)
         const caller = session.authed ? resolveExternal(session.authed.externalId)?.kind : undefined
         if (!deps.journal || !caller || name === 'hello') return
         deps.journal.call({ method: name, caller, ms: performance.now() - began, bytes, code })
@@ -332,11 +342,13 @@ function callsOn(conn: MessageConnection, session: ConnectionSession, deps: Cont
       try {
         const result = await runInIncident(incident, () => handler(params, token))
         if (usage && tokenId) usage.record(tokenId, { method, target, ...resultOutcome(result) })
+        incident?.end(refusalOf(result))
         journaled(deps.journal ? answerBytes(result) : 0)
         return result
       } catch (err) {
         const outcome = usage ? errorOutcome(err) : null
         if (usage && tokenId && outcome) usage.record(tokenId, { method, target, ...outcome })
+        incident?.end(verbCode(err instanceof Error ? err.message : ''))
         journaled(0, verbCode(err instanceof Error ? err.message : ''))
         throw err
       }

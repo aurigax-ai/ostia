@@ -68,3 +68,31 @@ describe('incident report', () => {
     expect(text.match(/```ostia-incident/g)).toHaveLength(1)
   })
 })
+
+describe('incident report hooks line', () => {
+  it('names the last hook and how long before the end, or says none arrived', () => {
+    const withHook = incidentBlock(
+      {
+        ...take,
+        events: [
+          { k: 'hook', at: 5000, ok: true, code: 'prompt-submit' },
+          {
+            k: 'call',
+            at: 8000,
+            method: 'pane.input',
+            phase: 'end',
+            ms: 10,
+            code: 'not-submitted',
+          },
+        ],
+      },
+      facts,
+    )
+    expect(incidentText(withHook, { happened: '', expected: '' })).toContain(
+      'Hooks: installed; last prompt-submit 3.0s before the end',
+    )
+    expect(incidentText(incidentBlock(take, facts), { happened: '', expected: '' })).toContain(
+      'Hooks: installed; none received in the window',
+    )
+  })
+})

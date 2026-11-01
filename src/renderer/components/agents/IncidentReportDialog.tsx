@@ -58,7 +58,7 @@ export function IncidentReportDialog(): JSX.Element {
         if (!open) close()
       }}
     >
-      <DialogContent data-testid="incident-report-dialog">
+      <DialogContent data-testid="incident-report-dialog" className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{d.dialogTitle}</DialogTitle>
           <DialogDescription>{d.dialogDesc}</DialogDescription>

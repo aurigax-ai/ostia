@@ -87,20 +87,21 @@ export function createIncidentTimeline(deps: IncidentTimelineDeps): IncidentTime
   }
 
   const triggerOf = (paneId: string, ring: RawEvent[], now: number): string | undefined => {
+    for (let i = ring.length - 1; i >= 0; i--) {
+      const event = ring[i]
+      if (!event) continue
+      if (event.k === 'mail' || event.k === 'wake') return event.code
+      if (event.k === 'hook' && !event.ok) return event.code ?? 'hook-failed'
+      if (event.k === 'call' && event.phase === 'end' && event.code) return event.code
+    }
     for (const call of open) {
       if (call.paneId === paneId && now - call.began >= INCIDENT_STALL_MS) return 'call-open'
     }
     for (let i = ring.length - 1; i >= 0; i--) {
       const event = ring[i]
-      if (!event) continue
-      if (event.k === 'mail') return event.code
-      if (event.k === 'wake') return event.code
-      if (event.k === 'hook' && !event.ok) return event.code ?? 'hook-failed'
-      if (event.k === 'call' && event.phase === 'end') {
-        if (event.code) return event.code
-        if ((event.ms ?? 0) >= INCIDENT_STALL_MS) return 'slow-call'
-      }
-      if (event.k === 'call' && event.phase === 'cancel') return 'call-cancelled'
+      if (event?.k !== 'call') continue
+      if (event.phase === 'end' && (event.ms ?? 0) >= INCIDENT_STALL_MS) return 'slow-call'
+      if (event.phase === 'cancel') return 'call-cancelled'
     }
     return undefined
   }

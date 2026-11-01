@@ -89,6 +89,14 @@ export function incidentText(block: IncidentBlock, words: IncidentWords): string
   const counts = Object.entries(block.counts)
     .map(([key, n]) => `${key} ${n}`)
     .join(', ')
+  const hooks = block.events.flatMap((e) => (e.k === 'hook' ? [e] : []))
+  const lastHook = hooks.at(-1)
+  const lastAt = block.events.at(-1)?.at ?? 0
+  const hookLine = `Hooks: ${block.settings.hooks ? 'installed' : 'off'}; ${
+    lastHook
+      ? `last ${lastHook.code ?? 'hook'} ${((lastAt - lastHook.at) / 1000).toFixed(1)}s before the end`
+      : 'none received in the window'
+  }`
   const parts = [
     '## What happened',
     fenceless(words.happened) || '(not written)',
@@ -99,6 +107,7 @@ export function incidentText(block: IncidentBlock, words: IncidentWords): string
     '## Environment',
     `Ostia ${block.app} on ${block.platform}; agent ${block.agent.kind}${block.agent.version ? ` ${block.agent.version}` : ''}`,
     `Settings: ${settings || 'none'}`,
+    hookLine,
     '',
     `## Timeline (${block.pane}, trigger ${block.trigger})`,
     ...block.events.map(line),
