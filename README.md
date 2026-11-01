@@ -151,8 +151,7 @@ and Settings → Privacy has one switch per category you can change at any time:
   range), and whether the workspace restore succeeded.
 - **Feature usage**: counts of palette commands, pane kinds, settings sections and default
   chords used, plus the input mode and prompt style in effect. Custom keybindings are never sent.
-- **Terminal engine and performance**: the engine (xterm or Ghostty), whether GPU acceleration
-  is on, WebGL fallbacks, hibernation wakes, spawn failures as a reason code, and the shell
+- **Terminal performance**: whether GPU acceleration is on, WebGL fallbacks, hibernation wakes, spawn failures as a reason code, and the shell
   family.
 - **Extensions**: ids of installed and enabled extensions from the official marketplace only,
   and counts of their setting changes by key name.

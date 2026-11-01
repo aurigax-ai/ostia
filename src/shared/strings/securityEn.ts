@@ -29,7 +29,7 @@ export const securityEn = {
       },
       terminal: {
         details:
-          'The terminal engine (xterm or Ghostty), whether GPU acceleration is on, WebGL fallback events, hibernation wake counts, terminal spawn failures as a reason code, and the shell family (zsh, bash, fish or other).',
+          'Whether GPU acceleration is on, WebGL fallback events, hibernation wake counts, terminal spawn failures as a reason code, and the shell family (zsh, bash, fish or other).',
         label: 'Terminal engine and performance',
         sends: 'Which engine and GPU setting you run, and when they fall back.',
       },

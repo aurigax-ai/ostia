@@ -23,6 +23,9 @@ export const terminalZhHant: typeof terminalEn = {
     placeholder: '尋找',
     previous: '上一個符合項目',
   },
+  engine: {
+    failed: 'Ghostty 無法啟動，此終端機無法開啟：{reason}',
+  },
   history: {
     empty: '沒有符合的指令',
     placeholder: '搜尋所有窗格的指令…',

@@ -9,18 +9,9 @@ import {
   type SemanticPromptEvent,
 } from '@aurigax-ai/ghostty-web'
 import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
-import type { ILinkProvider } from '@xterm/xterm'
 import { isMac } from '@/platform'
 import { type GpuSlot, gpuBudget } from './gpuBudget'
-import type {
-  OstiaTerminal,
-  PauseTerminal,
-  TerminalDisposable,
-  TerminalOptions,
-  TerminalParser,
-  TerminalSearch,
-  WebLinkHandler,
-} from './ostiaTerminal'
+import type { OstiaTerminal, PauseTerminal, TerminalDisposable, TerminalLinkProvider, TerminalOptions, TerminalParser, TerminalSearch, WebLinkHandler } from './ostiaTerminal'
 
 type OscHandler = (data: string) => boolean | Promise<boolean>
 
@@ -84,7 +75,7 @@ class OscRoutes {
   }
 }
 
-export function oneBasedLinks(provider: ILinkProvider, live: () => boolean) {
+export function oneBasedLinks(provider: TerminalLinkProvider, live: () => boolean) {
   return {
     provideLinks(y: number, callback: (links: GhosttyLink[] | undefined) => void): void {
       if (!live()) {

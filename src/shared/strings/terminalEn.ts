@@ -21,6 +21,9 @@ export const terminalEn = {
     placeholder: 'Find',
     previous: 'Previous match',
   },
+  engine: {
+    failed: 'Ghostty could not start, so this terminal cannot open: {reason}',
+  },
   history: {
     empty: 'No matching commands',
     placeholder: 'Search commands from every pane…',

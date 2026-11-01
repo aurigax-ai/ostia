@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createHeadlessTerminal } from './ghosttyHeadless'
+import { createHeadlessTerminal } from '../../shared/terminal/ghosttyHeadless'
 import { serializeLogicalLines } from './screenSerialize'
 
 function serialized(text: string, cols = 20): string[] {
@@ -66,7 +66,6 @@ describe('serializeLogicalLines', () => {
     expect(await serialized(text)).toEqual(expected)
   })
 })
-
 
 describe('serializeLogicalLines round trip', () => {
   function random(seed: number): () => number {

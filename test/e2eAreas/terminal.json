@@ -40,7 +40,6 @@
     "src/renderer/lib/terminal/titleCommit.ts",
     "src/renderer/lib/terminal/usePauseWhenHidden.ts",
     "src/renderer/lib/terminal/wheelReports.",
-    "src/renderer/lib/terminal/xtermRenderer.ts",
     "src/renderer/lib/terminalLinks/linkModifier.ts",
     "src/shared/terminal/osc7.ts",
     "src/shared/terminal/ptyFlow.ts",

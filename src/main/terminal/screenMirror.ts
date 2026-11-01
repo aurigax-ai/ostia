@@ -2,7 +2,7 @@ import type { HeadlessTerminal, IBufferLine, IMarker } from '@aurigax-ai/ghostty
 import { type CwdReport, parseOsc7 } from '../../shared/terminal/osc7'
 import type { HistoryFeed } from './history/historyFeed'
 import type { PaneBannerText } from './paneBanner'
-import { createHeadlessTerminal } from './ghosttyHeadless'
+import { createHeadlessTerminal } from '../../shared/terminal/ghosttyHeadless'
 import { serializeLines } from './screenSerialize'
 
 const MIRROR_SCROLLBACK = 4000

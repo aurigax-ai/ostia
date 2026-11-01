@@ -1,7 +1,7 @@
 import type { HeadlessTerminal } from '@aurigax-ai/ghostty-web'
 import { describe, expect, it, vi } from 'vitest'
 import { en } from '../../shared/app/dict'
-import { createHeadlessTerminal } from './ghosttyHeadless'
+import { createHeadlessTerminal } from '../../shared/terminal/ghosttyHeadless'
 import { HISTORY_LINES, hibernateSeam, restoreSeam, ScreenMirror } from './screenMirror'
 
 const RESTORE_SEAM = restoreSeam(en.native.paneBanner)

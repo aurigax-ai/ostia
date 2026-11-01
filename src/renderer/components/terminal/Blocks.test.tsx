@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { Blocks, RECOMPUTE_MS, StickyHeader } from './Blocks'
 

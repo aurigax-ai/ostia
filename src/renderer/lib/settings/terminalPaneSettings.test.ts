@@ -96,12 +96,6 @@ describe('parseTerminalSettings', () => {
     expect(parseTerminalSettings({ scrollbackHistory: 'all' }).scrollbackHistory).toBe('unlimited')
   })
 
-  it('keeps a known terminal renderer and falls back to xterm for anything else', () => {
-    expect(parseTerminalSettings({ renderer: 'ghostty' }).renderer).toBe('ghostty')
-    expect(parseTerminalSettings({ renderer: 'kitty' }).renderer).toBe('xterm')
-    expect(parseTerminalSettings({ renderer: 1 }).renderer).toBe('xterm')
-  })
-
   it('keeps the smart clipboard keys mode', () => {
     expect(parseTerminalSettings({ clipboardKeys: 'smart' }).clipboardKeys).toBe('smart')
     expect(parseTerminalSettings({ linkClick: 'system' }).linkClick).toBe('system')

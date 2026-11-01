@@ -1,6 +1,6 @@
-import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PaneNode } from '@/lib/layout/types'
+import type { OstiaTerminal as Terminal } from '@/lib/terminal/ostiaTerminal'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

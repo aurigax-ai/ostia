@@ -1,23 +1,17 @@
-import { FitAddon } from '@xterm/addon-fit'
-import { SearchAddon } from '@xterm/addon-search'
-import { Unicode11Addon } from '@xterm/addon-unicode11'
-import { WebLinksAddon } from '@xterm/addon-web-links'
-import { Terminal as Xterm } from '@xterm/xterm'
-import type { TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
-import { silenceQueryReplies } from '@/lib/terminal/tmuxQueries'
-import '@xterm/xterm/css/xterm.css'
 import { type HTMLAttributes, useEffect, useMemo, useRef, useState } from 'react'
 import { AssistComposer } from '@/components/assist/AssistComposer'
 import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'
+import { StatusLine } from '@/components/common/StatusLine'
 import { InputEditor } from '@/components/prompt/InputEditor'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { attachWheelZoom } from '@/lib/app/wheelZoom'
 import { forgetPaneActivity } from '@/lib/attention/paneActivity'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/keyboard/dropPaths'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { measureCells } from '@/lib/prompt/usePromptGeometry'
-import { ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
+import { ghosttyFailure, ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { liveLogicalLines } from '@/lib/terminal/historyActions'
 import { createHistoryScroll } from '@/lib/terminal/historyScroll'
 import {
@@ -33,8 +27,6 @@ import { drawOnGpu } from '@/lib/terminal/softwareGl'
 import { registerHistoryScroll, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
 import { attachWheelReports } from '@/lib/terminal/wheelReports'
-import { createXtermRenderer, type XtermRenderer } from '@/lib/terminal/xtermRenderer'
-import { xtermLinkHandler } from '@/lib/terminalLinks/terminalAppLinks'
 import { useScheme } from '@/lib/theme/colorScheme'
 import { terminalFontStack } from '@/lib/theme/uiFonts'
 import { isLinux, isMac } from '@/platform'
@@ -63,26 +55,32 @@ interface TerminalViewProps {
 }
 
 export function TerminalView(props: TerminalViewProps): JSX.Element {
-  const [engine, setEngine] = useState<TerminalRenderer>(
-    () => useSettingsStore.getState().terminal.renderer,
+  const d = useDict()
+  const [state, setState] = useState<'loading' | 'ready' | 'failed'>(() =>
+    ghosttyModule() ? 'ready' : 'loading',
   )
-  const [ready, setReady] = useState(() => engine !== 'ghostty' || ghosttyModule() !== null)
   useEffect(() => {
-    if (ready) return
+    if (state !== 'loading') return
     let live = true
-    loadGhostty()
-      .catch(() => {
-        if (live) setEngine('xterm')
-      })
-      .finally(() => {
-        if (live) setReady(true)
-      })
+    loadGhostty().then(
+      () => live && setState('ready'),
+      () => live && setState('failed'),
+    )
     return () => {
       live = false
     }
-  }, [ready])
-  if (!ready) return <div className="terminal-surface" />
-  return <TerminalSurface engine={engine} {...props} />
+  }, [state])
+  if (state === 'failed') {
+    return (
+      <div className="terminal-surface">
+        <StatusLine tone="error">
+          {fmt(d.engine.failed, { reason: ghosttyFailure() ?? '' })}
+        </StatusLine>
+      </div>
+    )
+  }
+  if (state === 'loading') return <div className="terminal-surface" />
+  return <TerminalSurface {...props} />
 }
 
 function pathDropHandlers(
@@ -140,12 +138,7 @@ function TerminalFindLayer({
   )
 }
 
-function TerminalSurface({
-  engine,
-  workspaceId,
-  paneId,
-  cwd,
-}: TerminalViewProps & { engine: TerminalRenderer }): JSX.Element {
+function TerminalSurface({ workspaceId, paneId, cwd }: TerminalViewProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<OstiaTerminal | null>(null)
@@ -188,7 +181,6 @@ function TerminalSurface({
     if (!host) return
     return startTerminal({
       host,
-      engine,
       paneId,
       workspaceIdRef,
       spawnCwd,
@@ -208,10 +200,10 @@ function TerminalSurface({
       setAlternateScreen,
       setSuppressedPrompt,
     })
-  }, [paneId, engine])
+  }, [paneId])
 
   useEffect(() => () => useHistoryViewStore.getState().close(paneId), [paneId])
-  usePauseWhenHidden(pauseRef, syncSizeRef, shown, paneId, engine)
+  usePauseWhenHidden(pauseRef, syncSizeRef, shown, paneId)
   useTerminalOptions({ termRef, syncSizeRef, font, palette })
   const input = terminalInputBridge({ paneId, termRef, setSuppressedPrompt })
 
@@ -229,9 +221,7 @@ function TerminalSurface({
           paneId={paneId}
           termRef={termRef}
           onPaste={() => pasteClipboardRef.current()}
-          trigger={
-            <div ref={hostRef} className={engine === 'ghostty' ? 'ghostty-host' : 'xterm-host'} />
-          }
+          trigger={<div ref={hostRef} className="ghostty-host" />}
         />
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
         <InputEditor
@@ -283,7 +273,6 @@ function TerminalSurface({
 
 interface StartTerminalDeps {
   host: HTMLElement
-  engine: TerminalRenderer
   paneId: string
   workspaceIdRef: { current: string }
   spawnCwd: { current: string | undefined }
@@ -305,8 +294,7 @@ interface StartTerminalDeps {
 }
 
 function startTerminal(deps: StartTerminalDeps): () => void {
-  const { host, engine, paneId, workspaceIdRef, termRef, pauseRef, pasteRef, pasteClipboardRef } =
-    deps
+  const { host, paneId, workspaceIdRef, termRef, pauseRef, pasteRef, pasteClipboardRef } = deps
   const { setPendingPaste, setSearch, setFindOpen, setAlternateScreen } = deps
   const session = createTerminalSession(deps.spawnCwd.current ?? null)
   const links = createTerminalLinks({
@@ -318,19 +306,17 @@ function startTerminal(deps: StartTerminalDeps): () => void {
   })
   deps.dismissLinkHintRef.current = links.dismissHint
   const created = createEngine({
-    engine,
     host,
     options: initialTerminalOptions(),
     gpuAcceleration: drawOnGpu(useSettingsStore.getState().behavior.gpuAcceleration),
     links,
   })
   const { term } = created
-  if (created.pause) pauseRef.current = created.pause
+  pauseRef.current = created.pause
   const history = createHistoryScroll({
     host,
     paneId,
     term,
-    engine,
     options: initialTerminalOptions,
     pause: (paused) => pauseRef.current(paused),
     shown: () => deps.shownRef.current,
@@ -410,7 +396,6 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     useBlocksStore.getState().dropPane(paneId)
     window.ostia.pty.detach(paneId)
     pauseRef.current = keepDrawing
-    created.xtermRenderer?.dispose()
     term.dispose()
     termRef.current = null
     setSearch(null)
@@ -424,66 +409,30 @@ function startTerminal(deps: StartTerminalDeps): () => void {
 interface TerminalEngine {
   term: OstiaTerminal
   fit: TerminalFit
-  search: TerminalSearch | null
-  xtermRenderer: XtermRenderer | null
+  search: TerminalSearch
   silenceReplies: () => { dispose(): void }
-  pause: PauseTerminal | null
+  pause: PauseTerminal
 }
 
 function createEngine({
-  engine,
   host,
   options,
   gpuAcceleration,
-  links: { webLinks, openWebLink, showLinkHint, hideLinkHint },
+  links: { webLinks },
 }: {
-  engine: TerminalRenderer
   host: HTMLElement
   options: TerminalOptions
   gpuAcceleration: boolean
   links: TerminalLinks
 }): TerminalEngine {
-  let term: OstiaTerminal
-  let fit: TerminalFit
-  let searchAddon: TerminalSearch | null = null
-  let xtermRenderer: XtermRenderer | null = null
-  let silenceReplies: () => { dispose(): void }
-  let pause: PauseTerminal | null = null
-  const ghostty = engine === 'ghostty' ? ghosttyModule() : null
-  if (ghostty) {
-    const created = ghostty.createGhosttyTerminal(options, gpuAcceleration, webLinks)
-    term = created.term
-    fit = created.fit
-    searchAddon = created.search
-    silenceReplies = created.silenceQueryReplies
-    pause = created.setPaused
-  } else {
-    const xterm = new Xterm({
-      ...options,
-      allowProposedApi: true,
-      vtExtensions: { kittyKeyboard: false },
-    })
-    const xtermFit = new FitAddon()
-    xterm.loadAddon(xtermFit)
-    xterm.loadAddon(new Unicode11Addon())
-    xterm.unicode.activeVersion = '11'
-    xterm.options.linkHandler = xtermLinkHandler(webLinks)
-    xterm.loadAddon(
-      new WebLinksAddon(openWebLink, {
-        hover: (_e, uri, range) => showLinkHint('web', range, uri),
-        leave: hideLinkHint,
-      }),
-    )
-    const xtermSearch = new SearchAddon()
-    xterm.loadAddon(xtermSearch)
-    searchAddon = xtermSearch
-    xterm.open(host)
-    xtermRenderer = createXtermRenderer(xterm, gpuAcceleration)
-    pause = xtermRenderer.pause
-    term = xterm
-    fit = xtermFit
-    silenceReplies = () => silenceQueryReplies(xterm)
+  const created = ghosttyModule()?.createGhosttyTerminal(options, gpuAcceleration, webLinks)
+  if (!created) throw new Error('Ghostty engine is not loaded')
+  created.term.open(host)
+  return {
+    term: created.term,
+    fit: created.fit,
+    search: created.search,
+    silenceReplies: created.silenceQueryReplies,
+    pause: created.setPaused,
   }
-  if (ghostty) term.open(host)
-  return { term, fit, search: searchAddon, xtermRenderer, silenceReplies, pause }
 }

@@ -1,7 +1,6 @@
 import type { HistoryMatch } from '@shared/terminal/scrollbackHistory'
 import { copyTextConfirmed } from '@/lib/capture/copyConfirm'
 import { terminalKeyData } from '@/lib/keyboard/keyPresets'
-import type { TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
 import { isMac } from '@/platform'
 import { type HistoryTarget, useHistoryViewStore } from '@/stores/terminal/historyViewStore'
 import { createLayerPane, type LayerPane } from './historyLayerPane'
@@ -70,7 +69,6 @@ export interface HistoryScrollDeps {
   host: HTMLElement
   paneId: string
   term: OstiaTerminal
-  engine: TerminalRenderer
   options: () => TerminalOptions
   pause: (paused: boolean) => void
   shown: () => boolean
@@ -84,7 +82,7 @@ function isTypedKey(e: KeyboardEvent): boolean {
 }
 
 export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
-  const { host, paneId, term, engine, pause, shown } = deps
+  const { host, paneId, term, pause, shown } = deps
   const stack = host.closest<HTMLElement>('.terminal-stack') ?? host.parentElement ?? host
   let alive = true
   let layer: Layer | null = null
@@ -128,7 +126,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     if (!info || !hasHistory()) return
     if (!bar) {
       stack.dataset.historyScroll = ''
-      if (engine === 'ghostty') term.options.nativeScrollbar = false
+      term.options.nativeScrollbar = false
       bar = createHistoryScrollbar(stack, seek)
     }
     const rows = term.rows
@@ -168,7 +166,6 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     const panes: LayerPane[] = []
     for (let i = 0; i < 2; i++) {
       const pane = createLayerPane(
-        engine,
         box,
         { cols: term.cols, rows: term.rows },
         deps.options(),

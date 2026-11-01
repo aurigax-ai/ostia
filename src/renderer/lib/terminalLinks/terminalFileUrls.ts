@@ -1,7 +1,6 @@
 import { type FileUrlTarget, findFileUrls, opensFileUrl } from '@shared/files/fileUrls'
-import type { IBufferRange, ILink, ILinkProvider } from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
-import type { OstiaTerminal as Terminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
+import type { OstiaTerminal as Terminal, TerminalLink, TerminalLinkProvider, TerminalRange, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
 import type { PathLinkTarget } from './linkModifier'
 import { matchesOnRow, provideFound, readLogicalLine } from './terminalFileLinks'
 
@@ -25,14 +24,14 @@ export interface FileUrlDeps {
   previews: (target: FileUrlTarget) => boolean
   target: (event: MouseEvent) => PathLinkTarget | null
   activate: (how: PathLinkTarget, url: string, target: FileUrlTarget, action: FileUrlAction) => void
-  hover: (range: IBufferRange, target: FileUrlTarget, action: FileUrlAction) => void
+  hover: (range: TerminalRange, target: FileUrlTarget, action: FileUrlAction) => void
   leave: () => void
 }
 
 interface FileUrlLinks {
-  provider: (term: Terminal) => ILinkProvider
+  provider: (term: Terminal) => TerminalLinkProvider
   activate: (event: MouseEvent, url: string) => void
-  hover: (range: IBufferRange, url: string) => void
+  hover: (range: TerminalRange, url: string) => void
   leave: () => void
 }
 
@@ -59,7 +58,7 @@ export function createFileUrlLinks(deps: FileUrlDeps): FileUrlLinks {
       if (fileUrlOffers(action).includes(how)) deps.activate(how, url, target, action)
     })
   }
-  const hover = (range: IBufferRange, url: string): void => {
+  const hover = (range: TerminalRange, url: string): void => {
     hovered = url
     if (deps.remote() || !opensFileUrl(url)) return
     void check(url).then((target) => {
@@ -72,7 +71,7 @@ export function createFileUrlLinks(deps: FileUrlDeps): FileUrlLinks {
     hovered = null
     deps.leave()
   }
-  const provider = (term: Terminal): ILinkProvider => ({
+  const provider = (term: Terminal): TerminalLinkProvider => ({
     provideLinks(row, callback) {
       if (deps.remote()) {
         callback(undefined)
@@ -85,9 +84,9 @@ export function createFileUrlLinks(deps: FileUrlDeps): FileUrlLinks {
         return
       }
       provideFound(
-        matches.map(async (m): Promise<ILink | null> => {
+        matches.map(async (m): Promise<TerminalLink | null> => {
           if (!(await check(m.url))) return null
-          const range: IBufferRange = { start: cells[m.start], end: cells[m.end - 1] }
+          const range: TerminalRange = { start: cells[m.start], end: cells[m.end - 1] }
           return {
             range,
             text: m.url,

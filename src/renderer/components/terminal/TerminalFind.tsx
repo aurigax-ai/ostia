@@ -1,5 +1,5 @@
 import type { HistorySearchResult } from '@shared/terminal/scrollbackHistory'
-import type { ISearchOptions } from '@xterm/addon-search'
+import type { ISearchOptions } from '@aurigax-ai/ghostty-web'
 import { useEffect, useRef, useState } from 'react'
 import { FindBar, type FindStepRef } from '@/components/common/FindBar'
 import { TextLink } from '@/components/common/TextLink'
@@ -10,14 +10,10 @@ import type { HistoryFind } from '@/stores/terminal/historyViewStore'
 
 export function findOptions(palette: TerminalColors): ISearchOptions {
   const match = palette.brightBlack
-  const active = palette.yellow
   return {
     decorations: {
       matchBackground: match,
-      matchOverviewRuler: match,
       activeMatchBackground: palette.blue,
-      activeMatchBorder: active,
-      activeMatchColorOverviewRuler: active,
     },
   }
 }

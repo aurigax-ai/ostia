@@ -1,30 +1,15 @@
-import { type FontWeight, type ITerminalOptions, Terminal as Xterm } from '@xterm/xterm'
-import '@xterm/xterm/css/xterm.css'
-import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { type RefObject, useEffect } from 'react'
 import { matchChordInTerminal } from '@/lib/keyboard/chords'
 import { smartClipboardAction } from '@/lib/keyboard/clipboardKeys'
-import { currentScheme, terminalTheme, useScheme } from '@/lib/theme/colorScheme'
-import { terminalFontStack } from '@/lib/theme/uiFonts'
+import { terminalTheme, useScheme } from '@/lib/theme/colorScheme'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { ghosttyModule } from './ghosttyEngine'
+import type { OstiaTerminal, TerminalOptions } from './ostiaTerminal'
 
-export type ReadOnlyTerminal = Xterm
+export type ReadOnlyTerminal = OstiaTerminal
 
-export function createReadOnlyTerminal(options: ITerminalOptions = {}): ReadOnlyTerminal {
-  const font = useSettingsStore.getState().appearance.terminal
-  return new Xterm({
-    theme: terminalTheme(currentScheme('terminal').colors),
-    fontFamily: terminalFontStack(font.family),
-    fontSize: font.size,
-    fontWeight: font.weight as FontWeight,
-    lineHeight: font.lineHeight,
-    scrollback: useSettingsStore.getState().terminal.scrollbackLines,
-    disableStdin: true,
-    allowProposedApi: true,
-    ...options,
-  })
-}
+const NO_LINKS = { activate: () => {}, hover: () => {}, leave: () => {} }
 
 export function readOnlyCopyKey(e: KeyboardEvent, hasSelection: boolean): boolean {
   const clipboardKeys = useSettingsStore.getState().terminal.clipboardKeys
@@ -32,44 +17,18 @@ export function readOnlyCopyKey(e: KeyboardEvent, hasSelection: boolean): boolea
   return matchChordInTerminal(e, isMac) === 'copy'
 }
 
-export interface MountedReadOnlyTerminal {
-  term: ReadOnlyTerminal
-  dispose: () => void
-}
-
-function wireReadOnly(term: ReadOnlyTerminal): void {
-  term.loadAddon(new Unicode11Addon())
-  term.unicode.activeVersion = '11'
+export function createReadOnlyTerminal(options: TerminalOptions): ReadOnlyTerminal {
+  const ghostty = ghosttyModule()
+  if (!ghostty) throw new Error('Ghostty engine is not loaded')
+  const term = ghostty.createGhosttyTerminal(options, false, NO_LINKS).term
   term.attachCustomKeyEventHandler((e) => {
-    if (e.type !== 'keydown') return false
-    if (readOnlyCopyKey(e, term.hasSelection())) {
+    if (e.type === 'keydown' && readOnlyCopyKey(e, term.hasSelection())) {
       e.preventDefault()
       void navigator.clipboard.writeText(term.getSelection())
-      return false
     }
     return false
   })
-}
-
-function readOnlyViewOptions(options: ITerminalOptions): ITerminalOptions {
-  const settings = useSettingsStore.getState().terminal
-  return {
-    scrollSensitivity: settings.scrollSpeed,
-    minimumContrastRatio: settings.minimumContrast,
-    cursorInactiveStyle: 'none',
-    ...options,
-  }
-}
-
-export function mountSizedReadOnlyTerminal(
-  host: HTMLElement,
-  size: { cols: number; rows: number },
-  options: ITerminalOptions,
-): MountedReadOnlyTerminal {
-  const term = createReadOnlyTerminal(readOnlyViewOptions({ ...size, ...options }))
-  wireReadOnly(term)
-  term.open(host)
-  return { term, dispose: () => term.dispose() }
+  return term
 }
 
 export function useReadOnlyTerminalBackground(

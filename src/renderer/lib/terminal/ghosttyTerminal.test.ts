@@ -339,7 +339,7 @@ describe('Ghostty terminal adapter', () => {
     const seen: string[] = []
     search.onDidChangeResults((r) => seen.push(`${r.resultIndex + 1}/${r.resultCount}`))
     const options = {
-      decorations: { matchOverviewRuler: '#888', activeMatchColorOverviewRuler: '#ff0' },
+      decorations: { matchBackground: '#888', activeMatchBackground: '#ff0' },
     }
     search.findNext('zqneedle', options)
     search.findNext('zqneedle', options)

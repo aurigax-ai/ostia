@@ -1,5 +1,5 @@
-import type { Terminal as Xterm } from '@xterm/xterm'
 import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { type OstiaTerminal, terminalScreen } from './ostiaTerminal'
 
 describe('OstiaTerminal', () => {

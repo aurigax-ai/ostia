@@ -122,7 +122,6 @@ function mount(shown = true) {
     host,
     paneId: 'p1',
     term: term as unknown as OstiaTerminal,
-    engine: 'xterm',
     options: () => ({}),
     pause,
     shown: () => shown,

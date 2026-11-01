@@ -31,7 +31,7 @@ export const securityZhHant: typeof securityEn = {
       },
       terminal: {
         details:
-          '終端機引擎（xterm 或 Ghostty）、GPU 加速是否開啟、WebGL 退回事件、休眠喚醒次數、終端機啟動失敗的原因代碼，以及 shell 家族（zsh、bash、fish 或其他）。',
+          'GPU 加速是否開啟、WebGL 退回事件、休眠喚醒次數、終端機啟動失敗的原因代碼，以及 shell 家族（zsh、bash、fish 或其他）。',
         label: '終端機引擎與效能',
         sends: '你使用哪個引擎與 GPU 設定，以及何時退回。',
       },
