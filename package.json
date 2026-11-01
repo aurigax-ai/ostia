@@ -167,7 +167,7 @@
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
     "typescript": "catalog:",
-    "typescript-language-server": "5.3.0",
+    "typescript-language-server": "6.0.2",
     "undici": "catalog:",
     "use-stick-to-bottom": "^1.1.6",
     "vite": "^7.3.7",
