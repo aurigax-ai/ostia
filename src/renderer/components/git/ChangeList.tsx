@@ -23,7 +23,7 @@ import type {
   GitPathsRequest,
   StatusSummary,
 } from '@shared/boards/git'
-import { Fragment, type KeyboardEvent, type ReactNode, useMemo } from 'react'
+import { Fragment, type JSX, type KeyboardEvent, type ReactNode, useMemo } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Segmented } from '@/components/common/Segmented'
 import { focusSibling } from '@/lib/app/rowFocus'

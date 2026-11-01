@@ -7,7 +7,7 @@ import {
   withoutPreset,
   withPreset,
 } from '@shared/sandbox/sandboxPresets'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { ListRow } from '@/components/common/ListRow'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'

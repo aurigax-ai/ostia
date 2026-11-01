@@ -1,6 +1,6 @@
 import { TerminalWindowIcon } from '@phosphor-icons/react'
 import { resolveLinkPath } from '@shared/files/fileLinks'
-import type { ReactNode } from 'react'
+import type { JSX, ReactNode } from 'react'
 import type { Components } from 'react-markdown'
 import {
   CodeBlock,

@@ -1,5 +1,6 @@
 import { DotsThreeIcon, KeyIcon } from '@phosphor-icons/react'
 import type { ScriptTokenInfo, ScriptTokensState } from '@shared/permissions/scriptTokens'
+import type { JSX } from 'react'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Button } from '@/components/ui/button'

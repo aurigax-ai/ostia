@@ -10,6 +10,7 @@ import {
   LONG_COMMAND_MAX_SECONDS,
   LONG_COMMAND_MIN_SECONDS,
 } from '@shared/app/notificationSettings'
+import type { JSX } from 'react'
 import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'

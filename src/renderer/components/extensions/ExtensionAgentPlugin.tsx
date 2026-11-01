@@ -1,4 +1,5 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { JSX } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { fmt, useDict } from '@/lib/app/useDict'
 

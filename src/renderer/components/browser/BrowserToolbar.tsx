@@ -8,7 +8,7 @@ import {
   DeviceMobileIcon,
 } from '@phosphor-icons/react'
 import type { WebviewTag } from 'electron'
-import type { Dispatch, KeyboardEvent, MutableRefObject, SetStateAction } from 'react'
+import type { Dispatch, JSX, KeyboardEvent, MutableRefObject, SetStateAction } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Input } from '@/components/ui/input'
 import { useDict } from '@/lib/app/useDict'

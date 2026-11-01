@@ -1,6 +1,6 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ArrowLeftIcon, XIcon } from '@phosphor-icons/react'
-import { useEffect, useRef } from 'react'
+import { type JSX, useEffect, useRef } from 'react'
 import { useInboxCount } from '@/components/agents/useInboxCards'
 import { CountBadge } from '@/components/common/CountBadge'
 import { IconButton } from '@/components/common/IconButton'

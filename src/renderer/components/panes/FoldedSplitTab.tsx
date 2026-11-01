@@ -1,5 +1,6 @@
 import { GridFourIcon } from '@phosphor-icons/react'
 import type { AttentionState } from '@shared/attention/attention'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { tabMark } from '@/lib/attention/attention'

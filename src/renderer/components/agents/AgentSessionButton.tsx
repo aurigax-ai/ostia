@@ -1,7 +1,7 @@
 import { RobotIcon } from '@phosphor-icons/react'
 import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
 import { type AgentSessionInfo, formatTokens } from '@shared/agents/agentSessionInfo'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

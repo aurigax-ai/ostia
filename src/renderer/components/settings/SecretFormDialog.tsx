@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { TextLink } from '@/components/common/TextLink'
 import { Button } from '@/components/ui/button'
 import {

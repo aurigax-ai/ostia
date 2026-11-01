@@ -1,5 +1,5 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type JSX, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { AgentsSection } from '@/components/agents/AgentsSection'
 import { ClaudeAccountsSection } from '@/components/agents/ClaudeAccountsSection'
 import { PlaybooksSection } from '@/components/agents/PlaybooksSection'

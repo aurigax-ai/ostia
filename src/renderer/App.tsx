@@ -1,6 +1,6 @@
 import { IconContext } from '@phosphor-icons/react'
 import { clampZoom } from '@shared/app/zoom'
-import { useEffect } from 'react'
+import { type JSX, useEffect } from 'react'
 import { AgentOfferDialog } from '@/components/agents/AgentOfferDialog'
 import { IncidentReportDialog } from '@/components/agents/IncidentReportDialog'
 import { CmuxImportDialog } from '@/components/app/CmuxImportDialog'

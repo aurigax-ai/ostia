@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { themeIconSrc } from '@/lib/extensions/iconTheme'
 import { useEffectiveTheme } from '@/lib/theme/theme'
 import { cn } from '@/lib/utils'

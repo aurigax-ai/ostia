@@ -2,6 +2,7 @@ import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabi
 import type { AgentActTool } from '@shared/agent/agentCoreTools'
 import type { ApprovalMode } from '@shared/permissions/approvals'
 import { parseReachMode, REACH_MODES, type ReachMode } from '@shared/permissions/reach'
+import type { JSX } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'

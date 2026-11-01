@@ -7,6 +7,7 @@ import {
 import {
   type CSSProperties,
   type HTMLAttributes,
+  type JSX,
   type KeyboardEvent,
   useEffect,
   useRef,
@@ -243,7 +244,7 @@ function SplitTabHead({
   workspaceId: string | null
 }): JSX.Element {
   const d = useDict()
-  const pendingFold = useRef<number>()
+  const pendingFold = useRef<number | undefined>(undefined)
   useEffect(() => () => window.clearTimeout(pendingFold.current), [])
   if (naming) {
     return (

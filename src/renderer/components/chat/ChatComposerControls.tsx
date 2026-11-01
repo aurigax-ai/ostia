@@ -11,7 +11,7 @@ import {
   type Icon,
   PencilSimpleIcon,
 } from '@phosphor-icons/react'
-import { useMemo } from 'react'
+import { type JSX, useMemo } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { DropdownMenu, MenuItem, MenuLabel, MenuRadioItem } from '@/components/common/Menu'
 import { Button } from '@/components/ui/button'

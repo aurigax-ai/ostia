@@ -1,6 +1,6 @@
 import { ArrowSquareOutIcon, WarningIcon } from '@phosphor-icons/react'
 import { appLinkScheme } from '@shared/common/externalLinks'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { PromptCard } from '@/components/common/PromptCard'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'

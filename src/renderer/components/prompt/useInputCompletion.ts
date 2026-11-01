@@ -52,7 +52,7 @@ export function useInputCompletion({
   paneId: string
   cwd: string | undefined
   draft: InputDraft
-  menuRef: RefObject<HTMLDivElement>
+  menuRef: RefObject<HTMLDivElement | null>
   history: InputHistory
   historySuggestionsOn: boolean
   liveFilesOn: boolean

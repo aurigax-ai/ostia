@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef } from 'react'
+import { type JSX, useCallback, useLayoutEffect, useRef } from 'react'
 import type { PaneNode } from '@/lib/layout/types'
 import { mountSurface, parkSurface } from '@/stores/workspaces/surfaceSlotsStore'
 

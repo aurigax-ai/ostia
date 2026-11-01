@@ -1,4 +1,5 @@
 import { type GitBlameData, isUncommitted } from '@shared/boards/git'
+import type { JSX } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { absoluteTime, relativeTime, shortSha } from '@/lib/git/gitView'
 import { useSettingsStore } from '@/stores/app/settingsStore'

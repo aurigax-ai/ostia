@@ -1,6 +1,6 @@
 import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { type ChordSpec, chordText } from '@shared/keyboard/chordSpec'
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
+import type { JSX, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { TableCell, TableRow } from '@/components/ui/table'

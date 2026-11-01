@@ -9,7 +9,7 @@ import {
   type RemapTarget,
   remapTarget,
 } from '@shared/keyboard/modifierRemap'
-import { Fragment, useState, useSyncExternalStore } from 'react'
+import { Fragment, type JSX, useState, useSyncExternalStore } from 'react'
 import { commands } from '@/commands/registry'
 import { Segmented } from '@/components/common/Segmented'
 import { ControlRow } from '@/components/settingsKit/ControlRow'

@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { WHERE_PATH_CHARS } from '@/lib/agents/needsYou'
 import { shortenPath } from '@/lib/sidebar/railMeta'

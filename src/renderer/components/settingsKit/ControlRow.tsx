@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'

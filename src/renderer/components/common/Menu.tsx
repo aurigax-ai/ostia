@@ -1,6 +1,6 @@
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 import type { Icon } from '@phosphor-icons/react'
-import { type ComponentProps, forwardRef, type ReactElement, type ReactNode } from 'react'
+import { type ComponentProps, forwardRef, type JSX, type ReactElement, type ReactNode } from 'react'
 import {
   ContextMenuCheckboxItem,
   ContextMenuContent,

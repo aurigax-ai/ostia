@@ -1,7 +1,7 @@
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { CheckIcon, CopyIcon, FolderOpenIcon } from '@phosphor-icons/react'
 import type { AppInfo, Platform } from '@shared/types'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'

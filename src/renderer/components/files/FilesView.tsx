@@ -5,7 +5,7 @@ import {
   MagnifyingGlassIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { useEffect, useMemo, useRef } from 'react'
+import { type JSX, useEffect, useMemo, useRef } from 'react'
 import { Hint, useShortcutHint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { useDict } from '@/lib/app/useDict'

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { StatusAction, StatusLine } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { usePhoneSizeStore } from '@/stores/terminal/phoneSizeStore'

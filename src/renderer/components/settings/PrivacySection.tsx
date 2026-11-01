@@ -12,7 +12,7 @@ import {
   type RedactionResult,
 } from '@shared/privacy/redaction'
 import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/privacy/telemetry'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'

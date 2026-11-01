@@ -4,7 +4,7 @@ import type {
   LspLogEntry,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { Dict } from '@shared/app/dict'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import {
   Dialog,
   DialogContent,

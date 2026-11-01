@@ -1,5 +1,5 @@
 import type { ClaudeAccountView } from '@shared/claudeAccounts/claudeAccounts'
-import { useEffect, useRef, useState } from 'react'
+import { type JSX, useEffect, useRef, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { Button } from '@/components/ui/button'
 import {

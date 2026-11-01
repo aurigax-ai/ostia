@@ -9,6 +9,7 @@ import {
   withPreset,
 } from '@shared/browser/browserDevice'
 import { DEVICE_PRESETS } from '@shared/browser/devicePresets'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { NumberInput } from '@/components/settingsKit/CommitInput'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'

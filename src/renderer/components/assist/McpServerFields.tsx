@@ -1,5 +1,6 @@
 import { PlusIcon, XIcon } from '@phosphor-icons/react'
 import type { McpServerSettings, McpTransportKind } from '@shared/assist/chatTools'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'

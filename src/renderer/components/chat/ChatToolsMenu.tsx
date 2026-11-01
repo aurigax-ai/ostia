@@ -6,7 +6,7 @@ import {
   type McpServerState,
   type McpServerStatus,
 } from '@shared/assist/chatTools'
-import { type ReactNode, useEffect, useId } from 'react'
+import { type JSX, type ReactNode, useEffect, useId } from 'react'
 import { TextLink } from '@/components/common/TextLink'
 import { buttonVariants } from '@/components/ui/button'
 import {
@@ -23,6 +23,8 @@ import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { refreshMcp, refreshSkills, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+
+const NONE_OFF: readonly string[] = []
 
 const STATE_DOT: Record<McpServerState, string> = {
   off: 'bg-fg-dim',
@@ -63,7 +65,7 @@ function ToolRow({
 function McpRow({ server, sessionId }: { server: McpServerStatus; sessionId: string }) {
   const d = useDict()
   const t = d.chatTools
-  const off = useChatToolsStore((s) => s.off[sessionId] ?? [])
+  const off = useChatToolsStore((s) => s.off[sessionId] ?? NONE_OFF)
   const toggle = useChatToolsStore((s) => s.toggle)
   const group = mcpGroup(server.name)
   const hint =
@@ -118,7 +120,7 @@ export function ChatToolsMenu({
 }): JSX.Element {
   const d = useDict()
   const t = d.chatTools
-  const off = useChatToolsStore((s) => s.off[sessionId] ?? [])
+  const off = useChatToolsStore((s) => s.off[sessionId] ?? NONE_OFF)
   const toggle = useChatToolsStore((s) => s.toggle)
   const mcp = useChatToolsStore((s) => s.mcp)
   const skills = useChatToolsStore((s) => s.skills)

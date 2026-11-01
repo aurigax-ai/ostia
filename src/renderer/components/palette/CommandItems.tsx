@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { ASK_COMMAND_ID } from '@/commands/askCommand'
 import { type CommandWording, commands, commandWording } from '@/commands/registry'
 import { CommandGroup, CommandItem } from '@/components/ui/command'

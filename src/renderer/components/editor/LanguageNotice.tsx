@@ -1,7 +1,7 @@
 import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
 import type { MarketplaceError } from '@shared/extensions/marketplace'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { StatusAction, StatusLine, useDismissed } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { fileLanguage } from '@/lib/monaco/language'

@@ -1,5 +1,5 @@
 import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileKinds'
-import { useId, useState } from 'react'
+import { type JSX, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {

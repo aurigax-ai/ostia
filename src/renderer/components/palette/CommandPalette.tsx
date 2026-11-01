@@ -1,5 +1,5 @@
 import { PALETTE_TOGGLE } from '@shared/keyboard/chordSpec'
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { type JSX, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { commands } from '@/commands/registry'
 import { ChatView } from '@/components/chat/ChatView'
 import { Command } from '@/components/ui/command'

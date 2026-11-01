@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { type JSX, useMemo } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { TextLink } from '@/components/common/TextLink'
 import { type NeedsYouItem, type PaneWhere, paneWhere, sourceWhere } from '@/lib/agents/needsYou'

@@ -1,6 +1,6 @@
 import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react'
 import { chordText } from '@shared/keyboard/chordSpec'
-import type { ReactNode } from 'react'
+import type { JSX, ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { TableCell, TableRow } from '@/components/ui/table'

@@ -1,6 +1,6 @@
 import { FloppyDiskIcon, KeyIcon, UserIcon } from '@phosphor-icons/react'
 import type { CredentialSummary } from '@shared/browser/credentials'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'

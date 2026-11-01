@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'

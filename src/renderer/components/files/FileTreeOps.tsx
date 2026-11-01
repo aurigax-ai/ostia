@@ -9,7 +9,7 @@ import {
   ScissorsIcon,
   TrashIcon,
 } from '@phosphor-icons/react'
-import { type KeyboardEvent, useState } from 'react'
+import { type JSX, type KeyboardEvent, useState } from 'react'
 import { MenuItem } from '@/components/common/Menu'
 import { Notice } from '@/components/common/Notice'
 import {

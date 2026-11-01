@@ -3,7 +3,7 @@ import {
   snippetDocument,
 } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
 import { fmt } from '@shared/app/dict'
-import { type FormEvent, useId, useState } from 'react'
+import { type FormEvent, type JSX, useId, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { Button } from '@/components/ui/button'
 import {

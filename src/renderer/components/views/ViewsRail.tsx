@@ -1,4 +1,5 @@
 import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { enabledViews, useViewsStore } from '@/stores/extensions/viewsStore'
 import { DeclarativeView, type RenderableView } from './DeclarativeView'

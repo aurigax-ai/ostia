@@ -1,4 +1,4 @@
-import { type MutableRefObject, useEffect, useRef } from 'react'
+import { type JSX, type MutableRefObject, useEffect, useRef } from 'react'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { openCapture } from '@/lib/capture/captureSession'
 import { selectionAdapter } from '@/lib/capture/selectionAdapter'

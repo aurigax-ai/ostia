@@ -6,7 +6,7 @@ import {
   playbookTextProblem,
   type ResolvedPlaybook,
 } from '@shared/agents/playbooks'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'

@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { RenameInput } from '@/components/common/RenameInput'
 import { useDict } from '@/lib/app/useDict'
 import type { PaneNode } from '@/lib/layout/types'

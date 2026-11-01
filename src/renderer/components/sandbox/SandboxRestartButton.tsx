@@ -1,5 +1,5 @@
 import { ArrowClockwiseIcon } from '@phosphor-icons/react'
-import { useEffect } from 'react'
+import { type JSX, useEffect } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

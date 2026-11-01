@@ -1,6 +1,6 @@
 import type { SyncStatus } from '@shared/profileSync/profileSync'
 import { parseSyncKinds, SYNC_KINDS, type SyncKind } from '@shared/profileSync/syncKinds'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { Button } from '@/components/ui/button'

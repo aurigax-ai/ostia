@@ -1,7 +1,7 @@
 import { type BrowserDevice, DEFAULT_DEVICE } from '@shared/browser/browserDevice'
 import { type BrowserProfile, browserPartition } from '@shared/browser/browserProfile'
 import type { DeviceTouch } from '@shared/browser/deviceTouch'
-import { type MutableRefObject, useCallback, useRef, useState } from 'react'
+import { type JSX, type MutableRefObject, useCallback, useRef, useState } from 'react'
 import { CaptureHighlight } from '@/components/capture/CaptureHighlight'
 import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { RegionCropOverlay } from '@/components/capture/RegionCropOverlay'

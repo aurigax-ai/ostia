@@ -1,4 +1,5 @@
 import { PARKED_PANEL_EXTENSION_ID } from '@shared/park/park'
+import type { JSX } from 'react'
 import { StatusAction, StatusLine } from '@/components/common/StatusLine'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'

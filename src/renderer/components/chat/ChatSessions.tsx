@@ -6,7 +6,7 @@ import {
   TrashIcon,
 } from '@phosphor-icons/react'
 import type { ChatSessionSummary } from '@shared/assist/chatSessions'
-import { useEffect, useMemo, useState } from 'react'
+import { type JSX, useEffect, useMemo, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import {

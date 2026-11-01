@@ -7,6 +7,7 @@ import {
   type ScriptTokensState,
   type ScriptTokenUsage,
 } from '@shared/permissions/scriptTokens'
+import type { JSX } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'

@@ -62,7 +62,7 @@ describe('PanelInbox', () => {
     cleanup()
     reveal.mockClear()
     stores.forEach((store, i) => {
-      store.setState(inits[i] as never, true)
+      ;(store.setState as (state: unknown, replace: true) => void)(inits[i], true)
     })
     vi.restoreAllMocks()
   })

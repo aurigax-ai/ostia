@@ -220,7 +220,7 @@ test('the YAML extension’s bundled server checks a .yaml file', async () => {
     fromMarketplace('lsp-yaml'),
   )
   try {
-    await approve(win, 'YAML', 'server/node_modules/yaml-language-server/out/server/src/server.js')
+    await approve(win, 'YAML', 'server/node_modules/yaml-language-server/out/src/server.js')
     await openWorkspace(win)
     const editor = await openFile(win, 'config.yaml')
     await expect(editor.locator('.squiggly-error').first()).toBeVisible({ timeout: 60_000 })

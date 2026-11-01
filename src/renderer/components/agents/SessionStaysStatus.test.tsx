@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import type { JSX } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { startSessionStays, useSessionStaysStore } from '@/stores/agents/sessionStaysStore'
 import { useSessionStaysStatus } from './SessionStaysStatus'

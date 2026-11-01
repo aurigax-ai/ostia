@@ -13,7 +13,7 @@ export function paneDropHandlers({
 }: {
   tabs: TabNode[]
   shown: PaneNode
-  frameRef: RefObject<HTMLDivElement>
+  frameRef: RefObject<HTMLDivElement | null>
 }) {
   const tabIds = tabs.map((t) => t.id)
   const slot = { tabIds, shownId: shown.id }

@@ -1,4 +1,4 @@
-import { Children } from 'react'
+import { Children, type JSX } from 'react'
 
 export function SettingsList({
   label,

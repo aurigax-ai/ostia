@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { type JSX, useEffect, useRef, useState } from 'react'
 import { StatusLine } from '@/components/common/StatusLine'
 import { useDict } from '@/lib/app/useDict'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'

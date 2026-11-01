@@ -1,4 +1,4 @@
-import { type HTMLAttributes, useEffect, useMemo, useRef, useState } from 'react'
+import { type HTMLAttributes, type JSX, useEffect, useMemo, useRef, useState } from 'react'
 import { AssistComposer } from '@/components/assist/AssistComposer'
 import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'

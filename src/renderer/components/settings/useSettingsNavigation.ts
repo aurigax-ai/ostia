@@ -46,7 +46,7 @@ interface NavigationInput {
   open: boolean
   sections: SettingsSection[]
   settingsPageExtensions: ExtensionInfo[]
-  contentRef: RefObject<HTMLDivElement>
+  contentRef: RefObject<HTMLDivElement | null>
 }
 
 interface NavState {

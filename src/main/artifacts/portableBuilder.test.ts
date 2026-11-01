@@ -130,7 +130,7 @@ describe('PortableBuilder', () => {
       'data.json',
     ])
     expect((manifest.sources as Record<string, string>)['data.json']).toBe('["a","b"]\n')
-    expect(manifest.libraries).toContain('react@18.3.1')
+    expect(manifest.libraries).toContain('react@19.3.1')
     const document = srcdoc(built.file)
     expect(document).toBe(built.document)
     expect(manifest.hash).toBe(createHash('sha256').update(document).digest('hex'))
@@ -203,7 +203,7 @@ describe('PortableBuilder', () => {
     if (!built.ok) return
     expect(built.document).toContain('M20 6 9 17l-5-5')
     expect(built.document).not.toContain('M18 6 6 18')
-    expect(Buffer.byteLength(built.file)).toBeLessThan(200 * 1024)
+    expect(Buffer.byteLength(built.file)).toBeLessThan(300 * 1024)
   })
 
   it('PRT-C11 names an import that is not bundled and lists the libraries', async () => {

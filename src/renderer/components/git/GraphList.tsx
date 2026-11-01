@@ -2,6 +2,7 @@ import { CloudIcon, GitBranchIcon, TagIcon } from '@phosphor-icons/react'
 import type { CommitRef, GitGraphData, StatusSummary } from '@shared/boards/git'
 import {
   type CSSProperties,
+  type JSX,
   type KeyboardEvent,
   memo,
   type ReactNode,
@@ -190,7 +191,7 @@ export function GraphList({
   loadingMore: boolean
   onSelect: (key: string | null) => void
   onLoadMore: () => void
-  scroller: RefObject<HTMLDivElement>
+  scroller: RefObject<HTMLDivElement | null>
 }): JSX.Element {
   const t = useDict().git
   const ids = useId()

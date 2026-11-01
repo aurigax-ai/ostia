@@ -1,4 +1,4 @@
-import { type MouseEvent, useMemo } from 'react'
+import { type JSX, type MouseEvent, useMemo } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
 import { paneWhere } from '@/lib/agents/needsYou'

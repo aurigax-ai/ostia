@@ -46,7 +46,7 @@ export interface InputDraft {
   liveMenu: MutableRefObject<Menu | null>
   dismissed: string | null
   setDismissed: Dispatch<SetStateAction<string | null>>
-  areaRef: RefObject<HTMLTextAreaElement>
+  areaRef: RefObject<HTMLTextAreaElement | null>
   textRef: MutableRefObject<string>
   walk: MutableRefObject<HistoryWalk | null>
   restore: MutableRefObject<string>

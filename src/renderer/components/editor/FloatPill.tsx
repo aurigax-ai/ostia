@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { JSX, ReactNode } from 'react'
 import { usePillIdle } from './usePillIdle'
 
 export function FloatPill({

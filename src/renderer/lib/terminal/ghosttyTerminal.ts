@@ -263,7 +263,7 @@ function lazyLine(
   } as ReturnType<GhosttyRows['getLine']>
 }
 
-export function lazyBuffers(t: GhosttyTerm): OstiaTerminal['buffer'] {
+function lazyBuffers(t: GhosttyTerm): OstiaTerminal['buffer'] {
   const wasm = () => (t as unknown as { wasmTerm: WasmRows }).wasmTerm
   const lazy = (rows: GhosttyRows): GhosttyRows =>
     new Proxy(rows, {

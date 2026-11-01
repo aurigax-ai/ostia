@@ -1,4 +1,5 @@
 import { TrashIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { IconButton, type IconButtonProps } from '@/components/common/IconButton'
 import { cn } from '@/lib/utils'
 

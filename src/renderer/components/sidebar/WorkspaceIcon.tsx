@@ -9,6 +9,7 @@ import {
   TerminalWindowIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { allPanes } from '@/lib/layout/tree'

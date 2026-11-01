@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import { rowItems } from '@/lib/sidebar/sidebarItems'
 import { useCoreWatch } from '@/lib/workspaces/coreWatch'

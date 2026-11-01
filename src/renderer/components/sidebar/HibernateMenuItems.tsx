@@ -1,4 +1,5 @@
 import { MoonIcon, SunIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { MenuItem } from '@/components/common/Menu'
 import {
   hibernatableAgentPanes,

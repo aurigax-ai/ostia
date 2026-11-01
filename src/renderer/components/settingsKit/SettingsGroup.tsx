@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Highlight, SearchScopeProvider, useSearchGroup, useSearchLeaf } from './SettingsSearch'
 
 export function SettingsGroup({

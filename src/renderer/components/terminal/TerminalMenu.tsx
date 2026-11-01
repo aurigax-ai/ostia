@@ -1,5 +1,5 @@
 import { BroomIcon, ClipboardTextIcon, CopyIcon, SelectionAllIcon } from '@phosphor-icons/react'
-import { type MutableRefObject, type ReactElement, useState } from 'react'
+import { type JSX, type MutableRefObject, type ReactElement, useState } from 'react'
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { useDict } from '@/lib/app/useDict'

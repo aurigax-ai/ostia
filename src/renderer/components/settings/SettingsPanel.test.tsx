@@ -544,7 +544,9 @@ describe('SettingsPanel', () => {
     await user.click(screen.getByRole('button', { name: 'About' }))
     expect(await screen.findByText('v0.5.9-rc.3+sha.1a2b3c.dirty')).toBeInTheDocument()
     expect(screen.getByText(`Copyright ${new Date().getFullYear()} Ostia`)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Copy version' }))
+    const copy = screen.getByRole('button', { name: 'Copy version' })
+    await user.click(copy)
+    await user.unhover(copy)
     expect(await navigator.clipboard.readText()).toBe('v0.5.9-rc.3+sha.1a2b3c.dirty')
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
@@ -631,7 +633,7 @@ describe('SettingsPanel', () => {
     expect(picker).toHaveValue('#123456')
     const swatch = screen.getByTestId('accent-custom')
     expect(swatch).toHaveAttribute('data-selected', 'true')
-    expect(swatch).toHaveStyle({ background: '#123456' })
+    expect(swatch).toHaveStyle({ backgroundColor: '#123456' })
     for (const button of screen.getAllByRole('button', { name: /^Accent #/ })) {
       expect(button).toHaveAttribute('aria-pressed', 'false')
     }
@@ -711,10 +713,10 @@ describe('SettingsPanel', () => {
       'Preview: Adeberry Ostia theme, Gruvbox Light terminal, Nord editor',
     )
     expect(preview.querySelector('[data-preview="terminal"] > div:last-child')).toHaveStyle({
-      background: '#fbf1c7',
+      backgroundColor: '#fbf1c7',
     })
     expect(preview.querySelector('[data-preview="editor"] > div:last-child')).toHaveStyle({
-      background: '#2e3440',
+      backgroundColor: '#2e3440',
     })
   })
 

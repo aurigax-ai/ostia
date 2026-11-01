@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { StatusLine } from '@/components/common/StatusLine'
 import { useDict } from '@/lib/app/useDict'
 import { useSessionStaysStore } from '@/stores/agents/sessionStaysStore'

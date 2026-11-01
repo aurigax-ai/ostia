@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { StatusAction, StatusLine } from '@/components/common/StatusLine'
 import { useDict } from '@/lib/app/useDict'
 import { useKeptLinkStore } from '@/stores/terminal/keptLinkStore'

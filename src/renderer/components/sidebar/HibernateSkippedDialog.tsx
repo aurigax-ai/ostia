@@ -1,4 +1,5 @@
 import { AGENT_BUSY_REASONS } from '@shared/agents/agentWork'
+import type { JSX } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,

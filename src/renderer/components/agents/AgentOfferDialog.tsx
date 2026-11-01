@@ -1,5 +1,5 @@
 import type { ExtensionAgentOffer } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,

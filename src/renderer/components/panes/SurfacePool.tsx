@@ -1,7 +1,7 @@
 import type { AgentResume } from '@shared/agents/agentResume'
 import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
-import { lazy, Suspense, useEffect, useMemo, useRef } from 'react'
+import { type JSX, lazy, Suspense, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { AgentPane } from '@/components/agent/AgentPane'
 import { ManagerAgentPane } from '@/components/agent/ManagerAgentPane'

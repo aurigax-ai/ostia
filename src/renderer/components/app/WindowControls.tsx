@@ -1,5 +1,5 @@
 import { CopyIcon, MinusIcon, SquareIcon, XIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { isMac } from '@/platform'
 

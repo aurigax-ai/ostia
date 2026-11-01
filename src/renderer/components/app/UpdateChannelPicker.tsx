@@ -6,7 +6,7 @@ import {
   updateCommandLine,
 } from '@shared/app/installMethod'
 import { parseVersion, type UpdateChannel } from '@shared/app/releases'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { fmt, useDict } from '@/lib/app/useDict'

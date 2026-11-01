@@ -7,7 +7,7 @@ import {
   runsScripts,
 } from '@shared/artifacts/portable'
 import type { PublishOptions } from '@shared/artifacts/shares'
-import { useEffect } from 'react'
+import { type JSX, useEffect } from 'react'
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { PublishDialog } from '@/components/shares/PublishDialog'

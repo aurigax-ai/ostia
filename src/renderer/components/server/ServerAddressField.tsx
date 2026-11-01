@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { CommitInput } from '@/components/settingsKit/CommitInput'
 import { useDict } from '@/lib/app/useDict'
 import { type ServerErrorCode, serverErrorText } from './serverText'

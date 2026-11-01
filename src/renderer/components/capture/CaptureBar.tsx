@@ -1,5 +1,5 @@
 import { CaretDownIcon, NotePencilIcon, PaperPlaneTiltIcon, XIcon } from '@phosphor-icons/react'
-import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type JSX, type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem, MenuLabel } from '@/components/common/Menu'
 import { StatusLine } from '@/components/common/StatusLine'

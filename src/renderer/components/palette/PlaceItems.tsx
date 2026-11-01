@@ -1,4 +1,5 @@
 import { AppWindowIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { PathText } from '@/components/common/MachineValue'
 import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
 import { CommandGroup, CommandItem } from '@/components/ui/command'

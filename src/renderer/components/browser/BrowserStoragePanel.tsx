@@ -1,5 +1,6 @@
 import { ArrowClockwiseIcon, TrashIcon, XIcon } from '@phosphor-icons/react'
 import type { StorageKind } from '@shared/browser/browserStorage'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
 import { Button } from '@/components/ui/button'

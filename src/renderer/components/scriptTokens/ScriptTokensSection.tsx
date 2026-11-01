@@ -1,6 +1,6 @@
 import { PlusIcon } from '@phosphor-icons/react'
 import type { ScriptTokenInfo, ScriptTokenSaveResult } from '@shared/permissions/scriptTokens'
-import { useMemo, useState } from 'react'
+import { type JSX, useMemo, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'

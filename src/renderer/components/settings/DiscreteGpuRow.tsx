@@ -5,7 +5,7 @@ import {
   type DiscreteGpuInfo,
   rendererDeviceName,
 } from '@shared/app/discreteGpu'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { ExperimentalBadge, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'

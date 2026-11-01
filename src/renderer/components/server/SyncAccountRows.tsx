@@ -1,6 +1,6 @@
 import type { Dict } from '@shared/app/dict'
 import type { ServerStatus } from '@shared/server/serverApi'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { TextLink } from '@/components/common/TextLink'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'

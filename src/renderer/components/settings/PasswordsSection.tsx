@@ -1,7 +1,7 @@
 import { CopyIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { CredentialImportResult, CredentialSummary } from '@shared/browser/credentials'
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { type FormEvent, type JSX, useCallback, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { RowRemoveButton } from '@/components/settingsKit/RowRemoveButton'

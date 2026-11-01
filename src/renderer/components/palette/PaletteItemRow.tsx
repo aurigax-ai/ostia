@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Kbd } from '@/components/ui/kbd'
 import { cn } from '@/lib/utils'
 

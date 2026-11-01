@@ -1,5 +1,5 @@
 import { CheckIcon, WarningCircleIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { type CaptureChipTone, CHIP_MS } from '@/lib/capture/captureSession'
 
 const EXIT_MS = 105

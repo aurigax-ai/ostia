@@ -1,6 +1,7 @@
 import { throttle } from 'es-toolkit'
 import {
   type Dispatch,
+  type JSX,
   type MutableRefObject,
   memo,
   type RefObject,

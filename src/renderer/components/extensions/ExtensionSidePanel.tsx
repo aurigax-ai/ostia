@@ -2,7 +2,7 @@ import type {
   ExtensionPanelContext,
   ExtensionPanelSource,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'

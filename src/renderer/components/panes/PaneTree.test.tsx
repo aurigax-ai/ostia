@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, render } from '@testing-library/react'
-import { type ReactNode, useRef } from 'react'
+import { type JSX, type ReactNode, useRef } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { tabsOf } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'

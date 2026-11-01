@@ -1,6 +1,6 @@
 import type { ISearchOptions } from '@aurigax-ai/ghostty-web'
 import type { HistorySearchResult } from '@shared/terminal/scrollbackHistory'
-import { useEffect, useRef, useState } from 'react'
+import { type JSX, useEffect, useRef, useState } from 'react'
 import { FindBar, type FindStepRef } from '@/components/common/FindBar'
 import { TextLink } from '@/components/common/TextLink'
 import { fmt, useDict } from '@/lib/app/useDict'

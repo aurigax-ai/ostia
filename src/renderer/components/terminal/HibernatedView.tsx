@@ -1,6 +1,6 @@
 import { MoonIcon, PlayIcon } from '@phosphor-icons/react'
 import type { AgentResume } from '@shared/agents/agentResume'
-import { useRef } from 'react'
+import { type JSX, useRef } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
 import { wakePane } from '@/lib/agents/hibernationScheduler'

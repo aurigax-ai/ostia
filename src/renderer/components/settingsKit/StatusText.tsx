@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { cn } from '@/lib/utils'
 
 export function StatusText({ text, ok }: { text: string; ok: boolean }): JSX.Element {

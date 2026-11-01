@@ -3,7 +3,7 @@ import {
   type IncidentPeriod,
   type IncidentSummary,
 } from '@shared/agents/incident'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { Segmented } from '@/components/common/Segmented'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'

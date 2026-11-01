@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import {

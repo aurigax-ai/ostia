@@ -5,6 +5,7 @@ import {
   type ApprovalRequest,
   offeredAnswers,
 } from '@shared/permissions/approvals'
+import type { JSX } from 'react'
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'

@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import type { SurfaceKind } from '@/lib/layout/types'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 

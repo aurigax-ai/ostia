@@ -51,7 +51,7 @@ export function useInputLayout({
   fontSize: number
   visible: boolean
   text: string
-  areaRef: RefObject<HTMLTextAreaElement>
+  areaRef: RefObject<HTMLTextAreaElement | null>
   onNeedRowsRef: MutableRefObject<(rows: number) => void>
 }): InputLayout {
   const metrics = geo?.metrics

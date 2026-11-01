@@ -4,6 +4,7 @@ import {
   SCROLLBACK_HISTORY_MAX_MIB,
   SCROLLBACK_HISTORY_MIN_MIB,
 } from '@shared/terminal/scrollbackHistory'
+import type { JSX } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
 import { DiscreteGpuRow } from '@/components/settings/DiscreteGpuRow'

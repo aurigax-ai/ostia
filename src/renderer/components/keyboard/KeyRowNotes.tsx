@@ -1,5 +1,6 @@
 import { type ChordSpec, chordText, isPaletteF1 } from '@shared/keyboard/chordSpec'
 import { desktopTaking } from '@shared/keyboard/desktopChords'
+import type { JSX } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { currentDesktops } from '@/lib/app/desktop'
 import { fmt, useDict } from '@/lib/app/useDict'

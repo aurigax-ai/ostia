@@ -1,5 +1,6 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { MagnifyingGlassIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'

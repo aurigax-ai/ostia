@@ -1,22 +1,22 @@
 packages:
   - packages/*
 catalog:
-  '@ai-sdk-tool/parser': ^5.1.6
-  '@phosphor-icons/core': ^2.1.1
-  '@types/node': ^24.19.1
-  '@types/semver': ^7.7.1
-  ai: ^7.0.122
+  "@ai-sdk-tool/parser": ^5.1.6
+  "@phosphor-icons/core": ^2.1.1
+  "@types/node": ^24.19.1
+  "@types/semver": ^7.7.1
+  ai: ^7.0.158
   esbuild: ^0.28.2
   semver: ^7.8.5
   typescript: 5.9.3
-  undici: ^6.29.0
-  vitest: ^5.0.4
-  vscode-jsonrpc: ^9.0.1
+  undici: ^8.12.3
+  vitest: ^5.0.5
+  vscode-jsonrpc: ^10.0.0
   yaml: ^2.9.1
-  zod: ^4.6.5
+  zod: ^4.6.7
 allowBuilds:
-  '@biomejs/biome': true
-  '@google/genai': false
+  "@biomejs/biome": true
+  "@google/genai": false
   electron: true
   electron-winstaller: false
   esbuild: true
@@ -24,12 +24,13 @@ allowBuilds:
   node-pty: true
   protobufjs: false
 minimumReleaseAgeExclude:
-  - '@aurigax-ai/wire@0.1.15'
-  - '@anthropic-ai/sandbox-runtime@0.0.79'
-  - '@aurigax-ai/ghostty-web@0.3.9'
+  - "@aurigax-ai/wire@0.1.15"
+  - "@anthropic-ai/sandbox-runtime@0.0.79"
+  - "@aurigax-ai/ghostty-web@0.3.9"
 patchedDependencies:
   monaco-editor@0.57.0: patches/monaco-editor@0.57.0.patch
   node-pty: patches/node-pty.patch
   swr@2.5.1: patches/swr@2.5.1.patch
 overrides:
-  'monaco-editor>dompurify': ^3.4.16
+  vscode-languageserver-types: 3.18.5
+  "monaco-editor>dompurify": ^3.4.16
