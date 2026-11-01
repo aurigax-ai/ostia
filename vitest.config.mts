@@ -10,10 +10,10 @@ export default defineConfig({
   assetsInclude: ['**/*.md', '**/*.txt', '**/*.wasm'],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src/renderer'),
-      '@shared': resolve(__dirname, 'src/shared'),
+      '@': resolve(import.meta.dirname, 'src/renderer'),
+      '@shared': resolve(import.meta.dirname, 'src/shared'),
       'vscode-jsonrpc/browser': resolve(
-        __dirname,
+        import.meta.dirname,
         'node_modules/vscode-jsonrpc/lib/browser/main.js',
       ),
     },
