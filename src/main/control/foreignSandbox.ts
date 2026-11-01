@@ -62,18 +62,27 @@ function socketFd(socket: Socket): number | null {
   return typeof fd === 'number' && fd >= 0 ? fd : null
 }
 
+let getsockoptBinding: Promise<(...args: unknown[]) => number> | null = null
+
+function getsockopt(): Promise<(...args: unknown[]) => number> {
+  getsockoptBinding ??= import('koffi').then(({ default: koffi }) =>
+    koffi
+      .load('libc.so.6')
+      .func('int getsockopt(int fd, int level, int name, void *value, _Inout_ uint32_t *length)'),
+  )
+  getsockoptBinding.catch(() => {
+    getsockoptBinding = null
+  })
+  return getsockoptBinding
+}
+
 const peerPidOf: PeerPid = async (socket) => {
   if (process.platform !== 'linux') return null
   const fd = socketFd(socket)
   if (fd === null) return null
   try {
-    const { default: koffi } = await import('koffi')
-    const libc = koffi.load('libc.so.6')
-    const getsockopt = libc.func(
-      'int getsockopt(int fd, int level, int name, void *value, _Inout_ uint32_t *length)',
-    )
     const buffer = Buffer.alloc(UCRED_BYTES)
-    if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, buffer, [UCRED_BYTES]) !== 0) return null
+    if ((await getsockopt())(fd, SOL_SOCKET, SO_PEERCRED, buffer, [UCRED_BYTES]) !== 0) return null
     const pid = buffer.readInt32LE(0)
     return pid > 0 ? pid : null
   } catch {

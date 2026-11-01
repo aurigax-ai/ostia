@@ -17,7 +17,6 @@ export function RailTab({
   unread,
   editor,
   onDoubleClick,
-  meta,
   after,
   badge,
 }: {
@@ -32,7 +31,6 @@ export function RailTab({
   unread?: boolean
   editor?: React.ReactNode
   onDoubleClick?: () => void
-  meta?: React.ReactNode
   after?: React.ReactNode
   badge?: React.ReactNode
 }): JSX.Element {
@@ -61,7 +59,6 @@ export function RailTab({
           <span className={cn('tab-title', wrapTitle && 'wrap', unread && 'unread')}>{title}</span>
           {titleAdornment}
         </span>
-        {meta}
       </span>
       {badge}
     </button>
