@@ -23,7 +23,7 @@ export interface TerminalLinkProvider {
   provideLinks(row: number, callback: (links: TerminalLink[] | undefined) => void): void
 }
 
-export interface TerminalSequenceId {
+interface TerminalSequenceId {
   prefix?: string
   intermediates?: string
   final: string

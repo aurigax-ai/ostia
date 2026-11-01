@@ -16,6 +16,7 @@ const MODIFIER_KEYS: ReadonlySet<string> = new Set(['Shift', 'Control', 'Alt', '
 
 export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
   const d = useDict()
+  const outputLabel = d.engine.output
   const hostRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<ReadOnlyTerminal | null>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
@@ -59,7 +60,7 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
     const text = attachTerminalText(
       host.parentElement ?? host,
       { term, displayed: () => term, onDisplay: () => () => {} },
-      d.engine.output,
+      outputLabel,
       () => true,
     )
     let disposed = false
@@ -95,7 +96,7 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
       term.dispose()
       termRef.current = null
     }
-  }, [paneId, engineReady])
+  }, [paneId, engineReady, outputLabel])
 
   return (
     <div ref={surfaceRef} className="terminal-surface">
