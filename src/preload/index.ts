@@ -12,6 +12,7 @@ import { diagnosticsBridge } from './diagnosticsBridge'
 import { extensionsBridge } from './extensionsBridge'
 import { filesBridge } from './filesBridge'
 import { gatewayBridge } from './gatewayBridge'
+import { incidentBridge } from './incidentBridge'
 import { lspBridge } from './lspBridge'
 import { permissionsBridge } from './permissionsBridge'
 import { privacyBridge } from './privacyBridge'
@@ -32,6 +33,7 @@ const bridge: OstiaBridge = {
   ...windowBridge,
   ...controlBridge,
   ...diagnosticsBridge,
+  ...incidentBridge,
   ...privacyBridge,
   ...terminalBridge,
   ...agentsBridge,

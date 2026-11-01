@@ -11,6 +11,7 @@ import type { Reach } from '../approvals/reach'
 import { registerAttentionMethods, targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
 import { getByPaneId } from '../control/idRegistry'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { ManagerService } from '../manager/manager'
@@ -45,8 +46,6 @@ import type { AgentRunningPanes } from './agentRunning'
 import { codexSessionFolder } from './agentTranscript'
 import { type ReportedAgentWork, registerAgentWorkMethods } from './agentWork'
 import { tellPane } from './busStore'
-import type { ClaudeAccounts } from './claudeAccounts/claudeAccounts'
-import { createOutsideTrust } from './startTrust'
 
 interface AgentWiringDeps {
   execCommand: CommandBridge['execCommand']
@@ -62,6 +61,7 @@ interface AgentWiringDeps {
     telemetry: Telemetry | null
     extensionHost: ExtensionHost | null
     refreshResume: ((paneId: string) => Promise<void>) | null
+    agentJournal: AgentJournal | null
   }
   paneWaking: PaneWaking
   startedAgents: Set<string>
@@ -74,8 +74,7 @@ interface AgentWiringDeps {
   ptys: Map<string, PtyEntry>
   paneIo: PtyIo['paneIo']
   workspaceSandboxes: WorkspaceSandboxes
-  scratchFolders: Pick<ScratchFolders, 'isScratch' | 'dirOf'>
-  claudeAccounts: Pick<ClaudeAccounts, 'currentDirectory'>
+  scratchFolders: Pick<ScratchFolders, 'isScratch'>
   killPty: (paneId: string, reason: ReapReason) => void
   windows: Map<string, BrowserWindow>
   terminalState: Map<string, TerminalStateSnapshot>
@@ -108,7 +107,6 @@ export function registerAgentWiring({
   paneIo,
   workspaceSandboxes,
   scratchFolders,
-  claudeAccounts,
   killPty,
   windows,
   terminalState,
@@ -121,6 +119,7 @@ export function registerAgentWiring({
   registerAttentionMethods({
     execCommand,
     reported: (paneId) => keptAttention.reported(paneId),
+    journal: services.agentJournal ?? undefined,
     closing: (paneId, state, message, stop) => paneJournal.report(paneId, state, message, stop),
   })
   registerAgentWorkMethods(agentWork)
@@ -176,12 +175,6 @@ export function registerAgentWiring({
     },
     writePane: paneIo.write,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    outsideTrust: createOutsideTrust({
-      scratchFolders,
-      workspaceSandboxes,
-      readSettingsFile,
-      claudeAccounts,
-    }),
     remote,
     endShell: (paneId) => killPty(paneId, 'process-kill'),
     hasShell: (paneId) => ptys.has(paneId),

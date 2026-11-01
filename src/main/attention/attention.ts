@@ -13,6 +13,7 @@ const ATTENTION_MESSAGE_MAX = 1024
 export interface AttentionDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   reported?: (paneId: string) => void
+  journal?: { hook: (paneId: string, kind: string) => void }
   closing?: (
     paneId: string,
     state: string,
@@ -75,6 +76,7 @@ export function registerAttentionMethods(deps: AttentionDeps): void {
       })
       if (!res.ok) return { ok: false, error: res.error.code, message: res.error.message }
       deps.reported?.(target.paneId)
+      deps.journal?.hook(target.externalId, `state-${state}`)
       return { ok: true }
     },
   })

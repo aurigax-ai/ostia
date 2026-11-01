@@ -95,7 +95,13 @@ export async function peerOf(socket: Socket, pidOf: PeerPid = peerPidOf): Promis
   return pid === null ? null : readPeer(pid)
 }
 
-const NEVER_FROM_SANDBOX = new Set(['process.run', 'process.kill', 'process.restart', 'agent.run'])
+const NEVER_FROM_SANDBOX = new Set([
+  'process.run',
+  'process.kill',
+  'process.restart',
+  'agent.run',
+  'pane.setResume',
+])
 const OWN_PANE_ONLY: Record<string, 'pane' | 'panes'> = {
   'pane.input': 'pane',
   'pane.close': 'panes',

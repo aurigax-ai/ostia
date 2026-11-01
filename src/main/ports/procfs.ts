@@ -1,6 +1,7 @@
 export interface ListeningSocket {
   port: number
   inode: string
+  uid: number
 }
 
 export interface ListeningPort {
@@ -25,7 +26,7 @@ export function parseNetTcp(text: string): ListeningSocket[] {
     const inode = fields[9]
     if (!Number.isInteger(port) || port <= 0 || port > 65535 || !/^\d+$/.test(inode)) continue
     if (inode === '0') continue
-    out.push({ port, inode })
+    out.push({ port, inode, uid: Number(fields[7]) })
   }
   return out
 }

@@ -104,3 +104,21 @@ describe('agent journal file', () => {
     ).toBe('call method=pane.read caller=pane outcome=ok ms=3 bytes=20')
   })
 })
+
+describe('agent journal and the incident timeline', () => {
+  it('hands the pane to the timeline and keeps it out of the log line', () => {
+    const info = vi.fn()
+    const warn = vi.fn()
+    const mail = vi.fn()
+    const wake = vi.fn()
+    const hook = vi.fn()
+    const j = createAgentJournal({ info, warn }, { mail, wake, hook })
+    j.mail('agent-refused: it said no', 1500, 'pane-ext-1')
+    j.wakeNotReady(90_000, ['pane-ext-1', 'pane-ext-2'])
+    expect(mail).toHaveBeenCalledWith('pane-ext-1', 'agent-refused', 1500)
+    expect(wake).toHaveBeenCalledTimes(2)
+    j.hook('pane-ext-1', 'prompt-submit')
+    expect(hook).toHaveBeenCalledWith('pane-ext-1', true, 'prompt-submit')
+    expect(JSON.stringify([...warn.mock.calls, ...info.mock.calls])).not.toContain('pane-ext')
+  })
+})

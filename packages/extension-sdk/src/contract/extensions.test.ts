@@ -21,6 +21,19 @@ describe('sidebarItemUrl', () => {
   })
 })
 
+describe('paneChipItems ports', () => {
+  it('RPF-C10 keeps the port of an item and refuses a bad one', () => {
+    expect(paneChipItems([{ text: ':3000', port: { remote: 3000, local: 3000 } }])).toEqual([
+      { text: ':3000', port: { remote: 3000, local: 3000 } },
+    ])
+    expect(paneChipItems([{ text: ':8080', port: { remote: 8080 } }])).toEqual([
+      { text: ':8080', port: { remote: 8080 } },
+    ])
+    expect(paneChipItems([{ text: ':0', port: { remote: 0 } }])).toBeNull()
+    expect(paneChipItems([{ text: ':1', port: { remote: 1, local: 70000 } }])).toBeNull()
+  })
+})
+
 describe('paneChipItems', () => {
   it('keeps an item detail, trimmed and capped, and drops an empty or non-text one', () => {
     expect(

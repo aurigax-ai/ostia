@@ -30,6 +30,7 @@ import { ensureCaps, needsElevation } from '../approvals/controlElevation'
 import type { Reach, ScriptReach } from '../approvals/reach'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import type { AgentJournal } from '../diagnostics/agentJournal'
+import { type IncidentTimeline, runInIncident } from '../diagnostics/incidentTimeline'
 import { privateRunDir, shortSocketDir, socketPath } from '../platform/privateTmp'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { externalPaneMessage, internalPaneArgs, SCRIPT_COMMANDS } from './commandArgs'
@@ -247,10 +248,32 @@ export interface ControlServerDeps {
   reach?: Pick<Reach, 'scriptReach' | 'recordCreated'>
   usage?: Pick<ScriptTokenUsageLog, 'record' | 'connected'>
   journal?: Pick<AgentJournal, 'call'>
+  incidents?: Pick<IncidentTimeline, 'begin'>
   version?: () => string | null
 }
 
 let callJournal: ControlServerDeps['journal']
+let callIncidents: ControlServerDeps['incidents']
+
+function incidentCall(
+  name: string,
+  params: unknown,
+  caller: string | undefined,
+  incidents: ControlServerDeps['incidents'],
+) {
+  if (!incidents || name === 'hello') return undefined
+  const target = calledTarget(params).paneId ?? (name === 'agent.run' ? caller : undefined)
+  return incidents.begin(target, name, caller)
+}
+
+function refusalOf(result: unknown): string | undefined {
+  if (typeof result !== 'object' || result === null) return undefined
+  const { ok, error } = result as { ok?: unknown; error?: unknown }
+  if (ok !== false) return undefined
+  if (typeof error === 'string') return verbCode(error)
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'string' ? verbCode(code) : undefined
+}
 
 export async function callControlMethod(
   name: string,
@@ -258,6 +281,12 @@ export async function callControlMethod(
   ctx: ControlMethodContext,
 ): Promise<unknown> {
   const began = performance.now()
+  const incident = incidentCall(
+    name,
+    params,
+    ctx.identity.kind === 'pane' ? ctx.identity.externalId : undefined,
+    callIncidents,
+  )
   const journaled = (bytes: number, code?: string): void => {
     callJournal?.call({
       method: name,
@@ -276,10 +305,12 @@ export async function callControlMethod(
     if (m.cap) {
       await ensureCaps(ctx.authed, ctx.identity, [m.cap], name, describeParams(name, params))
     }
-    const result = await m.handler(params, ctx)
+    const result = await runInIncident(incident, () => m.handler(params, ctx))
+    incident?.end(refusalOf(result))
     journaled(callJournal ? answerBytes(result) : 0)
     return result
   } catch (err) {
+    incident?.end(verbCode(err instanceof Error ? err.message : ''))
     journaled(0, verbCode(err instanceof Error ? err.message : ''))
     throw err
   }
@@ -309,19 +340,29 @@ function callsOn(conn: MessageConnection, session: ConnectionSession, deps: Cont
       const method = usage && tokenId ? calledMethod(name, params) : name
       const target = usage && tokenId ? calledTarget(params) : {}
       const began = performance.now()
+      const incident = incidentCall(
+        name,
+        params,
+        session.authed && resolveExternal(session.authed.externalId)?.kind === 'pane'
+          ? session.authed.externalId
+          : undefined,
+        deps.incidents,
+      )
       const journaled = (bytes: number, code?: string): void => {
         const caller = session.authed ? resolveExternal(session.authed.externalId)?.kind : undefined
         if (!deps.journal || !caller || name === 'hello') return
         deps.journal.call({ method: name, caller, ms: performance.now() - began, bytes, code })
       }
       try {
-        const result = await handler(params, token)
+        const result = await runInIncident(incident, () => handler(params, token))
         if (usage && tokenId) usage.record(tokenId, { method, target, ...resultOutcome(result) })
+        incident?.end(refusalOf(result))
         journaled(deps.journal ? answerBytes(result) : 0)
         return result
       } catch (err) {
         const outcome = usage ? errorOutcome(err) : null
         if (usage && tokenId && outcome) usage.record(tokenId, { method, target, ...outcome })
+        incident?.end(verbCode(err instanceof Error ? err.message : ''))
         journaled(0, verbCode(err instanceof Error ? err.message : ''))
         throw err
       }
@@ -620,6 +661,7 @@ function serveConnection(deps: ControlServerDeps, socket: Socket): void {
 export function registerControlServer(deps: ControlServerDeps, socketPathOverride?: string): void {
   const path = socketPathOverride ?? controlSocketPath()
   callJournal = deps.journal
+  callIncidents = deps.incidents
   try {
     rmSync(path, { force: true })
   } catch {}

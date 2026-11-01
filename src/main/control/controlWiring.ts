@@ -8,6 +8,7 @@ import { checkScriptToken, registerScriptTokenMethods } from '../approvals/scrip
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import { electronPresenceDeps, verifyUserPresence } from '../approvals/userPresence'
 import type { AgentJournal } from '../diagnostics/agentJournal'
+import type { IncidentTimeline } from '../diagnostics/incidentTimeline'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { extensionCommandRunner } from '../extensions/extensionMethods'
 import { listPanes } from '../panes/paneList'
@@ -39,7 +40,11 @@ interface ControlStartDeps {
   reach: Reach
   keptPlumbing: KeptShellsWiring['keptPlumbing']
   keepShellsOn: KeptShellsWiring['keepShellsOn']
-  services: { agentJournal: AgentJournal | null; extensionHost: ExtensionHost | null }
+  services: {
+    agentJournal: AgentJournal | null
+    incidents: IncidentTimeline | null
+    extensionHost: ExtensionHost | null
+  }
 }
 
 export function startControlServer({
@@ -98,6 +103,7 @@ export function startControlServer({
     reach,
     usage: scriptTokenUsage,
     journal: services.agentJournal ?? undefined,
+    incidents: services.incidents ?? undefined,
     version: () => runningBuild()?.version ?? null,
   })
   sweepStaleControlSockets()

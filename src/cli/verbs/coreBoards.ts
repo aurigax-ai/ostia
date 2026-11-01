@@ -57,11 +57,31 @@ export function gitRequest(argv: readonly string[]): BoardRequest | null {
   }
 }
 
+const NOT_REMOTE_REPLIES: ReadonlySet<string> = new Set([
+  'not-remote',
+  'unknown-extension',
+  'extension-disabled',
+])
+
 export function portsRequest(argv: readonly string[]): BoardRequest | null {
   const [sub, ...rest] = argv
-  if (sub !== 'list') return null
-  const { positional, booleans } = parseArgs(rest, { booleans: { all: '--all' } })
-  return positional.length === 0 ? { method: 'ports.ls', params: { all: booleans.all } } : null
+  if (sub === 'list') {
+    const { positional, booleans } = parseArgs(rest, { booleans: { all: '--all' } })
+    return positional.length === 0 ? { method: 'ports.ls', params: { all: booleans.all } } : null
+  }
+  if (sub === 'forward' || sub === 'stop') {
+    const { positional, values } = parseArgs(rest, { values: { local: '--local' } })
+    const remote = positional[0]
+    if (positional.length !== 1 || !/^\d{1,5}$/.test(remote)) return null
+    const { local } = values
+    if (sub === 'stop' && local !== undefined) return null
+    if (local !== undefined && !/^\d{1,6}$/.test(local)) return null
+    return {
+      method: `ports.${sub}`,
+      params: { remote: Number(remote), ...(local === undefined ? {} : { local: Number(local) }) },
+    }
+  }
+  return null
 }
 
 async function runBoardVerb(
@@ -83,6 +103,10 @@ async function runBoardVerb(
     return
   }
   const res = await conn.sendRequest<BoardReply>(request.method, request.params)
+  report(verb, argv, res)
+}
+
+function report(verb: string, argv: readonly string[], res: BoardReply): void {
   if (!res.ok) {
     const detail = res.message ? `${res.error}: ${res.message}` : res.error
     fail(`ostia ${verb} ${argv[0]}: ${detail}`)
@@ -97,6 +121,14 @@ export function runGitVerb(conn: MessageConnection, argv: readonly string[]): Pr
   return runBoardVerb(conn, 'git', argv, gitRequest)
 }
 
-export function runPortsVerb(conn: MessageConnection, argv: readonly string[]): Promise<void> {
+export async function runPortsVerb(
+  conn: MessageConnection,
+  argv: readonly string[],
+): Promise<void> {
+  if (argv.length === 1 && argv[0] === 'list') {
+    const remote = await conn.sendRequest<BoardReply>('ports.forwards', {})
+    if (remote.ok || !NOT_REMOTE_REPLIES.has(remote.error ?? ''))
+      return report('ports', argv, remote)
+  }
   return runBoardVerb(conn, 'ports', argv, portsRequest)
 }

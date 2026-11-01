@@ -19,7 +19,7 @@ import {
   carryTrust,
   claudeConfigFile,
   folderTrust,
-  outsideTrust,
+  startAsk,
   trustFolder,
 } from './claudeFolderTrust'
 
@@ -393,23 +393,79 @@ describe('carryTrust', () => {
   })
 })
 
-describe('outsideTrust', () => {
-  it('CFT-C62 names a folder outside the workspace folder that Claude has not accepted', async () => {
+describe('startAsk', () => {
+  it('CFT-C62 names a folder outside the workspace folder that Claude has not accepted, as not inside', async () => {
     write({ projects: {} })
     const work = folder('work')
     const other = folder('other')
-    expect(await outsideTrust({ folder: other, workDir: work, home })).toBe(other)
+    expect(await startAsk({ folder: other, workDir: work, home })).toEqual({
+      folder: other,
+      inside: false,
+    })
   })
 
-  it('CFT-C63 answers nothing when the folder or a parent is accepted, is inside the workspace, or the config is unreadable', async () => {
+  it('CFT-C63 names an untrusted folder inside the workspace folder as inside', async () => {
+    write({ projects: {} })
+    const work = folder('work')
+    const child = folder('work', 'child')
+    expect(await startAsk({ folder: child, workDir: work, home })).toEqual({
+      folder: child,
+      inside: true,
+    })
+  })
+
+  it('CFT-C66 answers nothing when the folder or a parent is accepted, or the config or folder is unreadable', async () => {
     const work = folder('work')
     const other = folder('other')
     const child = folder('other', 'child')
-    expect(await outsideTrust({ folder: other, workDir: work, home })).toBeNull()
+    expect(await startAsk({ folder: other, workDir: work, home })).toBeNull()
     write({ projects: { [other]: { hasTrustDialogAccepted: true } } })
-    expect(await outsideTrust({ folder: child, workDir: work, home })).toBeNull()
+    expect(await startAsk({ folder: child, workDir: work, home })).toBeNull()
     write({ projects: {} })
-    expect(await outsideTrust({ folder: work, workDir: work, home })).toBeNull()
-    expect(await outsideTrust({ folder: join(home, 'missing'), workDir: work, home })).toBeNull()
+    expect(await startAsk({ folder: join(home, 'missing'), workDir: work, home })).toBeNull()
+  })
+
+  it('CFT-C67 never names /, home, a folder above home or a folder when the workspace folder is home or above', async () => {
+    write({ projects: {} })
+    const work = folder('work')
+    expect(await startAsk({ folder: home, workDir: work, home })).toBeNull()
+    expect(await startAsk({ folder: dirname(home), workDir: work, home })).toBeNull()
+    expect(await startAsk({ folder: '/', workDir: work, home })).toBeNull()
+    expect(await startAsk({ folder: folder('other'), workDir: home, home })).toBeNull()
+  })
+
+  it('CFT-C68 uses the git root of an outside folder as the key', async () => {
+    write({ projects: {} })
+    const work = folder('work')
+    const repo = folder('other', 'repo')
+    mkdirSync(join(repo, '.git'))
+    const deep = folder('other', 'repo', 'src')
+    expect(await startAsk({ folder: deep, workDir: work, home })).toEqual({
+      folder: repo,
+      inside: false,
+    })
+  })
+})
+
+describe('trustFolder for an outside folder', () => {
+  it('CFT-C69 writes the exact outside key only when the shown folder matches it', async () => {
+    write({ projects: {} })
+    const work = folder('work')
+    const other = folder('other')
+    const placed = { folder: other, workDir: work, home }
+    expect(await trustFolder(placed)).toBe(false)
+    expect(await trustFolder(placed, join(home, 'elsewhere'))).toBe(false)
+    expect(read().projects?.[other]).toBeUndefined()
+    expect(await trustFolder(placed, other)).toBe(true)
+    expect(read().projects?.[other]).toEqual({ hasTrustDialogAccepted: true })
+  })
+
+  it('CFT-C70 never writes home, a folder above home or /, even when shown', async () => {
+    write({ projects: {} })
+    const work = folder('work')
+    for (const target of [home, dirname(home), '/']) {
+      expect(await trustFolder({ folder: target, workDir: work, home }, target)).toBe(false)
+    }
+    expect(read()).toEqual({ projects: {} })
   })
 })

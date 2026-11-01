@@ -29,6 +29,7 @@ export interface HistoryFeed {
 }
 
 export const SPILL_BACKLOG: FlowMarks = { high: 12 * 1024 * 1024, low: 9 * 1024 * 1024 }
+export const SPILL_PAUSE: FlowMarks = { high: 3 * 1024 * 1024, low: 2 * 1024 * 1024 }
 const SPILL_QUIET_MS = 100
 export const PANE_SEND_CHARS = 1024 * 1024
 export const SLICE_CHARS = 256 * 1024

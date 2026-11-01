@@ -51,6 +51,9 @@ let opened: LoginTarget[]
 let usage: Map<string, AccountUsage>
 let usageRuns: boolean[]
 let trusted: { dir: string; paneId: string }[]
+let asked: string[]
+let release: (() => void) | null
+let holdAsk = false
 
 const ctx = (extra: Record<string, unknown> = {}) =>
   ({
@@ -78,6 +81,9 @@ beforeEach(() => {
   usage = new Map()
   usageRuns = []
   trusted = []
+  asked = []
+  release = null
+  holdAsk = false
   switched = vi.fn<() => Promise<void>>(async () => {})
   base = mkdtempSync(join(tmpdir(), 'ostia-accounts-wiring-'))
   store = new ClaudeAccountsStore(join(base, 'accounts.json'))
@@ -115,6 +121,13 @@ beforeEach(() => {
     trustForStart: async (dir, identity) => {
       trusted.push({ dir, paneId: identity.paneId })
       return true
+    },
+    askTrust: async (dir, identity) => {
+      asked.push(`${dir}|${identity.paneId}`)
+      await new Promise<void>((resolve) => {
+        release = resolve
+        if (!holdAsk) resolve()
+      })
     },
   })
 })
@@ -275,6 +288,22 @@ describe('claudeAccount.start', () => {
     expect(trusted).toEqual([{ dir: '', paneId: 'p1' }])
   })
 
+  it('CFT-C90 asks the human after preparing trust and answers only when the ask is done', async () => {
+    store.use(WORK)
+    holdAsk = true
+    let answered = false
+    const call1 = Promise.resolve(call('claudeAccount.start', {})).then((r: unknown) => {
+      answered = true
+      return r
+    })
+    await vi.waitFor(() => expect(asked).toEqual([`${join(base, 'profiles', WORK)}|p1`]))
+    expect(trusted).toHaveLength(1)
+    await new Promise((r) => setTimeout(r, 30))
+    expect(answered).toBe(false)
+    release?.()
+    expect(await call1).toMatchObject({ dir: join(base, 'profiles', WORK) })
+  })
+
   it('needs no capability, so a Claude start is never held by an approval', () => {
     expect(registered.get('claudeAccount.start')?.cap).toBeUndefined()
   })
@@ -403,6 +432,7 @@ describe('a damaged store', () => {
       workspaceWindowId: () => '1',
       execCommand: vi.fn() as never,
       trustForStart: async () => false,
+      askTrust: async () => undefined,
       windowIds: () => ['1'],
     })
     await new Promise((resolve) => setTimeout(resolve, 50))

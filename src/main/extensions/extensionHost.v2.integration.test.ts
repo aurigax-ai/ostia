@@ -333,7 +333,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
           { paneId: pane.externalId, id: 'status', text: 'x', ...extra },
           caller,
         )
-      const tooMany = Array.from({ length: 21 }, (_, i) => ({ text: `:${3000 + i}` }))
+      const tooMany = Array.from({ length: 65 }, (_, i) => ({ text: `:${3000 + i}` }))
       for (const extra of [
         { icon: 'rocket' },
         { items: [] },

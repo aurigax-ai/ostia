@@ -7,10 +7,11 @@ import {
   emptyWorkspace,
   openWorkspace,
   quitApp,
+  scratchRow,
   typeLine,
   waitForPaletteSelection,
 } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 const LINES = 3000
 const SEAM_WHEEL_PX = 6000
@@ -215,7 +216,7 @@ test('clear, closing a pane, closing a scratch workspace and quitting leave no h
       .getByRole('button', { name: 'More ways to start a workspace' })
       .click()
     await win.getByRole('menuitem', { name: 'New scratch workspace' }).click()
-    const row = win.locator('.rail-tab', { has: win.getByText('Scratch', { exact: true }) })
+    const row = scratchRow(win)
     await expect(row).toBeVisible()
     await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
     await flood(win, '.xterm-screen:visible')

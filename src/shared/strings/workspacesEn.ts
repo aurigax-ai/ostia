@@ -223,8 +223,13 @@ export const workspacesEn = {
     folderTrustChoices: 'More ways to trust',
     folderTrustLabel: 'Claude folder trust',
     folderTrustOnce: 'Trust folder',
+    folderTrustOutsideBody:
+      'Claude starts outside your workspace folder. Claude asks before it works in a new folder. Trust it now and Claude starts without its own question.',
     folderTrustResume: 'Resume without trusting; Claude asks',
     folderTrustSkip: 'Let Claude ask',
+    folderTrustStartBody:
+      'Claude asks before it works in a new folder. Trust it now and Claude starts without its own question.',
+    folderTrustStartDismiss: 'Start without trusting; Claude asks',
     folderTrustTitle: 'Trust {name} for Claude?',
     forkAction: 'Fork',
     forkConversation: 'Fork to new tab',

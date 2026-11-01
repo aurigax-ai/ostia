@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { connect, createServer } from 'node:net'
 import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
@@ -16,7 +17,7 @@ async function answerDialogsWith(app: ElectronApplication, response: number): Pr
   }, response)
 }
 
-test('REM-E1 a remote workspace is set up from the menu, shows Online and lists its job', async () => {
+test('REM-E1 a remote workspace is set up from the menu, comes online and lists its job', async () => {
   test.setTimeout(150_000)
   const dataHome = freshDataHome()
   seedSettings(dataHome, DOM_RENDERER_SETTINGS)
@@ -55,7 +56,7 @@ test('REM-E1 a remote workspace is set up from the menu, shows Online and lists 
     ).toContainText('Waiting for you', { timeout: 90_000 })
     await dialog.getByRole('button', { name: 'Check again' }).click()
     await expect(dialog).toBeHidden({ timeout: 60_000 })
-    await expect(win.getByText('Online')).toBeVisible({ timeout: 30_000 })
+    await expect(win.getByText(/^Offline/)).toBeHidden({ timeout: 30_000 })
     const jobs = win.getByRole('dialog', { name: 'Jobs on build-box' })
     const openJobs = async (): Promise<void> => {
       await win.keyboard.press('F1')
@@ -105,6 +106,30 @@ test('REM-E1 a remote workspace is set up from the menu, shows Online and lists 
     await expect.poll(sessions, { timeout: 20_000 }).not.toContain(closed)
     await expectJobs(1)
     await expect(jobs.getByRole('listitem')).toContainText('claude')
+    await win.keyboard.press('Escape')
+    await expect(jobs).toBeHidden()
+
+    const server = createServer((socket) => socket.end('pong')).listen(0, '127.0.0.1')
+    await new Promise((done) => server.once('listening', done))
+    const hostPort = (server.address() as { port: number }).port
+    try {
+      await win.getByRole('button', { name: /Remote ports/ }).click({ timeout: 30_000 })
+      const row = win.getByText(new RegExp(`^:${hostPort} → localhost:\\d+`))
+      await expect(row).toBeVisible({ timeout: 30_000 })
+      const local = Number(/localhost:(\d+)/.exec(await row.innerText())?.[1])
+      const answer = await new Promise<string>((done, fail) => {
+        const socket = connect(local, '127.0.0.1')
+        let body = ''
+        socket.on('data', (chunk) => {
+          body += chunk
+        })
+        socket.on('end', () => done(body))
+        socket.on('error', fail)
+      })
+      expect(answer).toBe('pong')
+    } finally {
+      server.close()
+    }
   } finally {
     const socket = join(remoteHome, '.ostia/node/run/tmux')
     for (const entry of readdirSync(join(remoteHome, '.ostia/node'))) {

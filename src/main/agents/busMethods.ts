@@ -127,7 +127,7 @@ export interface BusDeps {
   pending: (pane: PaneIdentity) => Promise<MailPending>
   reach: PaneReachDeps
   observe?: (observation: BusObservation) => void
-  journal?: Pick<AgentJournal, 'mail' | 'leaseTimeout'>
+  journal?: Pick<AgentJournal, 'mail' | 'leaseTimeout' | 'hook' | 'undelivered'>
   agentBusy: (pane: PaneIdentity) => boolean
   hibernated: (paneId: string) => boolean
 }
@@ -148,9 +148,19 @@ async function receiverFor(
   return { ok: false as const, ...refProblem(to, resolved) }
 }
 
+const UNDELIVERABLE: ReadonlySet<string> = new Set([
+  'hibernated',
+  'no-agent',
+  'hooks-off',
+  'idle-no-wake',
+  'rate-limited',
+])
+
 async function queuedWithPending(deps: BusDeps, mail: Mail, to: PaneIdentity): Promise<Mail> {
   if (mail.state !== 'queued') return mail
-  setPending(mail.id, await deps.pending(to))
+  const pending = await deps.pending(to)
+  setPending(mail.id, pending)
+  if (UNDELIVERABLE.has(pending)) deps.journal?.undelivered(to.externalId, pending)
   return getMail(mail.id) ?? mail
 }
 
@@ -324,6 +334,15 @@ function handOver(handed: HandedMail | undefined, ctx: ControlMethodContext) {
   return { messages: handed.messages.map(wireMail), lease: handed.lease }
 }
 
+const HOOK_KINDS: Readonly<Record<string, string>> = {
+  SessionStart: 'session-start',
+  UserPromptSubmit: 'prompt-submit',
+}
+
+function hookKind(event: string | undefined): string {
+  return (event && HOOK_KINDS[event]) || 'other'
+}
+
 function registerBusInboxMethods(deps: BusDeps): void {
   registerControlMethod('bus.inbox', {
     handler: (params, ctx) => {
@@ -342,6 +361,7 @@ function registerBusInboxMethods(deps: BusDeps): void {
     handler: (params, ctx) => {
       const { event, source } = (params ?? {}) as { event?: string; source?: string }
       const me = ctx.identity.externalId
+      deps.journal?.hook(me, hookKind(event))
       const fresh = inboxOf(me).filter((mail) => mail.state === 'queued' && !mail.quiet)
       const context = busContext(
         fresh.map((mail) => ({ ...withSenderName(mail), text: mail.text ?? '' })),

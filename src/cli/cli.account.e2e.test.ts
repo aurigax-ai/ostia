@@ -79,6 +79,7 @@ beforeAll(() => {
     workspaceWindowId: () => '7',
     execCommand: async () => ({ ok: true }) as CommandResult,
     trustForStart: async () => false,
+    askTrust: async () => undefined,
     windowIds: () => ['7'],
   })
 })

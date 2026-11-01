@@ -19,7 +19,7 @@
         "src/extensions/*/panel.css",
         "scripts/*.mjs",
         "marketplace/*.mjs",
-        "e2e/**/*.{spec,bench}.ts",
+        "e2e/**/*.{spec,bench,repro}.ts",
         "test/*.bench.ts",
         "e2e/failed-report/*.ts",
         "test/fixtures/**/*.{mjs,js,ts}"

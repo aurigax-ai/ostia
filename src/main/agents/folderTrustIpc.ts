@@ -1,14 +1,50 @@
-import { ipcMain } from 'electron'
+import { type BrowserWindow, ipcMain } from 'electron'
 import type { FolderTrust } from '../../shared/agents/agentsApi'
-import { getByPaneId, panesOwnedBy } from '../control/idRegistry'
+import { getByPaneId, type PaneIdentity, panesOwnedBy } from '../control/idRegistry'
 import type { SettingsFile } from '../platform/settingsFile'
 import type { ClaudeAccounts } from './claudeAccounts/claudeAccounts'
-import { folderTrust, type TrustPlace, trustFolder } from './claudeFolderTrust'
+import { folderTrust, startAsk, type TrustPlace, trustFolder } from './claudeFolderTrust'
 import { type TrustPlaceDeps, trustPlaceOf } from './trustPlace'
 
 export interface FolderTrustIpcDeps extends TrustPlaceDeps {
   readSettingsFile: () => SettingsFile
   claudeAccounts: Pick<ClaudeAccounts, 'configDir'>
+  windows: Map<string, BrowserWindow>
+}
+
+const ASK_MS = 10 * 60_000
+const waiting = new Map<string, () => void>()
+
+function settle(paneId: string): void {
+  const done = waiting.get(paneId)
+  waiting.delete(paneId)
+  done?.()
+}
+
+export function createStartAsk(
+  deps: FolderTrustIpcDeps,
+): (profileDir: string, identity: PaneIdentity) => Promise<void> {
+  return async (profileDir, identity) => {
+    const place = trustPlaceOf(deps, identity)
+    if (!place) return
+    const ask = await startAsk({
+      ...place,
+      configDir: profileDir || process.env.CLAUDE_CONFIG_DIR || undefined,
+      customOAuth: Boolean(process.env.CLAUDE_CODE_CUSTOM_OAUTH_URL),
+    })
+    const win = deps.windows.get(identity.windowId)
+    if (!ask || !win || win.isDestroyed()) return
+    const { paneId } = identity
+    settle(paneId)
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => settle(paneId), ASK_MS)
+      waiting.set(paneId, () => {
+        clearTimeout(timer)
+        resolve()
+      })
+      win.webContents.send('agent:folder-trust-ask', paneId, ask.folder, ask.inside)
+    })
+  }
 }
 
 function placeOf(deps: FolderTrustIpcDeps, senderId: string, paneId: unknown): TrustPlace | null {
@@ -25,6 +61,10 @@ function placeOf(deps: FolderTrustIpcDeps, senderId: string, paneId: unknown): T
 }
 
 export function registerFolderTrustIpc(deps: FolderTrustIpcDeps): void {
+  ipcMain.handle('agent:folder-trust-done', (e, paneId: unknown) => {
+    if (typeof paneId === 'string' && panesOwnedBy([paneId], String(e.sender.id))) settle(paneId)
+  })
+
   ipcMain.handle('agent:folder-trust', async (e, paneId: unknown): Promise<FolderTrust> => {
     const place = placeOf(deps, String(e.sender.id), paneId)
     if (!place) return { state: 'unknown' }

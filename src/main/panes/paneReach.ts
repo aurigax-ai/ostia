@@ -6,6 +6,7 @@ import type { Reach } from '../approvals/reach'
 import { connHasCap } from '../control/controlAuth'
 import type { ControlMethodContext } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
+import { bindIncident } from '../diagnostics/incidentTimeline'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { type PaneRefDeps, refFailure, resolvePaneRef } from './paneRef'
 
@@ -93,7 +94,10 @@ export async function paneTarget(
 ): Promise<PaneIdentity> {
   if (typeof raw !== 'string' || !raw) throw fail('bad-request: pane')
   const resolved = await resolvePaneRef(deps, raw, ctx, destructive)
-  if ('found' in resolved) return resolved.found
+  if ('found' in resolved) {
+    bindIncident(resolved.found.externalId)
+    return resolved.found
+  }
   throw fail(refFailure(raw, resolved))
 }
 

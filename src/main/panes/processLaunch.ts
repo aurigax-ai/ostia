@@ -62,16 +62,6 @@ function humanTab(name: string) {
   }
 }
 
-type FolderNotTrusted = ReturnType<typeof folderNotTrusted>
-
-function folderNotTrusted(folder: string) {
-  return {
-    ok: false as const,
-    error: 'folder-not-trusted' as const,
-    message: `${folder} is outside the workspace folder, so Claude will ask to trust it; start it from a pane in that folder, or open that folder as a workspace`,
-  }
-}
-
 function hasControlCharacters(text: string, allowed: string): boolean {
   for (const ch of text) {
     if ((ch < ' ' || ch === '\x7f') && !allowed.includes(ch)) return true
@@ -172,7 +162,6 @@ export interface ProcessLaunchDeps {
   tell: (toExternalId: string, text: string) => void
   startTiming?: StartTiming
   isSandboxed: (workspaceId: string) => boolean
-  outsideTrust?: (workspaceId: string, folder: string) => Promise<string | null>
   remote?: RemoteStarter
   reach: Pick<Reach, 'ensure'>
   onChange?: (entry: ProcessEntry) => void
@@ -331,17 +320,12 @@ export function createProcessLauncher(
     splitTab: SplitTabPlacement | undefined,
     agentHook: boolean,
     named: boolean,
-    claude = false,
-  ): Promise<
-    StartedProcess | typeof NOT_OPENED | ReturnType<typeof humanTab> | FolderNotTrusted
-  > => {
+  ): Promise<StartedProcess | typeof NOT_OPENED | ReturnType<typeof humanTab>> => {
     const { workspaceId, here } = await admit(ctx, givenWorkspace)
     if (named && splitTab && (await deps.humanTab(workspaceId, splitTab.name))) {
       return humanTab(splitTab.name)
     }
     const cwd = givenCwd ?? (here ? deps.cwdOfPane(ctx.identity.paneId) : undefined)
-    const outside = claude && cwd ? await deps.outsideTrust?.(workspaceId, cwd) : null
-    if (outside) return folderNotTrusted(outside)
     const started = await openAndConfirm(
       {
         command: cmd,

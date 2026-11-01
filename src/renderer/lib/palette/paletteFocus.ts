@@ -40,6 +40,7 @@ export function paletteReturnFocus(): HTMLElement | boolean {
   const target = focusBeforePalette
   focusBeforePalette = null
   if (paneBeforePalette !== keyboardPane()) return false
+  if (document.querySelector('[role="dialog"][data-open]')) return false
   if (!target?.isConnected) return true
   if (target.closest('[inert], [data-hidden]')) return false
   return focusMovedAway(target) ? false : target

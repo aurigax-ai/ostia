@@ -30,4 +30,5 @@ export const BUDGETS: Record<string, Budget> = {
   'link.path-editor': { p50: 300, p95: 500 },
   'link.web-browser': { p50: 300, p95: 500 },
   'agent-pane.first-token': { p50: 500, p95: 1000 },
+  'agent-scroll.wheel-to-scroll': { p50: 30, p95: 60 },
 }
