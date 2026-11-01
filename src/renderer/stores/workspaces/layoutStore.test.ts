@@ -211,6 +211,27 @@ describe('layoutStore', () => {
     })
   })
 
+  describe('an agent adding to a split tab while the human views another tab', () => {
+    it('never changes the shown tab or the focused pane', () => {
+      const caller = ensure('sess')
+      const viewed = useLayoutStore.getState().newTab('sess', caller, 'terminal') as string
+      const seen = new Set<string>()
+      const stop = useLayoutStore.subscribe((s) => {
+        const l = s.byWorkspace.sess
+        seen.add(`${l.activePaneId}|${tabsOfPane(l.root, caller)?.activeId}`)
+      })
+      for (let i = 0; i < 3; i++) {
+        useLayoutStore.getState().openTerminal('sess', {
+          afterPaneId: caller,
+          backgroundTab: true,
+          splitTab: { name: 'dev' },
+        })
+      }
+      stop()
+      expect([...seen]).toEqual([`${viewed}|${viewed}`])
+    })
+  })
+
   describe('openTerminal as a tab after a pane', () => {
     const openAsTab = (afterPaneId: string) =>
       useLayoutStore.getState().openTerminal('sess', { afterPaneId, asTab: true }) as string

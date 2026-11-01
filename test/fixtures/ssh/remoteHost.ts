@@ -17,6 +17,8 @@ export interface RemoteHost {
   env: NodeJS.ProcessEnv
   spawn: (argv: string[]) => ChildProcessWithoutNullStreams
   runs: () => string[]
+  mux: () => string[]
+  root: string
   cleanup: () => void
 }
 
@@ -46,22 +48,26 @@ export function remoteHost(opts: { path?: string } = {}): RemoteHost {
     TERM: 'dumb',
     FAKE_SSH_DIR,
     FAKE_SSH_LOG: log,
+    FAKE_SSH_MUX_LOG: join(root, 'mux.log'),
     FAKE_SSH_REMOTE_SHELL: '/bin/sh',
     FAKE_SSH_REMOTE_HOME: home,
     FAKE_SSH_REMOTE_TMP: tmp,
   }
+  const lines = (file: string): string[] => {
+    try {
+      return readFileSync(file, 'utf8').split('\n').filter(Boolean)
+    } catch {
+      return []
+    }
+  }
   return {
+    root,
     home,
     log,
     env,
     spawn: (argv) => spawn(FAKE_SSH, argv.slice(1), { stdio: ['pipe', 'pipe', 'pipe'], env }),
-    runs: () => {
-      try {
-        return readFileSync(log, 'utf8').split('\n').filter(Boolean)
-      } catch {
-        return []
-      }
-    },
+    runs: () => lines(log),
+    mux: () => lines(join(root, 'mux.log')),
     cleanup: () => rmSync(root, { recursive: true, force: true }),
   }
 }

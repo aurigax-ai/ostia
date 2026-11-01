@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+const { spawnSync } = require('node:child_process')
+const fs = require('node:fs')
+
+const [hooksFile, event, payload = '{}'] = process.argv.slice(2)
+const hooks = JSON.parse(fs.readFileSync(hooksFile, 'utf8'))
+for (const named of Object.values(hooks)) {
+  for (const handler of named[event] ?? []) {
+    const res = spawnSync('sh', ['-c', handler.command], { input: payload, encoding: 'utf8' })
+    process.stdout.write(res.stdout)
+  }
+}

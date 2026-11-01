@@ -13,7 +13,6 @@ import {
   PICK_TABLE_CSV_MAX,
   type PickCapture,
   pickBusMessage,
-  pickReportName,
   type RawPick,
   REPORT_SLUG_MAX,
   renderPickReport,
@@ -293,17 +292,15 @@ describe('pick report names', () => {
       'github-com-aurigax-ai-ostia-pull-12',
     )
     expect(urlSlug('http://localhost:5173/')).toBe('localhost-5173')
-    expect(pickReportName(80, 'http://localhost:5173/cart')).toBe(
-      'capture-80-localhost-5173-cart.md',
-    )
+    expect(captureStem(80, 'http://localhost:5173/cart')).toBe('capture-80-localhost-5173-cart')
   })
 
   it('clips a long slug and leaves it out for a page without a web address', () => {
     const long = urlSlug(`https://example.com/${'a/'.repeat(60)}`)
     expect(long.length).toBeLessThanOrEqual(REPORT_SLUG_MAX)
     expect(long.endsWith('-')).toBe(false)
-    expect(pickReportName(3, 'about:blank')).toBe('capture-3.md')
-    expect(pickReportName(3, 'file:///etc/passwd')).toBe('capture-3.md')
+    expect(captureStem(3, 'about:blank')).toBe('capture-3')
+    expect(captureStem(3, 'file:///etc/passwd')).toBe('capture-3')
   })
 
   it('numbers after the highest report in the folder, whatever its slug', () => {

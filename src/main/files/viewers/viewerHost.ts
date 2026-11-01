@@ -106,6 +106,14 @@ export interface ViewerHostDeps {
   token?: () => string
 }
 
+export const PORTABLE_WAIT_MS = 10_000
+
+interface PortableWaiter {
+  windowId: string
+  path: string
+  resolve: (tables: ViewerPortableTables | 'too-large' | null) => void
+}
+
 interface Live {
   token: string
   windowId: string
@@ -179,6 +187,7 @@ interface NavigationSource {
 
 export class ViewerHost {
   private readonly byToken = new Map<string, Live>()
+  private readonly portableWaiters = new Set<PortableWaiter>()
   private readonly prepared = new Map<string, ViewerSession>()
   private readonly now: () => number
 
@@ -322,6 +331,29 @@ export class ViewerHost {
         live.streams.delete(stream)
       }
     }
+  }
+
+  awaitPortable(
+    windowId: string,
+    path: string,
+  ): Promise<ViewerPortableTables | 'too-large' | null> {
+    const confined = this.deps.confine(path)
+    if (!confined) return Promise.resolve(null)
+    const ready = this.portable(windowId, confined)
+    if (ready) return Promise.resolve(ready)
+    return new Promise((resolve) => {
+      const waiter: PortableWaiter = {
+        windowId,
+        path: confined,
+        resolve: (tables) => {
+          clearTimeout(timer)
+          this.portableWaiters.delete(waiter)
+          resolve(tables)
+        },
+      }
+      const timer = setTimeout(() => waiter.resolve(null), PORTABLE_WAIT_MS)
+      this.portableWaiters.add(waiter)
+    })
   }
 
   portable(windowId: string, path: string): ViewerPortableTables | 'too-large' | null {
@@ -662,6 +694,7 @@ export class ViewerHost {
     const body = await readBoundedBody(request, PORTABLE_TABLES_BYTES_MAX)
     if (!body) {
       live.portable = 'too-large'
+      this.settlePortable(live)
       return new Response(null, { status: 413 })
     }
     let parsed: unknown
@@ -673,7 +706,15 @@ export class ViewerHost {
     const tables = portableTables(parsed)
     if (!tables) return new Response(null, { status: 400 })
     live.portable = tables
+    this.settlePortable(live)
     return new Response(null, { status: 204 })
+  }
+
+  private settlePortable(live: Live): void {
+    for (const waiter of [...this.portableWaiters]) {
+      if (waiter.windowId === live.windowId && waiter.path === live.path)
+        waiter.resolve(live.portable)
+    }
   }
 
   private async receiveSelection(live: Live, request: Request): Promise<Response> {

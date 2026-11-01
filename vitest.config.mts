@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
 import { pageScriptPlugin } from './scripts/pageScriptPlugin.mjs'
@@ -16,6 +17,11 @@ export default defineConfig({
         import.meta.dirname,
         'node_modules/vscode-jsonrpc/lib/browser/main.js',
       ),
+    },
+  },
+  server: {
+    fs: {
+      allow: [import.meta.dirname, realpathSync(resolve(import.meta.dirname, 'node_modules'))],
     },
   },
   test: {

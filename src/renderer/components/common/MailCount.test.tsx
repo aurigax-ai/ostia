@@ -5,7 +5,7 @@ import type { JSX } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MailCount } from '@/components/common/MailCount'
 import { TabFace } from '@/components/panes/TabFace'
-import { WorkspaceBadges } from '@/components/sidebar/WorkspaceBadges'
+import { RowChips } from '@/components/sidebar/row/RowChips'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { createPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
@@ -103,14 +103,14 @@ describe('where the mark shows', () => {
     expect(container.querySelector('.pane-attn-mark')).toBeNull()
   })
 
-  it('sits on a workspace row with the count of all its panes', () => {
+  it('sits on the chip line of a workspace row with the count of all its panes', () => {
     useWorkspacesStore.getState().addWorkspace()
     const workspace = useWorkspacesStore.getState().workspaces[0]
     useLayoutStore.getState().ensure(workspace.id)
     const layout = useLayoutStore.getState().byWorkspace[workspace.id]
     const paneId = layout.activePaneId
     useMailStore.setState({ byPane: { [paneId]: [queued('a'), queued('b')] } })
-    show(<WorkspaceBadges workspace={workspace} />)
+    show(<RowChips workspaceId={workspace.id} chips={[]} />)
     expect(
       screen.getByRole('img', { name: '2 unread messages for this agent' }),
     ).toBeInTheDocument()

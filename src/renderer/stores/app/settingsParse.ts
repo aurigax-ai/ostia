@@ -3,6 +3,7 @@ import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/con
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { parseAgentSettings } from '@shared/agent/agentSettings'
 import { parseAgentHooks } from '@shared/agents/agentHooks'
+import { finishedHibernateMinutes } from '@shared/agents/finishedHibernate'
 import { parseManagerSettings } from '@shared/agents/managerSettings'
 import { parsePlaybooks } from '@shared/agents/playbooks'
 import { parseNotificationSettings } from '@shared/app/notificationSettings'
@@ -172,6 +173,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,
       trustWorkspaceFolders: p.agents?.trustWorkspaceFolders === true,
+      finishedHibernateMinutes: finishedHibernateMinutes(p.agents?.finishedHibernateMinutes),
       hooks: parseAgentHooks(p.agents?.hooks),
     },
     agent: parseAgentSettings(p.agent),

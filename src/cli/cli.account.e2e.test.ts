@@ -51,8 +51,8 @@ beforeAll(() => {
       store,
       root: join(base, 'profiles'),
       defaultHome: () => join(base, 'home'),
-      defaultEmail: async () => 'me@example.com',
-      profileEmail: async () => null,
+      defaultLogin: async () => ({ uuid: null, email: 'me@example.com' }),
+      profileLogin: async () => null,
       loginState: async () => 'signed-in',
       writeLogin: async () => true,
       signIn: null,
@@ -79,6 +79,7 @@ beforeAll(() => {
     workspaceWindowId: () => '7',
     execCommand: async () => ({ ok: true }) as CommandResult,
     trustForStart: async () => false,
+    askTrust: async () => undefined,
     windowIds: () => ['7'],
   })
 })

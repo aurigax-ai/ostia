@@ -1,4 +1,5 @@
 import type { BrowserWindow } from 'electron'
+import type { IncidentSnapshot } from '../../shared/agents/incident'
 import type { CommandDescriptor } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { AgentSessions } from '../agent/agentSessions'
@@ -9,6 +10,7 @@ import type { McpOAuth } from '../chat/mcpOAuth'
 import type { AgentJournal } from '../diagnostics/agentJournal'
 import type { AppLog } from '../diagnostics/appLog'
 import type { Diagnostics } from '../diagnostics/diagnostics'
+import type { IncidentTimeline } from '../diagnostics/incidentTimeline'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { FileServices } from '../files/filesWiring'
@@ -55,6 +57,10 @@ export function createAppState() {
   const services = {
     appLog: null as AppLog | null,
     agentJournal: null as AgentJournal | null,
+    incidents: null as IncidentTimeline | null,
+    incidentSnapshot: (async () => undefined) as (
+      paneId: string,
+    ) => Promise<IncidentSnapshot | undefined>,
     diagnostics: null as Diagnostics | null,
     telemetry: null as Telemetry | null,
     restoreOutcome: 'none' as RestoreOutcome,
@@ -85,6 +91,7 @@ export function createAppState() {
     files: null as FileServices | null,
     histories: null as PaneHistories | null,
     requestQuit: null as (() => void) | null,
+    refreshResume: null as ((paneId: string) => Promise<void>) | null,
   }
 
   const hibernatedPanes = new Set<string>()

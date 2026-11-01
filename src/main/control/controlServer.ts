@@ -30,15 +30,23 @@ import { ensureCaps, needsElevation } from '../approvals/controlElevation'
 import type { Reach, ScriptReach } from '../approvals/reach'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import type { AgentJournal } from '../diagnostics/agentJournal'
-import { privateRunDir, socketPath } from '../platform/privateTmp'
+import { type IncidentTimeline, runInIncident } from '../diagnostics/incidentTimeline'
+import { privateRunDir, shortSocketDir, socketPath } from '../platform/privateTmp'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { externalPaneMessage, internalPaneArgs, SCRIPT_COMMANDS } from './commandArgs'
 import { type AuthedConn, authenticate, connHasCap, scriptExpired } from './controlAuth'
+import {
+  escapesSandbox,
+  escapesSandboxCommand,
+  type Peer,
+  peerOf,
+  sandboxedByKernel,
+} from './foreignSandbox'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 import { capIncomingMessages } from './messageCap'
 import { calledMethod, calledTarget, errorOutcome, resultOutcome } from './scriptCallUsage'
 
-const CONTROL_SOCKET = new RegExp(`^${PRODUCT_NAME}-(\\d+)\\.sock$`)
+const CONTROL_SOCKET = new RegExp(`^(?:[0-9a-f]{16}-)?${PRODUCT_NAME}-(\\d+)\\.sock$`)
 
 function controlSocketDir(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string {
   if (platform === 'darwin') return privateRunDir('control', platform, env)
@@ -72,7 +80,12 @@ export function sweepStaleControlSockets(
   running: (pid: number) => boolean = isRunning,
 ): void {
   if (platform !== 'darwin') return
-  const dir = controlSocketDir(platform, env)
+  for (const dir of [controlSocketDir(platform, env), shortSocketDir()]) {
+    sweepDeadSockets(dir, running)
+  }
+}
+
+function sweepDeadSockets(dir: string, running: (pid: number) => boolean): void {
   let names: string[]
   try {
     names = readdirSync(dir)
@@ -228,16 +241,39 @@ export interface ControlServerDeps {
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   isSandboxed: (workspaceId: string) => boolean
+  ptyPid?: (paneId: string) => number | undefined
   windowOfWorkspace?: (workspaceId: string) => string | undefined
   primaryWindow?: () => string | undefined
   byAgent?: <T>(run: () => Promise<T>) => Promise<T>
   reach?: Pick<Reach, 'scriptReach' | 'recordCreated'>
   usage?: Pick<ScriptTokenUsageLog, 'record' | 'connected'>
   journal?: Pick<AgentJournal, 'call'>
+  incidents?: Pick<IncidentTimeline, 'begin'>
   version?: () => string | null
 }
 
 let callJournal: ControlServerDeps['journal']
+let callIncidents: ControlServerDeps['incidents']
+
+function incidentCall(
+  name: string,
+  params: unknown,
+  caller: string | undefined,
+  incidents: ControlServerDeps['incidents'],
+) {
+  if (!incidents || name === 'hello') return undefined
+  const target = calledTarget(params).paneId ?? (name === 'agent.run' ? caller : undefined)
+  return incidents.begin(target, name, caller)
+}
+
+function refusalOf(result: unknown): string | undefined {
+  if (typeof result !== 'object' || result === null) return undefined
+  const { ok, error } = result as { ok?: unknown; error?: unknown }
+  if (ok !== false) return undefined
+  if (typeof error === 'string') return verbCode(error)
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'string' ? verbCode(code) : undefined
+}
 
 export async function callControlMethod(
   name: string,
@@ -245,6 +281,12 @@ export async function callControlMethod(
   ctx: ControlMethodContext,
 ): Promise<unknown> {
   const began = performance.now()
+  const incident = incidentCall(
+    name,
+    params,
+    ctx.identity.kind === 'pane' ? ctx.identity.externalId : undefined,
+    callIncidents,
+  )
   const journaled = (bytes: number, code?: string): void => {
     callJournal?.call({
       method: name,
@@ -263,10 +305,12 @@ export async function callControlMethod(
     if (m.cap) {
       await ensureCaps(ctx.authed, ctx.identity, [m.cap], name, describeParams(name, params))
     }
-    const result = await m.handler(params, ctx)
+    const result = await runInIncident(incident, () => m.handler(params, ctx))
+    incident?.end(refusalOf(result))
     journaled(callJournal ? answerBytes(result) : 0)
     return result
   } catch (err) {
+    incident?.end(verbCode(err instanceof Error ? err.message : ''))
     journaled(0, verbCode(err instanceof Error ? err.message : ''))
     throw err
   }
@@ -279,6 +323,7 @@ let handleConnection: ((socket: Socket) => void) | null = null
 
 interface ConnectionSession {
   authed: AuthedConn | null
+  peer: Promise<Peer | null>
   disconnect: (() => void) | null
 }
 
@@ -295,19 +340,29 @@ function callsOn(conn: MessageConnection, session: ConnectionSession, deps: Cont
       const method = usage && tokenId ? calledMethod(name, params) : name
       const target = usage && tokenId ? calledTarget(params) : {}
       const began = performance.now()
+      const incident = incidentCall(
+        name,
+        params,
+        session.authed && resolveExternal(session.authed.externalId)?.kind === 'pane'
+          ? session.authed.externalId
+          : undefined,
+        deps.incidents,
+      )
       const journaled = (bytes: number, code?: string): void => {
         const caller = session.authed ? resolveExternal(session.authed.externalId)?.kind : undefined
         if (!deps.journal || !caller || name === 'hello') return
         deps.journal.call({ method: name, caller, ms: performance.now() - began, bytes, code })
       }
       try {
-        const result = await handler(params, token)
+        const result = await runInIncident(incident, () => handler(params, token))
         if (usage && tokenId) usage.record(tokenId, { method, target, ...resultOutcome(result) })
+        incident?.end(refusalOf(result))
         journaled(deps.journal ? answerBytes(result) : 0)
         return result
       } catch (err) {
         const outcome = usage ? errorOutcome(err) : null
         if (usage && tokenId && outcome) usage.record(tokenId, { method, target, ...outcome })
+        incident?.end(verbCode(err instanceof Error ? err.message : ''))
         journaled(0, verbCode(err instanceof Error ? err.message : ''))
         throw err
       }
@@ -429,6 +484,13 @@ function registerCommandExec({ session, deps, onCall, requireIdentity }: Connect
       if (!script && target.workspaceId !== me.workspaceId && deps.isSandboxed(me.workspaceId)) {
         throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
       }
+      if (
+        me.kind === 'pane' &&
+        escapesSandboxCommand(params.id, target.paneId, me.paneId) &&
+        (await sandboxedPeer(session, deps, me))
+      ) {
+        throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
+      }
       const desc = deps
         .listCommandsFor(target.windowId ?? me.windowId)
         .find((d) => d.id === params.id)
@@ -533,11 +595,18 @@ function registerPaneCalls({ session, deps, onCall, requireIdentity }: Connectio
   })
 }
 
-function registerMethodCalls({ session, conn, onCall, requireIdentity }: ConnectionCalls) {
+function registerMethodCalls({ session, deps, conn, onCall, requireIdentity }: ConnectionCalls) {
   for (const [name, m] of methods) {
     onCall(name, async (params: unknown, token: CancellationToken) => {
       const caller = requireIdentity(m.targetable ? 'all' : (m.callers ?? 'panes'), m.scripts)
       if (!session.authed) throw unauthenticatedError('call hello first')
+      if (
+        caller.kind === 'pane' &&
+        escapesSandbox(name, params, caller.externalId) &&
+        (await sandboxedPeer(session, deps, caller))
+      ) {
+        throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
+      }
       if (m.cap) {
         await ensureCaps(session.authed, caller, [m.cap], name, describeParams(name, params))
       }
@@ -555,13 +624,22 @@ function registerMethodCalls({ session, conn, onCall, requireIdentity }: Connect
   }
 }
 
+async function sandboxedPeer(
+  session: ConnectionSession,
+  deps: ControlServerDeps,
+  me: PaneIdentity,
+): Promise<boolean> {
+  if (deps.isSandboxed(me.workspaceId)) return false
+  return sandboxedByKernel(await session.peer, deps.ptyPid?.(me.paneId))
+}
+
 function serveConnection(deps: ControlServerDeps, socket: Socket): void {
   const capped = socket.pipe(capIncomingMessages(socket))
   capped.on('error', () => {})
   const reader = new StreamMessageReader(capped)
   reader.onError(() => socket.destroy())
   const conn = createMessageConnection(reader, new StreamMessageWriter(socket))
-  const session: ConnectionSession = { authed: null, disconnect: null }
+  const session: ConnectionSession = { authed: null, peer: peerOf(socket), disconnect: null }
   const calls: ConnectionCalls = {
     conn,
     session,
@@ -583,6 +661,7 @@ function serveConnection(deps: ControlServerDeps, socket: Socket): void {
 export function registerControlServer(deps: ControlServerDeps, socketPathOverride?: string): void {
   const path = socketPathOverride ?? controlSocketPath()
   callJournal = deps.journal
+  callIncidents = deps.incidents
   try {
     rmSync(path, { force: true })
   } catch {}

@@ -99,6 +99,22 @@ describe('claudeAttention', () => {
     })
   })
 
+  it('turns a refused action into waiting that names the tool and the reason', () => {
+    const denied = JSON.stringify({
+      tool_name: 'Bash',
+      tool_input: { command: 'git push --force token=abc' },
+      reason: 'Force-push is not allowed\nsecond line',
+    })
+    expect(claudeAttention('PermissionDenied', denied)).toEqual({
+      state: 'waiting',
+      message: 'Refused Bash: Force-push is not allowed',
+    })
+    expect(claudeAttention('PermissionDenied', '{}')).toEqual({
+      state: 'waiting',
+      message: 'Refused an action',
+    })
+  })
+
   it('survives a payload that is not JSON', () => {
     expect(claudeAttention('Notification', 'not json')).toEqual({
       state: 'waiting',

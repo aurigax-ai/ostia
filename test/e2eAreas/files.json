@@ -31,7 +31,7 @@
     "src/renderer/components/files/FilesView.",
     "src/renderer/components/files/FilesViewOptions.tsx",
     "src/renderer/components/files/RemoteFolderSection.tsx",
-    "src/renderer/components/files/fileIcon.ts",
+    "src/renderer/components/files/fileIconFor.ts",
     "src/renderer/components/files/fileTreeContext.ts",
     "src/renderer/components/files/fileTreeRows.ts",
     "src/renderer/components/panes/FileDropCover.tsx",

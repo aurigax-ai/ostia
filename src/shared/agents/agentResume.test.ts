@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { typedLaunch } from './agentLaunch'
 import {
   type AgentResume,
+  canFork,
   forkCommand,
   newSessionCommand,
   parseAgentResume,
@@ -187,6 +188,37 @@ describe('forkCommand', () => {
         id: 'new',
       })
     }
+  })
+})
+
+describe('agy', () => {
+  it('resumes with --conversation and keeps only the allow-listed flags', () => {
+    expect(
+      resumeCommand({
+        agent: 'agy',
+        id: 'c-1',
+        args: ['--model', 'Gemini 3', '--dangerously-skip-permissions', '--mode', 'auto'],
+      }),
+    ).toBe("'agy' --conversation c-1 --model 'Gemini 3'")
+  })
+
+  it('has no fork', () => {
+    expect(canFork('agy')).toBe(false)
+    expect(canFork('claude')).toBe(true)
+    expect(() => forkCommand({ agent: 'agy', id: 'c-1' })).toThrow('agy cannot fork')
+  })
+
+  it('reads the conversation id of an agy hook payload', () => {
+    expect(resumeFromHookPayload(JSON.stringify({ conversationId: 'c-1' }))).toBe('c-1')
+    expect(resumeFromHookPayload(JSON.stringify({ conversationId: 'c-1', invocationNum: 0 }))).toBe(
+      'c-1',
+    )
+  })
+
+  it('stores no token on a later model call of the same turn', () => {
+    expect(
+      resumeFromHookPayload(JSON.stringify({ conversationId: 'c-1', invocationNum: 2 })),
+    ).toBeNull()
   })
 })
 

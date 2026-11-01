@@ -184,7 +184,11 @@ export function registerPaneWakeMethods(
       const notReady = seen.value
         ? 'timedOut' in seen.value && seen.value.timedOut === true
         : !seen.ok && seen.reason.startsWith('not-started')
-      if (notReady) deps.journal?.wakeNotReady(Date.now() - began)
+      if (notReady)
+        deps.journal?.wakeNotReady(
+          Date.now() - began,
+          waited.map((woken) => woken.externalId),
+        )
       if (seen.value) return answer(seen.value)
       throw fail(seen.ok ? 'not-started' : seen.reason)
     },

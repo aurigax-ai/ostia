@@ -61,7 +61,7 @@ test('a browser pane moved to its own window sends a picked element to the agent
     await win.locator('.pane-tab:visible').last().click({ button: 'right' })
     const [detached] = await Promise.all([
       app.waitForEvent('window'),
-      win.getByRole('menuitem', { name: 'Move pane to new window' }).click(),
+      win.getByRole('menuitem', { name: 'Move to new window' }).click(),
     ])
     await detached.waitForLoadState('domcontentloaded')
     await expect(detached.getByRole('textbox', { name: 'Address' })).toBeVisible({

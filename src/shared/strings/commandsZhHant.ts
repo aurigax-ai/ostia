@@ -97,6 +97,7 @@ export const commandsZhHant: typeof commandsEn = {
       'palette.searchEverywhere': '搜尋全部',
       'palette.toggle': '指令面板',
       'pane.close': '關閉窗格',
+      'pane.closeBlock': '讀取關閉窗格是否受阻',
       'pane.collapse': '收合窗格',
       'pane.collapseOthers': '收合其他窗格',
       'pane.expandAll': '展開所有窗格',

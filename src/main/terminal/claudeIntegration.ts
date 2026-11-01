@@ -24,6 +24,7 @@ import {
   busHookCommand,
   CLI_PATH,
   CLI_RUN,
+  commandHook,
   hookCommand,
   hooksFor,
   IN_PANE,
@@ -37,8 +38,6 @@ export const CLAUDE_MOD_SOURCE = claudeModSource
 export const CLAUDE_FOLD_SOURCE = claudeFoldSource
 
 const CLAUDE_ARGS = envName(AGENT_ARGS_ENV.claude)
-
-const commandHook = (command: string) => ({ type: 'command', command })
 
 const CLAUDE_SUBAGENT_EVENTS = ['SubagentStart', 'SubagentStop'] as const
 
@@ -80,6 +79,7 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
     },
     ...(hooks.PostToolUse ?? []),
   ]
+  hooks.PermissionDenied = [{ hooks: [commandHook(hookCommand('claude-hook PermissionDenied'))] }]
   hooks.StopFailure = [{ hooks: [commandHook(hookCommand('claude-hook StopFailure'))] }]
   for (const event of CLAUDE_SUBAGENT_EVENTS) {
     hooks[event] = [{ hooks: [commandHook(hookCommand(`claude-hook ${event}`))] }]

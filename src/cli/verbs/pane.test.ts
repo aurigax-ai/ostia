@@ -138,11 +138,20 @@ describe('parsePaneArgs', () => {
 })
 
 describe('paneLine', () => {
+  it('WLC-C1 shows the owner and whether the pane is finished after the title', () => {
+    const pane = { paneId: 'p1', workspaceId: 'ws1', kind: 'terminal', title: 'w', running: true }
+    expect(paneLine({ ...pane, owner: 'boss', finished: true })).toBe(
+      'p1\tws1\tterminal\trunning\tw\tboss\tyes',
+    )
+  })
+
   it('prints id, workspace, kind, state and title, the state from sleep, agent or command', () => {
     const pane = { paneId: 'p1', workspaceId: 'ws1', kind: 'terminal', title: 'w-1', running: true }
-    expect(paneLine(pane)).toBe('p1\tws1\tterminal\trunning\tw-1')
-    expect(paneLine({ ...pane, running: false })).toBe('p1\tws1\tterminal\tidle\tw-1')
-    expect(paneLine({ ...pane, agentState: 'waiting' })).toBe('p1\tws1\tterminal\twaiting\tw-1')
+    expect(paneLine(pane)).toBe('p1\tws1\tterminal\trunning\tw-1\t-\tno')
+    expect(paneLine({ ...pane, running: false })).toBe('p1\tws1\tterminal\tidle\tw-1\t-\tno')
+    expect(paneLine({ ...pane, agentState: 'waiting' })).toBe(
+      'p1\tws1\tterminal\twaiting\tw-1\t-\tno',
+    )
     expect(paneLine({ ...pane, agentState: 'working', waking: true })).toContain('\twaking\t')
     expect(paneLine({ ...pane, hibernated: true, waking: true })).toContain('\thibernated\t')
   })
@@ -150,8 +159,8 @@ describe('paneLine', () => {
   it('keeps a title with tabs, newlines or control characters on one line of five fields', () => {
     const pane = { paneId: 'p1', workspaceId: 'ws1', kind: 'terminal', running: true }
     const line = paneLine({ ...pane, title: 'a\tb\nc\u001b[31m' })
-    expect(line).toBe('p1\tws1\tterminal\trunning\ta\\tb\\nc\\x1b[31m')
-    expect(line.split('\t')).toHaveLength(5)
+    expect(line).toBe('p1\tws1\tterminal\trunning\ta\\tb\\nc\\x1b[31m\t-\tno')
+    expect(line.split('\t')).toHaveLength(7)
   })
 })
 
@@ -187,7 +196,7 @@ describe('pane keep-awake', () => {
         running: false,
         keepAwake: true,
       }),
-    ).toBe('p1\tws1\tterminal\tidle\tw-1\tkeep-awake')
+    ).toBe('p1\tws1\tterminal\tidle\tw-1\t-\tno\tkeep-awake')
   })
 })
 
@@ -516,7 +525,7 @@ describe('pane list', () => {
   })
 
   it('prints the first 8 characters of the id', () => {
-    expect(paneLine(pane)).toBe('3f6a7ced\tws1\tterminal\trunning\tw-1')
+    expect(paneLine(pane)).toBe('3f6a7ced\tws1\tterminal\trunning\tw-1\t-\tno')
   })
 
   it('keeps the panes of a workspace, a kind and any of the states', () => {
@@ -598,9 +607,9 @@ describe('pane name', () => {
 
   it('adds the name and description to a listed pane only when it has a name', () => {
     const pane = { paneId: 'p1', workspaceId: 'ws1', kind: 'terminal', title: 't', running: true }
-    expect(paneLine({ ...pane, name: 'boss' })).toBe('p1\tws1\tterminal\trunning\tt\tboss')
+    expect(paneLine({ ...pane, name: 'boss' })).toBe('p1\tws1\tterminal\trunning\tt\t-\tno\tboss')
     expect(paneLine({ ...pane, name: 'boss', description: 'plans' })).toBe(
-      'p1\tws1\tterminal\trunning\tt\tboss\tplans',
+      'p1\tws1\tterminal\trunning\tt\t-\tno\tboss\tplans',
     )
   })
 })

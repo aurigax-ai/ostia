@@ -75,22 +75,24 @@ export function GatewayPhoneWorkspace(): JSX.Element {
         label={d.settings.phoneWorkspace}
         desc={phone.absent ? d.settings.phoneWorkspaceAbsent : d.settings.phoneWorkspaceDesc}
         error={shownError}
+        below={
+          <div className="flex min-w-0">
+            <MachineValue value={phone.folder} label={d.settings.phoneWorkspace} />
+          </div>
+        }
       >
-        <div className="flex min-w-0 items-center gap-2">
-          <MachineValue value={phone.folder} label={d.settings.phoneWorkspace} />
-          <Button variant="outline" size="sm" onClick={() => void choose()}>
-            {d.settings.phoneWorkspaceChoose}
+        <Button variant="outline" size="sm" onClick={() => void choose()}>
+          {d.settings.phoneWorkspaceChoose}
+        </Button>
+        {phone.isDefault ? null : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void save({ ...current, folder: null })}
+          >
+            {d.settings.phoneWorkspaceDefault}
           </Button>
-          {phone.isDefault ? null : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void save({ ...current, folder: null })}
-            >
-              {d.settings.phoneWorkspaceDefault}
-            </Button>
-          )}
-        </div>
+        )}
       </ControlRow>
       <ControlRow label={d.settings.phoneAgent} desc={d.settings.phoneAgentDesc}>
         <SelectField<PhoneAgentName>

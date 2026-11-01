@@ -9,6 +9,7 @@ import {
   ArrowsOutLineHorizontalIcon,
   ArrowsOutSimpleIcon,
   BookmarkSimpleIcon,
+  BugIcon,
   CaretDoubleLeftIcon,
   CoffeeIcon,
   GitForkIcon,
@@ -42,6 +43,7 @@ import { actionsFor } from '@/lib/settings/actions'
 import { closableOtherTabPanes } from '@/lib/workspaces/closeConfirm'
 import { canMovePane, movePaneToNewWindow } from '@/lib/workspaces/windowHandoff'
 import { isMac } from '@/platform'
+import { useIncidentReportStore } from '@/stores/agents/incidentReportStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -224,6 +226,11 @@ function PaneTabMenuItems({
           onClick={() => void commands.exec('agent.newSession', { paneId: pane.id })}
         >
           {d.agentPane.newSession}
+        </MenuItem>
+      ) : null}
+      {agentTab ? (
+        <MenuItem icon={BugIcon} onClick={() => useIncidentReportStore.getState().open(pane.id)}>
+          {d.privacy.incidents.menu}
         </MenuItem>
       ) : null}
       {agentTab && workspaceId ? <TabHibernateItems workspaceId={workspaceId} pane={pane} /> : null}

@@ -1,13 +1,17 @@
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { parseAgentHooks } from '../../shared/agents/agentHooks'
+import { isResumableAgent } from '../../shared/agents/agentResume'
+import { parsePrivacySettings } from '../../shared/privacy/redaction'
 import { parseScrollbackHistory } from '../../shared/terminal/scrollbackHistory'
 import { startAgent } from '../agent/agentWiring'
 import { registerAgentTranscriptIpc } from '../agents/agentTranscript'
 import { registerAgentWiring } from '../agents/agentWiring'
 import { createAccountMoves } from '../agents/claudeAccounts/accountMovesWiring'
 import { registerClaudeAccountsWiring } from '../agents/claudeAccounts/claudeAccountsWiring'
-import { registerFolderTrustIpc } from '../agents/folderTrustIpc'
+import { createStartAsk, registerFolderTrustIpc } from '../agents/folderTrustIpc'
 import { currentPlaybookFiles, setPlaybookSettings } from '../agents/playbookFiles'
 import { createResumeClaimer, registerResumeClaimIpc } from '../agents/resumeClaims'
 import { createStartTrust } from '../agents/startTrust'
@@ -20,7 +24,7 @@ import { registerBrowserGuestIpc } from '../browser/browserGuestIpc'
 import { registerBrowserWiring } from '../browser/browserWiring'
 import { startChat } from '../chat/chatWiring'
 import { startControlServer } from '../control/controlWiring'
-import { setPaneIdSalt } from '../control/idRegistry'
+import { getByPaneId, resolveExternal, setPaneIdSalt } from '../control/idRegistry'
 import { loadPaneIdSalt } from '../control/paneIdSalt'
 import {
   AGENT_JOURNAL_FILE_NAME,
@@ -31,6 +35,8 @@ import {
 import { createAppLog, LOG_FILE_NAME } from '../diagnostics/appLog'
 import { registerDiagnostics } from '../diagnostics/diagnostics'
 import { registerGpuReport } from '../diagnostics/gpuReport'
+import { registerIncidentIpc } from '../diagnostics/incidentIpc'
+import { createIncidentTimeline } from '../diagnostics/incidentTimeline'
 import { registerTelemetry, TELEMETRY_FILE } from '../diagnostics/telemetry'
 import { extensionHostParts, startExtensionHost } from '../extensions/extensionWiring'
 import { startMarketplace } from '../extensions/marketplace/marketplaceWiring'
@@ -49,6 +55,7 @@ import { registerPrivacyIpc } from '../privacy/privacyIpc'
 import { startProfileSyncWiring } from '../profileSync/profileSyncWiring'
 import { registerSandboxIpcWiring, registerSandboxWiring } from '../sandbox/sandboxWiring'
 import { startServer } from '../server/serverWiring'
+import { installAgyPlugin } from '../terminal/agyIntegration'
 import { registerHistoryIpc } from '../terminal/history/historyIpc'
 import { appSpillWorker, HISTORY_DIR, PaneHistories } from '../terminal/history/paneHistories'
 import { registerPtyIpc } from '../terminal/pty/ptyIpc'
@@ -67,6 +74,15 @@ import type { QuitContext } from './quitServices'
 
 export type Wiring = QuitContext
 
+function installAgyPluginOnBoot(): void {
+  if (!parseAgentHooks(readSettingsFile().agents?.hooks).agy) return
+  try {
+    installAgyPlugin(join(homedir(), '.gemini', 'config'))
+  } catch (err) {
+    console.error(`agy plugin: ${(err as Error).message}`)
+  }
+}
+
 export function boot(wiring: Wiring): void {
   const {
     execCommand,
@@ -75,6 +91,7 @@ export function boot(wiring: Wiring): void {
     handleQuitSignals,
     isWaking,
     mainStrings,
+    openExternalSafe,
     openSettingsInFocusedWindow,
     ptyPid,
     reachesPane,
@@ -102,11 +119,16 @@ export function boot(wiring: Wiring): void {
   })
   const logDir = join(app.getPath('userData'), 'logs')
   services.appLog = createAppLog(join(logDir, LOG_FILE_NAME))
+  services.incidents = createIncidentTimeline({
+    now: Date.now,
+    snapshot: (paneId) => services.incidentSnapshot(paneId),
+  })
   services.agentJournal = createAgentJournal(
     createAppLog(join(logDir, AGENT_JOURNAL_FILE_NAME), {
       maxBytes: AGENT_JOURNAL_MAX_BYTES,
       keep: AGENT_JOURNAL_KEEP,
     }),
+    services.incidents,
   )
   void resolveLoginPath().then(({ path, ms }) =>
     services.appLog?.info('login-path', { found: path !== null, ms }),
@@ -133,6 +155,7 @@ export function boot(wiring: Wiring): void {
   registerGpuReport(services.appLog)
   setPlaybookSettings(readSettingsFile().playbooks)
   setPlaybookSource(currentPlaybookFiles)
+  installAgyPluginOnBoot()
   ipcMain.on('settings:playbooks', (_e, playbooks: unknown) => {
     setPlaybookSettings(playbooks)
     refreshAgentPlugin()
@@ -161,12 +184,30 @@ export function boot(wiring: Wiring): void {
   registerPtyIpc({
     ...wiring,
     hibernateHeld: (paneId, writes) => accountMoves.holds(paneId, writes),
+    refreshResume: (paneId) => services.refreshResume?.(paneId) ?? Promise.resolve(),
   })
   registerHistoryIpc({ ...wiring })
   registerFsIpc({ ...wiring })
   registerSelectionIpc(reachesPane, redactor.text, () => services.files?.viewers ?? null)
   registerArtifactViewIpc({ ...wiring })
   registerPrivacyIpc(redactor)
+  if (services.incidents) {
+    registerIncidentIpc({
+      incidents: services.incidents,
+      redact: redactor.redact,
+      appWindows: () => windows.values(),
+      externalOf: (ref) => getByPaneId(ref)?.externalId ?? resolveExternal(ref)?.externalId,
+      agentOf: async (id) =>
+        (await services.incidentSnapshot(id))?.agent ??
+        (resolveExternal(id)?.kind === 'pane' ? 'other' : undefined),
+      settings: (agent) => ({
+        hooks: isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
+        redaction: parsePrivacySettings(readSettingsFile().privacy).redaction.enabled,
+      }),
+      app: appVersion,
+      openExternal: openExternalSafe,
+    })
+  }
   registerApprovalsWiring({ ...wiring })
   startUpdates({ ...wiring })
   registerAgentTranscriptIpc()
@@ -175,18 +216,23 @@ export function boot(wiring: Wiring): void {
       listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     ),
   )
-  registerFolderTrustIpc({ ...wiring, readSettingsFile })
+  const folderTrustDeps = { ...wiring, readSettingsFile }
+  registerFolderTrustIpc(folderTrustDeps)
   registerClaudeAccountsWiring({
     ...wiring,
     accountMoves,
     trustForStart: createStartTrust({ ...wiring, readSettingsFile }),
+    askTrust: createStartAsk(folderTrustDeps),
   })
   const { notifyDeps } = registerNotifyWiring({ ...wiring })
   registerSandboxWiring({ ...wiring, notifyDeps })
   startFolderAccessWatch({ ...wiring, notifyDeps })
   const { registry, startAgentForPhone } = registerAgentWiring({ ...wiring })
   registerParkWiring({ ...wiring })
-  const { paneReachDeps, turnConfirms } = registerPaneMethodsWiring({ ...wiring, registry })
+  const { paneReachDeps, lifecycle, turnConfirms } = registerPaneMethodsWiring({
+    ...wiring,
+    registry,
+  })
   registerToolbeltWiring({ ...wiring, paneReachDeps })
   const { extensionRemoteFolders, extensionExec, resumeOfPane } = extensionHostParts({ ...wiring })
   const screenLinks = createScreenLinks({ ...wiring })
@@ -205,7 +251,7 @@ export function boot(wiring: Wiring): void {
   startChat({ ...wiring })
   startAgent({ ...wiring, registry })
   const { viewHost, ownSnippets } = registerContentIpc({ ...wiring })
-  startGateway({ ...wiring, turnConfirms, startAgentForPhone, ownSnippets, server })
+  startGateway({ ...wiring, lifecycle, turnConfirms, startAgentForPhone, ownSnippets, server })
   registerBrowserWiring({ ...wiring })
   startControlServer({ ...wiring })
   startManager({ ...wiring })

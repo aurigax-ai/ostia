@@ -274,6 +274,14 @@ export class ProcessRegistry {
     this.adopted.set(paneId, ownerPaneId)
   }
 
+  ownerOf(paneId: string): string | undefined {
+    return this.adopted.get(paneId)
+  }
+
+  childrenOf(ownerPaneId: string): string[] {
+    return [...this.adopted].filter(([, owner]) => owner === ownerPaneId).map(([child]) => child)
+  }
+
   workspaceOf(entry: ProcessEntry): string {
     const live = entry.status === 'closed' ? undefined : this.deps.workspaceOfPane(entry.paneId)
     if (live) entry.workspaceId = live

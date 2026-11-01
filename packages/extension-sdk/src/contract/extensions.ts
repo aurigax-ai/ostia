@@ -325,13 +325,34 @@ export const SIDEBAR_URL_MAX = 2048
 
 export const PANE_CHIP_TEXT_MAX = 40
 export const PANE_CHIP_TOOLTIP_MAX = 200
-export const PANE_CHIP_ITEMS_MAX = 20
+export const PANE_CHIP_ITEMS_MAX = 64
 export const PANE_CHIP_ITEM_TEXT_MAX = 80
+
+export interface PaneChipItemPort {
+  remote: number
+  local?: number
+  error?: string
+}
 
 export interface PaneChipItem {
   text: string
   detail?: string
   url?: string
+  port?: PaneChipItemPort
+}
+
+function chipItemPort(raw: unknown): PaneChipItemPort | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const { remote, local, error } = raw as Record<string, unknown>
+  const valid = (n: unknown): n is number =>
+    typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 65535
+  if (!valid(remote) || (local !== undefined && !valid(local))) return null
+  if (error !== undefined && (typeof error !== 'string' || error.length > 64)) return null
+  return {
+    remote,
+    ...(local === undefined ? {} : { local }),
+    ...(error === undefined ? {} : { error }),
+  }
 }
 
 export interface ExtensionChip {
@@ -400,6 +421,11 @@ export function paneChipItems(raw: unknown): PaneChipItem[] | null {
     const detail =
       typeof e.detail === 'string' ? e.detail.trim().slice(0, PANE_CHIP_ITEM_TEXT_MAX) : ''
     const item: PaneChipItem = detail ? { text, detail } : { text }
+    if (e.port !== undefined) {
+      const port = chipItemPort(e.port)
+      if (!port) return null
+      item.port = port
+    }
     if (e.url === undefined) {
       items.push(item)
       continue

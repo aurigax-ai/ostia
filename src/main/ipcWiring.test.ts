@@ -14,6 +14,7 @@ const SENT_BY_TESTS_ONLY = ['diagnostics:test-crash']
 
 const PUSHED = [
   'agent:event',
+  'agent:folder-trust-ask',
   'agent:prompted',
   'agent:tool-call',
   'agent:tool-cancel',
@@ -61,6 +62,7 @@ const PUSHED = [
   'git:changed',
   'git:items',
   'guest-chords:fire',
+  'guest-input:pointer-down',
   'lsp:servers-changed',
   'manager:open',
   'notifications:activate',

@@ -2,7 +2,7 @@
   "id": "agent",
   "name": "Agent",
   "version": "1.0.0",
-  "api": "7.13",
+  "api": "7.14",
   "description": "The Agent pane: a coding agent (pi) that works in your workspace folder with models you run yourself. Every file edit and command waits for your OK, and only what you add to the conversation is sent.",
   "category": "ai",
   "locales": ["zh-Hant"],

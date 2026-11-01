@@ -129,6 +129,13 @@ describe.skipIf(skipWithoutTmux)('the link between the desktop and a remote runn
         return child
       },
       remoteMail: core.handle,
+      forwards: {
+        onLink: async () => {},
+        onPorts: async () => {},
+        list: () => ({ ok: true, forwards: [] }),
+        forward: async () => ({ ok: true, forwards: [] }),
+        stop: async () => ({ ok: true, forwards: [] }),
+      } as never,
       onState: () => {},
       times: FAST,
     })

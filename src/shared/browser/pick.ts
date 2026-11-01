@@ -405,10 +405,6 @@ export function captureStem(n: number, url: string): string {
   return slug ? `capture-${n}-${slug}` : `capture-${n}`
 }
 
-export function pickReportName(n: number, url: string): string {
-  return `${captureStem(n, url)}.md`
-}
-
 export function nextPickReportNumber(names: readonly string[]): number {
   let highest = 0
   for (const name of names) {

@@ -8,6 +8,7 @@ export const PROGRAM_SETTINGS: readonly { group: ProgramSettingGroup; field: str
   { group: 'notifications', field: 'command' },
   { group: 'agents', field: 'autoResume' },
   { group: 'agents', field: 'hooks' },
+  { group: 'agents', field: 'finishedHibernateMinutes' },
   { group: 'agents', field: 'trustWorkspaceFolders' },
   { group: 'terminal', field: 'warnOnRiskyPaste' },
   { group: 'terminal', field: 'shell' },

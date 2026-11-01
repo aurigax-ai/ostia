@@ -19,16 +19,27 @@ import {
   type LinkFrame,
   parseFrame,
 } from '../shared/remote/linkFrames'
+import {
+  type HostPort,
+  PORTS_POLL_MS,
+  type PortOp,
+  type PortsResult,
+} from '../shared/remote/remotePorts'
 import { backNotice, desktopRef, offlineNotice } from '../shared/remote/remoteRef'
+import { samePorts, scanHostPorts } from './hostPorts'
 import type { Jobs } from './jobs'
 
 const DESKTOP_ROUTE = 'desktop'
 const SYSTEM_SENDER = 'ostia'
+const PORTS_REQUEST_MS = 15_000
 
 interface Session {
   conn: MessageConnection
   lastRx: number
   heartbeat: ReturnType<typeof setInterval>
+  portsTimer?: ReturnType<typeof setInterval>
+  lastPorts: HostPort[] | null
+  scanning: boolean
 }
 
 export class RunnerLink {
@@ -38,12 +49,15 @@ export class RunnerLink {
   private everUp = false
   private delivered = 0
   private resync = false
+  private portRequests = 0
   private readonly noticed = new Set<string>()
+  private readonly portWaiters = new Map<string, (result: PortsResult) => void>()
 
   constructor(
     private readonly jobs: Jobs,
     private readonly version: string,
     private readonly now: () => number = Date.now,
+    private readonly scan: () => Promise<HostPort[]> = scanHostPorts,
   ) {
     onMailQueued((mail) => this.forward(mail))
   }
@@ -57,6 +71,8 @@ export class RunnerLink {
     const session: Session = {
       conn,
       lastRx: this.now(),
+      lastPorts: null,
+      scanning: false,
       heartbeat: setInterval(() => this.tick(session), LINK_HEARTBEAT_MS),
     }
     session.heartbeat.unref?.()
@@ -68,6 +84,30 @@ export class RunnerLink {
     })
     conn.onClose(() => {
       if (this.session === session) this.drop()
+    })
+  }
+
+  request(op: PortOp, remote?: number, local?: number): Promise<PortsResult> {
+    if (!this.ready) return Promise.resolve({ ok: false, error: 'link-down' })
+    this.portRequests += 1
+    const id = `p${this.portRequests}`
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.portWaiters.delete(id)
+        resolve({ ok: false, error: 'timeout' })
+      }, PORTS_REQUEST_MS)
+      this.portWaiters.set(id, (result) => {
+        clearTimeout(timer)
+        this.portWaiters.delete(id)
+        resolve(result)
+      })
+      this.send({
+        t: 'ports-req',
+        id,
+        op,
+        ...(remote === undefined ? {} : { remote }),
+        ...(local === undefined ? {} : { local }),
+      })
     })
   }
 
@@ -86,6 +126,28 @@ export class RunnerLink {
     }
     this.send({ t: 'hb' })
     if (this.ready) this.flush()
+  }
+
+  private watchPorts(): void {
+    const session = this.session
+    if (!session || session.portsTimer) return
+    const poll = async (): Promise<void> => {
+      if (session.scanning || this.session !== session) return
+      session.scanning = true
+      try {
+        const ports = await this.scan()
+        if (this.session !== session) return
+        if (session.lastPorts && samePorts(session.lastPorts, ports)) return
+        session.lastPorts = ports
+        this.send({ t: 'ports', ports })
+      } catch {
+      } finally {
+        session.scanning = false
+      }
+    }
+    session.portsTimer = setInterval(() => void poll(), PORTS_POLL_MS)
+    session.portsTimer.unref?.()
+    void poll()
   }
 
   private waiting(): number {
@@ -110,10 +172,14 @@ export class RunnerLink {
     this.session = null
     if (session) {
       clearInterval(session.heartbeat)
+      if (session.portsTimer) clearInterval(session.portsTimer)
       session.conn.dispose()
     }
     if (!this.ready) return
     this.ready = false
+    for (const waiter of [...this.portWaiters.values()]) {
+      waiter({ ok: false, error: 'link-down' })
+    }
     this.downSince = new Date(this.now()).toISOString()
     this.noticed.clear()
     this.notify(
@@ -153,6 +219,7 @@ export class RunnerLink {
       }
       this.send({ t: 'hello-ok', version: this.version })
       this.ready = true
+      this.watchPorts()
       this.resync = this.everUp
       this.everUp = true
       this.flush()
@@ -163,6 +230,10 @@ export class RunnerLink {
       const wasQueued = getMail(frame.id)?.state === 'queued'
       if (storedOnRoute(DESKTOP_ROUTE, frame.id) && wasQueued) this.delivered += 1
       this.backIfDrained()
+      return
+    }
+    if (frame.t === 'ports-res') {
+      this.portWaiters.get(frame.id)?.(frame.result)
       return
     }
     if (frame.t !== 'mail') return

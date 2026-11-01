@@ -1,5 +1,4 @@
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { WarningIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import {
   type PortableAction,
@@ -8,16 +7,17 @@ import {
   runsScripts,
 } from '@shared/artifacts/portable'
 import type { PublishOptions } from '@shared/artifacts/shares'
-import { type JSX, useEffect, useState } from 'react'
+import { type JSX, useEffect } from 'react'
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { PublishDialog } from '@/components/shares/PublishDialog'
 import { PublishMenuItems } from '@/components/shares/PublishMenuItems'
 import { type Publishing, usePublishing } from '@/components/shares/usePublishing'
 import { Button } from '@/components/ui/button'
-import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { type CaptureChipTone, showCaptureChip } from '@/lib/capture/captureSession'
 import { useArtifactListing } from '@/lib/files/artifacts'
+import { chipPaneFor, showInViewer } from '@/lib/files/portableViewer'
 import { viewerOptions } from '@/lib/files/viewerChoice'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -29,9 +29,16 @@ function problemOf(d: Dict, result: PortableResult): string | null {
   if (result.reason === 'not-built')
     return fmt(d.portable.notBuilt, { message: result.message ?? '' })
   if (result.reason === 'too-large') return d.portable.tooLarge
-  if (result.reason === 'no-tables') return d.portable.openFirst
+  if (result.reason === 'no-tables') return d.portable.noTables
   if (result.reason === 'sandboxed') return d.portable.sandboxed
   return fmt(d.portable.failed, { message: result.message ?? result.reason })
+}
+
+function doneText(d: Dict, action: PortableAction): string | null {
+  if (action === 'open') return d.portable.openedInBrowser
+  if (action === 'save') return d.portable.saved
+  if (action === 'copy') return d.portable.copiedHtml
+  return null
 }
 
 function canTakeOut(
@@ -46,83 +53,84 @@ function canTakeOut(
   return !(runsScripts(type) && sandboxed)
 }
 
-export function usePortableFile(workspaceId: string, filePath: string) {
+export function usePortableFile(workspaceId: string, filePath: string, paneId?: string) {
   const d = useDict()
   const sandboxed = useSandboxStore((s) => s.enabled[workspaceId] ?? false)
   const artifactDir = useArtifactListing(workspaceId)?.dir ?? null
   const viewed = useExtensionsStore((s) => viewerOptions(filePath, s.list).length > 0)
-  const [problem, setProblem] = useState<string | null>(null)
-  const [copied, markCopied] = useCopied()
 
   useEffect(() => {
     void useSandboxStore.getState().load(workspaceId)
   }, [workspaceId])
 
+  const say = (text: string, tone: CaptureChipTone): void => {
+    const pane = chipPaneFor(workspaceId, filePath, paneId)
+    if (pane) showCaptureChip(pane, text, tone)
+  }
+
   const run = async (
     action: PortableAction,
     publish?: PublishOptions,
   ): Promise<PortableResult | null> => {
-    setProblem(null)
     const theme = previewTheme()
     const type = portableType(filePath)
     let document: Awaited<ReturnType<typeof portableDocument>>
     if (type === 'markdown') {
       const read = await window.ostia.fs.read(filePath)
       if (!read.ok) {
-        setProblem(fmt(d.portable.failed, { message: read.error }))
+        say(fmt(d.portable.failed, { message: read.error }), 'warn')
         return null
       }
       document = await portableDocument(filePath, read.text, theme.dark)
     }
-    const result = await window.ostia.artifacts.portable(action, {
-      workspaceId,
-      path: filePath,
-      theme,
-      ...(document ? { document } : {}),
-      ...(publish ? { publish } : {}),
-    })
-    if (action !== 'publish') setProblem(problemOf(d, result))
-    if (result.ok && action === 'copy') markCopied()
+    const ask = (awaitTables: boolean) =>
+      window.ostia.artifacts.portable(action, {
+        workspaceId,
+        path: filePath,
+        theme,
+        ...(document ? { document } : {}),
+        ...(publish ? { publish } : {}),
+        ...(awaitTables ? { awaitTables } : {}),
+      })
+    let result = await ask(false)
+    if (!result.ok && result.reason === 'no-tables' && showInViewer(workspaceId, filePath)) {
+      result = await ask(true)
+    }
+    if (action !== 'publish') {
+      const problem = problemOf(d, result)
+      if (problem) say(problem, 'warn')
+      else if (result.ok) {
+        const done = doneText(d, action)
+        if (done) say(done, 'ok')
+      }
+    }
     return result
   }
 
-  return { shown: canTakeOut(filePath, viewed, sandboxed, artifactDir), run, problem, copied }
-}
-
-export function PortableProblem({ problem }: { problem: string | null }): JSX.Element | null {
-  if (!problem) return null
-  return (
-    <span
-      role="alert"
-      data-testid="portable-problem"
-      className="portable-problem text-warn-fg text-ui-xs"
-    >
-      <WarningIcon size={16} aria-hidden />
-      <span className="truncate">{problem}</span>
-    </span>
-  )
+  return { shown: canTakeOut(filePath, viewed, sandboxed, artifactDir), run, say }
 }
 
 export function PortableActions({
   workspaceId,
   filePath,
+  paneId,
 }: {
   workspaceId: string
   filePath: string
+  paneId: string
 }): JSX.Element | null {
   const d = useDict()
-  const { shown, run, problem, copied } = usePortableFile(workspaceId, filePath)
-  const publishing = usePublishing(filePath, run)
+  const { shown, run, say } = usePortableFile(workspaceId, filePath, paneId)
+  const publishing = usePublishing(filePath, run, say)
   if (!shown) return null
   return (
     <span className="portable-actions">
-      <PortableProblem problem={problem ?? publishing.problem} />
       <SplitButton
         label={d.portable.group}
         variant="outline"
         main={
           <Button variant="outline" size="xs" onClick={() => void run('open')}>
-            {copied ? d.portable.copied : d.portable.open}
+            {d.portable.open}
           </Button>
         }
       >

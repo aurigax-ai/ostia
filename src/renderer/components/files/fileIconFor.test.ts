@@ -13,7 +13,7 @@ import {
   PackageIcon,
 } from '@phosphor-icons/react'
 import { describe, expect, it } from 'vitest'
-import { fileIcon } from './fileIcon'
+import { fileIcon } from './fileIconFor'
 
 const hue = (group: string) => `color-mix(in srgb, var(--group-${group}) 72%, var(--fg))`
 const BLUE = hue('blue')

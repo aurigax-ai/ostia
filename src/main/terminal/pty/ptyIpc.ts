@@ -39,6 +39,7 @@ interface PtyIpcDeps {
   paneStartErrors: Map<string, string>
   hibernatePty: PtyStop['hibernatePty']
   hibernateHeld: (paneId: string, writes: number) => boolean
+  refreshResume: (paneId: string) => Promise<void>
   killPty: PtyStop['killPty']
   releasePtyFlow: PtyIo['releasePtyFlow']
   paneActivity: PtyQueries['paneActivity']
@@ -59,6 +60,7 @@ function registerPtyLifecycleIpc({
   agentWork,
   hibernatePty,
   hibernateHeld,
+  refreshResume,
   killPty,
   paneStartErrors,
 }: PtyIpcDeps): void {
@@ -98,6 +100,8 @@ function registerPtyLifecycleIpc({
     if (busy) return busy
     if (ptys.get(paneId) !== entry) return 'no-terminal'
     if (hibernateHeld(paneId, entry.input.writes)) return HIBERNATE_HELD
+    await refreshResume(paneId).catch(() => {})
+    if (ptys.get(paneId) !== entry) return 'no-terminal'
     return hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
   })
 
@@ -130,6 +134,15 @@ function registerPtyControlIpc({
   ipcMain.on('pty:ack', (e, paneId: unknown, chars: unknown) => {
     if (typeof paneId !== 'string' || typeof chars !== 'number') return
     ptys.get(paneId)?.flow.ack(String(e.sender.id), chars)
+  })
+  ipcMain.on('pty:cover', (e, covered: unknown) => {
+    if (typeof covered !== 'boolean') return
+    const id = String(e.sender.id)
+    for (const entry of ptys.values()) {
+      if (!entry.subs.has(id)) continue
+      if (covered) entry.flow.hidden(id)
+      entry.session.cover(id, covered)
+    }
   })
   app.on('render-process-gone', (_e, contents) => {
     releasePtyFlow(String(contents.id))

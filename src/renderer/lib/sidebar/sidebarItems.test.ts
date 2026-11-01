@@ -2,7 +2,7 @@ import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contr
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { openSidebarUrl, sidebarLines, visibleSidebarItems } from './sidebarItems'
+import { openSidebarUrl, rowItems, visibleSidebarItems } from './sidebarItems'
 
 const item = (extId: string, key: string, workspaceId = 's1'): ExtensionSidebarItem => ({
   extId,
@@ -31,15 +31,27 @@ describe('visibleSidebarItems', () => {
   })
 })
 
-describe('sidebarLines', () => {
-  it('puts location items on one line and everything else on the live line, in order', () => {
-    const lines = sidebarLines([
+describe('rowItems', () => {
+  it('puts location chips first, then the rest, in order', () => {
+    const { chips } = rowItems([
       item('other', 'count'),
       item('git', 'branch'),
       item('ports', 'ssh'),
     ])
-    expect(lines.location.map((i) => i.key)).toEqual(['branch'])
-    expect(lines.live.map((i) => i.key)).toEqual(['count', 'ssh'])
+    expect(chips.map((i) => i.key)).toEqual(['branch', 'count', 'ssh'])
+  })
+
+  it('turns an offline remote into the live line and drops an online one', () => {
+    const remote = (tone: ExtensionSidebarItem['tone'], text: string): ExtensionSidebarItem => ({
+      ...item('ssh', 'remote'),
+      tone,
+      text,
+    })
+    const offline = rowItems([remote('warn', 'Offline · 3 min ago'), item('git', 'branch')])
+    expect(offline.offline).toBe('Offline · 3 min ago')
+    expect(offline.chips.map((i) => i.key)).toEqual(['branch'])
+    const online = rowItems([remote('ok', 'Online')])
+    expect(online).toEqual({ offline: null, chips: [] })
   })
 })
 

@@ -79,6 +79,12 @@ describe('socketPath', () => {
     expect(st.mode & 0o077).toBe(0)
   })
 
+  it('keeps the socket name in the short name so its owner can be read', () => {
+    expect(socketPath(longDir, 'ostia-4242.sock', 'darwin')).toMatch(
+      /\/[0-9a-f]{16}-ostia-4242\.sock$/,
+    )
+  })
+
   it('gives different long paths different short names and the same path the same one', () => {
     const a = socketPath(longDir, 'a.sock', 'darwin')
     expect(socketPath(longDir, 'a.sock', 'darwin')).toBe(a)

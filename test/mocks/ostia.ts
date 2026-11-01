@@ -284,6 +284,9 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       set: vi.fn(),
       onFire: vi.fn(() => () => {}),
     },
+    guestInput: {
+      onPointerDown: vi.fn(() => () => {}),
+    },
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
       canOpenDefault: vi.fn().mockResolvedValue(true),
@@ -315,6 +318,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       claimResume: vi.fn().mockResolvedValue({ ok: true }),
       folderTrust: vi.fn().mockResolvedValue({ state: 'trusted' }),
       trustFolder: vi.fn().mockResolvedValue(true),
+      folderTrustDone: vi.fn().mockResolvedValue(undefined),
+      onFolderTrustAsk: vi.fn().mockReturnValue(() => {}),
     },
     update: {
       state: vi.fn().mockResolvedValue(null),
@@ -518,6 +523,13 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       remove: vi.fn().mockResolvedValue(false),
       exportMarkdown: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
       saveFile: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
+    },
+    incidents: {
+      list: vi.fn().mockResolvedValue([]),
+      report: vi.fn().mockResolvedValue(null),
+      save: vi.fn().mockResolvedValue(false),
+      openIssue: vi.fn().mockResolvedValue(false),
+      clear: vi.fn().mockResolvedValue(true),
     },
     privacy: {
       kinds: vi.fn().mockResolvedValue([]),

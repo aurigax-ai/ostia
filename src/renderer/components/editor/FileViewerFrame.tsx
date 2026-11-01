@@ -14,7 +14,7 @@ import {
   openCapture,
   updateCapture,
 } from '@/lib/capture/captureSession'
-import { closeOnGuestFocus } from '@/lib/capture/guestFocus'
+import { closeOnGuestPointer } from '@/lib/capture/guestPointer'
 import { viewerAdapter } from '@/lib/capture/viewerAdapter'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
@@ -176,7 +176,7 @@ function ViewerFrame({
   }, [workspaceId, paneId, filePath, viewer.viewType, onFailed])
 
   useEffect(() => {
-    if (webview) return closeOnGuestFocus(paneId, webview)
+    if (webview) return closeOnGuestPointer(paneId, webview)
   }, [paneId, webview])
 
   useEffect(() => {

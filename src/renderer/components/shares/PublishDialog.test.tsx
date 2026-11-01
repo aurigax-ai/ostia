@@ -1,9 +1,11 @@
+import type { JSX } from 'react'
 import '@testing-library/jest-dom/vitest'
 import type { PortableResult } from '@shared/artifacts/portable'
 import type { ShareAvailability, ShareView } from '@shared/artifacts/shares'
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CaptureLayer } from '@/components/capture/CaptureLayer'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSharesStore } from '@/stores/files/sharesStore'
 import { renderSettled } from '../../../../test/render'
@@ -31,6 +33,15 @@ const SHARE: ShareView = {
   name: 'plan.md',
   source: FILE,
   linkable: true,
+}
+
+function Harness(): JSX.Element {
+  return (
+    <>
+      <PortableActions workspaceId="s1" filePath={FILE} paneId="p1" />
+      <CaptureLayer workspaceId="s1" paneId="p1" />
+    </>
+  )
 }
 
 function portable() {
@@ -81,7 +92,7 @@ describe('publishing from the artifact menu', () => {
     for (const [availability, reason] of cases) {
       serverSays(availability)
       useSharesStore.setState({ availability: null })
-      const view = await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
+      const view = await renderSettled(<Harness />)
       await openMenu()
       const item = await screen.findByRole('menuitem', { name: new RegExp(`Publish….*${reason}`) })
       expect(item).toHaveAttribute('aria-disabled', 'true')
@@ -91,7 +102,7 @@ describe('publishing from the artifact menu', () => {
   })
 
   it('SHR-C61 offers public and never only when the server allows them', async () => {
-    await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
+    await renderSettled(<Harness />)
     let dialog = await openDialog()
     expect(within(dialog).getByRole('radio', { name: /Anyone with the link/ })).toBeChecked()
     expect(within(dialog).queryByRole('radio', { name: /Public/ })).toBeNull()
@@ -103,7 +114,7 @@ describe('publishing from the artifact menu', () => {
     cleanup()
     useSharesStore.setState({ availability: null })
     serverSays({ ...READY, allowNever: true, allowPublic: true })
-    await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
+    await renderSettled(<Harness />)
     dialog = await openDialog()
     await userEvent.click(within(dialog).getByRole('radio', { name: /Public/ }))
     expect(within(dialog).getByText(/server can read a public share/)).toBeInTheDocument()
@@ -112,7 +123,7 @@ describe('publishing from the artifact menu', () => {
   })
 
   it('SHR-C62 states what a compromised server could do', async () => {
-    await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
+    await renderSettled(<Harness />)
     const dialog = await openDialog()
     expect(within(dialog).getByText(/could serve a page that leaks the key/)).toBeInTheDocument()
     expect(within(dialog).getByText(/you trust your own machine/)).toBeInTheDocument()
@@ -120,7 +131,7 @@ describe('publishing from the artifact menu', () => {
 
   it('SHR-C63 publishes with the chosen options and copies the link through main', async () => {
     portable().mockResolvedValueOnce({ ok: true, share: SHARE })
-    await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
+    await renderSettled(<Harness />)
     const dialog = await openDialog()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Publish' }))
     await waitFor(() =>
@@ -140,15 +151,17 @@ describe('publishing from the artifact menu', () => {
     )
     expect(await screen.findByText('Published')).toBeInTheDocument()
     expect(screen.getByText(/It expires on/)).toBeInTheDocument()
+    expect(screen.queryByTestId('capture-chip')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Copy link' }))
     expect(window.ostia.shares.copyLink).toHaveBeenCalledWith('abc')
     expect(await screen.findByRole('button', { name: 'Link copied' })).toBeInTheDocument()
+    expect(await screen.findByTestId('capture-chip')).toHaveTextContent('Published · link copied')
     expect(useSharesStore.getState().shares).toEqual([SHARE])
   })
 
   it('SHR-C64 needs a long enough password and sends it with the link key choice', async () => {
     portable().mockResolvedValueOnce({ ok: true, share: { ...SHARE, mode: 'password' } })
-    await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
+    await renderSettled(<Harness />)
     const dialog = await openDialog()
     await userEvent.click(within(dialog).getByRole('radio', { name: /Anyone with the password/ }))
     const publish = within(dialog).getByRole('button', { name: 'Publish' })
@@ -182,7 +195,7 @@ describe('publishing from the artifact menu', () => {
       findingsDigest: 'seen-digest',
     }
     portable().mockResolvedValueOnce(findings).mockResolvedValueOnce({ ok: true, share: SHARE })
-    await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
+    await renderSettled(<Harness />)
     const dialog = await openDialog()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Publish' }))
     expect(await screen.findByText('This file may contain secrets')).toBeInTheDocument()
@@ -198,7 +211,7 @@ describe('publishing from the artifact menu', () => {
 
   it('SHR-C66 says a failed scan uploaded nothing and keeps the form', async () => {
     portable().mockResolvedValueOnce({ ok: false, reason: 'scan-failed' })
-    await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
+    await renderSettled(<Harness />)
     const dialog = await openDialog()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Publish' }))
     expect(
@@ -212,7 +225,7 @@ describe('publishing from the artifact menu', () => {
 
   it('SHR-C67 offers to delete the shared copy of this artifact and only of it', async () => {
     serverSays(READY, [SHARE, { ...SHARE, id: 'other', source: `${DIR}/other.md` }])
-    await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
+    await renderSettled(<Harness />)
     await openMenu()
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete shared copy' }))
     expect(window.ostia.shares.remove).toHaveBeenCalledWith('abc')
@@ -221,14 +234,14 @@ describe('publishing from the artifact menu', () => {
     )
   })
 
-  it('SHR-C68 shows why deleting the shared copy failed next to the artifact', async () => {
+  it('SHR-C68 shows why deleting the shared copy failed in the floating chip', async () => {
     serverSays(READY, [SHARE])
     vi.mocked(window.ostia.shares.remove).mockResolvedValueOnce({ ok: false, error: 'unreachable' })
-    await renderSettled(<PortableActions workspaceId="s1" filePath={FILE} />)
+    await renderSettled(<Harness />)
     await openMenu()
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete shared copy' }))
-    expect(await screen.findByTestId('portable-problem')).toHaveTextContent(
-      'Could not reach the server',
-    )
+    const chip = await screen.findByTestId('capture-chip')
+    expect(chip).toHaveTextContent('Could not reach the server')
+    expect(chip).toHaveClass('text-warn-fg')
   })
 })

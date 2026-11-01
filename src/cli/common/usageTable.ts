@@ -79,8 +79,9 @@ export const USAGE_TABLE: readonly NounUsage[] = [
     verbs: [
       {
         verb: 'list',
-        args: '[--here | --workspace <id|name>] [--state <state>]… [--kind <kind>] [--json]',
-        about: 'the panes you can see: id, workspace, kind, state, title, bus name and description',
+        args: '[--here | --mine | --workspace <id|name>] [--state <state>]… [--kind <kind>] [--json]',
+        about:
+          'the panes you can see: id, workspace, kind, state, title, owner, finished, bus name and description',
       },
       {
         verb: 'send',
@@ -120,7 +121,11 @@ export const USAGE_TABLE: readonly NounUsage[] = [
         args: `${PANE}… [--json]`,
         about: 'stop idle agent panes to save memory',
       },
-      { verb: 'close', args: `[${PANE}…] [--json]`, about: 'close those panes, or your own' },
+      {
+        verb: 'close',
+        args: `[${PANE}… | --finished] [--json]`,
+        about: 'close those panes, or your own; --finished closes only your finished worker panes',
+      },
       {
         verb: 'move',
         args: `${PANE}… [--tab <name>|new] ${WORKSPACE_FLAG} [--json]`,
@@ -187,8 +192,8 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       {
         verb: 'describe',
-        args: '[--workspace <id>] <text|-> | --clear',
-        about: 'the one-line summary under a workspace in the sidebar',
+        args: '<text…>',
+        about: 'refused: only the human sets a description; leave a note with ostia activity add',
       },
       { verb: 'dir', args: '[path]', about: "make a folder the workspace's folder" },
       {
@@ -280,8 +285,26 @@ export const USAGE_TABLE: readonly NounUsage[] = [
   {
     noun: 'ports',
     audience: 'agent',
-    about: "listening ports of your workspace's terminals",
-    verbs: [{ verb: 'list', args: '[--all]', about: 'listening ports and ssh hosts (JSON)' }],
+    about: "listening ports of your workspace's terminals; forwards of an ssh remote workspace",
+    verbs: [
+      {
+        verb: 'list',
+        args: '[--all]',
+        about:
+          'listening ports and ssh hosts (JSON); in an ssh remote workspace, the host ports and their forwards',
+      },
+      {
+        verb: 'forward',
+        args: '<remote-port> [--local <port>]',
+        about:
+          'forward a port of the ssh remote host to this computer; answers the observed forward',
+      },
+      {
+        verb: 'stop',
+        args: '<remote-port>',
+        about: 'stop forwarding a port of the ssh remote host',
+      },
+    ],
   },
   {
     noun: 'view',

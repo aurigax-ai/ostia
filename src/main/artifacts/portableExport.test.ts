@@ -54,6 +54,7 @@ interface Rig {
   builds: () => number
   clock: { now: number }
   published: Map<string, PublishedTables>
+  arriving: Map<string, () => PublishedTables>
 }
 
 let r: Rig
@@ -69,6 +70,7 @@ function rig(): Rig {
   const sandboxed = new Set<string>()
   const clock = { now: Date.UTC(2026, 9, 14, 12) }
   const published = new Map<string, PublishedTables>()
+  const arriving = new Map<string, () => PublishedTables>()
   let builds = 0
   const builder = new PortableBuilder({
     load: async () => {
@@ -102,6 +104,7 @@ function rig(): Rig {
     writeClipboard: (text) => clipboard.push(text),
     version: '9.9.9',
     publishedTables: (_windowId, path) => published.get(path) ?? null,
+    awaitTables: async (_windowId, path) => arriving.get(path)?.() ?? null,
     now: () => clock.now,
   })
   return {
@@ -113,6 +116,7 @@ function rig(): Rig {
     saveTo,
     sandboxed,
     published,
+    arriving,
     builds: () => builds,
     clock,
   }
@@ -191,6 +195,28 @@ describe('PortableExport', () => {
       ok: false,
       reason: 'no-tables',
     })
+    expect(
+      await r.exporter.run('1', 'copy', {
+        workspaceId: '1:w',
+        path,
+        theme: THEME,
+        awaitTables: true,
+      }),
+    ).toEqual({ ok: false, reason: 'no-tables' })
+    r.arriving.set(path, () => {
+      r.published.set(path, { tables: [{ name: 'Late', columns: ['A'], rows: [['1']] }] })
+      return r.published.get(path) ?? null
+    })
+    expect(
+      await r.exporter.run('1', 'copy', {
+        workspaceId: '1:w',
+        path,
+        theme: THEME,
+        awaitTables: true,
+      }),
+    ).toEqual({ ok: true })
+    expect(r.clipboard.at(-1)).toContain('Late')
+    r.arriving.clear()
     r.published.set(path, 'too-large')
     expect(await r.exporter.run('1', 'copy', { workspaceId: '1:w', path, theme: THEME })).toEqual({
       ok: false,
@@ -206,7 +232,7 @@ describe('PortableExport', () => {
       document: { body: '<script>renderer</script>', css: '' },
     })
     expect(copied).toEqual({ ok: true })
-    const text = r.clipboard[0]
+    const text = r.clipboard.at(-1) ?? ''
     expect(text).toContain('Sales &amp;lt;Q1&amp;gt;')
     expect(text).toContain('&amp;lt;b&amp;gt;North')
     expect(text).not.toContain('renderer')

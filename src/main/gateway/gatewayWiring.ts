@@ -20,6 +20,7 @@ import { getByPaneId, resolveExternal } from '../control/idRegistry'
 import type { AppLog } from '../diagnostics/appLog'
 import type { PaneConfirms } from '../panes/paneConfirm'
 import type { PaneJournal } from '../panes/paneJournal'
+import type { PaneLifecycle } from '../panes/paneLifecycle'
 import {
   listPanes,
   listWorkspaceGroups,
@@ -111,6 +112,7 @@ interface GatewayStartDeps {
   agentRunning: AgentRunningPanes
   ptys: Map<string, PtyEntry>
   turnConfirms: PaneConfirms
+  lifecycle: PaneLifecycle
   paneJournal: Pick<PaneJournal, 'since'>
   paneTurns: PaneTurns
   redactor: Redactor
@@ -164,6 +166,7 @@ export function startGateway({
   agentRunning,
   ptys,
   turnConfirms,
+  lifecycle,
   paneJournal,
   paneTurns,
   redactor,
@@ -196,6 +199,7 @@ export function startGateway({
     },
     reach,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    lifecycle,
   })
   registerGatewayMethods()
   const tailnet = createTailnet({

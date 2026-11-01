@@ -14,7 +14,7 @@ import {
   registerCaptureOpener,
   setCaptureStatus,
 } from '@/lib/capture/captureSession'
-import { closeOnGuestFocus } from '@/lib/capture/guestFocus'
+import { closeOnGuestPointer } from '@/lib/capture/guestPointer'
 
 function pickTheme(): PickTheme {
   const css = getComputedStyle(document.documentElement)
@@ -59,10 +59,10 @@ export function useBrowserCapture({
       }
     }
     el.addEventListener('console-message', onConsole)
-    const releaseFocus = closeOnGuestFocus(paneId, el)
+    const releasePointer = closeOnGuestPointer(paneId, el)
     return () => {
       el.removeEventListener('console-message', onConsole)
-      releaseFocus()
+      releasePointer()
     }
   }, [paneId, partition, d.browser.passkeyUnsupported, webviewRef])
 

@@ -8,7 +8,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { openArtifact, useArtifactListing } from '@/lib/files/artifacts'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
-import { fileIcon } from './fileIcon'
+import { fileIcon } from './fileIconFor'
 
 function useProduced(workspaceId: string, paneId: string): ArtifactEntry[] {
   const listing = useArtifactListing(workspaceId)

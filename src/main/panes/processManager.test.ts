@@ -69,15 +69,10 @@ const told: { to: string; text: string }[] = []
 let onOpen: ((paneId: string) => void) | null = null
 const remoteWorkspaces = new Set<string>()
 const remoteStarts: RemoteStartInput[] = []
-const untrustedFolders = new Set<string>()
-const trustAsked: { workspaceId: string; folder: string }[] = []
 
 const { registry, startAgentForPhone } = registerProcessMethods({
+  isScratch: () => false,
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
-  outsideTrust: async (workspaceId, folder) => {
-    trustAsked.push({ workspaceId, folder })
-    return untrustedFolders.has(folder) ? folder : null
-  },
   remote: {
     isRemote: async (workspaceId) => remoteWorkspaces.has(workspaceId),
     start: async (input): Promise<RemoteStartAnswer> => {
@@ -210,8 +205,6 @@ beforeEach(() => {
   ended.length = 0
   reruns.length = 0
   cwds.clear()
-  untrustedFolders.clear()
-  trustAsked.length = 0
   onInterrupt = null
   openFails = false
 })
@@ -412,27 +405,12 @@ describe('agent.run', () => {
     expect(info).toMatchObject({ name: 'reviewer', status: 'starting', paneId: started.paneId })
   })
 
-  it('answers folder-not-trusted at once for Claude in an untrusted folder, opening nothing', async () => {
-    untrustedFolders.add('/srv/other')
+  it('opens Claude in a folder outside the workspace without answering a trust refusal', async () => {
     const conn = await client(agent)
     await expect(
       conn.sendRequest('agent.run', { agent: 'claude', prompt: 'go', cwd: '/srv/other' }),
-    ).resolves.toEqual({
-      ok: false,
-      error: 'folder-not-trusted',
-      message: expect.stringContaining('/srv/other is outside the workspace folder'),
-    })
-    expect(opened).toEqual([])
-    expect(trustAsked).toEqual([{ workspaceId: 'ws1', folder: '/srv/other' }])
-  })
-
-  it('starts Claude in a trusted folder and never asks the trust check for another agent', async () => {
-    untrustedFolders.add('/srv/other')
-    const conn = await client(agent)
-    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'go', cwd: '/srv/fine' })
-    await conn.sendRequest('agent.run', { agent: 'reviewer', prompt: 'go', cwd: '/srv/other' })
-    expect(opened.map((tab) => tab.cwd)).toEqual(['/srv/fine', '/srv/other'])
-    expect(trustAsked).toEqual([{ workspaceId: 'ws1', folder: '/srv/fine' }])
+    ).resolves.toMatchObject({ name: 'claude' })
+    expect(opened.map((tab) => tab.cwd)).toEqual(['/srv/other'])
   })
 
   it('refuses a prompt that starts with a dash or a plus, opening nothing', async () => {

@@ -91,7 +91,15 @@ function Findings({ findings }: { findings: ShareFinding[] }): JSX.Element {
   )
 }
 
-function Done({ share, password }: { share: ShareView; password: boolean }): JSX.Element {
+function Done({
+  share,
+  password,
+  onCopied,
+}: {
+  share: ShareView
+  password: boolean
+  onCopied: () => void
+}): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
   const [copied, markCopied] = useCopied()
@@ -107,7 +115,11 @@ function Done({ share, password }: { share: ShareView; password: boolean }): JSX
         <Button
           size="sm"
           onClick={() =>
-            void window.ostia.shares.copyLink(share.id).then((r) => r.ok && markCopied())
+            void window.ostia.shares.copyLink(share.id).then((r) => {
+              if (!r.ok) return
+              markCopied()
+              onCopied()
+            })
           }
         >
           {copied ? d.shares.copied : d.shares.copyLink}
@@ -269,7 +281,9 @@ function PublishBody({ publishing }: { publishing: Publishing }): JSX.Element {
         <DialogDescription>{d.shares.dialogDesc}</DialogDescription>
       </DialogHeader>
       {stage.kind === 'findings' ? <Findings findings={stage.findings} /> : null}
-      {stage.kind === 'done' ? <Done share={stage.share} password={stage.password} /> : null}
+      {stage.kind === 'done' ? (
+        <Done share={stage.share} password={stage.password} onCopied={publishing.linkCopied} />
+      ) : null}
       {stage.kind === 'form' || stage.kind === 'busy' ? (
         <Form
           allowPublic={ready?.allowPublic === true}

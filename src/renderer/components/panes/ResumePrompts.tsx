@@ -19,6 +19,7 @@ import { resumeClaimEndsAt, resumeConflict } from '@/lib/agents/resumeFolder'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { baseName } from '@/lib/files/fileTree'
 import type { PaneNode } from '@/lib/layout/types'
+import type { FolderTrustKind } from '@/stores/agents/folderTrustStore'
 import {
   conflictPromptKey,
   folderMissingPromptKey,
@@ -30,43 +31,56 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 export function FolderTrustPrompt({
   paneId,
   folder,
+  kind = 'resume',
 }: {
   paneId: string
   folder: string
+  kind?: FolderTrustKind
 }): JSX.Element {
   const d = useDict()
+  const body = {
+    resume: d.pane.folderTrustBody,
+    start: d.pane.folderTrustStartBody,
+    outside: d.pane.folderTrustOutsideBody,
+  }[kind]
   return (
     <PromptCard
       icon={ShieldCheckIcon}
       label={d.pane.folderTrustLabel}
       data-folder-trust=""
       title={fmt(d.pane.folderTrustTitle, { name: baseName(folder) })}
-      dismissLabel={d.pane.folderTrustResume}
+      dismissLabel={kind === 'resume' ? d.pane.folderTrustResume : d.pane.folderTrustStartDismiss}
       onDismiss={() => resumeAnyway(paneId)}
       actions={
         <>
           <Button variant="ghost" size="sm" onClick={() => resumeAnyway(paneId)}>
             {d.pane.folderTrustSkip}
           </Button>
-          <SplitButton
-            label={d.pane.folderTrustChoices}
-            main={
-              <Button size="sm" onClick={() => void trustForClaude(paneId)}>
-                {d.pane.folderTrustOnce}
-              </Button>
-            }
-          >
-            <SplitButtonMenu label={d.pane.folderTrustChoices} size="sm">
-              <MenuItem onClick={() => void alwaysTrustWorkspaceFolders()}>
-                {d.pane.folderTrustAlways}
-              </MenuItem>
-            </SplitButtonMenu>
-          </SplitButton>
+          {kind === 'outside' ? (
+            <Button size="sm" onClick={() => void trustForClaude(paneId)}>
+              {d.pane.folderTrustOnce}
+            </Button>
+          ) : (
+            <SplitButton
+              label={d.pane.folderTrustChoices}
+              main={
+                <Button size="sm" onClick={() => void trustForClaude(paneId)}>
+                  {d.pane.folderTrustOnce}
+                </Button>
+              }
+            >
+              <SplitButtonMenu label={d.pane.folderTrustChoices} size="sm">
+                <MenuItem onClick={() => void alwaysTrustWorkspaceFolders()}>
+                  {d.pane.folderTrustAlways}
+                </MenuItem>
+              </SplitButtonMenu>
+            </SplitButton>
+          )}
         </>
       }
     >
       <span className="mb-1 block font-mono text-ui-xs">{folder}</span>
-      {d.pane.folderTrustBody}
+      {body}
     </PromptCard>
   )
 }

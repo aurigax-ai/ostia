@@ -85,6 +85,10 @@ export function emptyWorkspace(win: Page): Locator {
   return win.locator('.workspace-empty:visible')
 }
 
+export function scratchRow(win: Page): Locator {
+  return win.locator('.rail-tab', { has: win.getByRole('img', { name: /^Never saved\./ }) })
+}
+
 export async function newTerminal(win: Page): Promise<void> {
   await emptyState(win)
     .getByRole('button', { name: /New workspace/ })

@@ -75,4 +75,22 @@ describe('FolderTrustPrompt', () => {
     expect(await gate).toBe(true)
     expect(window.ostia.agentSession.trustFolder).toHaveBeenCalledWith('p1', '/home/u/Work/repo')
   })
+
+  it('CFT-C78 a start note for a folder inside the workspace offers Always and says Claude starts without its own question', async () => {
+    render(<FolderTrustPrompt paneId="p1" folder="/home/u/Work/repo" kind="start" />)
+    const card = screen.getByRole('region', { name: 'Claude folder trust' })
+    expect(card).toHaveTextContent('Claude starts without its own question.')
+    expect(card).not.toHaveTextContent('outside your workspace folder')
+    expect(screen.getByRole('button', { name: 'More ways to trust' })).toBeInTheDocument()
+  })
+
+  it('CFT-C79 an outside note names the folder, says it is outside the workspace folder and offers no Always choice', () => {
+    render(<FolderTrustPrompt paneId="p1" folder="/home/u/Work/other" kind="outside" />)
+    const card = screen.getByRole('region', { name: 'Claude folder trust' })
+    expect(card).toHaveTextContent('Trust other for Claude?')
+    expect(card).toHaveTextContent('/home/u/Work/other')
+    expect(card).toHaveTextContent('Claude starts outside your workspace folder.')
+    expect(screen.getByRole('button', { name: 'Trust folder' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'More ways to trust' })).toBeNull()
+  })
 })

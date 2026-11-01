@@ -71,6 +71,9 @@ const startLater = (paneId: string): void => {
 const wakeNotReady = vi.fn()
 
 registerPaneIoMethods({
+  lifecycle: { evaluate: async () => new Map() },
+  childrenOf: () => [],
+  closeBlock: async () => null,
   journal: { wakeNotReady },
   io: {
     read: async (paneId, lines) => (paneId === 'no-pty' ? null : `screen of ${paneId} (${lines})`),

@@ -16,6 +16,7 @@ const { getByPaneId, registerPane, removePane } = await import('../main/control/
 const { forgetClosedPanes, rememberClosedPane } = await import('../main/panes/closedPanes')
 const { registerPaneIoMethods } = await import('../main/panes/paneIo')
 const { registerPaneResumeMethods } = await import('../main/panes/paneResume')
+const { PaneLifecycle } = await import('../main/panes/paneLifecycle')
 const { PaneWaking } = await import('../main/panes/paneWaking')
 const { registerProcessMethods } = await import('../main/panes/processManager')
 const { approvals } = await import('../main/approvals/approvals')
@@ -49,6 +50,15 @@ const hookStarts = new Set<string>()
 const turnStates = new Map<string, string>()
 const sessions = new Map<string, string>()
 let livePanes: { paneId: string; agent?: string; running: boolean }[] = []
+const agentStates = new Map<string, string>()
+const busyReports = new Map<string, 'background-task'>()
+const closeBlocks = new Map<string, 'locked' | 'unsaved'>()
+const lifecycleEvents: { from: string; to: string; text: string }[] = []
+const hibernated: string[] = []
+let sandboxedCaller = false
+let scratchCaller = false
+const agentFields = (paneId: string) =>
+  agentStates.has(paneId) ? { agent: 'claude', agentState: agentStates.get(paneId) } : {}
 const waking = new PaneWaking()
 let tabSeq = 0
 
@@ -81,6 +91,7 @@ async function execRenderer(
         kind: 'terminal',
         title: paneId,
         cwd: '/w',
+        ...agentFields(paneId),
       })),
     }
   if (id === 'workspace.list') {
@@ -110,8 +121,9 @@ const windows = { execCommand: execRenderer, windowIds: () => ['w1'] }
 registerPaneListMethods({
   ...windows,
   getTerminalState: () => undefined,
-  ptyPid: () => undefined,
+  ptyPid: (paneId) => (agentStates.has(paneId) ? 100 : undefined),
   waking: (paneId) => waking.has(paneId),
+  lifecycle: { annotate: (panes, ownedBy) => lifecycle.annotate(panes, ownedBy) },
 })
 
 const reach = createReach({
@@ -132,7 +144,8 @@ const reach = createReach({
   agentGroupsChanged: () => {},
 })
 const { registry } = registerProcessMethods({
-  isSandboxed: () => false,
+  isScratch: () => scratchCaller,
+  isSandboxed: () => sandboxedCaller,
   isConfined: () => false,
   managerAdmitSpawn: () => null,
   reach,
@@ -183,7 +196,23 @@ const { registry } = registerProcessMethods({
   interruptGraceMs: 50,
 })
 
+const lifecycle = new PaneLifecycle({
+  rows: async () => [{ pid: 100, ppid: 1, state: 'S+', tty: 'pts/1' }],
+  reported: (paneId) => busyReports.get(paneId) ?? null,
+  drafting: () => false,
+  ownerOf: (paneId) => registry.ownerOf(paneId),
+  nameOf: () => undefined,
+  closing: () => undefined,
+  post: (from, to, text) => lifecycleEvents.push({ from, to, text }),
+  hibernate: async (to) => hibernated.push(to.paneId),
+  hibernateMinutes: () => 10,
+  now: Date.now,
+})
+
 registerPaneIoMethods({
+  lifecycle,
+  childrenOf: (ownerPaneId) => registry.childrenOf(ownerPaneId),
+  closeBlock: async (pane) => closeBlocks.get(pane.paneId) ?? null,
   io: {
     read: async (paneId, lines) => `screen of ${paneId} (${lines})`,
     write: (paneId, data) => {
@@ -219,6 +248,7 @@ registerPaneIoMethods({
       kind: 'terminal',
       title: p.paneId,
       blockCount: 0,
+      ...(agentStates.has(p.paneId) ? { pid: 100, ...agentFields(p.paneId) } : {}),
     })),
   waking,
   close: async (pane) => {
@@ -339,6 +369,13 @@ beforeEach(() => {
   turnStates.clear()
   sessions.clear()
   livePanes = []
+  agentStates.clear()
+  busyReports.clear()
+  closeBlocks.clear()
+  lifecycleEvents.length = 0
+  hibernated.length = 0
+  sandboxedCaller = false
+  scratchCaller = false
   forgetClosedPanes()
 })
 
@@ -918,5 +955,135 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     const key = await ostia(['pane', 'key', 'echo', 'f13'])
     expect(key.code).toBe(1)
     expect(key.stderr).toContain('unknown-key: f13')
+  })
+})
+
+describe('worker lifecycle (agents own the panes they start and close them when finished)', () => {
+  async function worker(token = agent.token): Promise<{ tab: string; id: string }> {
+    const res = await ostia(['agent', 'run', 'claude', '--name', 'W', '-'], home, token, 'brief')
+    expect(res.stderr).toBe('')
+    const tab = `tab-${tabSeq}`
+    livePanes.push({ paneId: tab, agent: 'claude', running: true })
+    agentStates.set(tab, 'working')
+    return { tab, id: getByPaneId(tab)?.externalId ?? '' }
+  }
+
+  async function listed(args: string[] = [], token = agent.token) {
+    const res = await ostia(['pane', 'list', '--json', ...args], home, token)
+    expect(res.code).toBe(0)
+    return JSON.parse(res.stdout) as {
+      paneId: string
+      owner?: string
+      finished?: boolean
+      finishedSince?: number
+    }[]
+  }
+
+  async function closeFinished(token = agent.token) {
+    const res = await ostia(['pane', 'close', '--finished', '--json'], home, token)
+    expect(res.code).toBe(0)
+    return JSON.parse(res.stdout) as {
+      closed: string[]
+      skipped: { paneId: string; reason: string }[]
+      reason?: string
+    }
+  }
+
+  it('WLC-C1 agent run records the calling pane as the owner of the new pane', async () => {
+    const { id } = await worker()
+    const row = (await listed()).find((p) => p.paneId === id)
+    expect(row?.owner).toBe(agent.externalId)
+    expect((await listed(['--mine'])).map((p) => p.paneId)).toEqual([id])
+    expect(await listed(['--mine'], other.token)).toEqual([])
+  })
+
+  it('WLC-C2 a worker mid-turn is not finished; when its turn ends and nothing runs it is', async () => {
+    const { tab, id } = await worker()
+    expect((await listed()).find((p) => p.paneId === id)?.finished).toBe(false)
+    agentStates.set(tab, 'done')
+    const row = (await listed()).find((p) => p.paneId === id)
+    expect(row?.finished).toBe(true)
+    expect(typeof row?.finishedSince).toBe('number')
+  })
+
+  it('WLC-C3 an idle worker with background work is not finished', async () => {
+    const { tab, id } = await worker()
+    agentStates.set(tab, 'done')
+    busyReports.set(tab, 'background-task')
+    expect((await listed()).find((p) => p.paneId === id)?.finished).toBe(false)
+  })
+
+  it('WLC-C4 a worker waiting on the human is not finished', async () => {
+    const { tab, id } = await worker()
+    agentStates.set(tab, 'waiting')
+    expect((await listed()).find((p) => p.paneId === id)?.finished).toBe(false)
+  })
+
+  it('WLC-C5 pane close --finished closes the caller own finished workers only', async () => {
+    const mine = await worker()
+    const theirs = await worker(other.token)
+    agentStates.set(mine.tab, 'done')
+    agentStates.set(theirs.tab, 'done')
+    const res = await closeFinished()
+    expect(res.closed).toEqual([mine.id])
+    expect(closedPanes).toEqual([mine.tab])
+  })
+
+  it('WLC-C6 pane close --finished skips a locked pane and a pane with unsaved files, listing why', async () => {
+    const locked = await worker()
+    const unsaved = await worker()
+    agentStates.set(locked.tab, 'done')
+    agentStates.set(unsaved.tab, 'done')
+    closeBlocks.set(locked.tab, 'locked')
+    closeBlocks.set(unsaved.tab, 'unsaved')
+    const res = await closeFinished()
+    expect(res.closed).toEqual([])
+    expect(res.skipped).toEqual([
+      { paneId: locked.id, reason: 'locked' },
+      { paneId: unsaved.id, reason: 'unsaved' },
+    ])
+    const text = await ostia(['pane', 'close', '--finished'])
+    expect(text.stdout).toContain('skipped: locked')
+  })
+
+  it('WLC-C7 a worker that is working again at close time is not closed', async () => {
+    const { tab, id } = await worker()
+    agentStates.set(tab, 'done')
+    expect((await listed()).find((p) => p.paneId === id)?.finished).toBe(true)
+    agentStates.set(tab, 'working')
+    const res = await closeFinished()
+    expect(res.skipped).toEqual([{ paneId: id, reason: 'not-finished' }])
+    expect(closedPanes).toEqual([])
+  })
+
+  it('WLC-C8 when the owner closes, the worker keeps running without an owner and nobody can close it as finished', async () => {
+    const { tab, id } = await worker()
+    agentStates.set(tab, 'done')
+    registry.paneClosed('agent-pane')
+    expect((await listed(['--mine'])).length).toBe(0)
+    expect((await listed(['--mine'], other.token)).length).toBe(0)
+    expect((await listed()).find((p) => p.paneId === id)?.owner).toBeUndefined()
+    expect((await closeFinished(other.token)).reason).toBe('no-children')
+    expect(closedPanes).toEqual([])
+  })
+
+  it('WLC-C12 a manager, sandboxed or scratch caller records no owner and --finished answers no-children', async () => {
+    sandboxedCaller = true
+    const sandboxed = await worker()
+    sandboxedCaller = false
+    scratchCaller = true
+    const scratch = await worker()
+    scratchCaller = false
+    const manager = getByPaneId('other-pane')
+    if (manager) manager.manager = true
+    const managed = await worker(other.token)
+    if (manager) delete manager.manager
+    for (const w of [sandboxed, scratch, managed]) agentStates.set(w.tab, 'done')
+    const rows = await listed()
+    for (const w of [sandboxed, scratch, managed]) {
+      expect(rows.find((p) => p.paneId === w.id)?.owner).toBeUndefined()
+    }
+    expect((await closeFinished()).reason).toBe('no-children')
+    expect(closedPanes).toEqual([])
   })
 })

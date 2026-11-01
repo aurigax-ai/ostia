@@ -35,7 +35,7 @@ export function publishProblemText(d: Dict, result: Refused): string | null {
     case 'not-built':
       return fmt(d.portable.notBuilt, { message: result.message ?? '' })
     case 'no-tables':
-      return d.portable.openFirst
+      return d.portable.noTables
     default:
       return d.shares.errFailed
   }

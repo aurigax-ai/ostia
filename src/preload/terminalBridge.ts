@@ -27,6 +27,7 @@ export const terminalBridge: Pick<
     releaseHold: (paneId) => ipcRenderer.send('pty:release-hold', paneId),
     retryLink: (paneId) => ipcRenderer.send('pty:retry-link', paneId),
     ack: (paneId, chars) => ipcRenderer.send('pty:ack', paneId, chars),
+    cover: (covered) => ipcRenderer.send('pty:cover', covered),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId),
     listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),

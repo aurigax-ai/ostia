@@ -20,7 +20,7 @@ import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import type { AgentRunningPanes } from '../agentRunning'
 import type { AccountMoves } from './accountMoves'
 import {
-  accountEmail,
+  accountLogin,
   accountsRoot,
   credentialsStamp,
   defaultConfigHome,
@@ -58,31 +58,27 @@ export function createClaudeAccounts(deps: CreateDeps): ClaudeAccounts {
     store: new ClaudeAccountsStore(storePath(ACCOUNTS_DIR, 'global')),
     root: accountsRoot(),
     defaultHome: () => defaultConfigHome(),
-    defaultEmail: () => accountEmail(process.env.CLAUDE_CONFIG_DIR || undefined),
-    profileEmail: (dir) => accountEmail(dir),
+    defaultLogin: () => accountLogin(process.env.CLAUDE_CONFIG_DIR || undefined),
+    profileLogin: (dir) => accountLogin(dir),
     syncProfile: (dir) => syncProfileFromDefault(dir, defaultConfigHome()),
     loginState: (dir) => loginState(dir, Date.now()),
     writeLogin,
-    signIn:
-      process.platform === 'darwin'
-        ? null
-        : {
-            listen: ({ state, timeoutMs }) =>
-              openCallbackListener({
-                state,
-                timeoutMs,
-                redirectName: 'localhost',
-                pages: {
-                  done: deps.mainStrings().claudeAccounts.signInPageDone,
-                  failed: deps.mainStrings().claudeAccounts.signInPageFailed,
-                },
-              }),
-            openExternal: deps.openExternalSafe,
-            createPkce,
-            exchange: (code, redirectUri, pkce) =>
-              exchangeCode(code, redirectUri, pkce, Date.now()),
-            profile: (accessToken) => fetchProfile(accessToken),
+    signIn: {
+      listen: ({ state, timeoutMs }) =>
+        openCallbackListener({
+          state,
+          timeoutMs,
+          redirectName: 'localhost',
+          pages: {
+            done: deps.mainStrings().claudeAccounts.signInPageDone,
+            failed: deps.mainStrings().claudeAccounts.signInPageFailed,
           },
+        }),
+      openExternal: deps.openExternalSafe,
+      createPkce,
+      exchange: (code, redirectUri, pkce) => exchangeCode(code, redirectUri, pkce, Date.now()),
+      profile: (accessToken) => fetchProfile(accessToken),
+    },
     openLoginTab: (dir, target) =>
       deps.openTerminalInWindow({
         command: `CLAUDE_CONFIG_DIR=${quoteArg(dir)} 'claude'`,
@@ -109,6 +105,7 @@ interface RegisterDeps {
   workspaceWindowId: (workspaceId: string) => string | undefined
   execCommand: CommandBridge['execCommand']
   trustForStart: (profileDir: string, identity: PaneIdentity) => Promise<boolean>
+  askTrust: (profileDir: string, identity: PaneIdentity) => Promise<void>
   windowIds: () => string[]
 }
 
@@ -188,6 +185,7 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
     handler: async (_params, ctx) => {
       const dir = defaultOnly(ctx) ? '' : await claudeAccounts.startDirectory(ctx.identity.paneId)
       await deps.trustForStart(dir, ctx.identity)
+      await deps.askTrust(dir, ctx.identity)
       return { dir, memoryHome: dir === '' ? '' : claudeAccounts.defaultHome() }
     },
   })

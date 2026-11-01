@@ -5,6 +5,7 @@
       "entry": [
         "src/shared/artifacts/artifactRuntime.ts",
         "src/node/runner.ts",
+        "src/renderer/lib/monaco/monacoRuntime.ts",
         "src/extensions/*/{main,panel}.ts",
         "src/extensions/*/*.worker.ts",
         "src/extensions/*/*.script.ts",
@@ -19,7 +20,7 @@
         "src/extensions/*/panel.css",
         "scripts/*.mjs",
         "marketplace/*.mjs",
-        "e2e/**/*.{spec,bench}.ts",
+        "e2e/**/*.{spec,bench,repro}.ts",
         "test/*.bench.ts",
         "e2e/failed-report/*.ts",
         "test/fixtures/**/*.{mjs,js,ts}"
@@ -31,9 +32,7 @@
         "test/**/*.{ts,tsx,mjs}",
         "e2e/**/*.ts"
       ],
-      "ignore": [
-        "src/renderer/components/ui/**"
-      ],
+      "ignore": ["src/renderer/components/ui/**"],
       "ignoreDependencies": [
         "@novnc/novnc",
         "@withfig/autocomplete",
@@ -42,6 +41,7 @@
         "d3",
         "events",
         "lucide-react",
+        "material-icon-theme",
         "pyright",
         "recharts",
         "sql.js",
@@ -56,19 +56,11 @@
         "src/manifest/{sdkCliEntry,manifestSchema}.ts",
         "src/contract/*.ts"
       ],
-      "project": [
-        "src/**/*.ts",
-        "scripts/*.mjs"
-      ],
+      "project": ["src/**/*.ts", "scripts/*.mjs"],
       "includeEntryExports": true,
       "ignoreIssues": {
-        "src/{client,assist,contract}/*.ts": [
-          "exports",
-          "types"
-        ],
-        "src/manifest/manifestSchema.ts": [
-          "exports"
-        ]
+        "src/{client,assist,contract}/*.ts": ["exports", "types"],
+        "src/manifest/manifestSchema.ts": ["exports"]
       }
     }
   },
@@ -80,7 +72,6 @@
     "locale",
     "mkfifo",
     "openssl",
-    "osascript",
     "script",
     "shellcheck",
     "ss",

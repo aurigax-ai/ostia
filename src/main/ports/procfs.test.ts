@@ -38,16 +38,16 @@ describe('parseProcStat', () => {
 describe('parseNetTcp', () => {
   it('keeps only listening sockets with their port and inode', () => {
     expect(parseNetTcp(fixture('net-tcp.txt'))).toEqual([
-      { port: 42771, inode: '3638476' },
-      { port: 3000, inode: '3598505' },
-      { port: 53, inode: '9424' },
+      { port: 42771, inode: '3638476', uid: 1000 },
+      { port: 3000, inode: '3598505', uid: 1000 },
+      { port: 53, inode: '9424', uid: 974 },
     ])
   })
 
   it('reads IPv6 and v4-mapped addresses', () => {
     expect(parseNetTcp(fixture('net-tcp6.txt'))).toEqual([
-      { port: 5173, inode: '60431' },
-      { port: 3000, inode: '3598505' },
+      { port: 5173, inode: '60431', uid: 1000 },
+      { port: 3000, inode: '3598505', uid: 1000 },
     ])
   })
 

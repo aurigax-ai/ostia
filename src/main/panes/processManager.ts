@@ -1,4 +1,3 @@
-import { basename } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { ChangeSignal } from '../../shared/common/actThenConfirm'
@@ -9,7 +8,7 @@ import {
   registerControlMethod,
   registerTargetableMethod,
 } from '../control/controlServer'
-import { getByPaneId } from '../control/idRegistry'
+import { getByPaneId, resolveExternal } from '../control/idRegistry'
 import { paneNamed } from './paneNames'
 import { record } from './paneReach'
 import { paneSight } from './paneRef'
@@ -53,6 +52,7 @@ export interface ProcessDeps extends ProcessLaunchDeps, ProcessControlDeps {
   isConfined: (paneId: string) => boolean
   reach: Pick<Reach, 'ensure' | 'visible' | 'scriptReach'>
   managerAdmitSpawn: (liveWorkers: number) => string | null
+  isScratch: (workspaceId: string) => boolean
 }
 
 const NOT_FOUND = { ok: false as const, error: 'not-found' as const }
@@ -154,6 +154,15 @@ export function registerProcessMethods(deps: ProcessDeps): {
     },
   })
 
+  const recordOwner = (ctx: ControlMethodContext, started: unknown): void => {
+    const caller = ctx.identity
+    const paneId = record(started).paneId
+    if (caller.kind !== 'pane' || caller.manager || typeof paneId !== 'string') return
+    if (deps.isSandboxed(caller.workspaceId) || deps.isScratch(caller.workspaceId)) return
+    const child = resolveExternal(paneId)
+    if (child?.kind === 'pane') registry.adoptChild(caller.paneId, child.paneId)
+  }
+
   registerControlMethod('agent.run', {
     cap: 'process',
     scripts: true,
@@ -175,7 +184,7 @@ export function registerProcessMethods(deps: ProcessDeps): {
         title,
       })
       if (remote) return remote
-      return runInTab(
+      const started = await runInTab(
         ctx,
         cmd,
         title,
@@ -185,8 +194,9 @@ export function registerProcessMethods(deps: ProcessDeps): {
           (await workersTab(ctx, workspaceOf(p.workspace) ?? ctx.identity.workspaceId)),
         deps.startsWithHook(argv),
         p.tab !== undefined && p.tab !== null,
-        basename(argv[0] ?? '') === 'claude',
       )
+      recordOwner(ctx, started)
+      return started
     },
   })
 

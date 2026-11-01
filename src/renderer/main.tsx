@@ -14,6 +14,7 @@ import { AppErrorBoundary, CrashTestHook, RecoveryScreen } from '@/components/ap
 import { startActivationResume } from '@/lib/agents/activationResume'
 import { startAgentRunningReport } from '@/lib/agents/agentRunningReport'
 import { startAutoResume } from '@/lib/agents/autoResume'
+import { startFolderTrustAsks } from '@/lib/agents/folderTrust'
 import { startHibernation } from '@/lib/agents/hibernationScheduler'
 import { startAgentDetection } from '@/lib/agents/paneAgent'
 import { startAppMenu } from '@/lib/app/appMenu'
@@ -37,6 +38,7 @@ import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { applyStoredPanelWidths } from '@/lib/panes/panelWidth'
 import { startKeptReattach } from '@/lib/terminal/keptReattach'
 import { loadLocalHostName } from '@/lib/terminal/osc7'
+import { startWindowCoverReport } from '@/lib/terminal/windowCover'
 import { applyUiFonts, preloadFonts } from '@/lib/theme/uiFonts'
 import { registerViewCommands, startViews } from '@/lib/views/views'
 import { restoreSidePanels } from '@/lib/workspaces/restoreSidePanels'
@@ -167,12 +169,14 @@ async function boot(): Promise<void> {
   startActivationResume()
   startAgentDetection()
   startAgentRunningReport()
+  startWindowCoverReport()
   startWorkspaceProjects()
   startApprovals()
   startAgentGroupsSync()
   startQuestions()
   startMail()
   startSessionStays()
+  startFolderTrustAsks()
   startUserActions()
   startViews()
   startUpdateWatch()

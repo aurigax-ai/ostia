@@ -2,15 +2,16 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { freshDataHome } from './dataHome'
 import {
-  PROMPT,
   emptyState,
   emptyWorkspace,
   launchWindow,
+  PROMPT,
   quitApp,
   runInTerminal,
+  scratchRow,
   shownTerminal,
 } from './helpers'
-import { type Page, expect, test } from './test'
+import { expect, type Page, test } from './test'
 
 async function newScratchWorkspace(win: Page): Promise<void> {
   await win
@@ -18,10 +19,6 @@ async function newScratchWorkspace(win: Page): Promise<void> {
     .getByRole('button', { name: 'More ways to start a workspace' })
     .click()
   await win.getByRole('menuitem', { name: 'New scratch workspace' }).click()
-}
-
-function scratchRow(win: Page, name: string) {
-  return win.locator('.rail-tab', { has: win.getByText(name, { exact: true }) })
 }
 
 async function printValue(win: Page, label: string, variable: string): Promise<string> {
@@ -45,7 +42,7 @@ test('a scratch workspace runs in its private folder, deletes it on close, and n
     const { win } = first
     await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
     await newScratchWorkspace(win)
-    const row = scratchRow(win, 'Scratch')
+    const row = scratchRow(win)
     await expect(row).toBeVisible()
 
     await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
@@ -64,7 +61,7 @@ test('a scratch workspace runs in its private folder, deletes it on close, and n
     await expect.poll(() => existsSync(folder), { timeout: 10_000 }).toBe(false)
 
     await newScratchWorkspace(win)
-    const second = scratchRow(win, 'Scratch')
+    const second = scratchRow(win)
     await expect(second).toBeVisible()
     await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
     await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })

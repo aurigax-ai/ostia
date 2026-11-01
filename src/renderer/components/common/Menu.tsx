@@ -1,6 +1,6 @@
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 import type { Icon } from '@phosphor-icons/react'
-import type { ComponentProps, JSX, ReactElement, ReactNode } from 'react'
+import { type ComponentProps, forwardRef, type JSX, type ReactElement, type ReactNode } from 'react'
 import {
   ContextMenuCheckboxItem,
   ContextMenuContent,
@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 
-const ROW = 'h-7 gap-2 rounded-sm px-2 text-ui-base'
+const ROW = 'h-6 gap-2 rounded-sm px-2 text-ui-sm'
 
 function Leading({ icon: IconComponent, leading }: { icon?: Icon; leading?: ReactNode }) {
   if (leading) {
@@ -31,30 +31,26 @@ export function MenuContent({
   className,
   ...props
 }: ComponentProps<typeof ContextMenuContent>): JSX.Element {
-  return <ContextMenuContent className={cn('min-w-56 text-ui-base', className)} {...props} />
+  return <ContextMenuContent className={cn('min-w-56 text-ui-sm', className)} {...props} />
 }
 
 export function MenuSubContent({
   className,
   ...props
 }: ComponentProps<typeof ContextMenuSubContent>): JSX.Element {
-  return <ContextMenuSubContent className={cn('min-w-48 text-ui-base', className)} {...props} />
+  return <ContextMenuSubContent className={cn('min-w-48 text-ui-sm', className)} {...props} />
 }
 
-export function MenuItem({
-  icon,
-  leading,
-  hint,
-  children,
-  className,
-  ...props
-}: ComponentProps<typeof ContextMenuItem> & {
-  icon?: Icon
-  leading?: ReactNode
-  hint?: ReactNode
-}): JSX.Element {
+export const MenuItem = forwardRef<
+  HTMLDivElement,
+  ComponentProps<typeof ContextMenuItem> & {
+    icon?: Icon
+    leading?: ReactNode
+    hint?: ReactNode
+  }
+>(function MenuItem({ icon, leading, hint, children, className, ...props }, ref) {
   return (
-    <ContextMenuItem className={cn(ROW, className)} {...props}>
+    <ContextMenuItem ref={ref} className={cn(ROW, className)} {...props}>
       <Leading icon={icon} leading={leading} />
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {hint ? (
@@ -64,7 +60,7 @@ export function MenuItem({
       ) : null}
     </ContextMenuItem>
   )
-}
+})
 
 export function MenuSubTrigger({
   icon,

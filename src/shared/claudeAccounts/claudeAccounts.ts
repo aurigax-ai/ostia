@@ -27,6 +27,7 @@ export interface ClaudeAccountView {
   email: string | null
   signedOut: boolean
   enabled: boolean
+  sameAs: string | null
   usage: AccountUsage | null
 }
 
@@ -56,7 +57,16 @@ export type SetEnabledOutcome = 'done' | 'unknown' | 'default' | 'current' | 'da
 export type RemoveAccountOutcome = 'removed' | 'unknown' | 'running' | 'damaged'
 
 export const NO_ACCOUNTS: ClaudeAccountsState = {
-  accounts: [{ id: DEFAULT_ACCOUNT, email: null, signedOut: false, enabled: true, usage: null }],
+  accounts: [
+    {
+      id: DEFAULT_ACCOUNT,
+      email: null,
+      signedOut: false,
+      enabled: true,
+      sameAs: null,
+      usage: null,
+    },
+  ],
   current: DEFAULT_ACCOUNT,
   adding: false,
   signInAvailable: false,

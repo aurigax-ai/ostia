@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   acceptedProfileFolders,
   acceptProfile,
-  accountEmail,
+  accountLogin,
   createProfile,
   credentialsPresent,
   credentialsStamp,
@@ -129,14 +129,14 @@ describe('acceptedProfileFolders', () => {
   })
 })
 
-describe('accountEmail', () => {
+describe('accountLogin', () => {
   it('reads the address of the login recorded in the profile’s config', async () => {
     const dir = createProfile(root, WORK, home)
     writeFileSync(
       join(dir, '.claude.json'),
       JSON.stringify({ oauthAccount: { emailAddress: 'me@example.com', accountUuid: 'u' } }),
     )
-    expect(await accountEmail(dir)).toBe('me@example.com')
+    expect(await accountLogin(dir)).toEqual({ email: 'me@example.com', uuid: 'u' })
   })
 
   it.each([
@@ -147,7 +147,7 @@ describe('accountEmail', () => {
   ])('answers null for %s', async (_name, text) => {
     const dir = createProfile(root, WORK, home)
     if (text !== null) writeFileSync(join(dir, '.claude.json'), text)
-    expect(await accountEmail(dir)).toBeNull()
+    expect(await accountLogin(dir)).toBeNull()
   })
 
   it('reads a config that is a link a dotfile manager made', async () => {
@@ -155,7 +155,7 @@ describe('accountEmail', () => {
     const elsewhere = join(base, 'elsewhere.json')
     writeFileSync(elsewhere, '{"oauthAccount":{"emailAddress":"me@example.com"}}')
     symlinkSync(elsewhere, join(dir, '.claude.json'))
-    expect(await accountEmail(dir)).toBe('me@example.com')
+    expect(await accountLogin(dir)).toMatchObject({ email: 'me@example.com' })
   })
 })
 
@@ -203,7 +203,7 @@ describe('writeLogin', () => {
       },
     })
     expect(credentialsPresent(dir)).toBe(true)
-    expect(await accountEmail(dir)).toBe('work@example.com')
+    expect(await accountLogin(dir)).toMatchObject({ email: 'work@example.com' })
     const config = JSON.parse(readFileSync(join(dir, '.claude.json'), 'utf8'))
     expect(config.hasCompletedOnboarding).toBe(true)
     expect(config.oauthAccount.accountUuid).toBe('uuid-1')

@@ -83,6 +83,7 @@ describe('the manifests in this repository', () => {
       'lsp-typescript',
       'lsp-yaml',
       'markdown',
+      'material-icon-theme',
       'model-runtime',
       'office',
       'pdf',

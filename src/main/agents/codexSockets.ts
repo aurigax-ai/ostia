@@ -1,17 +1,15 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
-import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
-import { privateTmpDir } from '../platform/privateTmp'
+import { privateRunDir, socketPath } from '../platform/privateTmp'
 
 const sockets = new Map<string, string>()
 
 export function codexSocketDir(): string {
-  return privateTmpDir(`${PRODUCT_NAME}-codex`)
+  return privateRunDir('codex')
 }
 
 export function codexSocketPath(): string {
-  return join(codexSocketDir(), `${randomUUID()}.sock`)
+  return socketPath(codexSocketDir(), `${randomUUID()}.sock`)
 }
 
 export function registerCodexSocket(externalId: string, path: string): void {

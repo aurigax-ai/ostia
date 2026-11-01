@@ -4,18 +4,21 @@ import {
   type AddAccountOutcome,
   type BeginSignInOutcome,
   type ClaudeAccountsState,
+  type ClaudeAccountView,
   DEFAULT_ACCOUNT,
   type RemoveAccountOutcome,
   type SetEnabledOutcome,
   type SubmitCodeOutcome,
 } from '../../../shared/claudeAccounts/claudeAccounts'
 import {
+  type AccountLogin,
   acceptedProfileFolders,
   acceptProfile,
   createProfile,
   credentialsPresent,
   type LoginState,
   removeProfile,
+  sameLogin,
   sweepPendingProfiles,
 } from './accountProfiles'
 import type { ClaudeAccountsStore } from './accountsStore'
@@ -36,8 +39,8 @@ export interface ClaudeAccountsDeps {
   store: ClaudeAccountsStore
   root: string
   defaultHome: () => string
-  defaultEmail: () => Promise<string | null>
-  profileEmail: (dir: string) => Promise<string | null>
+  defaultLogin: () => Promise<AccountLogin | null>
+  profileLogin: (dir: string) => Promise<AccountLogin | null>
   syncProfile: (dir: string) => Promise<void>
   loginState: (dir: string) => Promise<LoginState>
   writeLogin: (dir: string, tokens: OAuthTokens, profile: OAuthProfile) => Promise<boolean>
@@ -82,22 +85,34 @@ export class ClaudeAccounts {
   async state(): Promise<ClaudeAccountsState> {
     const { store } = this.deps
     const usageOf = (id: string) => this.deps.usage?.usageOf(id) ?? null
-    const profiles = await Promise.all(
-      store.accounts().map(async ({ id, email }) => ({
+    const defaultLogin = await this.deps.defaultLogin()
+    const logins: { id: string; login: AccountLogin | null }[] = [
+      { id: DEFAULT_ACCOUNT, login: defaultLogin },
+    ]
+    const profiles: ClaudeAccountView[] = []
+    for (const { id, email } of store.accounts()) {
+      const login = (await this.deps.profileLogin(join(this.deps.root, id))) ?? {
+        uuid: null,
+        email,
+      }
+      profiles.push({
         id,
         email,
         signedOut: (await this.deps.loginState(join(this.deps.root, id))) === 'signed-out',
         enabled: store.isEnabled(id),
+        sameAs: logins.find((other) => sameLogin(other.login, login))?.id ?? null,
         usage: store.isEnabled(id) ? usageOf(id) : null,
-      })),
-    )
+      })
+      logins.push({ id, login })
+    }
     return {
       accounts: [
         {
           id: DEFAULT_ACCOUNT,
-          email: await this.deps.defaultEmail(),
+          email: defaultLogin?.email ?? null,
           signedOut: false,
           enabled: true,
+          sameAs: null,
           usage: usageOf(DEFAULT_ACCOUNT),
         },
         ...profiles,
@@ -121,7 +136,7 @@ export class ClaudeAccounts {
       this.deps.timeoutMs ?? LOGIN_TIMEOUT_MS,
       now,
       new Set(this.deps.store.accounts().map((account) => account.id)),
-      async (dir) => credentialsPresent(dir) && (await this.deps.profileEmail(dir)) !== null,
+      async (dir) => credentialsPresent(dir) && (await this.deps.profileLogin(dir)) !== null,
     )
     this.recoverable = await this.unlistedLogins()
     if (this.recoverable.length > 0) await this.publish()
@@ -281,10 +296,10 @@ export class ClaudeAccounts {
   private async check(): Promise<boolean> {
     const pending = this.pending
     if (!pending) return false
-    const email = credentialsPresent(pending.dir) ? await this.deps.profileEmail(pending.dir) : null
+    const login = credentialsPresent(pending.dir) ? await this.deps.profileLogin(pending.dir) : null
     if (this.pending !== pending) return false
-    if (email) {
-      await this.finish(pending, email)
+    if (login) {
+      await this.finish(pending, login)
       return true
     }
     const waited = (this.deps.now ?? Date.now)() - pending.startedAt
@@ -292,29 +307,38 @@ export class ClaudeAccounts {
     return false
   }
 
-  private async finish(pending: PendingLogin, email: string): Promise<void> {
+  private async finish(pending: PendingLogin, login: AccountLogin): Promise<void> {
     clearInterval(pending.timer)
     this.pending = null
+    const known = await this.knownLogin(login)
     const added =
-      !(await this.knownEmail(email)) &&
-      this.deps.store.add({ id: pending.id, email, addedAt: (this.deps.now ?? Date.now)() })
+      known === null &&
+      this.deps.store.add({
+        id: pending.id,
+        email: login.email,
+        addedAt: (this.deps.now ?? Date.now)(),
+      })
     if (added) {
       await acceptProfile(this.deps.root, pending.id)
       const pane = this.deps.paneOf(pending.paneId)
       if (pane) this.deps.store.rememberPane(pane, pending.id)
     } else {
       await removeProfile(this.deps.root, pending.id)
-      this.showDuplicate(email)
+      if (known !== null) this.showDuplicate(known)
     }
     await this.publish()
   }
 
-  private async knownEmail(email: string): Promise<boolean> {
-    const known = [
-      await this.deps.defaultEmail(),
-      ...this.deps.store.accounts().map((account) => account.email),
-    ]
-    return known.some((other) => other?.toLowerCase() === email.toLowerCase())
+  private async knownLogin(login: AccountLogin): Promise<string | null> {
+    if (sameLogin(await this.deps.defaultLogin(), login)) return DEFAULT_ACCOUNT
+    for (const { id, email } of this.deps.store.accounts()) {
+      const other = (await this.deps.profileLogin(join(this.deps.root, id))) ?? {
+        uuid: null,
+        email,
+      }
+      if (sameLogin(other, login)) return id
+    }
+    return null
   }
 
   private async completeSignIn(
@@ -324,14 +348,16 @@ export class ClaudeAccounts {
   ): Promise<CompleteOutcome> {
     const { store, root } = this.deps
     const email = profile.emailAddress
+    const login = { uuid: profile.accountUuid, email }
     if (target !== null) {
       const account = store.accounts().find((entry) => entry.id === target)
       if (!account) return 'failed'
       if (account.email?.toLowerCase() !== email.toLowerCase()) return 'mismatch'
       return (await this.deps.writeLogin(join(root, target), tokens, profile)) ? 'done' : 'failed'
     }
-    if (await this.knownEmail(email)) {
-      this.showDuplicate(email)
+    const known = await this.knownLogin(login)
+    if (known !== null) {
+      this.showDuplicate(known)
       return 'done'
     }
     const id = randomBytes(8).toString('hex')
@@ -345,9 +371,9 @@ export class ClaudeAccounts {
     return 'done'
   }
 
-  private showDuplicate(email: string): void {
+  private showDuplicate(accountId: string): void {
     this.clearDuplicate()
-    this.duplicate = email
+    this.duplicate = accountId
     this.duplicateTimer = setTimeout(() => {
       this.duplicate = null
       this.duplicateTimer = null
@@ -373,18 +399,17 @@ export class ClaudeAccounts {
 
   private async unlistedLogins(): Promise<{ id: string; email: string }[]> {
     const listed = new Set(this.deps.store.accounts().map((account) => account.id))
-    const taken = new Set(
-      [await this.deps.defaultEmail(), ...this.deps.store.accounts().map((a) => a.email)].flatMap(
-        (email) => (email ? [email.toLowerCase()] : []),
-      ),
-    )
+    const taken: (AccountLogin | null)[] = [await this.deps.defaultLogin()]
+    for (const { id, email } of this.deps.store.accounts()) {
+      taken.push((await this.deps.profileLogin(join(this.deps.root, id))) ?? { uuid: null, email })
+    }
     const found: { id: string; email: string }[] = []
     for (const id of await acceptedProfileFolders(this.deps.root)) {
       if (listed.has(id) || !credentialsPresent(join(this.deps.root, id))) continue
-      const email = await this.deps.profileEmail(join(this.deps.root, id))
-      if (!email || taken.has(email.toLowerCase())) continue
-      taken.add(email.toLowerCase())
-      found.push({ id, email })
+      const login = await this.deps.profileLogin(join(this.deps.root, id))
+      if (!login || taken.some((other) => sameLogin(other, login))) continue
+      taken.push(login)
+      found.push({ id, email: login.email })
     }
     return found
   }

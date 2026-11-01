@@ -1,7 +1,7 @@
 import { XIcon } from '@phosphor-icons/react'
 import { createContext, type JSX, useContext } from 'react'
-import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
+import { cn } from '@/lib/utils'
 
 export const RailCollapsedContext = createContext(false)
 
@@ -14,9 +14,9 @@ export function RailTab({
   title,
   titleAdornment,
   wrapTitle,
+  unread,
   editor,
   onDoubleClick,
-  meta,
   after,
   badge,
 }: {
@@ -28,9 +28,9 @@ export function RailTab({
   title: string
   titleAdornment?: React.ReactNode
   wrapTitle?: boolean
+  unread?: boolean
   editor?: React.ReactNode
   onDoubleClick?: () => void
-  meta?: React.ReactNode
   after?: React.ReactNode
   badge?: React.ReactNode
 }): JSX.Element {
@@ -56,23 +56,14 @@ export function RailTab({
       {icon}
       <span className="tab-body">
         <span className="tab-title-row">
-          <span className={wrapTitle ? 'tab-title wrap' : 'tab-title'}>{title}</span>
+          <span className={cn('tab-title', wrapTitle && 'wrap', unread && 'unread')}>{title}</span>
           {titleAdornment}
         </span>
-        {meta}
       </span>
       {badge}
     </button>
   )
-  if (collapsed) {
-    return (
-      <div className={`rail-tab${active ? ' active' : ''}`}>
-        <Hint label={title} side="right">
-          {main}
-        </Hint>
-      </div>
-    )
-  }
+  if (collapsed) return <div className={`rail-tab${active ? ' active' : ''}`}>{main}</div>
   return (
     <div className={`rail-tab${active ? ' active' : ''}`}>
       {main}

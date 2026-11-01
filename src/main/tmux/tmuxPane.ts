@@ -145,6 +145,14 @@ export class TmuxPane {
     this.server.send(`set -w -t ${this.windowId} ${META_OPTION} ${tmuxQuote(encodeMeta(meta))}`)
   }
 
+  async shellPid(): Promise<number | null> {
+    const [pid = ''] = await this.server.command(
+      `display-message -p -t ${this.paneId} "#{pane_pid}"`,
+    )
+    const n = Number(pid)
+    return Number.isInteger(n) && n > 0 ? n : null
+  }
+
   async currentCommand(): Promise<string> {
     const [command = ''] = await this.server.command(
       `display-message -p -t ${this.paneId} "#{pane_current_command}"`,

@@ -29,6 +29,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { redactedCountLabel } from '@/lib/assist/chatRedaction'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useTelemetryConsentStore } from '@/stores/app/telemetryConsentStore'
+import { IncidentsGroup } from './IncidentsGroup'
 import { CategoryDetails } from './TelemetryConsentDialog'
 import { TelemetryReportsDialog } from './TelemetryReportsDialog'
 
@@ -297,8 +298,15 @@ function TelemetryGroup(): JSX.Element {
           onChange={(on) => void setTelemetry({ [category]: on })}
         />
       ))}
-      <ControlRow label={d.privacy.installId} desc={d.privacy.installIdDesc}>
-        <MachineValue value={installId} label={d.privacy.installId} />
+      <ControlRow
+        label={d.privacy.installId}
+        desc={d.privacy.installIdDesc}
+        below={
+          <div className="flex min-w-0">
+            <MachineValue value={installId} label={d.privacy.installId} />
+          </div>
+        }
+      >
         <Button variant="outline" size="sm" onClick={() => void reset()}>
           {d.privacy.resetInstallId}
         </Button>
@@ -344,6 +352,7 @@ export function PrivacySection(): JSX.Element {
       <KindList kinds={kinds} />
       <Patterns onChanged={() => setRevision((n) => n + 1)} />
       <TestBox revision={revision} />
+      <IncidentsGroup />
       <TelemetryGroup />
     </SettingsPage>
   )

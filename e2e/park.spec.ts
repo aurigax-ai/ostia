@@ -260,14 +260,14 @@ test('a busy agent and a locked tab are refused and stay; the only pane parks an
   await win.locator('.workzone-workspace:not([data-hidden]) .pane-tab').first().click({
     button: 'right',
   })
-  await win.getByRole('menuitem', { name: 'Lock tab' }).click()
+  await win.getByRole('menuitem', { name: 'Lock' }).click()
   await paletteRun('Park Tab')
   await expect(win.locator('[data-park-status="refused"]')).toContainText('the tab is locked')
   expect(parkedFile().items).toHaveLength(0)
   await win.locator('.workzone-workspace:not([data-hidden]) .pane-tab').first().click({
     button: 'right',
   })
-  await win.getByRole('menuitem', { name: 'Unlock tab' }).click()
+  await win.getByRole('menuitem', { name: 'Unlock' }).click()
 
   await expect
     .poll(() => win.getByRole('button', { name: 'Agent actions' }).isEnabled(), { timeout: 20_000 })

@@ -4,7 +4,7 @@ import { HelperConsent } from '../consent'
 import { planConnect } from '../plan'
 import { remoteCommands } from './commands'
 import { RemoteRegistry } from './registry'
-import type { RunnerClient } from './runnerClient'
+import { RemoteFailure, type RunnerClient } from './runnerClient'
 import { openRemoteTab } from './tab'
 
 const jobs = [
@@ -171,5 +171,46 @@ describe('an agent tab', () => {
       { plan, host: 'box', pane: '0123abcd' },
     )
     expect(opened).toEqual([expect.objectContaining({ replaceShell: true })])
+  })
+})
+
+describe('the install step with an older runner', () => {
+  function setup(ensure: (replace?: boolean) => Promise<unknown>) {
+    const registry = new RemoteRegistry(null)
+    registry.addWorkspace('w1', { host: 'box', folder: '~', agent: 'claude' })
+    const client = { ensure, install: async () => {} } as unknown as RunnerClient
+    const handlers = remoteCommands({
+      translate: () => (key) => key,
+      confirm: async () => true,
+      openTerminal: async () => ({ ok: false, error: 'x' }),
+      client: () => client,
+      bundle: { version: 'v' } as never,
+      consent: new HelperConsent(null),
+      registry,
+    })
+    return () => handlers['remote-step']({ argv: ['{"host":"box","step":"install"}'] }, caller)
+  }
+
+  it('RPF-C28 replaces an older runner in the one install step', async () => {
+    const replaced: (boolean | undefined)[] = []
+    const run = setup(async (replace) => {
+      replaced.push(replace)
+      if (!replace) throw new RemoteFailure('incompatible', 'old')
+      return { version: 'v' }
+    })
+    expect(await run()).toMatchObject({ ok: true, data: { id: 'install', state: 'done' } })
+    expect(replaced).toEqual([undefined, true])
+  })
+
+  it('RPF-C29 shows the reason when the update fails', async () => {
+    const run = setup(async (replace) => {
+      throw replace
+        ? new RemoteFailure('runner-stopped', 'would not start')
+        : new RemoteFailure('incompatible', 'old')
+    })
+    expect(await run()).toMatchObject({
+      ok: true,
+      data: { state: 'failed', error: 'runner-stopped', detail: 'would not start' },
+    })
   })
 })

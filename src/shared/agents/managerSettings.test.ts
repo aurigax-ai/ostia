@@ -35,13 +35,14 @@ describe('parseManagerSettings', () => {
 })
 
 describe('managerAgents', () => {
-  it('MGR-C16 merges presets over the built-in claude and codex', () => {
+  it('MGR-C16 merges presets over the built-in claude, codex and agy (interactive prompt via -i)', () => {
     const agents = managerAgents(
       parseManagerSettings({ agents: { claude: ['claude', '--model', 'opus'], aider: ['aider'] } }),
     )
     expect(agents).toEqual({
       claude: ['claude', '--model', 'opus'],
       codex: ['codex'],
+      agy: ['agy', '-i'],
       aider: ['aider'],
     })
   })

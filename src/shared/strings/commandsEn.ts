@@ -95,6 +95,7 @@ export const commandsEn = {
       'palette.searchEverywhere': 'Search Everywhere',
       'palette.toggle': 'Command Palette',
       'pane.close': 'Close Pane',
+      'pane.closeBlock': 'Read Whether Closing a Pane Is Blocked',
       'pane.collapse': 'Collapse Pane',
       'pane.collapseOthers': 'Collapse Other Panes',
       'pane.expandAll': 'Expand All Panes',
