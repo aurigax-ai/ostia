@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { shellEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
-import { CLI_RUN, IN_PANE } from './agentHookCommands'
+import { CLI_RUN, commandHook, IN_PANE } from './agentHookCommands'
 import { installGenerated, removeUntouchedGenerations } from './generatedFolder'
 
 const AGY_PLUGIN_PREFIX = 'ostia-'
@@ -15,8 +15,6 @@ const HOOKS_ON = `[ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.agy)}" ]`
 function agyHookCommand(cliArgs: string): string {
   return `${IN_PANE} && ${HOOKS_ON} && ${CLI_RUN} ${cliArgs} >/dev/null 2>&1; echo '{}'`
 }
-
-const commandHook = (command: string) => ({ type: 'command', command })
 
 export function agyHooksJson(): string {
   const hooks = {

@@ -121,12 +121,13 @@ function overlaps(path: string, other: string): boolean {
   return isInsidePath(other, path) || isInsidePath(path, other)
 }
 
-export function touches(path: string, guarded: readonly string[]): boolean {
+export function touches(
+  path: string,
+  guarded: readonly string[],
+  guardedReal: readonly string[] = guarded.map(realPath),
+): boolean {
   const real = realPath(path)
-  return guarded.some((g) => {
-    const realGuarded = realPath(g)
-    return overlaps(path, g) || overlaps(real, realGuarded)
-  })
+  return guarded.some((g, i) => overlaps(path, g) || overlaps(real, guardedReal[i]))
 }
 
 export function protectedPaths(paths: SandboxBasePaths): string[] {
@@ -239,14 +240,17 @@ export function buildSrtConfig(
   const switches = { ...DEFAULT_SWITCHES, ...policy.switches }
   const fixed = fixedPolicy(paths, { workDir, tmpDir, pluginsDir }, switches, platform, arch)
   const guarded = protectedPaths(paths)
+  const guardedReal = guarded.map(realPath)
   const expand = (list: readonly string[] = []): string[] => list.map((p) => expandHome(p, home))
   const denyRead = expand(policy.denyRead)
   const hiddenByHuman = (path: string): boolean => denyRead.some((d) => isInsidePath(d, path))
   const opened = (list?: readonly string[]): string[] =>
-    expand(list).filter((p) => !touches(p, guarded) && !hiddenByHuman(p))
+    expand(list).filter((p) => !touches(p, guarded, guardedReal) && !hiddenByHuman(p))
   const agentDirs = AGENT_DATA_DIRS.map((d) => join(home, d)).filter((d) => !hiddenByHuman(d))
   const allowWrite = opened(policy.allowWrite)
-  const hookLinks = (paths.hookLinks ?? []).filter((p) => !touches(p, guarded) && !hiddenByHuman(p))
+  const hookLinks = (paths.hookLinks ?? []).filter(
+    (p) => !touches(p, guarded, guardedReal) && !hiddenByHuman(p),
+  )
   const isMac = platform === 'darwin'
   const sockets = switches.unixSockets
   return {
@@ -261,7 +265,7 @@ export function buildSrtConfig(
                   paths.socketPath,
                   ...(paths.keptSocketPath ? [paths.keptSocketPath] : []),
                   join(tmpDir, SSH_AGENT_SOCKET_NAME),
-                  ...expand(policy.allowSockets).filter((p) => !touches(p, guarded)),
+                  ...expand(policy.allowSockets).filter((p) => !touches(p, guarded, guardedReal)),
                 ]
               : [],
             allowLocalBinding: true,

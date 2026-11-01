@@ -57,6 +57,7 @@ export function DeckRail(): JSX.Element {
 function WorkspacesView(): JSX.Element {
   const d = useDict()
   const workspaces = useWorkspacesStore((s) => s.workspaces)
+  const indexById = new Map(workspaces.map((w, i) => [w.id, i]))
   const groups = useWorkspacesStore((s) => s.groups)
   const activeId = useWorkspacesStore((s) => s.activeWorkspaceId)
   const dragging = useRailDragStore((s) => s.source !== null)
@@ -119,7 +120,7 @@ function WorkspacesView(): JSX.Element {
     <WorkspaceRow
       key={w.id}
       workspace={w}
-      index={workspaces.indexOf(w)}
+      index={indexById.get(w.id) ?? 0}
       active={!settingsActive && w.id === activeId}
       drop={
         tabTarget === w.id
