@@ -15,10 +15,9 @@ const CONTINUOUS_MS = 30_000
 const HISTORY_OFF = process.env.OSTIA_BENCH_HISTORY === 'off'
 
 function benchSettings(engine: (typeof BENCH_ENGINES)[number]): object {
-  const terminal = 'terminal' in engine.settings ? engine.settings.terminal : {}
   return {
     ...engine.settings,
-    ...(HISTORY_OFF ? { terminal: { ...terminal, scrollbackHistory: 'off' } } : {}),
+    ...(HISTORY_OFF ? { terminal: { scrollbackHistory: 'off' } } : {}),
     workspaces: { confirmQuit: false },
   }
 }
