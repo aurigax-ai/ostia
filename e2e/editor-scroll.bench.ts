@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { chords } from './chords'
-import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { openWorkspace, typeLine } from './helpers'
-import { type CDPSession, type Page, _electron as electron, expect, test } from './test'
+import { type CDPSession, _electron as electron, expect, type Page, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const DOC_LINES = 2_000
@@ -97,7 +97,7 @@ for (const scenario of SCENARIOS) {
       const win = await app.firstWindow()
       await win.waitForLoadState('domcontentloaded')
       await openWorkspace(win)
-      const terminals = win.locator('.xterm:visible, .ghostty-screen:visible')
+      const terminals = win.locator('.ghostty-host:visible, .ghostty-screen:visible')
       await terminals.first().click()
       await win.keyboard.press(chords.splitRight)
       await expect(terminals).toHaveCount(2)
@@ -117,7 +117,7 @@ for (const scenario of SCENARIOS) {
 
 async function startAgents(win: Page, count: number): Promise<void> {
   if (count === 0) return
-  await win.locator('.xterm, .ghostty-screen').first().click()
+  await win.locator('.ghostty-host, .ghostty-screen').first().click()
   const busy = win.locator('.pane-tab .title', { hasText: /Busy task$/ })
   for (let pane = 1; pane <= count; pane++) {
     await typeLine(win, 'claude')

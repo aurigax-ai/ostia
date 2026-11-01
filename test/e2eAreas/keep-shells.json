@@ -2,7 +2,6 @@
   "name": "keep-shells",
   "paths": [
     "src/main/tmux/",
-    "src/renderer/lib/terminal/tmuxQueries.ts",
     "src/shared/terminal/keepShells.ts"
   ],
   "specs": [

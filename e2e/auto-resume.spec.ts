@@ -2,27 +2,27 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { join } from 'node:path'
 import { chords } from './chords'
 import {
-  DOM_RENDERER_SETTINGS,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
   isolatedLaunch,
   seedSettings,
   testHome,
 } from './dataHome'
 import {
-  PROMPT,
   addTab,
   expectHeld,
   newTerminalWorkspace,
   openWorkspace,
+  PROMPT,
   restartApp,
   shownTerminal,
   typeLine,
 } from './helpers'
 import {
   type ElectronApplication,
-  type Page,
   _electron as electron,
   expect,
+  type Page,
   test,
   waitForExit,
 } from './test'
@@ -31,7 +31,7 @@ test.describe.configure({ timeout: 90_000 })
 
 const RESUME_ID = 'e2e-resume-4242'
 const CLEARED_ID = 'e2e-cleared-5151'
-const AUTO_RESUME_SETTINGS = { ...DOM_RENDERER_SETTINGS, agents: { autoResume: true } }
+const AUTO_RESUME_SETTINGS = { ...CANVAS_RENDERER_SETTINGS, agents: { autoResume: true } }
 
 function resumedLog(dataHome: string): string {
   return join(dataHome, 'resumed.log')
@@ -104,10 +104,10 @@ function agentRunningSaved(dataHome: string): boolean {
 
 async function startResumableAgent(dataHome: string, win: Page): Promise<string> {
   await openWorkspace(win)
-  await win.locator('.xterm').first().click()
+  await win.locator('.ghostty-host').first().click()
   await win.keyboard.type('claude')
   await win.keyboard.press('Enter')
-  await expect(win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
+  await expect(win.locator('.terminal-text').first()).toContainText('fake-agent-ready', {
     timeout: 15_000,
   })
   await expect.poll(() => agentRunningSaved(dataHome), { timeout: 15_000 }).toBe(true)
@@ -128,7 +128,7 @@ async function closeAsked(app: ElectronApplication, win: Page): Promise<void> {
 async function expectAutoResumed(dataHome: string): Promise<void> {
   const { app, win } = await launchAgentApp(dataHome)
   try {
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
+    await expect(win.locator('.pane-slot:not([data-hidden]) .terminal-text')).toContainText(
       new RegExp(`fake-agent-resumed .*--resume ${RESUME_ID}`),
       { timeout: 20_000 },
     )
@@ -170,7 +170,7 @@ test('a resume that fails shows one note and is never typed again', async () => 
 
 const SESSION_PER_PANE = 'e2e-pane-$OSTIA_PANE_ID'
 const SHOWN_ROWS =
-  '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .xterm-rows'
+  '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .terminal-text'
 
 function resumedSessions(dataHome: string): string[] {
   const log = existsSync(resumedLog(dataHome)) ? readFileSync(resumedLog(dataHome), 'utf8') : ''
@@ -262,9 +262,11 @@ test('an agent resumed in a visible split leaves keyboard focus in the pane the 
   await startAgentInShownTerminal(dataHome, win, 1)
   const agentPane = String(savedPanes(dataHome).find((p) => p.agentRunning === true)?.id)
   await win.keyboard.press(chords.splitRight)
-  const plain = win.locator(`.surface-host:not([data-pane-id="${agentPane}"]) .xterm`)
-  await expect(win.locator('.xterm:visible')).toHaveCount(2, { timeout: 15_000 })
-  await expect(plain.locator('.xterm-rows')).toContainText(PROMPT, { timeout: 15_000 })
+  const plain = win.locator(`.surface-host:not([data-pane-id="${agentPane}"]) .ghostty-host`)
+  await expect(win.locator('.ghostty-host:visible')).toHaveCount(2, { timeout: 15_000 })
+  await expect(
+    win.locator(`.surface-host:not([data-pane-id="${agentPane}"]) .terminal-text`),
+  ).toContainText(PROMPT, { timeout: 15_000 })
   await plain.click()
   await expect.poll(() => focusedPane(win)).not.toBeNull()
   const focused = await focusedPane(win)
@@ -277,7 +279,7 @@ test('an agent resumed in a visible split leaves keyboard focus in the pane the 
     await expect.poll(() => focusedPane(relaunched.win)).toBe(focused)
     expect(existsSync(resumedLog(dataHome))).toBe(false)
     await expect.poll(() => existsSync(resumedLog(dataHome)), { timeout: 30_000 }).toBe(true)
-    await expect(relaunched.win.locator('.xterm-rows:visible')).toHaveCount(2)
+    await expect(relaunched.win.locator('.terminal-text:visible')).toHaveCount(2)
     expect(await focusedPane(relaunched.win)).toBe(focused)
   } finally {
     await closeAsked(relaunched.app, relaunched.win)
@@ -294,7 +296,7 @@ test('agents the human typed after a cd and a coordinator started with process r
   const flags = `GL_ISSUE='665#2' API_TOKEN=abc claude --agent X --model Y -n "Slack push" --dangerously-skip-permissions`
   const first = await launchAgentApp(dataHome, SESSION_PER_PANE)
   await openWorkspace(first.win)
-  await first.win.locator('.xterm').first().click()
+  await first.win.locator('.ghostty-host').first().click()
   await typeLine(first.win, `ostia process run "${flags.replaceAll('"', '\\"')} hello" --name line`)
   await expect(first.win.getByRole('tablist').getByRole('tab')).toHaveCount(2, {
     timeout: 15_000,
@@ -322,10 +324,10 @@ test('a /clear after an Ostia restart keeps the flags and variables the human ty
   seedSettings(dataHome, { ...AUTO_RESUME_SETTINGS, terminal: { keepShells: true } })
   const first = await launchAgentApp(dataHome, RESUME_ID, false, CLEARED_ID)
   await openWorkspace(first.win)
-  await first.win.locator('.xterm').first().click()
+  await first.win.locator('.ghostty-host').first().click()
   await first.win.keyboard.type(`GL_ISSUE='665#2' claude --agent X --dangerously-skip-permissions`)
   await first.win.keyboard.press('Enter')
-  await expect(first.win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
+  await expect(first.win.locator('.terminal-text').first()).toContainText('fake-agent-ready', {
     timeout: 15_000,
   })
   await expect.poll(() => agentRunningSaved(dataHome), { timeout: 15_000 }).toBe(true)
@@ -333,10 +335,10 @@ test('a /clear after an Ostia restart keeps the flags and variables the human ty
 
   const second = await launchAgentApp(dataHome, RESUME_ID)
   try {
-    await expect(second.win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
+    await expect(second.win.locator('.terminal-text').first()).toContainText('fake-agent-ready', {
       timeout: 15_000,
     })
-    await second.win.locator('.xterm').first().click()
+    await second.win.locator('.ghostty-host').first().click()
     await typeLine(second.win, '/clear')
     await expect
       .poll(() => (savedPanes(dataHome)[0].resume as { id?: string } | undefined)?.id, {
@@ -358,7 +360,7 @@ test('an agent running when the window closes with close-to-tray off resumes aft
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
     ...AUTO_RESUME_SETTINGS,
-    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, closeToTray: false },
+    workspaces: { ...CANVAS_RENDERER_SETTINGS.workspaces, closeToTray: false },
   })
   const { app, win } = await launchAgentApp(dataHome)
   await startResumableAgent(dataHome, win)

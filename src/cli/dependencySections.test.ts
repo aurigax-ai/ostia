@@ -22,7 +22,6 @@ const RENDERER_ONLY = [
   'monaco-editor',
   '@phosphor-icons/react',
   '@base-ui/react',
-  '@xterm/xterm',
   'react',
   'react-dom',
   'ai',

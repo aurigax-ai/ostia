@@ -1,5 +1,5 @@
+import { FitAddon } from '@aurigax-ai/ghostty-web'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
-import { FitAddon } from '@xterm/addon-fit'
 import {
   afterAll,
   afterEach,
@@ -102,9 +102,6 @@ describe('TerminalView phone size hold', () => {
   })
 
   beforeEach(async () => {
-    useSettingsStore.setState({
-      terminal: { ...useSettingsStore.getState().terminal, renderer: 'ghostty' },
-    })
     await loadGhostty()
   })
 
@@ -128,9 +125,6 @@ describe('TerminalView phone size hold', () => {
         ...attached,
       })
     }
-    useSettingsStore.setState({
-      terminal: { ...useSettingsStore.getState().terminal, renderer: 'xterm' },
-    })
     const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockImplementation(() => ({
       cols: Math.floor(box.width / 10),
       rows: Math.floor(box.height / 20),
@@ -170,7 +164,7 @@ describe('TerminalView phone size hold', () => {
     const { paneId, sized } = await shown()
     act(() => sized(40, 20, true))
     act(() => usePhoneSizeStore.getState().byPane[paneId]?.useDesktop())
-    expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30)
+    await waitFor(() => expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30))
   })
 
   it('keeps the hold when the grid change makes the terminal observe itself, and ends it when the pane box changes', async () => {

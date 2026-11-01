@@ -3,17 +3,17 @@ import { join } from 'node:path'
 import { FAKE } from '../test/fixtures/secrets/samples'
 import { freshDataHome } from './dataHome'
 import { launchWindow, openWorkspace, quitApp } from './helpers'
-import { type Page, expect, test } from './test'
+import { expect, type Page, test } from './test'
 
 const TOKEN = FAKE.githubClassic
 const MARK = '[redacted:github]'
 
 async function typeInTerminal(win: Page, line: string): Promise<void> {
-  await win.locator('.xterm').first().click()
+  await win.locator('.ghostty-host').first().click()
   await expect
     .poll(() =>
       win.evaluate(
-        () => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false,
+        () => document.activeElement?.matches('.ghostty-host, .ghostty-host *') ?? false,
       ),
     )
     .toBe(true)
@@ -29,7 +29,7 @@ test('the live terminal keeps a secret, the saved scrollback and the restored hi
   try {
     await openWorkspace(first.win)
     await typeInTerminal(first.win, `echo key=${TOKEN} done`)
-    await expect(first.win.locator('.xterm-rows').first()).toContainText(`key=${TOKEN} done`, {
+    await expect(first.win.locator('.terminal-text').first()).toContainText(`key=${TOKEN} done`, {
       timeout: 15_000,
     })
     await expect
@@ -41,7 +41,7 @@ test('the live terminal keeps a secret, the saved scrollback and the restored hi
       )
       .toBe(true)
     await typeInTerminal(first.win, `echo last=${TOKEN}`)
-    await expect(first.win.locator('.xterm-rows').first()).toContainText(`last=${TOKEN}`, {
+    await expect(first.win.locator('.terminal-text').first()).toContainText(`last=${TOKEN}`, {
       timeout: 15_000,
     })
   } finally {

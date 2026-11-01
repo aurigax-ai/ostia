@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { expectHeld, openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { expectHeld, openWorkspace, terminalRowBox } from './helpers'
+import { _electron as electron, expect, type Page, test } from './test'
 
 async function switchToEditorMode(win: Page): Promise<void> {
   await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
@@ -28,7 +28,7 @@ for (const shell of ['/bin/zsh', '/bin/bash']) {
       const win = await app.firstWindow()
       await win.waitForLoadState('domcontentloaded')
       await openWorkspace(win)
-      const rows = win.locator('.xterm-rows').first()
+      const rows = win.locator('.terminal-text').first()
       const input = win.getByRole('textbox', { name: 'Command input' })
       await switchToEditorMode(win)
       await expect(input).toBeVisible()
@@ -61,7 +61,7 @@ test('the input editor runs commands, walks history and steps aside for interact
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const rows = win.locator('.xterm-rows').first()
+    const rows = win.locator('.terminal-text').first()
     const input = win.getByRole('textbox', { name: 'Command input' })
     const promptLines = async (): Promise<number> =>
       (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
@@ -130,8 +130,8 @@ test('the input editor sits on the shell prompt line and takes what is aimed at 
     "PROMPT='ostia_left❯ '\nRPROMPT='ostia_right'\nbindkey '^R' history-incremental-search-backward\n",
   )
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
+    ...CANVAS_RENDERER_SETTINGS,
+    behavior: { ...CANVAS_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
   })
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
@@ -142,13 +142,12 @@ test('the input editor sits on the shell prompt line and takes what is aimed at 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const rows = win.locator('.xterm-rows').first()
+    const rows = win.locator('.terminal-text').first()
     const input = win.getByRole('textbox', { name: 'Command input' })
     const line = win.locator('.input-editor-line')
     await expect(input).toBeVisible({ timeout: 15_000 })
-    const promptRow = rows.locator('div', { hasText: 'ostia_left❯' }).last()
     const lineBox = await line.boundingBox()
-    const rowBox = await promptRow.boundingBox()
+    const rowBox = await terminalRowBox(win, /ostia_left❯/)
     expect(lineBox && rowBox && Math.abs(lineBox.y - rowBox.y)).toBeLessThan(2)
     expect(lineBox && rowBox && lineBox.x).toBeGreaterThan(rowBox?.x ?? 0)
     await expect(rows).toContainText('ostia_right')

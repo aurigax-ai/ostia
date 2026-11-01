@@ -1,10 +1,10 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, seedSettings } from './dataHome'
 import { emptyState, launchWindow } from './helpers'
-import { type Page, expect, test } from './test'
+import { expect, type Page, test } from './test'
 
 async function launch(settings: object) {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, ...settings })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, ...settings })
   const launched = await launchWindow(dataHome)
   await expect(emptyState(launched.win)).toBeVisible({ timeout: 15_000 })
   return launched

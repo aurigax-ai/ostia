@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
-import { openWorkspace, shownTerminal, terminalTab, waitForPaletteSelection } from './helpers'
+import { openWorkspace, shownTerminalText, terminalTab, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 const PAGE = `<!doctype html>
@@ -101,7 +101,7 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
 
     await expect(win.getByTestId('capture-chip')).toHaveText(/^Sent to /, { timeout: 15_000 })
     await terminalTab(win).click()
-    const terminal = shownTerminal(win).locator('.xterm-rows')
+    const terminal = shownTerminalText(win)
     await expect(terminal).toContainText(/@\S*capture-\d+\S*\.md @\S*pick-\S*\.png/, {
       timeout: 15_000,
     })

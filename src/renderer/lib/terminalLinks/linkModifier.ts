@@ -1,6 +1,6 @@
 import { linkKind } from '@shared/common/externalLinks'
-import type { IBufferRange } from '@xterm/xterm'
 import type { LinkClick } from '@/lib/settings/terminalPaneSettings'
+import type { TerminalRange } from '@/lib/terminal/ostiaTerminal'
 import type { FileLinkAction } from './terminalFileLinks'
 import type { FileUrlAction } from './terminalFileUrls'
 
@@ -95,7 +95,7 @@ export interface LinkSpan {
   end: number
 }
 
-export function linkSpan(range: IBufferRange, viewportY: number, cols: number): LinkSpan {
+export function linkSpan(range: TerminalRange, viewportY: number, cols: number): LinkSpan {
   const end = range.end.y === range.start.y ? range.end.x : cols
   return { row: range.start.y - 1 - viewportY, start: range.start.x - 1, end }
 }

@@ -1,6 +1,6 @@
 import { freshDataHome } from './dataHome'
-import { PROMPT, launchWindow, newTerminalWorkspace, openWorkspace, quitApp } from './helpers'
-import { type Page, expect, test } from './test'
+import { launchWindow, newTerminalWorkspace, openWorkspace, PROMPT, quitApp } from './helpers'
+import { expect, type Page, test } from './test'
 
 const groupHead = (win: Page) => win.locator('.rail-group-head')
 const groupToggle = (win: Page) => groupHead(win).getByRole('button', { name: /build/ })
@@ -24,12 +24,12 @@ test('workspace groups: a collapsed group shows a member’s failed command and 
     await name.fill('build')
     await name.press('Enter')
     await expect(memberRows(win)).toHaveCount(1)
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()).toContainText(
+    await expect(win.locator('.pane-slot:not([data-hidden]) .terminal-text').last()).toContainText(
       PROMPT,
       { timeout: 15_000 },
     )
 
-    await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
+    await win.locator('.pane-slot:not([data-hidden]) .ghostty-host').last().click()
     await win.keyboard.type('sleep 2; false')
     await win.keyboard.press('Enter')
     await ungroupedRows(win).first().locator('.rail-tab-main').click()

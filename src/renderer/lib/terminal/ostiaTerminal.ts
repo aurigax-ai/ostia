@@ -1,5 +1,47 @@
-import type { ISearchOptions } from '@xterm/addon-search'
-import type { IBufferRange, ILinkProvider, IParser, Terminal as Xterm } from '@xterm/xterm'
+import type { ISearchOptions, ITheme, MouseTrackingMode } from '@aurigax-ai/ghostty-web'
+
+export interface TerminalPosition {
+  x: number
+  y: number
+}
+
+export interface TerminalRange {
+  start: TerminalPosition
+  end: TerminalPosition
+}
+
+export interface TerminalLink {
+  range: TerminalRange
+  text: string
+  decorations?: { pointerCursor?: boolean; underline?: boolean }
+  activate(event: MouseEvent, text: string): void
+  hover?(event: MouseEvent, text: string): void
+  leave?(event: MouseEvent, text: string): void
+}
+
+export interface TerminalLinkProvider {
+  provideLinks(row: number, callback: (links: TerminalLink[] | undefined) => void): void
+}
+
+interface TerminalSequenceId {
+  prefix?: string
+  intermediates?: string
+  final: string
+}
+
+export type FontWeight =
+  | 'normal'
+  | 'bold'
+  | '100'
+  | '200'
+  | '300'
+  | '400'
+  | '500'
+  | '600'
+  | '700'
+  | '800'
+  | '900'
+  | number
 
 export interface TerminalDisposable {
   dispose(): void
@@ -41,19 +83,28 @@ interface TerminalBufferNamespace {
   readonly onBufferChange: TerminalEvent<TerminalBuffer>
 }
 
-export type TerminalParser = Pick<
-  IParser,
-  'registerOscHandler' | 'registerCsiHandler' | 'registerDcsHandler'
->
+type SequenceResult = boolean | Promise<boolean>
+
+export interface TerminalParser {
+  registerOscHandler(ident: number, callback: (data: string) => SequenceResult): TerminalDisposable
+  registerCsiHandler(
+    id: TerminalSequenceId,
+    callback: (params: (number | number[])[]) => SequenceResult,
+  ): TerminalDisposable
+  registerDcsHandler(
+    id: TerminalSequenceId,
+    callback: (data: string, params: (number | number[])[]) => SequenceResult,
+  ): TerminalDisposable
+}
 
 export interface TerminalOptions {
   fontFamily?: string
   fontSize?: number
-  fontWeight?: Xterm['options']['fontWeight']
+  fontWeight?: FontWeight
   lineHeight?: number
   cursorStyle?: 'block' | 'underline' | 'bar'
   cursorBlink?: boolean
-  theme?: Xterm['options']['theme']
+  theme?: ITheme
   scrollSensitivity?: number
   smoothScrollDuration?: number
   scrollback?: number
@@ -72,9 +123,9 @@ export interface TerminalSearch {
 }
 
 export interface WebLinkHandler {
-  activate(event: MouseEvent, uri: string, range: IBufferRange): void
-  hover(event: MouseEvent, uri: string, range: IBufferRange): void
-  leave(event: MouseEvent, uri: string, range: IBufferRange): void
+  activate(event: MouseEvent, uri: string, range: TerminalRange): void
+  hover(event: MouseEvent, uri: string, range: TerminalRange): void
+  leave(event: MouseEvent, uri: string, range: TerminalRange): void
 }
 
 export interface OstiaTerminal {
@@ -83,7 +134,7 @@ export interface OstiaTerminal {
   readonly element: HTMLElement | undefined
   readonly buffer: TerminalBufferNamespace
   readonly parser: TerminalParser
-  readonly modes: { readonly mouseTrackingMode: Xterm['modes']['mouseTrackingMode'] }
+  readonly modes: { readonly mouseTrackingMode: MouseTrackingMode }
   readonly options: TerminalOptions
   readonly onData: TerminalEvent<string>
   readonly onBell: TerminalEvent<void>
@@ -92,6 +143,7 @@ export interface OstiaTerminal {
   readonly onScroll: TerminalEvent<number>
   readonly onResize: TerminalEvent<{ cols: number; rows: number }>
   readonly onRender: TerminalEvent<{ start: number; end: number }>
+  readonly onWriteParsed: TerminalEvent<void>
   open(parent: HTMLElement): void
   write(data: string | Uint8Array, callback?: () => void): void
   writeln(data: string | Uint8Array, callback?: () => void): void
@@ -100,7 +152,7 @@ export interface OstiaTerminal {
   resize(cols: number, rows: number): void
   focus(): void
   getSelection(): string
-  getSelectionPosition(): IBufferRange | undefined
+  getSelectionPosition(): TerminalRange | undefined
   hasSelection(): boolean
   clearSelection(): void
   select(column: number, row: number, length: number): void
@@ -111,7 +163,7 @@ export interface OstiaTerminal {
   scrollToLine(line: number): void
   scrollToBottom(): void
   registerMarker(cursorYOffset?: number): TerminalMarker | undefined
-  registerLinkProvider(provider: ILinkProvider): TerminalDisposable
+  registerLinkProvider(provider: TerminalLinkProvider): TerminalDisposable
   attachCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean): void
   attachCustomWheelEventHandler(handler: (event: WheelEvent) => boolean): void
   dispose(): void
@@ -120,7 +172,7 @@ export interface OstiaTerminal {
 export type PauseTerminal = (paused: boolean) => void
 
 export function terminalScreen(host: ParentNode): HTMLElement | null {
-  return host.querySelector<HTMLElement>('.xterm-screen, .ghostty-screen')
+  return host.querySelector<HTMLElement>('.ghostty-screen')
 }
 
-export const TERMINAL_INPUT_SELECTOR = '.xterm-helper-textarea, .ghostty-host textarea'
+export const TERMINAL_INPUT_SELECTOR = '.ghostty-host textarea'

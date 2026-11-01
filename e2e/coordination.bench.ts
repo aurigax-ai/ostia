@@ -139,9 +139,9 @@ test('bench coordination: polling a worker with pane read versus pane watch and 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await typeLine(win, `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" ${driver}`)
-    await expect(win.locator('.xterm-rows').first()).toContainText('bench-driver-finished', {
+    await expect(win.locator('.terminal-text').first()).toContainText('bench-driver-finished', {
       timeout: 200_000,
     })
     const result = JSON.parse(readFileSync(out, 'utf8')) as {

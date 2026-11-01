@@ -1,5 +1,6 @@
 import type { HistoryScroll } from './historyScroll'
 import type { OstiaTerminal as Terminal } from './ostiaTerminal'
+import type { TerminalText } from './terminalText'
 
 const terminals = new Map<string, Terminal>()
 
@@ -32,6 +33,19 @@ export function registerInputEditor(paneId: string, handle: InputEditorHandle): 
 
 export function inputEditorFor(paneId: string): InputEditorHandle | undefined {
   return inputEditors.get(paneId)
+}
+
+const terminalTexts = new Map<string, TerminalText>()
+
+export function registerTerminalText(paneId: string, text: TerminalText): () => void {
+  terminalTexts.set(paneId, text)
+  return () => {
+    if (terminalTexts.get(paneId) === text) terminalTexts.delete(paneId)
+  }
+}
+
+export function terminalTextFor(paneId: string): TerminalText | undefined {
+  return terminalTexts.get(paneId)
 }
 
 const historyScrolls = new Map<string, HistoryScroll>()

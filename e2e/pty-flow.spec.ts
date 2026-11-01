@@ -16,13 +16,13 @@ test('bulk output reaches the screen in full, acknowledged by the renderer, and 
       })
     })
     await openWorkspace(win)
-    await win.locator('.xterm-helper-textarea').first().focus()
+    await win.locator('.ghostty-host textarea').first().focus()
     await win.keyboard.type('seq 1 200000; echo flow-$((40+2))\n')
-    await expect(win.locator('.xterm-rows')).toContainText('flow-42', { timeout: 60_000 })
+    await expect(win.locator('.terminal-text')).toContainText('flow-42', { timeout: 60_000 })
     const acked = await app.evaluate(() => (globalThis as { ackedChars?: number }).ackedChars ?? 0)
     expect(acked).toBeGreaterThan(1_000_000)
     await win.keyboard.type('echo after-$((1+1))\n')
-    await expect(win.locator('.xterm-rows')).toContainText('after-2', { timeout: 15_000 })
+    await expect(win.locator('.terminal-text')).toContainText('after-2', { timeout: 15_000 })
   } finally {
     await app.close()
   }

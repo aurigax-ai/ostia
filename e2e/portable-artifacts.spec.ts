@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type AddressInfo, createServer, type Server, type Socket } from 'node:net'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, startFakeAgent } from './fakeAgent'
 import { expectHeld, launchWindow, openWorkspace, runInTerminal } from './helpers'
 import {
@@ -57,7 +57,7 @@ async function listen(body = 'ok'): Promise<Listener> {
 }
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
   const launched = await launchWindow(dataHome)
   await openWorkspace(launched.win)
   return launched
@@ -540,7 +540,7 @@ test('PRT-C54 a region of a running preview goes to the agent as a report with i
   test.setTimeout(240_000)
   const dataHome = freshDataHome()
   writeFileSync(join(home(dataHome), 'chart.tsx'), CHART)
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
   const bin = fakeAgentBin(dataHome)
   const base = isolatedLaunch(dataHome)
   const app = await electron.launch({
@@ -570,7 +570,7 @@ test('PRT-C54 a region of a running preview goes to the agent as a report with i
     await expect(bar).toBeVisible({ timeout: 15_000 })
     await bar.getByRole('button', { name: 'Send to agent' }).click()
     await win.getByRole('menuitem').first().click()
-    const terminal = win.locator('.xterm-rows').first()
+    const terminal = win.locator('.terminal-text').first()
     await expect(terminal).toContainText(/@\S*capture-\d+\.md/, { timeout: 15_000 })
     const refs = [...((await terminal.textContent()) ?? '').matchAll(REPORT_REF)]
     expect(refs).toHaveLength(1)

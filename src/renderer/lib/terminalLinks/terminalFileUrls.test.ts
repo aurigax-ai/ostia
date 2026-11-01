@@ -1,7 +1,6 @@
 import type { FileUrlTarget } from '@shared/files/fileUrls'
-import type { ILink } from '@xterm/xterm'
 import { describe, expect, it, vi } from 'vitest'
-import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
+import type { TerminalLink as ILink, OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { pathLinkTarget, terminalLinkTarget } from './linkModifier'
 import {
   createFileUrlLinks,

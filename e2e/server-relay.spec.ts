@@ -35,7 +35,7 @@ test.describe('the relay server end to end', () => {
       await openWorkspace(win)
       const marker = `relay-${randomBytes(4).toString('hex')}`
       await runInTerminal(win, `echo ${marker}`)
-      await expect(win.locator('.xterm-rows').first()).toContainText(marker, { timeout: 15_000 })
+      await expect(win.locator('.terminal-text').first()).toContainText(marker, { timeout: 15_000 })
 
       await signInThroughSettings(win, server.invite())
       const pairing = await startRelayedRemote(win)

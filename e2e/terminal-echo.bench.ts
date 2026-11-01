@@ -1,11 +1,11 @@
 import { resolve } from 'node:path'
 import { chords } from './chords'
-import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch, SOFTWARE_WEBGL, seedSettings } from './dataHome'
 import {
-  type MainProbe,
   alignKeys,
   hookTerminal,
   installMainProbe,
+  type MainProbe,
   percentile,
   readProbes,
   startMainProfile,
@@ -15,12 +15,12 @@ import {
 import { fakeAgentBin } from './fakeAgent'
 import { BENCH_ENGINES } from './ghostty'
 import { openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Page, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const KEYS = Number(process.env.OSTIA_ECHO_KEYS ?? 80)
 const ENGINES = (process.env.OSTIA_ECHO_ENGINES ?? '').split(',').filter(Boolean)
-const TERMINALS = '.xterm, .ghostty-host'
+const TERMINALS = '.ghostty-host, .ghostty-host'
 
 const SCENARIOS = [
   { name: 'idle', start: null },
@@ -91,7 +91,7 @@ for (const engine of BENCH_ENGINES.filter(
         const timelines = alignKeys(main, page, paneId, pid)
         const summary = summarize(timelines)
         console.log(
-          `BENCH echo ${engine.name} ${scenario.name} ${JSON.stringify({ keys: page.keys.length, matched: timelines.length, seen: { inputs: page.inputs.length, arrivals: page.arrivals.length, writeDone: page.writeDone.length, renders: page.renders.length, frameEnds: page.frameEnds.length, recv: main.recv.length, send: main.send.length }, parseHooked: main.parseHooked, mainLagP95: percentile(main.lag, 0.95), mainLagMax: percentile(main.lag, 1), ...summary })}`,
+          `BENCH echo ${engine.name} ${scenario.name} ${JSON.stringify({ keys: page.keys.length, matched: timelines.length, seen: { inputs: page.inputs.length, arrivals: page.arrivals.length, writeDone: page.writeDone.length, renders: page.renders.length, frameEnds: page.frameEnds.length, recv: main.recv.length, send: main.send.length }, mainLagP95: percentile(main.lag, 0.95), mainLagMax: percentile(main.lag, 1), ...summary })}`,
         )
         if (scenario.name !== 'idle') {
           console.log(

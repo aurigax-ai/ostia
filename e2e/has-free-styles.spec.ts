@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
 import { buildSync } from 'esbuild'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import type { FixtureName } from './hasFixtures'
-import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
+import { type ElectronApplication, expect, launchShared, type Page, test } from './test'
 
 let app: ElectronApplication | undefined
 let win: Page
@@ -22,7 +22,7 @@ test.beforeAll(async () => {
   })
   fixtures = JSON.parse(execFileSync(process.execPath, [bundle], { encoding: 'utf8' }))
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
   app = await launchShared(isolatedLaunch(dataHome))
   win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')

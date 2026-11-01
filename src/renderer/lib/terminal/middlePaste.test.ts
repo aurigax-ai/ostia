@@ -9,9 +9,11 @@ function terminalSurface(): {
   const surface = document.createElement('div')
   surface.className = 'terminal-surface'
   const cell = document.createElement('div')
+  const host = document.createElement('div')
+  host.className = 'ghostty-host'
   const input = document.createElement('textarea')
-  input.className = 'xterm-helper-textarea'
-  surface.append(cell, input)
+  host.append(input)
+  surface.append(cell, host)
   document.body.append(surface)
   return { surface, input, cell }
 }

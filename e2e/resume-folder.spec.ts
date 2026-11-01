@@ -1,14 +1,14 @@
 import { mkdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  DOM_RENDERER_SETTINGS,
-  HIBERNATE_FAST,
+  CANVAS_RENDERER_SETTINGS,
   freshDataHome,
+  HIBERNATE_FAST,
   isolatedLaunch,
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { PROMPT, expectHeld, openWorkspace, runInTerminal, shownTerminal } from './helpers'
+import { expectHeld, openWorkspace, PROMPT, runInTerminal, shownTerminal } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 90_000 })
@@ -38,7 +38,7 @@ async function hibernatedAgentIn(
     ].join('\n'),
   )
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     agents: { hibernation: HIBERNATE_FAST },
   })
   const launch = isolatedLaunch(dataHome)
@@ -55,12 +55,12 @@ async function hibernatedAgentIn(
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
   for (const line of start(home)) await runInTerminal(win, line, shownTerminal(win))
-  await expect(win.locator('.xterm-rows').first()).toContainText('fake agent up:', {
+  await expect(win.locator('.terminal-text').first()).toContainText('fake agent up:', {
     timeout: 15_000,
   })
   await win.getByRole('button', { name: 'New terminal tab' }).click()
   await expect(win.getByRole('tab')).toHaveCount(2)
-  await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(PROMPT, {
+  await expect(win.locator('.pane-slot:not([data-hidden]) .terminal-text')).toContainText(PROMPT, {
     timeout: 15_000,
   })
   const sleeping = win.getByRole('tab').first()
@@ -81,7 +81,7 @@ test('waking an agent whose folder was removed shows a notice and runs nothing',
     await win.locator('.hibernated-view').click()
     const notice = win.getByRole('region', { name: 'Agent folder missing' })
     await expect(notice).toBeVisible({ timeout: 20_000 })
-    const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
+    const rows = win.locator('.pane-slot:not([data-hidden]) .terminal-text')
     await expect(rows).toContainText(PROMPT, { timeout: 15_000 })
     await expectHeld(async () => (await rows.innerText()).includes('--resume e2e-tok-gone'), false)
   } finally {
@@ -101,7 +101,7 @@ test('an agent started with a cd on the same line resumes in the folder it ran i
   try {
     await sleeping.click()
     await win.locator('.hibernated-view').click()
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
+    await expect(win.locator('.pane-slot:not([data-hidden]) .terminal-text')).toContainText(
       `--resume e2e-tok-cd in ${tree}`,
       { timeout: 20_000 },
     )

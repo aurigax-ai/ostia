@@ -44,8 +44,8 @@ test('a message to an idle agent shows as a mail count until the agent takes it'
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const caller = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
+    const caller = win.locator('.terminal-text').first()
+    await win.locator('.ghostty-host').first().click()
 
     await typeLine(win, 'ostia agent run claude go --name worker; echo run-exit-$?')
     await expect(caller).toContainText('run-exit-0', { timeout: 30_000 })

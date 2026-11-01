@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace, PROMPT, shownTerminal, terminalTab } from './helpers'
+import { openWorkspace, PROMPT, shownTerminalText, terminalTab } from './helpers'
 import { centerOf, dragFiles, dropFiles } from './osDrag'
 import { _electron as electron, expect, type Page, test } from './test'
 import { viewerGuestRun } from './viewerGuest'
@@ -75,7 +75,7 @@ test('ostia <file> shows a text file and an image from outside the home folder, 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     const neighbour = join(dataHome, 'outside', 'neighbour.txt')
     writeFileSync(neighbour, 'never opened\n')
     expect(await win.evaluate((path) => window.ostia.fs.read(path), log)).toEqual({
@@ -110,8 +110,8 @@ test('ostia <file> shows a text file and an image from outside the home folder, 
       { timeout: 15_000 },
     )
     await terminalTab(win).click()
-    await expect(shownTerminal(win).locator('.xterm-rows')).toContainText(PROMPT)
-    await expect(shownTerminal(win).locator('.xterm-rows')).not.toContainText('ostia:')
+    await expect(shownTerminalText(win)).toContainText(PROMPT)
+    await expect(shownTerminalText(win)).not.toContainText('ostia:')
   } finally {
     await app.close()
   }
@@ -141,7 +141,7 @@ test('a file dropped on the window or a browser header opens in the viewer; drop
     await openWorkspace(win)
     const terminal = await centerOf(win.locator('.terminal-surface:visible'))
     await dropFiles(win, [log], terminal)
-    await expect(win.locator('.xterm-rows:visible')).toContainText(log, { timeout: 10_000 })
+    await expect(win.locator('.terminal-text:visible')).toContainText(log, { timeout: 10_000 })
     await expect(tab(win, 'app.log')).toHaveCount(0)
 
     const notes = join(dir, 'notes.txt')

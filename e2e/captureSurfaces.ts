@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type CaptureSurface, sendToAgent } from './captureMatrix'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { launchWindow, openWorkspace, runInTerminal } from './helpers'
+import { launchWindow, openWorkspace, runInTerminal, terminalRowBox } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, type Page } from './test'
 import { viewerGuestDrag, viewerGuestRun, viewerGuestText } from './viewerGuest'
 
@@ -21,15 +21,17 @@ export const terminalSurface: CaptureSurface = {
     const { app, win } = await launchWindow(freshDataHome())
     await openWorkspace(win)
     await runInTerminal(win, 'printf "\\n%.0s" 1 2 3 4 5 6 7 8 9; echo terminal-capture-4821')
-    const output = win.locator('.xterm-rows > div').filter({ hasText: /^terminal-capture-4821$/ })
-    await expect(output).toBeVisible({ timeout: 15_000 })
-    const at = await output.boundingBox()
-    if (!at) throw new Error('terminal output row has no box')
-    await win.mouse.dblclick(at.x + 30, at.y + at.height / 2)
+    const at = await terminalRowBox(win, /^terminal-capture-4821$/)
+    const select = (): Promise<void> => win.mouse.dblclick(at.x + 30, at.y + at.height / 2)
+    await select()
     return {
       app,
       win,
-      open: () => win.keyboard.press(sendToAgent),
+      open: async () => {
+        if (!(await win.getByRole('toolbar', { name: 'Selection actions' }).isVisible()))
+          await select()
+        await win.keyboard.press(sendToAgent)
+      },
       chip: 'Copied',
       copied: /terminal-capture-4821/,
       cleared: noHighlight,

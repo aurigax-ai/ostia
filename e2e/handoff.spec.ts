@@ -1,4 +1,4 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { openWorkspace, quitApp, runInTerminal, shownTerminal } from './helpers'
 import { _electron as electron, expect, test } from './test'
@@ -31,7 +31,7 @@ const FAKE_CLAUDE = [
 
 test('/handoff opens a new tab beside the caller that follows its intake while the caller stays as it was', async () => {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, playbooks: { enabled: { handoff: true } } })
+  seedSettings(dataHome, { ...CANVAS_RENDERER_SETTINGS, playbooks: { enabled: { handoff: true } } })
   const launch = isolatedLaunch(dataHome)
   const bin = fakeAgentBin(dataHome, FAKE_CLAUDE)
   const env = { ...launch.env, PATH: `${bin}:${launch.env.PATH ?? ''}` }
@@ -45,12 +45,14 @@ test('/handoff opens a new tab beside the caller that follows its intake while t
     await expect(tabs).toHaveCount(2, { timeout: 90_000 })
     await expect(tabs.nth(1).getByRole('tab')).toHaveAttribute('aria-selected', 'true')
 
-    const handed = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
+    const handed = win.locator('.pane-slot:not([data-hidden]) .terminal-text')
     await expect(handed).toContainText('fake-intake-done', { timeout: 60_000 })
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-helper-textarea')).toBeFocused()
+    await expect(
+      win.locator('.pane-slot:not([data-hidden]) .ghostty-host:focus-within'),
+    ).toBeVisible()
 
     await tabs.nth(0).getByRole('tab').click()
-    const caller = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
+    const caller = win.locator('.pane-slot:not([data-hidden]) .terminal-text')
     await expect(caller).toContainText('this session is unchanged', { timeout: 30_000 })
     await expect(caller).toContainText('fake-handoff-started')
     await expect(caller).not.toContainText('fake-prompt')

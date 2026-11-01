@@ -7,10 +7,10 @@ import { type Condition, type FlowWindow, flowProbe, type StartEvent } from './p
 export const PROMPT_TEXT = '[❯$%#⟫]'
 
 export function shownRows(text: string, min = 1): Condition {
-  return { sel: '.xterm-rows', text, min, shown: true }
+  return { sel: '.terminal-text', text, min, shown: true }
 }
 
-export const SHOWN_INPUT: Condition = { sel: '.xterm-helper-textarea', shown: true, focus: true }
+export const SHOWN_INPUT: Condition = { sel: '.ghostty-host textarea', shown: true, focus: true }
 
 const MAIN_PROBE = `
 const { app } = require('electron')

@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { startFakeProvider } from './fakeProvider'
 import { _electron as electron, expect, type Page, test } from './test'
 
@@ -17,7 +17,7 @@ async function launchOstia(manager: object = {}, settings: object = {}) {
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
+    ...CANVAS_RENDERER_SETTINGS,
     manager: {
       agents: { fake: ['fake-agent'], sh: ['bash', '--norc', '--noprofile'] },
       ...manager,
@@ -89,7 +89,7 @@ function runMirror(portal: string, cwd: string, args: string[]): Mirror {
 }
 
 function managerView(win: Page) {
-  return win.locator('.manager-host .xterm-rows')
+  return win.locator('.manager-host ~ .terminal-text')
 }
 
 test('MGR-C21 ostia <agent> from outside mirrors a read-only manager and passes its exit code', async () => {

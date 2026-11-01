@@ -1,16 +1,16 @@
 import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import {
-  PROMPT,
   closeAllWorkspaces,
   emptyState,
   emptyWorkspace,
   expectHeld,
   newTerminalWorkspace,
   openWorkspace,
+  PROMPT,
   waitForTerminalFocus,
 } from './helpers'
-import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
+import { type ElectronApplication, expect, launchShared, type Page, test } from './test'
 
 let app: ElectronApplication | undefined
 let win: Page
@@ -37,58 +37,54 @@ test.afterAll(async () => {
   await app?.close()
 })
 
-test(
-  'boots with no workspace, and the new-workspace chord opens an empty one that offers a terminal',
-  { tag: '@core' },
-  async () => {
-    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-    await expectHeld(
-      async () => ({
-        terminals: await win.locator('.xterm').count(),
-        workspaces: await win.locator('.rail-tab').count(),
-      }),
-      { terminals: 0, workspaces: 0 },
-      1_000,
-    )
+test('boots with no workspace, and the new-workspace chord opens an empty one that offers a terminal', {
+  tag: '@core',
+}, async () => {
+  await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
+  await expectHeld(
+    async () => ({
+      terminals: await win.locator('.ghostty-host').count(),
+      workspaces: await win.locator('.rail-tab').count(),
+    }),
+    { terminals: 0, workspaces: 0 },
+    1_000,
+  )
 
-    await win.keyboard.press(chords.newWorkspace)
+  await win.keyboard.press(chords.newWorkspace)
 
-    await expect(win.locator('.rail-tab')).toHaveCount(1)
-    await expect(win.locator('.xterm')).toHaveCount(0)
-    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
-    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
-    await expect(win.locator('.rail-tab')).toHaveCount(1)
-    await expect(emptyState(win)).toHaveCount(0)
-    expect(bootErrors).toEqual([])
-  },
-)
+  await expect(win.locator('.rail-tab')).toHaveCount(1)
+  await expect(win.locator('.ghostty-host')).toHaveCount(0)
+  await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+  await expect(win.locator('.ghostty-host')).toHaveCount(1, { timeout: 15_000 })
+  await expect(win.locator('.terminal-text').first()).toContainText(PROMPT, { timeout: 15_000 })
+  await expect(win.locator('.rail-tab')).toHaveCount(1)
+  await expect(emptyState(win)).toHaveCount(0)
+  expect(bootErrors).toEqual([])
+})
 
-test(
-  'after the only workspace closes, New workspace opens a terminal at ~',
-  { tag: '@core' },
-  async () => {
-    test.setTimeout(60_000)
-    await openWorkspace(win)
-    const tab = win.locator('.rail-tab')
-    await expect(tab).toHaveCount(1)
+test('after the only workspace closes, New workspace opens a terminal at ~', {
+  tag: '@core',
+}, async () => {
+  test.setTimeout(60_000)
+  await openWorkspace(win)
+  const tab = win.locator('.rail-tab')
+  await expect(tab).toHaveCount(1)
 
-    await tab.hover()
-    await tab.getByRole('button', { name: 'Close' }).click()
+  await tab.hover()
+  await tab.getByRole('button', { name: 'Close' }).click()
 
-    await expect(tab).toHaveCount(0)
+  await expect(tab).toHaveCount(0)
 
-    await openWorkspace(win)
-    await expect(tab).toHaveCount(1)
-    await win.locator('.xterm').first().click()
-    await waitForTerminalFocus(win)
-    await win.keyboard.type('echo "ostia_cwd:$PWD:"')
-    await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows').first()).toContainText(`ostia_cwd:${home}:`, {
-      timeout: 15_000,
-    })
-  },
-)
+  await openWorkspace(win)
+  await expect(tab).toHaveCount(1)
+  await win.locator('.ghostty-host').first().click()
+  await waitForTerminalFocus(win)
+  await win.keyboard.type('echo "ostia_cwd:$PWD:"')
+  await win.keyboard.press('Enter')
+  await expect(win.locator('.terminal-text').first()).toContainText(`ostia_cwd:${home}:`, {
+    timeout: 15_000,
+  })
+})
 
 test('Ctrl+1 jumps to the first workspace from a focused terminal', async () => {
   await openWorkspace(win)
@@ -99,7 +95,7 @@ test('Ctrl+1 jumps to the first workspace from a focused terminal', async () => 
   await name.fill('second')
   await name.press('Enter')
 
-  await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
+  await win.locator('.pane-slot:not([data-hidden]) .ghostty-host').last().click()
   await waitForTerminalFocus(win)
   await win.keyboard.press(chords.firstWorkspace)
   await expect(win.locator('.rail-tab.active .tab-title')).toHaveText('home')

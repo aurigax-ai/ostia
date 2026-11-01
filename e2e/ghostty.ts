@@ -1,24 +1,15 @@
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron } from './test'
+import { type ElectronApplication, _electron as electron, type Page } from './test'
 
 export const GHOSTTY = {
   behavior: { gpuAcceleration: false },
-  terminal: { renderer: 'ghostty' },
   workspaces: { confirmQuit: false },
 }
 
 export const BENCH_ENGINES = [
-  { name: 'xterm-dom', settings: { behavior: { gpuAcceleration: false } } },
-  { name: 'xterm-webgl', settings: { behavior: { gpuAcceleration: true } } },
-  {
-    name: 'ghostty-canvas',
-    settings: { behavior: { gpuAcceleration: false }, terminal: { renderer: 'ghostty' } },
-  },
-  {
-    name: 'ghostty-gpu',
-    settings: { behavior: { gpuAcceleration: true }, terminal: { renderer: 'ghostty' } },
-  },
+  { name: 'ghostty-canvas', settings: { behavior: { gpuAcceleration: false } } },
+  { name: 'ghostty-gpu', settings: { behavior: { gpuAcceleration: true } } },
 ]
 
 export async function launchGhostty(

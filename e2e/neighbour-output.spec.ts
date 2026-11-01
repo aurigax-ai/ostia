@@ -11,18 +11,18 @@ test('a streaming neighbour pane still receives all its output while the other p
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.type('seq 1 60000; echo NEIGHBOUR-DONE')
     await win.keyboard.press('Enter')
     await win.keyboard.press(chords.splitRight)
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 15_000 })
     await win.keyboard.type('echo typed-in-active')
     await win.keyboard.press('Enter')
     const panes = win.locator('.pane[data-pane-id]')
-    await expect(panes.nth(1).locator('.xterm-rows')).toContainText('typed-in-active', {
+    await expect(panes.nth(1).locator('.terminal-text')).toContainText('typed-in-active', {
       timeout: 15_000,
     })
-    await expect(panes.nth(0).locator('.xterm-rows')).toContainText('NEIGHBOUR-DONE', {
+    await expect(panes.nth(0).locator('.terminal-text')).toContainText('NEIGHBOUR-DONE', {
       timeout: 30_000,
     })
   } finally {

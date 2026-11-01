@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { Blocks, RECOMPUTE_MS, StickyHeader } from './Blocks'
 
@@ -50,11 +50,11 @@ const ROW_HEIGHT = 17
 function terminalHost(): { host: HTMLDivElement; measured: () => number } {
   const stack = document.createElement('div')
   const host = document.createElement('div')
-  host.innerHTML = '<div class="xterm-screen"></div>'
+  host.innerHTML = '<div class="ghostty-screen"></div>'
   stack.append(host)
   document.body.append(stack)
   let reads = 0
-  const screen = host.querySelector('.xterm-screen') as HTMLElement
+  const screen = host.querySelector('.ghostty-screen') as HTMLElement
   screen.getBoundingClientRect = () => {
     reads++
     return { top: 0, height: ROW_HEIGHT * 24 } as DOMRect

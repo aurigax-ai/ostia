@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { defaultChord, isMac } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, restartApp, typeLine } from './helpers'
-import { type Locator, type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, type Locator, type Page, test } from './test'
 
 function segment(win: Page, name: string): Locator {
   return win.locator('.split-tab-segment', { hasText: name })
@@ -83,7 +83,7 @@ test('collapsed panes of a split tab keep running as strips, expand on focus and
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
 
     const wait = `while [ ! -e ${go} ]; do sleep 0.2; done`
     await typeLine(
@@ -124,7 +124,9 @@ test('collapsed panes of a split tab keep running as strips, expand on focus and
 
     await strip(win, ids.w1).getByRole('button', { name: 'Expand w1' }).click()
     await expect(strip(win, ids.w1)).toHaveCount(0)
-    await expect(cell(win, ids.w1).locator('.xterm-rows')).toContainText('printed-while-collapsed')
+    await expect(cell(win, ids.w1).locator('.terminal-text')).toContainText(
+      'printed-while-collapsed',
+    )
     await expect(segment(win, 'w1')).toHaveClass(/focused/)
     await expect(strip(win, ids.w3)).toHaveCount(1)
 
@@ -158,7 +160,7 @@ test('a collapsed terminal keeps its size, never 0x0, and refits to its cell on 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
 
     const whileCollapsed = `if [ -e ${trigger} ] && [ ! -e ${done} ]; then echo csize $(stty size); touch ${done}; ostia state done collapsed; fi`
     await typeLine(
@@ -171,7 +173,7 @@ test('a collapsed terminal keeps its size, never 0x0, and refits to its cell on 
     const w1 = (await segment(win, 'w1').getAttribute('data-segment-id')) ?? ''
     const w2 = (await segment(win, 'w2').getAttribute('data-segment-id')) ?? ''
     await segment(win, 'w1').locator('.split-tab-segment-main').click()
-    const rows = cell(win, w1).locator('.xterm-rows')
+    const rows = cell(win, w1).locator('.terminal-text')
     await expect
       .poll(
         async () => {
@@ -214,7 +216,7 @@ test('a browser and an editor in a split tab survive a collapse and an expand wi
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     const caller = (await win.locator('.pane-tab').first().getAttribute('data-tab-id')) ?? ''
     await typeLine(win, 'ostia process run "sleep 600" --name w1 --tab mix')
     await typeLine(win, 'ostia process run "sleep 600" --name w2 --tab mix')

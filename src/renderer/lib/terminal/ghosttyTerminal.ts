@@ -9,13 +9,13 @@ import {
   type SemanticPromptEvent,
 } from '@aurigax-ai/ghostty-web'
 import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
-import type { ILinkProvider } from '@xterm/xterm'
 import { isMac } from '@/platform'
 import { type GpuSlot, gpuBudget } from './gpuBudget'
 import type {
   OstiaTerminal,
   PauseTerminal,
   TerminalDisposable,
+  TerminalLinkProvider,
   TerminalOptions,
   TerminalParser,
   TerminalSearch,
@@ -84,7 +84,7 @@ class OscRoutes {
   }
 }
 
-export function oneBasedLinks(provider: ILinkProvider, live: () => boolean) {
+export function oneBasedLinks(provider: TerminalLinkProvider, live: () => boolean) {
   return {
     provideLinks(y: number, callback: (links: GhosttyLink[] | undefined) => void): void {
       if (!live()) {
@@ -150,6 +150,20 @@ function ghosttyGpuSlot(t: GhosttyTerm): GpuSlot {
       t.setPaused(true, { releaseRenderer: true })
     },
   })
+}
+
+const PASTE_AND_COPY_CODES = new Set(['KeyC', 'KeyV'])
+
+function typesNothing(event: KeyboardEvent): boolean {
+  return (
+    isMac &&
+    event.type === 'keydown' &&
+    event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    event.key.length === 1 &&
+    !PASTE_AND_COPY_CODES.has(event.code)
+  )
 }
 
 function forceSelectionOnOptionDrag(canvas: HTMLCanvasElement): void {
@@ -336,6 +350,7 @@ export function createGhosttyTerminal(
     onScroll: t.onScroll,
     onResize: t.onResize,
     onRender: t.onRender,
+    onWriteParsed: t.onWriteParsed,
     open: (parent) => {
       t.open(parent)
       if (slot) parent.addEventListener('webglcontextlost', () => queueMicrotask(slot.lost), true)
@@ -371,7 +386,7 @@ export function createGhosttyTerminal(
       }
     },
     attachCustomKeyEventHandler: (handler) =>
-      t.attachCustomKeyEventHandler((event) => !handler(event)),
+      t.attachCustomKeyEventHandler((event) => !handler(event) || typesNothing(event)),
     attachCustomWheelEventHandler: (handler) =>
       t.attachCustomWheelEventHandler((event) => !handler(event)),
     dispose: () => {
@@ -384,7 +399,13 @@ export function createGhosttyTerminal(
 
   return {
     term,
-    fit,
+    fit: {
+      proposeDimensions: () => fit.proposeDimensions(),
+      fit: () => {
+        const dims = fit.proposeDimensions()
+        if (dims && (dims.cols !== t.cols || dims.rows !== t.rows)) t.resize(dims.cols, dims.rows)
+      },
+    },
     search: {
       findNext: (text, findOptions) => search.findNext(text, findOptions),
       findPrevious: (text, findOptions) => search.findPrevious(text, findOptions),

@@ -2,7 +2,7 @@ import { cpSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { chords } from './chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { hoverInEditor, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
@@ -32,8 +32,8 @@ async function launch(
   mkdirSync(project, { recursive: true })
   for (const [name, text] of Object.entries(files)) writeFileSync(join(project, name), text)
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
+    ...CANVAS_RENDERER_SETTINGS,
+    workspaces: { ...CANVAS_RENDERER_SETTINGS.workspaces, defaultFolder: project },
     ...settings,
   })
   const options = isolatedLaunch(dataHome)

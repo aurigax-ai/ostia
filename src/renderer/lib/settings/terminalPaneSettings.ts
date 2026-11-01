@@ -30,11 +30,7 @@ export interface TerminalSettings {
   keepShells: boolean
   primarySelection: boolean
   macOptionIsMeta: boolean
-  renderer: TerminalRenderer
 }
-
-export const TERMINAL_RENDERERS = ['xterm', 'ghostty'] as const
-export type TerminalRenderer = (typeof TERMINAL_RENDERERS)[number]
 
 const CLIPBOARD_KEYS = ['shift', 'smart'] as const
 export type ClipboardKeys = (typeof CLIPBOARD_KEYS)[number]
@@ -73,7 +69,6 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   keepShells: false,
   primarySelection: true,
   macOptionIsMeta: false,
-  renderer: 'xterm',
 }
 
 export const DEFAULT_PANE_SETTINGS: PaneSettings = {
@@ -125,9 +120,6 @@ export function parseTerminalSettings(raw: unknown): TerminalSettings {
     allowedAppSchemes: parseAllowedAppSchemes(source.allowedAppSchemes),
     theme: parseThemeChoice(source.theme),
     shell: parseShellSetting(source.shell),
-    renderer: TERMINAL_RENDERERS.includes(source.renderer as TerminalRenderer)
-      ? (source.renderer as TerminalRenderer)
-      : DEFAULT_TERMINAL_SETTINGS.renderer,
   }
 }
 

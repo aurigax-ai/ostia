@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useCaptureStore } from '@/lib/capture/captureSession'
 import * as clearTerminal from '@/lib/terminal/clearTerminal'
+import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { TerminalMenu } from './TerminalMenu'
 

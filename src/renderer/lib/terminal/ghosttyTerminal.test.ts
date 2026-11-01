@@ -1,6 +1,5 @@
 import { Ghostty, Terminal as GhosttyTerm } from '@aurigax-ai/ghostty-web'
 import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
-import { Terminal as Xterm } from '@xterm/xterm'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
@@ -84,7 +83,7 @@ afterEach(() => {
 })
 
 describe('Ghostty terminal adapter', () => {
-  it('turns prompt events back into the OSC 133 data xterm hands its parser', () => {
+  it('turns prompt events back into the OSC 133 data the parser hands', () => {
     expect(promptMarkData({ kind: 'prompt-start', command: '' })).toBe('A')
     expect(promptMarkData({ kind: 'command-end', exitCode: 2, command: '' })).toBe('D;2')
     expect(promptMarkData({ kind: 'command-end', command: '' })).toBe('D')
@@ -192,7 +191,7 @@ describe('Ghostty terminal adapter', () => {
     expect(sent).toEqual(['\x1b[1;1R', '\x1b[1;1R'])
   })
 
-  it('maps xterm.js 1-based link lines and ranges onto Ghostty 0-based ones', () => {
+  it('maps 1-based link lines and ranges onto Ghostty 0-based ones', () => {
     const activate = vi.fn()
     const provider = oneBasedLinks(
       {
@@ -294,43 +293,31 @@ describe('Ghostty terminal adapter', () => {
     expect(y).toBeGreaterThan(0)
   })
 
-  it('starts both engines with no scroll animation and gives them the same value per wheel event', () => {
-    const { ghostty, host: ghosttyHost, target } = openInDocument()
-    const xterm = new Xterm({ smoothScrollDuration: 0, allowProposedApi: true })
-    const xtermHost = document.createElement('div')
-    document.body.append(xtermHost)
-    cleanups.push(
-      () => xtermHost.remove(),
-      () => xterm.dispose(),
-    )
+  it('starts with no scroll animation and animates only a notch wheel under full motion', () => {
+    const { ghostty, host, target } = openInDocument()
     expect(ghostty.options.smoothScrollDuration).toBe(0)
-    expect(xterm.options.smoothScrollDuration).toBe(0)
-    cleanups.push(
-      attachSmoothScroll(ghosttyHost, ghostty, false, createWheelClassifier()),
-      attachSmoothScroll(xtermHost, xterm, false, createWheelClassifier()),
-    )
-    const both = (init: WheelEventInit, legacy: { wheelDeltaY: number }): number[] => {
+    cleanups.push(attachSmoothScroll(host, ghostty, false, createWheelClassifier()))
+    const duration = (init: WheelEventInit, legacy: { wheelDeltaY: number }): number => {
       wheel(target, init, legacy)
-      wheel(xtermHost, init, legacy)
-      return [ghostty.options.smoothScrollDuration ?? -1, xterm.options.smoothScrollDuration ?? -1]
+      return ghostty.options.smoothScrollDuration ?? -1
     }
     const trackpad = (dy: number) =>
-      both({ deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaY: dy }, { wheelDeltaY: -3 * dy })
+      duration({ deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaY: dy }, { wheelDeltaY: -3 * dy })
 
     useSettingsStore.getState().setBehavior({ wheelSmoothScroll: true })
     useSettingsStore.getState().setByPath('appearance.motion', 'full')
-    expect(both(notch, notchLegacy)).toEqual([SMOOTH_SCROLL_MS, SMOOTH_SCROLL_MS])
+    expect(duration(notch, notchLegacy)).toBe(SMOOTH_SCROLL_MS)
 
     for (const dy of [45, 52, 61, 52]) trackpad(dy)
-    expect(trackpad(40)).toEqual([0, 0])
+    expect(trackpad(40)).toBe(0)
 
-    for (let i = 0; i < 5; i++) both(notch, notchLegacy)
+    for (let i = 0; i < 5; i++) duration(notch, notchLegacy)
     useSettingsStore.getState().setByPath('appearance.motion', 'reduced')
-    expect(both(notch, notchLegacy)).toEqual([0, 0])
+    expect(duration(notch, notchLegacy)).toBe(0)
 
     useSettingsStore.getState().setByPath('appearance.motion', 'full')
     useSettingsStore.getState().setBehavior({ wheelSmoothScroll: false })
-    expect(both(notch, notchLegacy)).toEqual([0, 0])
+    expect(duration(notch, notchLegacy)).toBe(0)
   })
 
   it('counts the matches of a search in the output and steps through them', () => {
@@ -339,7 +326,7 @@ describe('Ghostty terminal adapter', () => {
     const seen: string[] = []
     search.onDidChangeResults((r) => seen.push(`${r.resultIndex + 1}/${r.resultCount}`))
     const options = {
-      decorations: { matchOverviewRuler: '#888', activeMatchColorOverviewRuler: '#ff0' },
+      decorations: { matchBackground: '#888', activeMatchBackground: '#ff0' },
     }
     search.findNext('zqneedle', options)
     search.findNext('zqneedle', options)

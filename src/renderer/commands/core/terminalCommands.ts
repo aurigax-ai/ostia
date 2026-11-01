@@ -9,7 +9,7 @@ import {
 } from '@/lib/terminal/blockActions'
 import { clearKeepingScrollback } from '@/lib/terminal/clearTerminal'
 import { showHistoryAboveLive } from '@/lib/terminal/historyActions'
-import { historyScrollFor, terminalFor } from '@/lib/terminal/terminalHandles'
+import { historyScrollFor, terminalFor, terminalTextFor } from '@/lib/terminal/terminalHandles'
 import type { InputMode } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -45,6 +45,17 @@ export function registerTerminalCommands(): void {
         return { scrolled: term !== undefined }
       },
     })
+  registerCore<undefined, { focused: boolean }>({
+    id: 'terminal.reviewOutput',
+    category: 'terminal',
+    capabilities: ['drive-self'],
+    run: (_args, ctx) => {
+      const text = ctx.activePaneId ? terminalTextFor(ctx.activePaneId) : undefined
+      text?.review()
+      return { focused: text !== undefined }
+    },
+  })
+
   scroll('terminal.scrollToTop', (term) => term.scrollToTop())
   scroll('terminal.scrollToBottom', (term) => term.scrollToBottom())
   scroll('terminal.scrollPageUp', (term) => term.scrollPages(-1))

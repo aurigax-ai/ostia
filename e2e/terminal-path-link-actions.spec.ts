@@ -42,7 +42,7 @@ test('the hover hint names every path link action, and the modifier clicks open 
     await stubSystemOpeners(app)
     const win = await app.firstWindow()
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await typeLineToEnd(win, "clear; printf 'wrote notes/report.xlsx\\n'")
     const target = await linkPoint(win, /^wrote notes\/report\.xlsx\s*$/, 'report')
 

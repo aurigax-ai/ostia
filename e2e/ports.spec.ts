@@ -53,9 +53,9 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
     expect(extensionHosts(app)).toEqual([])
 
     await win.getByRole('tablist').getByRole('tab').first().click()
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await win.keyboard.press('Control+c')
-    await expect(win.locator('.xterm-rows').first()).toContainText('Keyboard interrupt', {
+    await expect(win.locator('.terminal-text').first()).toContainText('Keyboard interrupt', {
       timeout: 10_000,
     })
     await expect(chip).toHaveCount(0, { timeout: 20_000 })

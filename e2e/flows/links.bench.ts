@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { chords } from '../chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, seedSettings } from '../dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, seedSettings } from '../dataHome'
 import { openWorkspace, quitApp, shownTerminal, typeLineToEnd } from '../helpers'
 import { clickWith, hoverPoint, linkPoint } from '../terminalLinks'
 import { expect, test } from '../test'
@@ -12,7 +12,7 @@ import { RUNS, Samples, WARMUP } from './flowResults'
 test('bench links: path and web link click to the opened target', async () => {
   test.setTimeout(600_000)
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  seedSettings(dataHome, CANVAS_RENDERER_SETTINGS)
   const home = join(dataHome, 'home')
   mkdirSync(join(home, 'notes'), { recursive: true })
   writeFileSync(
@@ -32,7 +32,7 @@ test('bench links: path and web link click to the opened target', async () => {
       const path = await linkPoint(win, /^error at notes\/app\.ts:27:7\s*$/, 'app.ts')
       await hoverPoint(win, path)
       const editor = await measure(win, {
-        start: { type: 'mousedown', sel: '.xterm' },
+        start: { type: 'mousedown', sel: '.ghostty-host' },
         ends: { open: [{ sel: '.monaco-editor .active-line-number', text: '^27$', shown: true }] },
         act: () => clickWith(win, path, ['Control']),
       })
@@ -49,7 +49,7 @@ test('bench links: path and web link click to the opened target', async () => {
       await hoverPoint(win, web)
       const webviews = await win.locator('webview').count()
       const browser = await measure(win, {
-        start: { type: 'mousedown', sel: '.xterm' },
+        start: { type: 'mousedown', sel: '.ghostty-host' },
         ends: { open: [{ sel: 'webview', min: webviews + 1 }] },
         act: () => clickWith(win, web, ['Control']),
       })

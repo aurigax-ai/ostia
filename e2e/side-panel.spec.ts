@@ -1,6 +1,6 @@
 import { freshDataHome } from './dataHome'
 import { launchWindow, openWorkspace, quitApp } from './helpers'
-import { type ElectronApplication, type Page, expect, test } from './test'
+import { type ElectronApplication, expect, type Page, test } from './test'
 
 const filesButton = (win: Page) =>
   win.locator('.topbar').getByRole('button', { name: 'Files', exact: true })
@@ -17,7 +17,7 @@ test('the Files panel is open again after a restart only if it was open', async 
   await quitApp(session.app)
 
   session = await launchWindow(dataHome)
-  await expect(session.win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+  await expect(session.win.locator('.ghostty-host')).toHaveCount(1, { timeout: 15_000 })
   await expect(session.win.locator('#files-panel')).toBeVisible()
   await expect(filesButton(session.win)).toHaveAttribute('aria-pressed', 'true')
   await filesButton(session.win).click()
@@ -25,7 +25,7 @@ test('the Files panel is open again after a restart only if it was open', async 
   await quitApp(session.app)
 
   session = await launchWindow(dataHome)
-  await expect(session.win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+  await expect(session.win.locator('.ghostty-host')).toHaveCount(1, { timeout: 15_000 })
   await expect(session.win.locator('#files-panel')).toHaveCount(0)
   await quitApp(session.app)
 })
@@ -89,7 +89,7 @@ test('the right side panel switches in place without reloading a panel, hides, a
   await quitApp(app)
 
   session = await launchWindow(dataHome)
-  await expect(session.win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+  await expect(session.win.locator('.ghostty-host')).toHaveCount(1, { timeout: 15_000 })
   await expect(session.win.locator('#right-panel')).toHaveAttribute('aria-label', 'Graphs')
   await expect(session.win.locator('#right-panel')).not.toHaveAttribute('data-hidden')
   await expect(session.win.getByRole('separator', { name: 'Resize Graphs' })).toHaveAttribute(

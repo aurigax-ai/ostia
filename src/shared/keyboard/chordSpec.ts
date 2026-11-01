@@ -349,6 +349,7 @@ export const TERMINAL_COMMAND_CHORD_IDS = [
   'terminal.scrollPageDown',
   'terminal.scrollLineUp',
   'terminal.scrollLineDown',
+  'terminal.reviewOutput',
   'tab.moveLeft',
   'tab.moveRight',
 ] as const

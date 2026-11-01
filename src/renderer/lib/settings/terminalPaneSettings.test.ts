@@ -76,7 +76,6 @@ describe('parseTerminalSettings', () => {
       keepShells: false,
       primarySelection: true,
       macOptionIsMeta: false,
-      renderer: 'xterm',
     })
   })
 
@@ -94,12 +93,6 @@ describe('parseTerminalSettings', () => {
     expect(parseTerminalSettings({ scrollbackHistory: 'off' }).scrollbackHistory).toBe('off')
     expect(parseTerminalSettings({ scrollbackHistory: 2048.4 }).scrollbackHistory).toBe(2048)
     expect(parseTerminalSettings({ scrollbackHistory: 'all' }).scrollbackHistory).toBe('unlimited')
-  })
-
-  it('keeps a known terminal renderer and falls back to xterm for anything else', () => {
-    expect(parseTerminalSettings({ renderer: 'ghostty' }).renderer).toBe('ghostty')
-    expect(parseTerminalSettings({ renderer: 'kitty' }).renderer).toBe('xterm')
-    expect(parseTerminalSettings({ renderer: 1 }).renderer).toBe('xterm')
   })
 
   it('keeps the smart clipboard keys mode', () => {

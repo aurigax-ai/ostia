@@ -1,6 +1,7 @@
-import { Terminal } from '@xterm/headless'
+import type { HeadlessTerminal } from '@aurigax-ai/ghostty-web'
 import { describe, expect, it, vi } from 'vitest'
 import { en } from '../../shared/app/dict'
+import { createHeadlessTerminal } from '../../shared/terminal/ghosttyHeadless'
 import { HISTORY_LINES, hibernateSeam, restoreSeam, ScreenMirror } from './screenMirror'
 
 const RESTORE_SEAM = restoreSeam(en.native.paneBanner)
@@ -35,7 +36,7 @@ function zshSession(): string {
 }
 
 async function screenText(data: string, cols: number, rows = 30): Promise<string[]> {
-  const term = new Terminal({ cols, rows, scrollback: 5000, allowProposedApi: true })
+  const term = createHeadlessTerminal({ cols, rows, scrollback: 5000 })
   await new Promise<void>((resolve) => term.write(data, resolve))
   const lines: string[] = []
   for (let i = 0; i < term.buffer.active.length; i++) {
@@ -104,7 +105,9 @@ describe('ScreenMirror', () => {
 
   it('keeps colors and ends with an SGR reset', async () => {
     const history = await serialized(`${ESC}[31mred${ESC}[0m plain ${ESC}[38;2;1;2;3mrgb`)
-    expect(history).toBe(`${ESC}[0;31mred${ESC}[0m plain ${ESC}[0;38;2;1;2;3mrgb${ESC}[0m`)
+    expect(history).toBe(
+      `${ESC}[0m${ESC}[38;5;1mred${ESC}[0m plain ${ESC}[0m${ESC}[38;2;1;2;3mrgb${ESC}[0m`,
+    )
   })
 
   it('joins soft-wrapped rows into one line that rewraps at the new width', async () => {
@@ -154,7 +157,7 @@ describe('ScreenMirror', () => {
 
   it('walks the buffer again only after the screen changed', async () => {
     const mirror = await mirrored('FIRST-OUT\r\n')
-    const buffer = (mirror as unknown as { term: Terminal }).term.buffer.normal
+    const buffer = (mirror as unknown as { term: HeadlessTerminal }).term.buffer.normal
     const reads = vi.spyOn(buffer, 'getLine')
     const first = mirror.serialize()
     const walked = reads.mock.calls.length

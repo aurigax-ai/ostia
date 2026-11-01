@@ -44,7 +44,6 @@ export function createSessionFacts({
           prompt_style: text(settings.terminal?.prompt?.style, 'shell'),
         },
         terminal: {
-          engine: text(settings.terminal?.renderer, 'xterm'),
           gpu: settings.behavior?.gpuAcceleration === false ? 'off' : 'on',
         },
       },

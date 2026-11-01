@@ -4,12 +4,12 @@ import type {
   PanelToolbarEntry,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ExtensionSettingsStored } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { findPane, isPaneShown, paneIds, resetIds, tabsOfPane } from '@/lib/layout/tree'
 import * as callerFocus from '@/lib/panes/callerFocus'
 import { instanceKey } from '@/lib/panes/panelKeepAlive'
 import { registerOffscreenStarter } from '@/lib/terminal/offscreenStart'
+import type { OstiaTerminal as Terminal } from '@/lib/terminal/ostiaTerminal'
 import { isTitlePinned, resetPinnedTitles } from '@/lib/terminal/pinnedTitles'
 import { hasReplacedShell } from '@/lib/terminal/replacedShells'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'

@@ -113,7 +113,7 @@ edges:
   try {
     const again = await app.firstWindow()
     await again.waitForLoadState('domcontentloaded')
-    await expect(again.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
+    await expect(again.locator('.ghostty-host').first()).toBeVisible({ timeout: 30_000 })
     await expect
       .poll(() => panelEval(app, 'document.readyState'), { timeout: 30_000 })
       .toBe('complete')
@@ -181,7 +181,7 @@ edges: []
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
+    await expect(win.locator('.ghostty-host').first()).toBeVisible({ timeout: 30_000 })
     await expect.poll(() => extensionHosts(app), { timeout: 30_000 }).toContain('graphs')
     await win.keyboard.press(chords.palette)
     const inbox = await showInbox(win)

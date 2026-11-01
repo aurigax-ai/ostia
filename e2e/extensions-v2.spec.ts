@@ -50,7 +50,7 @@ test('an extension installed while ostia runs asks for approval, then moves its 
     await approval.getByRole('button', { name: 'Approve and enable' }).click()
     await expect(approval).toBeHidden()
 
-    const term = win.locator('.xterm').first()
+    const term = win.locator('.ghostty-host').first()
     await term.click()
     await win.keyboard.type('ostia hello chip')
     await win.keyboard.press('Enter')

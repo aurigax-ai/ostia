@@ -94,7 +94,7 @@ test('SCX-C4 the Screens panel draws the screen with noVNC, and only Take over l
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await expect(win.locator('.xterm-rows').filter({ hasText: '~/desk' })).toHaveCount(1, {
+    await expect(win.locator('.terminal-text').filter({ hasText: '~/desk' })).toHaveCount(1, {
       timeout: 30_000,
     })
     await win.keyboard.press(chords.palette)

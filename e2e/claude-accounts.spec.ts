@@ -58,7 +58,7 @@ test('CLA-E1 Add opens the sign-in this platform uses (a dialog on Linux, a logi
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const terminal = win.locator('.pane-slot:not([data-hidden]) .xterm-rows').first()
+    const terminal = win.locator('.pane-slot:not([data-hidden]) .terminal-text').first()
     let loginProfile: string | null = null
 
     await typeLine(win, 'claude')
@@ -108,11 +108,11 @@ test('CLA-E1 Add opens the sign-in this platform uses (a dialog on Linux, a logi
       await expect(win.getByText('Add Claude account').first()).toBeVisible()
       await expect(
         win
-          .locator('.pane-slot:not([data-hidden]) .xterm-rows')
+          .locator('.pane-slot:not([data-hidden]) .terminal-text')
           .filter({ hasText: `fake-claude dir=${loginProfile}` }),
       ).toHaveCount(1, { timeout: 15_000 })
     }
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await typeLine(win, 'claude')
     await expect(terminal).toContainText(`fake-claude dir=${profile}`, { timeout: 15_000 })
     await win.keyboard.press('Control+C')
@@ -120,7 +120,7 @@ test('CLA-E1 Add opens the sign-in this platform uses (a dialog on Linux, a logi
     await typeLine(win, 'ostia account switch 1')
     await win.getByRole('button', { name: 'Allow once' }).first().click()
     await expect(terminal).toContainText(/1\s+default/, { timeout: 15_000 })
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await typeLine(win, 'ostia account switch 2')
     await expect(win.getByRole('button', { name: 'Allow once' }).first()).toBeVisible({
       timeout: 15_000,
@@ -180,7 +180,7 @@ test('CLA-E2 a switch moves an idle Claude to the new account at once and a work
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const terminal = win.locator('.pane-slot:not([data-hidden]) .xterm-rows').first()
+    const terminal = win.locator('.pane-slot:not([data-hidden]) .terminal-text').first()
     await typeLine(
       win,
       'ostia agent run claude idle --name idle && ostia agent run claude busy --name busy; echo started-$?',

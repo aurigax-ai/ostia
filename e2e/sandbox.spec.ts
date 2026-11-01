@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { CANVAS_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace, PROMPT, runInTerminal } from './helpers'
 import { sandboxedShell, setSandbox } from './sandboxShell'
 import { _electron as electron, expect, type Page, test } from './test'
@@ -13,8 +13,8 @@ async function launch() {
   const project = join(home, 'project')
   mkdirSync(project, { recursive: true })
   seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
+    ...CANVAS_RENDERER_SETTINGS,
+    workspaces: { ...CANVAS_RENDERER_SETTINGS.workspaces, defaultFolder: project },
   })
   const launchOptions = isolatedLaunch(dataHome)
   const app = await electron.launch({
@@ -36,11 +36,11 @@ test('SBX-C1 a new pane in a sandboxed workspace runs under srt', async () => {
       .first()
       .getByRole('button', { name: 'New terminal tab' })
       .click()
-    await expect(win.locator('.xterm-rows:visible')).toContainText(PROMPT, { timeout: 20_000 })
-    await win.locator('.xterm:visible').click()
+    await expect(win.locator('.terminal-text:visible')).toContainText(PROMPT, { timeout: 20_000 })
+    await win.locator('.ghostty-host:visible').click()
     await win.keyboard.type('echo "proxy=$HTTPS_PROXY"')
     await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows:visible')).toContainText('proxy=http://', {
+    await expect(win.locator('.terminal-text:visible')).toContainText('proxy=http://', {
       timeout: 15_000,
     })
   } finally {
@@ -56,7 +56,7 @@ test('SBX-C21 reads the workspace folder and the shell rc, and blocks and cwd st
     mkdirSync(join(project, 'sub'), { recursive: true })
     await sandboxedShell(win)
     await runInTerminal(win, 'cat readme.txt; echo "rc=$C21_RC"; cat ~/.zshrc | head -1; cd sub')
-    const rows = win.locator('.xterm-rows').first()
+    const rows = win.locator('.terminal-text').first()
     await expect(rows).toContainText('PROJECT-README', { timeout: 15_000 })
     await expect(rows).toContainText('export C21_RC=loaded')
     await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
@@ -82,7 +82,7 @@ async function restartShell(win: Page, marker: string): Promise<void> {
   await expect(restart).toBeVisible({ timeout: 10_000 })
   await restart.click()
   await expect(restart).toHaveCount(0)
-  const rows = win.locator('.xterm-rows').first()
+  const rows = win.locator('.terminal-text').first()
   await expect(async () => {
     await runInTerminal(win, `echo ${marker}=\${HTTPS_PROXY:+on}`)
     await expect(rows).toContainText(`${marker}=on`, { timeout: 2_000 })
@@ -117,7 +117,7 @@ test('SBX-C101 a plugin keeps its state in the sandbox own plugins folder while 
       win,
       'D=$CLAUDE_CODE_PLUGIN_CACHE_DIR; { mkdir -p $D/data/codex/state/ws/jobs; echo own=$?; touch ~/.claude/plugins/data/codex/state/x; echo real=$?; } > plugin-data.txt 2>&1; echo plugin_data_done',
     )
-    await expect(win.locator('.xterm-rows').first()).toContainText('plugin_data_done', {
+    await expect(win.locator('.terminal-text').first()).toContainText('plugin_data_done', {
       timeout: 20_000,
     })
     const out = readFileSync(join(project, 'plugin-data.txt'), 'utf8')

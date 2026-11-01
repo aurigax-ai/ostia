@@ -3,8 +3,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, expectHeld, openWorkspace, runInTerminal } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { expectHeld, openWorkspace, PROMPT, runInTerminal } from './helpers'
+import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 const GRACE_OUTLIVED_MS = 5_000
 
@@ -40,8 +40,8 @@ function collectPageErrors(win: Page): string[] {
 }
 
 async function shellPid(win: Page, index: number, tag: string): Promise<string> {
-  await runInTerminal(win, `echo ${tag}-$$`, win.locator('.xterm').nth(index))
-  const rows = win.locator('.xterm-rows').nth(index)
+  await runInTerminal(win, `echo ${tag}-$$`, win.locator('.ghostty-host').nth(index))
+  const rows = win.locator('.terminal-text').nth(index)
   await expect(rows).toContainText(new RegExp(`${tag}-\\d+`), { timeout: 15_000 })
   const match = (await rows.innerText()).match(new RegExp(`${tag}-(\\d+)`))
   return match?.[1] ?? ''
@@ -53,8 +53,8 @@ test('a renderer error shows the recovery screen, and Reload window brings the s
   try {
     await openWorkspace(win)
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-    await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 15_000 })
+    await expect(win.locator('.terminal-text').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
     const before = [await shellPid(win, 0, 'left'), await shellPid(win, 1, 'right')]
 
     await app.evaluate(({ BrowserWindow }) => {
@@ -64,12 +64,12 @@ test('a renderer error shows the recovery screen, and Reload window brings the s
       timeout: 10_000,
     })
     await expect(win.getByText('test crash requested by the E2E hook')).toBeVisible()
-    await expect(win.locator('.xterm')).toHaveCount(0)
+    await expect(win.locator('.ghostty-host')).toHaveCount(0)
     await win.waitForTimeout(GRACE_OUTLIVED_MS)
 
     await win.getByRole('button', { name: 'Reload window' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
-    await expect(win.locator('.xterm-rows').nth(0)).toContainText(`left-${before[0]}`, {
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 20_000 })
+    await expect(win.locator('.terminal-text').nth(0)).toContainText(`left-${before[0]}`, {
       timeout: 15_000,
     })
     const after = [await shellPid(win, 0, 'leftagain'), await shellPid(win, 1, 'rightagain')]
@@ -91,16 +91,16 @@ test('Reload Window from the command palette keeps the same shells running', asy
   try {
     await openWorkspace(win)
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-    await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 15_000 })
+    await expect(win.locator('.terminal-text').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
     const before = [await shellPid(win, 0, 'palleft'), await shellPid(win, 1, 'palright')]
 
     await win.keyboard.press(chords.palette)
     await win.keyboard.type('Reload Window')
     await win.getByRole('option', { name: /Reload Window/ }).click()
 
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
-    await expect(win.locator('.xterm-rows').nth(0)).toContainText(`palleft-${before[0]}`, {
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 20_000 })
+    await expect(win.locator('.terminal-text').nth(0)).toContainText(`palleft-${before[0]}`, {
       timeout: 15_000,
     })
     const after = [await shellPid(win, 0, 'palleftagain'), await shellPid(win, 1, 'palrightagain')]
@@ -162,7 +162,7 @@ test('a renderer process crash reloads the window and keeps the shells alive', a
       app
         .evaluate(({ BrowserWindow }) =>
           BrowserWindow.getAllWindows()[0]?.webContents.executeJavaScript(
-            "[...document.querySelectorAll('.xterm-rows')].map((r) => r.textContent).join('\\n')",
+            "[...document.querySelectorAll('.terminal-text')].map((r) => r.textContent).join('\\n')",
           ),
         )
         .catch(() => '')
@@ -192,8 +192,8 @@ test('closing a diff tab keeps the window and the other terminals working', asyn
 
     await openWorkspace(win)
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-    await runInTerminal(win, 'ostia git open a.txt', win.locator('.xterm').nth(0))
+    await expect(win.locator('.ghostty-host')).toHaveCount(2, { timeout: 15_000 })
+    await runInTerminal(win, 'ostia git open a.txt', win.locator('.ghostty-host').nth(0))
     const diffTab = win.locator('.pane-tab', { hasText: 'a.txt' })
     await expect(win.locator('.diff-surface')).toBeVisible({ timeout: 15_000 })
 
@@ -201,10 +201,10 @@ test('closing a diff tab keeps the window and the other terminals working', asyn
     await diffTab.getByRole('button', { name: 'Close tab' }).click()
     await expect(win.locator('.diff-surface')).toHaveCount(0)
 
-    await expect(win.locator('.xterm')).toHaveCount(2)
+    await expect(win.locator('.ghostty-host')).toHaveCount(2)
     await expect(win.getByRole('heading', { name: 'Something went wrong' })).toHaveCount(0)
-    await runInTerminal(win, 'echo after_diff_$((6*7))', win.locator('.xterm').nth(1))
-    await expect(win.locator('.xterm-rows').nth(1)).toContainText('after_diff_42', {
+    await runInTerminal(win, 'echo after_diff_$((6*7))', win.locator('.ghostty-host').nth(1))
+    await expect(win.locator('.terminal-text').nth(1)).toContainText('after_diff_42', {
       timeout: 15_000,
     })
     await expectHeld(

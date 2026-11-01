@@ -24,7 +24,7 @@ function terminalWith(
   container.getBoundingClientRect = () => rectOf(10, 20, 0, 0)
   const host = document.createElement('div')
   const screen = document.createElement('div')
-  screen.className = 'xterm-screen'
+  screen.className = 'ghostty-screen'
   screen.getBoundingClientRect = () => rectOf(30, 40, 800, 480)
   host.append(screen)
   const term = {

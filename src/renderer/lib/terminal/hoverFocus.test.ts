@@ -21,7 +21,7 @@ describe('canFocusOnHover', () => {
   })
 
   it('allows focus moves away from a terminal or editor input', () => {
-    focused('<textarea class="xterm-helper-textarea" id="t"></textarea>', '#t')
+    focused('<div class="ghostty-host"><textarea id="t"></textarea></div>', '#t')
     expect(canFocusOnHover(document)).toBe(true)
     focused('<div class="monaco-editor"><textarea id="m"></textarea></div>', '#m')
     expect(canFocusOnHover(document)).toBe(true)

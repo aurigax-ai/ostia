@@ -18,7 +18,7 @@ test('Ctrl+click on a file path in terminal output opens it in the editor at tha
   try {
     const win = await app.firstWindow()
     await openWorkspace(win)
-    await win.locator('.xterm').first().click()
+    await win.locator('.ghostty-host').first().click()
     await typeLineToEnd(win, "clear; printf 'error at notes/app.ts:27:7\\n'")
     const target = await linkPoint(win, /^error at notes\/app\.ts:27:7\s*$/, 'app.ts')
     await clickWith(win, target, ['Control'])

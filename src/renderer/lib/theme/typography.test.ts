@@ -19,13 +19,13 @@ const RELATIVE_SCALE_FILES = new Map([
 ])
 
 const SETTINGS_FONT_FILES = new Map([
-  ['src/renderer/components/terminal/Terminal.tsx', 'passes the terminal font settings to xterm'],
+  ['src/renderer/components/terminal/Terminal.tsx', 'passes the terminal font settings to Ghostty'],
   [
     'src/renderer/components/terminal/useTerminalOptions.ts',
-    'passes the terminal font settings to xterm',
+    'passes the terminal font settings to Ghostty',
   ],
   ['src/renderer/lib/terminal/ghosttyTerminal.ts', 'passes the terminal font settings to Ghostty'],
-  ['src/renderer/lib/terminal/readOnlyTerminal.ts', 'passes the terminal font settings to xterm'],
+  ['src/renderer/lib/terminal/readOnlyTerminal.ts', 'passes the terminal font settings to Ghostty'],
   [
     'src/renderer/components/editor/useMonacoEditor.ts',
     'passes the editor font settings to Monaco',
@@ -37,11 +37,11 @@ const SETTINGS_FONT_FILES = new Map([
   ['src/renderer/components/editor/DiffView.tsx', 'passes the editor font settings to Monaco'],
   [
     'src/renderer/components/prompt/InputEditor.tsx',
-    'draws over xterm cells, so it takes the terminal font, cell height and cell width',
+    'draws over terminal cells, so it takes the terminal font, cell height and cell width',
   ],
   [
     'src/renderer/components/prompt/useInputLayout.ts',
-    'draws over xterm cells, so it takes the terminal font, cell height and cell width',
+    'draws over terminal cells, so it takes the terminal font, cell height and cell width',
   ],
   [
     'src/renderer/components/prompt/InputEditorMenu.tsx',
@@ -162,7 +162,7 @@ function classProblems(line: string): string[] {
 function styleKeyProblem(line: string): string | null {
   const match = line.match(STYLE_KEYS)
   return match
-    ? `${match[0]} → typography comes from CSS tokens; only files that hand font settings to xterm or Monaco may set it inline`
+    ? `${match[0]} → typography comes from CSS tokens; only files that hand font settings to Ghostty or Monaco may set it inline`
     : null
 }
 
@@ -214,7 +214,7 @@ describe('typography guard', () => {
     expect(offenders).toEqual([])
   })
 
-  it('sets no inline font styles outside the files that pass font settings to xterm or Monaco', () => {
+  it('sets no inline font styles outside the files that pass font settings to Ghostty or Monaco', () => {
     const offenders = codeFiles
       .filter((file) => !SETTINGS_FONT_FILES.has(rel(file)))
       .flatMap((file) =>

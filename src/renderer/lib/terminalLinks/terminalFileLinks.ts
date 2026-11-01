@@ -1,12 +1,17 @@
 import { findFileLinks, resolveLinkPath } from '@shared/files/fileLinks'
-import type { IBufferCellPosition, IBufferRange, ILink, ILinkProvider } from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
-import type { OstiaTerminal as Terminal } from '@/lib/terminal/ostiaTerminal'
+import type {
+  OstiaTerminal as Terminal,
+  TerminalLink,
+  TerminalLinkProvider,
+  TerminalPosition,
+  TerminalRange,
+} from '@/lib/terminal/ostiaTerminal'
 import type { PathLinkTarget } from './linkModifier'
 
 interface LogicalLine {
   text: string
-  cells: IBufferCellPosition[]
+  cells: TerminalPosition[]
 }
 
 const STAT_TTL_MS = 5_000
@@ -17,7 +22,7 @@ export function readLogicalLine(term: Terminal, row: number): LogicalLine {
   let first = row - 1
   while (first > 0 && buffer.getLine(first)?.isWrapped) first--
   let text = ''
-  const cells: IBufferCellPosition[] = []
+  const cells: TerminalPosition[] = []
   for (let y = first; y < buffer.length; y++) {
     const line = buffer.getLine(y)
     if (!line || (y > first && !line.isWrapped)) break
@@ -34,7 +39,7 @@ export function readLogicalLine(term: Terminal, row: number): LogicalLine {
 
 export function matchesOnRow<T extends { start: number; end: number }>(
   matches: T[],
-  cells: IBufferCellPosition[],
+  cells: TerminalPosition[],
   row: number,
 ): T[] {
   return matches.filter((m) => {
@@ -45,11 +50,11 @@ export function matchesOnRow<T extends { start: number; end: number }>(
 }
 
 export function provideFound(
-  pending: Promise<ILink | null>[],
-  callback: (links: ILink[] | undefined) => void,
+  pending: Promise<TerminalLink | null>[],
+  callback: (links: TerminalLink[] | undefined) => void,
 ): void {
   void Promise.all(pending).then((links) => {
-    const found = links.filter((l): l is ILink => l !== null)
+    const found = links.filter((l): l is TerminalLink => l !== null)
     callback(found.length > 0 ? found : undefined)
   })
 }
@@ -106,7 +111,7 @@ export interface FileLinkDeps {
   probe: (written: string) => Promise<Kind | null>
   activate: (how: PathLinkTarget, action: FileLinkAction, target: FileLinkTarget) => void
   target: (event: MouseEvent) => PathLinkTarget | null
-  hover: (range: IBufferRange, action: FileLinkAction, offers: PathLinkTarget[]) => void
+  hover: (range: TerminalRange, action: FileLinkAction, offers: PathLinkTarget[]) => void
   leave: () => void
 }
 
@@ -115,7 +120,7 @@ interface Kinds {
   probed: Kind | null
 }
 
-export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILinkProvider {
+export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): TerminalLinkProvider {
   const cache = new LRUCache<string, Promise<Kinds>>({
     ttl: STAT_TTL_MS,
     max: STAT_CACHE_MAX,
@@ -149,7 +154,7 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
         return
       }
       provideFound(
-        matches.map(async (m): Promise<ILink | null> => {
+        matches.map(async (m): Promise<TerminalLink | null> => {
           const path = resolveLinkPath(m.path, cwd ?? '~')
           const kinds = await kindsCached(m.path, path, confinedOnly)
           const action = fileLinkAction({
