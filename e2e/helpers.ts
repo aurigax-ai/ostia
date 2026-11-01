@@ -203,7 +203,7 @@ export interface TerminalBox {
 }
 
 export async function terminalRowBox(win: Page, hasText: RegExp): Promise<TerminalBox> {
-  const slot = win.locator('.pane-slot:not([data-hidden])')
+  const slot = win.locator('.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden])')
   const region = slot.locator('.terminal-text').first()
   await expect(region.locator('div', { hasText }).first()).toBeAttached({ timeout: 15_000 })
   const found = await region.evaluate(
@@ -222,7 +222,7 @@ export async function terminalRowBox(win: Page, hasText: RegExp): Promise<Termin
 }
 
 export async function terminalRowHeight(win: Page): Promise<number> {
-  const slot = win.locator('.pane-slot:not([data-hidden])')
+  const slot = win.locator('.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden])')
   const rows = await slot.locator('.terminal-text').first().getAttribute('data-rows')
   const box = await slot.locator('.ghostty-screen').first().boundingBox()
   if (!box || !rows) throw new Error('terminal has no grid')
@@ -230,7 +230,9 @@ export async function terminalRowHeight(win: Page): Promise<number> {
 }
 
 export function shownTerminalText(win: Page): Locator {
-  return win.locator('.pane-slot:not([data-hidden]) .terminal-text').first()
+  return win
+    .locator('.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .terminal-text')
+    .first()
 }
 
 export function shownTerminal(win: Page): Locator {
