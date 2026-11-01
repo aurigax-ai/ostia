@@ -1,4 +1,4 @@
-import { BookmarkSimpleIcon, GitForkIcon, HandshakeIcon } from '@phosphor-icons/react'
+import { BookmarkSimpleIcon, BugIcon, GitForkIcon, HandshakeIcon } from '@phosphor-icons/react'
 import { Hint } from '@/components/common/Hint'
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButtonMenu } from '@/components/common/SplitButton'
@@ -8,6 +8,7 @@ import { askForHandoff, canHandOff } from '@/lib/handoff/handoffMenu'
 import type { PaneNode } from '@/lib/layout/types'
 import { parkRefusalOf, requestPark } from '@/lib/park/parkTab'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useIncidentReportStore } from '@/stores/agents/incidentReportStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 
@@ -37,6 +38,9 @@ export function AgentActionsMenu({
         </MenuItem>
       ) : null}
       <ParkItem workspaceId={workspaceId} paneId={pane.id} />
+      <MenuItem icon={BugIcon} onClick={() => useIncidentReportStore.getState().open(pane.id)}>
+        {d.privacy.incidents.menu}
+      </MenuItem>
     </SplitButtonMenu>
   )
 }

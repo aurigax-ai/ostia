@@ -351,8 +351,8 @@ describe('journal', () => {
     vi.setSystemTime(Date.now() + 5000)
     failPaneMail('c')
     expect(mailJournal.mail.mock.calls).toEqual([
-      ['expired:hibernated', MAIL_TTL_MS + 1000],
-      ['pane-closed', 5000],
+      ['expired:hibernated', MAIL_TTL_MS + 1000, 'b'],
+      ['pane-closed', 5000, 'c'],
     ])
     expect(JSON.stringify(mailJournal.mail.mock.calls)).not.toContain('secret')
   })
@@ -362,7 +362,7 @@ describe('journal', () => {
     leaseMail('b', 'prompt', all)
     vi.setSystemTime(Date.now() + LEASE_MS + 1)
     inboxOf('b')
-    expect(mailJournal.leaseTimeout).toHaveBeenCalledWith(LEASE_MS + 1)
+    expect(mailJournal.leaseTimeout).toHaveBeenCalledWith(LEASE_MS + 1, 'b')
   })
 })
 

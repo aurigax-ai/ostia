@@ -30,6 +30,7 @@ import { ensureCaps, needsElevation } from '../approvals/controlElevation'
 import type { Reach, ScriptReach } from '../approvals/reach'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import type { AgentJournal } from '../diagnostics/agentJournal'
+import { type IncidentTimeline, runInIncident } from '../diagnostics/incidentTimeline'
 import { privateRunDir, socketPath } from '../platform/privateTmp'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { externalPaneMessage, internalPaneArgs, SCRIPT_COMMANDS } from './commandArgs'
@@ -234,10 +235,22 @@ export interface ControlServerDeps {
   reach?: Pick<Reach, 'scriptReach' | 'recordCreated'>
   usage?: Pick<ScriptTokenUsageLog, 'record' | 'connected'>
   journal?: Pick<AgentJournal, 'call'>
+  incidents?: Pick<IncidentTimeline, 'begin'>
   version?: () => string | null
 }
 
 let callJournal: ControlServerDeps['journal']
+let callIncidents: ControlServerDeps['incidents']
+
+function incidentCall(
+  name: string,
+  params: unknown,
+  caller: string | undefined,
+  incidents: ControlServerDeps['incidents'],
+) {
+  if (!incidents || name === 'hello') return undefined
+  return incidents.begin(calledTarget(params).paneId, name, caller)
+}
 
 export async function callControlMethod(
   name: string,
@@ -245,7 +258,14 @@ export async function callControlMethod(
   ctx: ControlMethodContext,
 ): Promise<unknown> {
   const began = performance.now()
+  const incident = incidentCall(
+    name,
+    params,
+    ctx.identity.kind === 'pane' ? ctx.identity.externalId : undefined,
+    callIncidents,
+  )
   const journaled = (bytes: number, code?: string): void => {
+    incident?.end(code)
     callJournal?.call({
       method: name,
       caller: ctx.identity.kind,
@@ -263,7 +283,7 @@ export async function callControlMethod(
     if (m.cap) {
       await ensureCaps(ctx.authed, ctx.identity, [m.cap], name, describeParams(name, params))
     }
-    const result = await m.handler(params, ctx)
+    const result = await runInIncident(incident, () => m.handler(params, ctx))
     journaled(callJournal ? answerBytes(result) : 0)
     return result
   } catch (err) {
@@ -295,13 +315,22 @@ function callsOn(conn: MessageConnection, session: ConnectionSession, deps: Cont
       const method = usage && tokenId ? calledMethod(name, params) : name
       const target = usage && tokenId ? calledTarget(params) : {}
       const began = performance.now()
+      const incident = incidentCall(
+        name,
+        params,
+        session.authed && resolveExternal(session.authed.externalId)?.kind === 'pane'
+          ? session.authed.externalId
+          : undefined,
+        deps.incidents,
+      )
       const journaled = (bytes: number, code?: string): void => {
+        incident?.end(code)
         const caller = session.authed ? resolveExternal(session.authed.externalId)?.kind : undefined
         if (!deps.journal || !caller || name === 'hello') return
         deps.journal.call({ method: name, caller, ms: performance.now() - began, bytes, code })
       }
       try {
-        const result = await handler(params, token)
+        const result = await runInIncident(incident, () => handler(params, token))
         if (usage && tokenId) usage.record(tokenId, { method, target, ...resultOutcome(result) })
         journaled(deps.journal ? answerBytes(result) : 0)
         return result
@@ -583,6 +612,7 @@ function serveConnection(deps: ControlServerDeps, socket: Socket): void {
 export function registerControlServer(deps: ControlServerDeps, socketPathOverride?: string): void {
   const path = socketPathOverride ?? controlSocketPath()
   callJournal = deps.journal
+  callIncidents = deps.incidents
   try {
     rmSync(path, { force: true })
   } catch {}

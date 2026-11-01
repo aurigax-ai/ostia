@@ -47,6 +47,7 @@
     "bench:terminal": "OSTIA_E2E_BENCH=1 bash scripts/e2e.sh --workers=1",
     "bench:flows": "rm -rf bench-results/flows/latest; OSTIA_E2E_BENCH=flows bash scripts/e2e.sh --workers=1 e2e/flows; node scripts/flowsReport.mjs",
     "bench:agent-tokens": "node scripts/agentTokens.mjs",
+    "repro:incident": "node scripts/reproIncident.mjs",
     "postinstall": "install-electron"
   },
   "dependencies": {

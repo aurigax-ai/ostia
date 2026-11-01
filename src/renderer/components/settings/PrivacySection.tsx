@@ -29,6 +29,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { redactedCountLabel } from '@/lib/assist/chatRedaction'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useTelemetryConsentStore } from '@/stores/app/telemetryConsentStore'
+import { IncidentsGroup } from './IncidentsGroup'
 import { CategoryDetails } from './TelemetryConsentDialog'
 import { TelemetryReportsDialog } from './TelemetryReportsDialog'
 
@@ -344,6 +345,7 @@ export function PrivacySection(): JSX.Element {
       <KindList kinds={kinds} />
       <Patterns onChanged={() => setRevision((n) => n + 1)} />
       <TestBox revision={revision} />
+      <IncidentsGroup />
       <TelemetryGroup />
     </SettingsPage>
   )
