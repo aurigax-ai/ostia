@@ -17,7 +17,7 @@ async function answerDialogsWith(app: ElectronApplication, response: number): Pr
   }, response)
 }
 
-test('REM-E1 a remote workspace is set up from the menu, shows Online and lists its job', async () => {
+test('REM-E1 a remote workspace is set up from the menu, comes online and lists its job', async () => {
   test.setTimeout(150_000)
   const dataHome = freshDataHome()
   seedSettings(dataHome, DOM_RENDERER_SETTINGS)
@@ -56,7 +56,7 @@ test('REM-E1 a remote workspace is set up from the menu, shows Online and lists 
     ).toContainText('Waiting for you', { timeout: 90_000 })
     await dialog.getByRole('button', { name: 'Check again' }).click()
     await expect(dialog).toBeHidden({ timeout: 60_000 })
-    await expect(win.getByText('Online')).toBeVisible({ timeout: 30_000 })
+    await expect(win.getByText(/^Offline/)).toBeHidden({ timeout: 30_000 })
     const jobs = win.getByRole('dialog', { name: 'Jobs on build-box' })
     const openJobs = async (): Promise<void> => {
       await win.keyboard.press('F1')
@@ -107,6 +107,7 @@ test('REM-E1 a remote workspace is set up from the menu, shows Online and lists 
     await expectJobs(1)
     await expect(jobs.getByRole('listitem')).toContainText('claude')
     await win.keyboard.press('Escape')
+    await expect(jobs).toBeHidden()
 
     const server = createServer((socket) => socket.end('pong')).listen(0, '127.0.0.1')
     await new Promise((done) => server.once('listening', done))

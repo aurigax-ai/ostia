@@ -52,11 +52,25 @@ if [ -n "$control_op" ]; then
     exit 255
   fi
   case "$control_op" in
-    forward) echo "$control_forward" >> "$control_socket.forwards" ;;
+    forward)
+      echo "$control_forward" >> "$control_socket.forwards"
+      ready="$control_socket.ready.$$"
+      node "$(dirname "$0")/forward.js" "$control_forward" "$ready" > /dev/null 2>&1 < /dev/null &
+      echo "$control_forward $!" >> "$control_socket.pids"
+      until [ -e "$ready" ] || ! kill -0 $! 2>/dev/null; do sleep 0.02; done
+      rm -f "$ready" ;;
     cancel)
-      if [ -f "$control_socket.forwards" ]; then grep -vxF "$control_forward" "$control_socket.forwards" > "$control_socket.tmp"; mv "$control_socket.tmp" "$control_socket.forwards"; fi ;;
+      if [ -f "$control_socket.forwards" ]; then grep -vxF "$control_forward" "$control_socket.forwards" > "$control_socket.tmp"; mv "$control_socket.tmp" "$control_socket.forwards"; fi
+      if [ -f "$control_socket.pids" ]; then
+        while read -r spec pid; do [ "$spec" = "$control_forward" ] && kill "$pid" 2>/dev/null; done < "$control_socket.pids"
+        grep -v "^$control_forward " "$control_socket.pids" > "$control_socket.tmp"; mv "$control_socket.tmp" "$control_socket.pids"
+      fi ;;
     check) echo "Master running (pid=1)" ;;
-    exit) rm -f "$control_socket" "$control_socket.forwards"; echo "Exit request sent." ;;
+    exit)
+      if [ -f "$control_socket.pids" ]; then
+        while read -r spec pid; do kill "$pid" 2>/dev/null; done < "$control_socket.pids"
+      fi
+      rm -f "$control_socket" "$control_socket.forwards" "$control_socket.pids"; echo "Exit request sent." ;;
   esac
   exit 0
 fi
