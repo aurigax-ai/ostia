@@ -456,7 +456,7 @@ test('KSH-C88 a kept program in a workspace that is not open is attached again b
     await typeLine(second.win, 'kept-input')
     await expect
       .poll(async () =>
-        occurrences((await shownTerminal(second.win).textContent()) ?? '', 'kept-input'),
+        occurrences((await shownTerminalText(second.win).textContent()) ?? '', 'kept-input'),
       )
       .toBeGreaterThanOrEqual(2)
   } finally {
