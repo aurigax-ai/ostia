@@ -76,7 +76,6 @@ describe('parseTerminalSettings', () => {
       keepShells: false,
       primarySelection: true,
       macOptionIsMeta: false,
-      renderer: 'xterm',
     })
   })
 

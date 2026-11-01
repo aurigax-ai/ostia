@@ -11,7 +11,16 @@ import {
 import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
 import { isMac } from '@/platform'
 import { type GpuSlot, gpuBudget } from './gpuBudget'
-import type { OstiaTerminal, PauseTerminal, TerminalDisposable, TerminalLinkProvider, TerminalOptions, TerminalParser, TerminalSearch, WebLinkHandler } from './ostiaTerminal'
+import type {
+  OstiaTerminal,
+  PauseTerminal,
+  TerminalDisposable,
+  TerminalLinkProvider,
+  TerminalOptions,
+  TerminalParser,
+  TerminalSearch,
+  WebLinkHandler,
+} from './ostiaTerminal'
 
 type OscHandler = (data: string) => boolean | Promise<boolean>
 
@@ -141,6 +150,20 @@ function ghosttyGpuSlot(t: GhosttyTerm): GpuSlot {
       t.setPaused(true, { releaseRenderer: true })
     },
   })
+}
+
+const PASTE_AND_COPY_CODES = new Set(['KeyC', 'KeyV'])
+
+function typesNothing(event: KeyboardEvent): boolean {
+  return (
+    isMac &&
+    event.type === 'keydown' &&
+    event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    event.key.length === 1 &&
+    !PASTE_AND_COPY_CODES.has(event.code)
+  )
 }
 
 function forceSelectionOnOptionDrag(canvas: HTMLCanvasElement): void {
@@ -362,7 +385,7 @@ export function createGhosttyTerminal(
       }
     },
     attachCustomKeyEventHandler: (handler) =>
-      t.attachCustomKeyEventHandler((event) => !handler(event)),
+      t.attachCustomKeyEventHandler((event) => !handler(event) || typesNothing(event)),
     attachCustomWheelEventHandler: (handler) =>
       t.attachCustomWheelEventHandler((event) => !handler(event)),
     dispose: () => {

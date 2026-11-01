@@ -1,5 +1,5 @@
+import { FitAddon } from '@aurigax-ai/ghostty-web'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
-import { FitAddon } from '@xterm/addon-fit'
 import {
   afterAll,
   afterEach,
@@ -102,9 +102,6 @@ describe('TerminalView phone size hold', () => {
   })
 
   beforeEach(async () => {
-    useSettingsStore.setState({
-      terminal: { ...useSettingsStore.getState().terminal, renderer: 'ghostty' },
-    })
     await loadGhostty()
   })
 
@@ -128,9 +125,6 @@ describe('TerminalView phone size hold', () => {
         ...attached,
       })
     }
-    useSettingsStore.setState({
-      terminal: { ...useSettingsStore.getState().terminal, renderer: 'xterm' },
-    })
     const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockImplementation(() => ({
       cols: Math.floor(box.width / 10),
       rows: Math.floor(box.height / 20),

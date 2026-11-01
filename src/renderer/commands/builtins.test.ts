@@ -5,7 +5,6 @@ import {
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentResume } from '@shared/agents/agentResume'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
-import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerAgentCommand } from '@/commands/agentCommand'
 import { resumeAnyway } from '@/lib/agents/folderTrust'
@@ -36,10 +35,13 @@ import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
 import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { openGhostty, stubCanvas } from '../../../test/ghosttyTerminal'
 import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
 import { wireCommandBridge } from './bridge'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
+
+stubCanvas()
 
 let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
@@ -252,7 +254,7 @@ describe('builtins route to store actions', () => {
   })
 
   it('scrolls the caller’s terminal to the top, bottom, by a page and by a line', async () => {
-    const term = new Terminal({ cols: 20, rows: 4, scrollback: 100 })
+    const term = await openGhostty({ cols: 20, rows: 4 }, { scrollback: 100 })
     const unregister = registerTerminal('pT', term)
     const top = () => term.buffer.active.viewportY
     try {
@@ -263,9 +265,9 @@ describe('builtins route to store actions', () => {
       expect(await run('terminal.scrollToTop')).toEqual({ ok: true, result: { scrolled: true } })
       expect(top()).toBe(0)
       await run('terminal.scrollPageDown')
-      expect(top()).toBe(3)
-      await run('terminal.scrollLineDown')
       expect(top()).toBe(4)
+      await run('terminal.scrollLineDown')
+      expect(top()).toBe(5)
       await run('terminal.scrollLineUp')
       await run('terminal.scrollPageUp')
       expect(top()).toBe(0)
@@ -284,7 +286,7 @@ describe('builtins route to store actions', () => {
   it('terminal.clear clears the caller’s terminal, redraws the prompt only when idle, and needs shell', async () => {
     const described = commands.describe().find((c) => c.id === 'terminal.clear')
     expect(described?.capabilities).toEqual(['shell'])
-    const term = new Terminal({ cols: 20, rows: 4 })
+    const term = await openGhostty({ cols: 20, rows: 4 })
     const unregister = registerTerminal('pT', term)
     const sent: string[] = []
     term.onData((d) => sent.push(d))

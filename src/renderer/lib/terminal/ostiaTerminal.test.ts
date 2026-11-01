@@ -1,18 +1,11 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
-import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
-import { type OstiaTerminal, terminalScreen } from './ostiaTerminal'
+import { describe, expect, it } from 'vitest'
+import { terminalScreen } from './ostiaTerminal'
 
 describe('OstiaTerminal', () => {
-  it('is satisfied by xterm.js as it is', () => {
-    expectTypeOf<Xterm>().toMatchTypeOf<OstiaTerminal>()
-  })
-
-  it('finds the screen of either engine', () => {
-    for (const name of ['xterm-screen', 'ghostty-screen']) {
-      const host = document.createElement('div')
-      host.innerHTML = `<div><canvas class="${name}"></canvas></div>`
-      expect(terminalScreen(host)?.className).toBe(name)
-    }
+  it('finds the screen of the terminal', () => {
+    const host = document.createElement('div')
+    host.innerHTML = '<div><canvas class="ghostty-screen"></canvas></div>'
+    expect(terminalScreen(host)?.className).toBe('ghostty-screen')
     expect(terminalScreen(document.createElement('div'))).toBeNull()
   })
 })

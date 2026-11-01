@@ -2,12 +2,13 @@ import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const terms: FakeXterm[] = []
+const terms: FakeTerminal[] = []
 
-class FakeXterm {
+class FakeTerminal {
   options: Record<string, unknown>
   written: string[] = []
   size: [number, number] = [80, 24]
+  keyHandler: ((event: KeyboardEvent) => boolean) | null = null
   constructor(options: Record<string, unknown>) {
     this.options = options
     terms.push(this)
@@ -19,10 +20,26 @@ class FakeXterm {
   resize(cols: number, rows: number): void {
     this.size = [cols, rows]
   }
+  attachCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean): void {
+    this.keyHandler = handler
+  }
+  hasSelection(): boolean {
+    return false
+  }
+  getSelection(): string {
+    return ''
+  }
   dispose(): void {}
 }
 
-vi.mock('@xterm/xterm', () => ({ Terminal: FakeXterm }))
+vi.mock('@/lib/terminal/ghosttyEngine', () => ({
+  ghosttyModule: () => ({
+    createGhosttyTerminal: (options: Record<string, unknown>) => ({
+      term: new FakeTerminal(options),
+    }),
+  }),
+  loadGhostty: () => Promise.resolve(),
+}))
 
 const { ManagerView } = await import('./ManagerView')
 
@@ -59,7 +76,7 @@ describe('ManagerView', () => {
       attachOnly: true,
     })
     const term = terms[0]
-    expect(term?.options.disableStdin).toBe(true)
+    expect(term?.keyHandler?.(new KeyboardEvent('keydown', { key: 'a' }))).toBe(false)
     expect(term?.size).toEqual([132, 40])
     expect(term?.written).toEqual(['hello'])
     expect(pty().write).not.toHaveBeenCalled()

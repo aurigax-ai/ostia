@@ -7,10 +7,10 @@ import { usePromptGeometry } from './usePromptGeometry'
 function terminalHost(): HTMLDivElement {
   const stack = document.createElement('div')
   const host = document.createElement('div')
-  host.innerHTML = '<div class="xterm-screen"></div>'
+  host.innerHTML = '<div class="ghostty-screen"></div>'
   stack.append(host)
   document.body.append(stack)
-  const screen = host.querySelector('.xterm-screen') as HTMLElement
+  const screen = host.querySelector('.ghostty-screen') as HTMLElement
   screen.getBoundingClientRect = () =>
     ({ left: 0, top: 0, width: 8 * 80, height: 17 * 24 }) as DOMRect
   return host

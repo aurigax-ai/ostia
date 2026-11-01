@@ -1,18 +1,9 @@
 import '@testing-library/jest-dom/vitest'
+import { FitAddon } from '@aurigax-ai/ghostty-web'
 import type { ClipboardContents } from '@shared/app/appApi'
 import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
-import {
-  act,
-  cleanup,
-  fireEvent,
-  type RenderResult,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { act, cleanup, fireEvent, type RenderResult, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { FitAddon } from '@xterm/addon-fit'
-import type { ILink, ILinkHandler, ILinkProvider, Terminal as Xterm } from '@xterm/xterm'
 import type { ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
@@ -24,6 +15,12 @@ import { runAppChord } from '@/lib/keyboard/chords'
 import { CLIPBOARD_READ_MS } from '@/lib/keyboard/clipboardKeys'
 import { allPanes, createPane, findPane, firstPaneId, tabsOf } from '@/lib/layout/tree'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
+import type {
+  TerminalLink as ILink,
+  WebLinkHandler as ILinkHandler,
+  TerminalLinkProvider as ILinkProvider,
+  OstiaTerminal as Xterm,
+} from '@/lib/terminal/ostiaTerminal'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { createFileLinkProvider } from '@/lib/terminalLinks/terminalFileLinks'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -31,7 +28,6 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
-import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -52,22 +48,10 @@ vi.mock('@/platform', () => ({
   },
 }))
 
-const xtermRenderer = vi.hoisted(() => ({
-  pause: vi.fn(),
-  dispose: vi.fn(),
-  create: vi.fn(),
-}))
 const gl = vi.hoisted(() => ({ software: false }))
 
 vi.mock('@/lib/terminal/softwareGl', () => ({
   drawOnGpu: (requested: boolean) => requested && !gl.software,
-}))
-
-vi.mock('@/lib/terminal/xtermRenderer', () => ({
-  createXtermRenderer: (...args: unknown[]) => {
-    xtermRenderer.create(...args)
-    return xtermRenderer
-  },
 }))
 
 vi.mock('@/lib/terminalLinks/terminalFileLinks', async (importOriginal) => {
@@ -98,18 +82,13 @@ class InitialObservation {
   }
 }
 
-function useGhostty(): void {
-  useSettingsStore.setState({
-    terminal: { ...useSettingsStore.getState().terminal, renderer: 'ghostty' },
-  })
+async function renderGhostty(ui: ReactElement): Promise<RenderResult> {
+  await loadGhostty()
+  return renderSettled(ui)
 }
 
-async function renderGhostty(ui: ReactElement): Promise<RenderResult> {
-  useGhostty()
-  const result = render(ui)
-  await act(() => loadGhostty())
-  return result
-}
+const linkHandlerOf = (term: Xterm): ILinkHandler =>
+  (term.options as unknown as { linkHandler: ILinkHandler }).linkHandler
 
 const linkRange = { start: { x: 1, y: 1 }, end: { x: 30, y: 1 } }
 
@@ -131,9 +110,9 @@ async function renderLinkTerminal(): Promise<{
   showWorkspace()
   useLayoutStore.getState().ensure('w1')
   const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
-  await renderSettled(<TerminalView workspaceId="w1" paneId={paneId} />)
+  await renderGhostty(<TerminalView workspaceId="w1" paneId={paneId} />)
   const term = terminalFor(paneId) as unknown as Xterm
-  return { term, links: term.options.linkHandler as ILinkHandler, paneId }
+  return { term, links: linkHandlerOf(term), paneId }
 }
 
 const browserUrls = (): (string | undefined)[] =>
@@ -198,7 +177,7 @@ describe('TerminalView engines', () => {
         dropped: false,
         shell: name,
       })
-      await renderSettled(<TerminalView workspaceId="w1" paneId={paneId} />)
+      await renderGhostty(<TerminalView workspaceId="w1" paneId={paneId} />)
       await waitFor(() =>
         expect(findPane(useLayoutStore.getState().byWorkspace.w1.root, paneId)?.title).toBe(name),
       )
@@ -215,7 +194,7 @@ describe('TerminalView engines', () => {
       dropped: false,
       shell: 'bash',
     })
-    await renderSettled(<TerminalView workspaceId="w1" paneId={paneId} />)
+    await renderGhostty(<TerminalView workspaceId="w1" paneId={paneId} />)
     const titleOf = (): string | undefined =>
       findPane(useLayoutStore.getState().byWorkspace.w1.root, paneId)?.title
     await waitFor(() => expect(titleOf()).toBe('bash'))
@@ -223,26 +202,6 @@ describe('TerminalView engines', () => {
     const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
     act(() => deliver('\x1b]0;build logs\x07'))
     await waitFor(() => expect(titleOf()).toBe('build logs'))
-  })
-
-  it('an xterm pane hands its renderer to the hidden-pane pause and drops it on unmount', async () => {
-    const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    expect(xtermRenderer.pause).toHaveBeenLastCalledWith(true)
-    unmount()
-    expect(xtermRenderer.dispose).toHaveBeenCalledTimes(1)
-  })
-
-  it('an xterm pane stays on the DOM renderer and still parks when WebGL runs in software', async () => {
-    gl.software = true
-    try {
-      const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-      expect(xtermRenderer.create).toHaveBeenLastCalledWith(expect.anything(), false)
-      expect(xtermRenderer.pause).toHaveBeenLastCalledWith(true)
-      unmount()
-      expect(xtermRenderer.dispose).toHaveBeenCalledTimes(1)
-    } finally {
-      gl.software = false
-    }
   })
 
   it('draws a new terminal with Ghostty and starts its shell through the shared path', async () => {
@@ -264,7 +223,7 @@ describe('TerminalView engines', () => {
     useLayoutStore.setState({
       byWorkspace: { w1: { root: pane, activePaneId: 'p1', zoomedPaneId: null } },
     })
-    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" cwd="/w/tree" />)
+    await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" cwd="/w/tree" />)
     await waitFor(() =>
       expect(window.ostia.pty.attach).toHaveBeenCalledWith(
         'p1',
@@ -293,7 +252,7 @@ describe('TerminalView engines', () => {
       dropped: false,
       cwdMissing: true,
     })
-    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" cwd="/w/gone" />)
+    await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" cwd="/w/gone" />)
     await waitFor(() =>
       expect(findPane(useLayoutStore.getState().byWorkspace.w1.root, 'p1')).toMatchObject({
         resumeFolderMissing: '/w/gone',
@@ -304,33 +263,10 @@ describe('TerminalView engines', () => {
     )
   })
 
-  it('keeps xterm.js for a terminal opened before the switch', async () => {
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    act(() => useGhostty())
-    expect(container.querySelector('.xterm-host')).not.toBeNull()
-    expect(container.querySelector('.ghostty-host')).toBeNull()
-  })
-
-  it('lets Option-drag fall back to native selection under mouse tracking in xterm.js', async () => {
-    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    expect(terminalFor('p1')?.options.macOptionClickForcesSelection).toBe(true)
-  })
-
-  it('rescales glyphs that overlap their cell in xterm.js', async () => {
-    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    expect(terminalFor('p1')?.options.rescaleOverlappingGlyphs).toBe(true)
-  })
-
-  it('keeps the kitty keyboard protocol off in xterm.js', async () => {
-    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    const xterm = terminalFor('p1') as unknown as Xterm
-    expect(xterm.options.vtExtensions?.kittyKeyboard).toBe(false)
-  })
-
-  it('sends ESC CR for Shift+Enter in xterm.js', async () => {
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+  it('sends ESC CR for Shift+Enter', async () => {
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
-    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter', keyCode: 13, shiftKey: true })
     await waitFor(() =>
       expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x1b\r', undefined),
@@ -339,9 +275,9 @@ describe('TerminalView engines', () => {
   })
 
   it('tags a key the human pressed in the terminal as typed, and the same data from a command as untagged', async () => {
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
-    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     Object.defineProperty(window, 'event', {
       value: { isTrusted: true, type: 'keydown', target: textarea },
       configurable: true,
@@ -357,13 +293,13 @@ describe('TerminalView engines', () => {
   })
 
   it('keeps a waiting pane waiting through focus and query replies', async () => {
-    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
     useAttentionStore.setState({
       byPane: { p1: { state: 'waiting', unread: true, message: 'Allow Bash?', at: 1 } },
     })
     for (const reply of ['\x1b[I', '\x1b[O', '\x1b[?1;2c', '\x1b[24;80R']) {
-      terminalFor('p1')?.input(reply, false)
+      terminalFor('p1')?.input(reply, true)
     }
     expect(useAttentionStore.getState().byPane.p1.state).toBe('waiting')
     expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x1b[?1;2c', undefined)
@@ -373,14 +309,14 @@ describe('TerminalView engines', () => {
     ['a letter', { key: 'a', code: 'KeyA', keyCode: 65 }, 'a'],
     ['an arrow', { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38 }, '\x1b[A'],
     ['F5', { key: 'F5', code: 'F5', keyCode: 116 }, '\x1b[15~'],
-    ['Super+F3', { key: 'F3', code: 'F3', keyCode: 114, metaKey: true }, '\x1b[1;9R'],
+    ['Super+F3', { key: 'F3', code: 'F3', keyCode: 114, metaKey: true }, '\x1b[13;9~'],
   ])('ends the wait of a pane when the human presses %s', async (_name, event, bytes) => {
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
     useAttentionStore.setState({
       byPane: { p1: { state: 'waiting', unread: true, message: 'Allow Bash?', at: 1 } },
     })
-    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     Object.defineProperty(window, 'event', {
       value: { isTrusted: true, type: 'keydown', target: textarea },
       configurable: true,
@@ -393,96 +329,13 @@ describe('TerminalView engines', () => {
     expect(useAttentionStore.getState().byPane.p1.state).not.toBe('waiting')
   })
 
-  it('repaints a held prompt once and acks it once after a resize in xterm.js', async () => {
-    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
-    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
-    const prompt = '\x1b]133;A\x07$ '
-    act(() => deliver(prompt))
-    await waitFor(() => expect(useBlocksStore.getState().drafts.p1).toBeDefined())
-    await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
-    const fitted = vi
-      .spyOn(FitAddon.prototype, 'proposeDimensions')
-      .mockReturnValue({ cols: 100, rows: 30 })
-    onTestFinished(() => fitted.mockRestore())
-    act(() =>
-      useSettingsStore.setState((s) => ({
-        appearance: {
-          ...s.appearance,
-          terminal: { ...s.appearance.terminal, size: s.appearance.terminal.size + 1 },
-        },
-      })),
-    )
-    await waitFor(() => expect(window.ostia.pty.resize).toHaveBeenCalledWith('p1', 100, 30))
-    const xterm = terminalFor('p1') as unknown as Xterm
-    const writes = vi.spyOn(xterm, 'write')
-    const redraw = `\r\x1b[K$ ${'r'.repeat(PTY_ACK_CHARS)}`
-    act(() => deliver(redraw))
-    await waitFor(() => expect(xterm.cols).toBe(100))
-    await act(() => new Promise((resolve) => setTimeout(resolve, 100)))
-    expect(writes.mock.calls.filter(([data]) => data === redraw)).toHaveLength(1)
-    expect(vi.mocked(window.ostia.pty.ack).mock.calls).toEqual([
-      ['p1', prompt.length + redraw.length],
-    ])
-  })
-
-  it('draws and acks output once when a resize lands between write slices in xterm.js', async () => {
-    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
-    await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
-    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
-    const chunks = ['first', 'second', 'third'].map(
-      (word) => `${word}-out\r\n${' '.repeat(PTY_ACK_CHARS)}\r\n`,
-    )
-    const fitted = vi
-      .spyOn(FitAddon.prototype, 'proposeDimensions')
-      .mockReturnValue({ cols: 100, rows: 30 })
-    onTestFinished(() => fitted.mockRestore())
-    let now = performance.now()
-    const clock = vi.spyOn(performance, 'now').mockImplementation(() => {
-      now += 20
-      return now
-    })
-    act(() => {
-      for (const chunk of chunks) deliver(chunk)
-    })
-    await new Promise<void>((resolve) =>
-      setTimeout(() => {
-        clock.mockRestore()
-        act(() =>
-          useSettingsStore.setState((s) => ({
-            appearance: {
-              ...s.appearance,
-              terminal: { ...s.appearance.terminal, size: s.appearance.terminal.size + 1 },
-            },
-          })),
-        )
-        resolve()
-      }),
-    )
-    const xterm = terminalFor('p1') as unknown as Xterm
-    await waitFor(() => expect(xterm.cols).toBe(100))
-    await act(() => new Promise((resolve) => setTimeout(resolve, 100)))
-    const lines = Array.from({ length: xterm.buffer.active.length }, (_, y) =>
-      xterm.buffer.active.getLine(y)?.translateToString(true),
-    )
-    expect(lines.filter((line) => line?.endsWith('-out'))).toEqual([
-      'first-out',
-      'second-out',
-      'third-out',
-    ])
-    expect(vi.mocked(window.ostia.pty.ack).mock.calls).toEqual(
-      chunks.map((chunk) => ['p1', chunk.length]),
-    )
-  })
-
   describe('a pane that is not the active one', () => {
     async function renderNeighbour(): Promise<(data: string) => void> {
       const pane = { ...createPane('terminal'), id: 'p1' }
       useLayoutStore.setState({
         byWorkspace: { w1: { root: pane, activePaneId: 'other', zoomedPaneId: null } },
       })
-      await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
       await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
       await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
       return vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
@@ -563,8 +416,8 @@ describe('TerminalView engines', () => {
       if (realClipboard) Object.defineProperty(navigator, 'clipboard', realClipboard)
       else Reflect.deleteProperty(navigator, 'clipboard')
     })
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
     await waitFor(() =>
       expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo pasted_$((6*7))', 'paste'),
@@ -572,8 +425,8 @@ describe('TerminalView engines', () => {
   })
 
   it('Ctrl+scroll over a terminal zooms its font in and out', async () => {
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    const target = container.querySelector('.xterm') as HTMLElement
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+    const target = container.querySelector('.ghostty-host') as HTMLElement
     const fontSize = () => terminalFor('p1')?.options.fontSize ?? 0
     const scroll = (deltaY: number) =>
       act(() => {
@@ -596,10 +449,10 @@ describe('TerminalView engines', () => {
     stopTracking()
   })
 
-  it('moves the pane cwd to the folder an xterm shell reports with OSC 7', async () => {
+  it('moves the pane cwd to the folder a shell reports with OSC 7', async () => {
     useLayoutStore.getState().ensure('w1')
     const { activePaneId } = useLayoutStore.getState().byWorkspace.w1
-    await renderSettled(<TerminalView workspaceId="w1" paneId={activePaneId} />)
+    await renderGhostty(<TerminalView workspaceId="w1" paneId={activePaneId} />)
     await waitFor(() => expect(window.ostia.pty.onData).toHaveBeenCalled())
     const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
     act(() => deliver('\x1b]7;file:///tmp\x07'))
@@ -640,9 +493,9 @@ describe('TerminalView engines', () => {
         if (realClipboard) Object.defineProperty(navigator, 'clipboard', realClipboard)
         else Reflect.deleteProperty(navigator, 'clipboard')
       })
-      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
       await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
-      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
       fireEvent.keyDown(textarea, reload)
       fireEvent.keyDown(textarea, { key: 'u', code: 'KeyU', keyCode: 85, ctrlKey: true })
       await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
@@ -659,8 +512,8 @@ describe('TerminalView engines', () => {
     })
     vi.mocked(window.ostia.clipboard.contents).mockResolvedValueOnce({ files: [], image: true })
     const user = userEvent.setup()
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     act(() => textarea.focus())
     await user.keyboard('{Control>}v{/Control}')
     await waitFor(() =>
@@ -706,8 +559,8 @@ describe('TerminalView engines', () => {
         files: [...contents.files],
         image: contents.image,
       })
-      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+      const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
       fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
       await waitFor(() =>
         expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', written, source),
@@ -724,8 +577,8 @@ describe('TerminalView engines', () => {
       image: true,
     })
     const user = userEvent.setup()
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     act(() => textarea.focus())
     await user.keyboard('{Control>}v{/Control}')
     await waitFor(() =>
@@ -792,8 +645,8 @@ describe('TerminalView engines', () => {
       os.mac = false
     })
     clipboardText('echo hi')
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     pasteEvent(textarea, 'echo hi', ['text/plain'])
     pressEnter(textarea)
     expect(written('echo hi', '\r')).toEqual(['echo hi', '\r'])
@@ -819,8 +672,8 @@ describe('TerminalView engines', () => {
       })
       clipboardText('echo hi')
       const release = heldContents()
-      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+      const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
       stopClipboardClock()
       pasteEvent(textarea, 'echo hi', ['Files', 'text/plain'])
       pressEnter(textarea)
@@ -838,8 +691,8 @@ describe('TerminalView engines', () => {
     })
     clipboardText('echo hi')
     vi.mocked(window.ostia.clipboard.contents).mockReturnValueOnce(new Promise(() => {}))
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     stopClipboardClock()
     pasteEvent(textarea, 'echo hi', ['Files', 'text/plain'])
     pressEnter(textarea)
@@ -857,8 +710,8 @@ describe('TerminalView engines', () => {
     })
     clipboardText('echo hi')
     const release = heldContents()
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     stopClipboardClock()
     fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
     pressEnter(textarea)
@@ -883,9 +736,9 @@ describe('TerminalView engines', () => {
         cursor: 0,
         dropped: false,
       })
-      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
       await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
-      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
       act(() => textarea.focus())
       fireEvent.keyDown(textarea, chord)
       const input = await screen.findByRole('textbox', { name: 'Find in terminal' })
@@ -899,151 +752,148 @@ describe('TerminalView engines', () => {
     })
   }
 
-  for (const engine of ['xterm', 'Ghostty']) {
-    it(`${engine}: Ctrl+click reveals a folder in Files, opens an outside folder in the file manager and opens an outside file; Ctrl+Shift and Ctrl+Shift+Alt hand it to the system, never a program`, async () => {
-      const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
-      onTestFinished(() => fitted.mockRestore())
-      useFileTreeStore.setState({ revealed: null })
-      useUIStore.setState({ filesOpen: false })
-      useEditorRevealStore.setState({ pending: {} })
-      showWorkspace()
-      useLayoutStore.setState({
-        byWorkspace: {
-          w1: {
-            root: { ...createPane('terminal'), id: 'p1' },
-            activePaneId: 'p1',
-            zoomedPaneId: null,
-          },
+  it(`Ctrl+click reveals a folder in Files, opens an outside folder in the file manager and opens an outside file; Ctrl+Shift and Ctrl+Shift+Alt hand it to the system, never a program`, async () => {
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+    onTestFinished(() => fitted.mockRestore())
+    useFileTreeStore.setState({ revealed: null })
+    useUIStore.setState({ filesOpen: false })
+    useEditorRevealStore.setState({ pending: {} })
+    showWorkspace()
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: {
+          root: { ...createPane('terminal'), id: 'p1' },
+          activePaneId: 'p1',
+          zoomedPaneId: null,
         },
-      })
-      vi.mocked(window.ostia.pty.attach).mockResolvedValue({
-        created: true,
-        buffer: 'notes/sub\r\n/out/shots/\r\n/out/shots/report.txt:7\r\n',
-        cursor: 0,
-        dropped: false,
-      })
-      vi.mocked(window.ostia.fs.stat).mockImplementation(async (path) =>
-        path === '/home/me/notes/sub' ? 'dir' : null,
-      )
-      vi.mocked(window.ostia.terminalLinks.probe).mockImplementation(async (_pane, path) =>
-        path === '/out/shots' ? 'dir' : path === '/out/shots/report.txt' ? 'file' : null,
-      )
-      vi.mocked(window.ostia.terminalLinks.admit).mockResolvedValue({
-        ok: true,
-        path: '/out/shots/report.txt',
-      })
-      vi.mocked(window.ostia.terminalLinks.openDefault).mockResolvedValue({ ok: true })
-      vi.mocked(window.ostia.terminalLinks.showInFolder).mockResolvedValue({ ok: true })
-      const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile')
-      const rect = vi
-        .spyOn(Element.prototype, 'getBoundingClientRect')
-        .mockReturnValue(new DOMRect(0, 0, 800, 600))
-      try {
-        const ui = <TerminalView workspaceId="w1" paneId="p1" cwd="/home/me" />
-        if (engine === 'Ghostty') await renderGhostty(ui)
-        else await renderSettled(ui)
-        await waitFor(() => expect(createFileLinkProvider).toHaveBeenCalled())
-        const provider = vi.mocked(createFileLinkProvider).mock.results[0].value as ILinkProvider
-        const linkOn = async (row: number): Promise<ILink> => {
-          let found: ILink | undefined
-          await waitFor(async () => {
-            const links = await new Promise<ILink[] | undefined>((resolve) =>
-              provider.provideLinks(row, resolve),
-            )
-            found = links?.[0]
-            expect(found).toBeDefined()
-          })
-          return found as ILink
-        }
-        const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
-        const hover = (link: ILink): void => {
-          act(() => link.hover?.(new MouseEvent('mousemove'), link.text))
-        }
-        const ctrlClick = (link: ILink, keys: Partial<MouseEvent> = {}): void => {
-          act(() =>
-            link.activate({ ctrlKey: true, isTrusted: true, ...keys } as MouseEvent, link.text),
-          )
-        }
-
-        const inside = await linkOn(1)
-        hover(inside)
-        await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Show the folder in Files'))
-        expect(hint()).not.toHaveTextContent('Show in Files')
-        expect(hint()).toHaveTextContent('Ctrl+Shift+Click Open the folder in the file manager')
-        expect(hint()).toHaveTextContent('Ctrl+Shift+Alt+Click Show in the file manager')
-        ctrlClick(inside)
-        expect(useFileTreeStore.getState().revealed).toEqual({
-          root: '/home/me',
-          path: '/home/me/notes/sub',
-        })
-        expect(useUIStore.getState().filesOpen).toBe(true)
-        expect(window.ostia.terminalLinks.openDefault).not.toHaveBeenCalled()
-
-        const folder = await linkOn(2)
-        hover(folder)
-        await waitFor(() =>
-          expect(hint()).toHaveTextContent('Ctrl+Click Open the folder in the file manager'),
-        )
-        expect(hint()).not.toHaveTextContent('Ctrl+Shift+Click')
-        act(() => folder.activate({ ctrlKey: false, isTrusted: true } as MouseEvent, folder.text))
-        expect(window.ostia.terminalLinks.openDefault).not.toHaveBeenCalled()
-        ctrlClick(folder)
-        expect(window.ostia.terminalLinks.openDefault).toHaveBeenCalledWith('p1', '/out/shots')
-
-        const file = await linkOn(3)
-        hover(file)
-        await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Open the file'))
-        expect(hint()).toHaveTextContent('Ctrl+Shift+Click Open with its default app')
-        expect(hint()).toHaveTextContent('Ctrl+Shift+Alt+Click Show in the file manager')
-        expect(hint()).not.toHaveTextContent('Show in Files')
-        ctrlClick(file)
-        await waitFor(() =>
-          expect(openFile).toHaveBeenCalledWith(expect.any(String), '/out/shots/report.txt'),
-        )
-        expect(useEditorRevealStore.getState().pending['/out/shots/report.txt']).toEqual({
-          line: 7,
-          column: 1,
-        })
-        expect(window.ostia.terminalLinks.admit).toHaveBeenCalledWith('p1', '/out/shots/report.txt')
-        expect(window.ostia.terminalLinks.openDefault).toHaveBeenCalledTimes(1)
-
-        ctrlClick(file, { shiftKey: true })
-        expect(window.ostia.terminalLinks.openDefault).toHaveBeenLastCalledWith(
-          'p1',
-          '/out/shots/report.txt',
-        )
-        ctrlClick(file, { shiftKey: true, altKey: true })
-        expect(window.ostia.terminalLinks.showInFolder).toHaveBeenCalledWith(
-          'p1',
-          '/out/shots/report.txt',
-        )
-        expect(window.ostia.terminalLinks.admit).toHaveBeenCalledTimes(1)
-
-        vi.mocked(window.ostia.terminalLinks.openDefault).mockResolvedValueOnce({
-          ok: false,
-          error: 'program',
-        })
-        ctrlClick(file, { shiftKey: true })
-        await waitFor(() =>
-          expect(window.ostia.notifications.post).toHaveBeenCalledWith(
-            expect.objectContaining({
-              kind: 'error',
-              title: expect.stringContaining('launch programs or scripts from a terminal link'),
-            }),
-          ),
-        )
-      } finally {
-        rect.mockRestore()
-        openFile.mockRestore()
-      }
+      },
     })
-  }
+    vi.mocked(window.ostia.pty.attach).mockResolvedValue({
+      created: true,
+      buffer: 'notes/sub\r\n/out/shots/\r\n/out/shots/report.txt:7\r\n',
+      cursor: 0,
+      dropped: false,
+    })
+    vi.mocked(window.ostia.fs.stat).mockImplementation(async (path) =>
+      path === '/home/me/notes/sub' ? 'dir' : null,
+    )
+    vi.mocked(window.ostia.terminalLinks.probe).mockImplementation(async (_pane, path) =>
+      path === '/out/shots' ? 'dir' : path === '/out/shots/report.txt' ? 'file' : null,
+    )
+    vi.mocked(window.ostia.terminalLinks.admit).mockResolvedValue({
+      ok: true,
+      path: '/out/shots/report.txt',
+    })
+    vi.mocked(window.ostia.terminalLinks.openDefault).mockResolvedValue({ ok: true })
+    vi.mocked(window.ostia.terminalLinks.showInFolder).mockResolvedValue({ ok: true })
+    const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile')
+    const rect = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(new DOMRect(0, 0, 800, 600))
+    try {
+      const ui = <TerminalView workspaceId="w1" paneId="p1" cwd="/home/me" />
+      await renderGhostty(ui)
+      await waitFor(() => expect(createFileLinkProvider).toHaveBeenCalled())
+      const provider = vi.mocked(createFileLinkProvider).mock.results[0].value as ILinkProvider
+      const linkOn = async (row: number): Promise<ILink> => {
+        let found: ILink | undefined
+        await waitFor(async () => {
+          const links = await new Promise<ILink[] | undefined>((resolve) =>
+            provider.provideLinks(row, resolve),
+          )
+          found = links?.[0]
+          expect(found).toBeDefined()
+        })
+        return found as ILink
+      }
+      const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
+      const hover = (link: ILink): void => {
+        act(() => link.hover?.(new MouseEvent('mousemove'), link.text))
+      }
+      const ctrlClick = (link: ILink, keys: Partial<MouseEvent> = {}): void => {
+        act(() =>
+          link.activate({ ctrlKey: true, isTrusted: true, ...keys } as MouseEvent, link.text),
+        )
+      }
+
+      const inside = await linkOn(1)
+      hover(inside)
+      await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Show the folder in Files'))
+      expect(hint()).not.toHaveTextContent('Show in Files')
+      expect(hint()).toHaveTextContent('Ctrl+Shift+Click Open the folder in the file manager')
+      expect(hint()).toHaveTextContent('Ctrl+Shift+Alt+Click Show in the file manager')
+      ctrlClick(inside)
+      expect(useFileTreeStore.getState().revealed).toEqual({
+        root: '/home/me',
+        path: '/home/me/notes/sub',
+      })
+      expect(useUIStore.getState().filesOpen).toBe(true)
+      expect(window.ostia.terminalLinks.openDefault).not.toHaveBeenCalled()
+
+      const folder = await linkOn(2)
+      hover(folder)
+      await waitFor(() =>
+        expect(hint()).toHaveTextContent('Ctrl+Click Open the folder in the file manager'),
+      )
+      expect(hint()).not.toHaveTextContent('Ctrl+Shift+Click')
+      act(() => folder.activate({ ctrlKey: false, isTrusted: true } as MouseEvent, folder.text))
+      expect(window.ostia.terminalLinks.openDefault).not.toHaveBeenCalled()
+      ctrlClick(folder)
+      expect(window.ostia.terminalLinks.openDefault).toHaveBeenCalledWith('p1', '/out/shots')
+
+      const file = await linkOn(3)
+      hover(file)
+      await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Open the file'))
+      expect(hint()).toHaveTextContent('Ctrl+Shift+Click Open with its default app')
+      expect(hint()).toHaveTextContent('Ctrl+Shift+Alt+Click Show in the file manager')
+      expect(hint()).not.toHaveTextContent('Show in Files')
+      ctrlClick(file)
+      await waitFor(() =>
+        expect(openFile).toHaveBeenCalledWith(expect.any(String), '/out/shots/report.txt'),
+      )
+      expect(useEditorRevealStore.getState().pending['/out/shots/report.txt']).toEqual({
+        line: 7,
+        column: 1,
+      })
+      expect(window.ostia.terminalLinks.admit).toHaveBeenCalledWith('p1', '/out/shots/report.txt')
+      expect(window.ostia.terminalLinks.openDefault).toHaveBeenCalledTimes(1)
+
+      ctrlClick(file, { shiftKey: true })
+      expect(window.ostia.terminalLinks.openDefault).toHaveBeenLastCalledWith(
+        'p1',
+        '/out/shots/report.txt',
+      )
+      ctrlClick(file, { shiftKey: true, altKey: true })
+      expect(window.ostia.terminalLinks.showInFolder).toHaveBeenCalledWith(
+        'p1',
+        '/out/shots/report.txt',
+      )
+      expect(window.ostia.terminalLinks.admit).toHaveBeenCalledTimes(1)
+
+      vi.mocked(window.ostia.terminalLinks.openDefault).mockResolvedValueOnce({
+        ok: false,
+        error: 'program',
+      })
+      ctrlClick(file, { shiftKey: true })
+      await waitFor(() =>
+        expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+          expect.objectContaining({
+            kind: 'error',
+            title: expect.stringContaining('launch programs or scripts from a terminal link'),
+          }),
+        ),
+      )
+    } finally {
+      rect.mockRestore()
+      openFile.mockRestore()
+    }
+  })
 
   it('a single-line paste goes straight in without its newline, and confirmation can be turned off', async () => {
     const user = userEvent.setup()
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
-    const input = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    const input = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     input.focus()
 
     await navigator.clipboard.writeText('echo ostiaplain\n')
@@ -1076,7 +926,7 @@ describe('TerminalView engines', () => {
       cursor: 0,
       dropped: false,
     })
-    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     const topLine = (): number =>
       Number(terminalFor('p1')?.buffer.active.getLine(0)?.translateToString(true))
     await waitFor(() => expect(topLine()).toBe(1))
@@ -1235,7 +1085,7 @@ describe('TerminalView engines', () => {
     })
     useLayoutStore.getState().ensure('w1')
     vi.mocked(window.ostia.fs.list).mockResolvedValue([{ name: 'notes file.md', dir: false }])
-    const { container } = await renderSettled(
+    const { container } = await renderGhostty(
       <>
         <FilesView />
         <TerminalView workspaceId="w1" paneId="p1" />
@@ -1288,9 +1138,9 @@ describe('TerminalView engines', () => {
         window.removeEventListener('keydown', onKey)
         exec.mockRestore()
       })
-      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
       await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
-      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
       const opensPalette = (init: KeyboardEventInit): boolean => {
         exec.mockClear()
         fireEvent.keyDown(textarea, init)
@@ -1322,7 +1172,7 @@ describe('TerminalView engines', () => {
     act(() => useSettingsStore.getState().setTerminal({ osc52Write: true }))
     useLayoutStore.getState().ensure('w1')
     const { activePaneId } = useLayoutStore.getState().byWorkspace.w1
-    await renderSettled(<TerminalView workspaceId="w1" paneId={activePaneId} />)
+    await renderGhostty(<TerminalView workspaceId="w1" paneId={activePaneId} />)
     await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
     await act(async () => {
       await vi.mocked(window.ostia.pty.attach).mock.results[0]?.value
@@ -1369,14 +1219,14 @@ describe('TerminalView engines', () => {
     const hosts = { left: surfaceHost('left'), right: surfaceHost('right') }
     document.body.append(hosts.left, hosts.right)
     onTestFinished(() => releaseSurfaces(new Set()))
-    await renderSettled(
+    await renderGhostty(
       <>
         {createPortal(<TerminalView workspaceId="w1" paneId="left" />, hosts.left)}
         {createPortal(<TerminalView workspaceId="w1" paneId="right" />, hosts.right)}
       </>,
     )
     const input = (paneId: 'left' | 'right'): HTMLElement =>
-      hosts[paneId].querySelector('.xterm-helper-textarea') as HTMLElement
+      hosts[paneId].querySelector('.ghostty-host textarea') as HTMLElement
     input('right').focus()
 
     act(() => {
@@ -1389,35 +1239,6 @@ describe('TerminalView engines', () => {
       focusPaneInDirection('w1', 'left', 'right')
     })
     await waitFor(() => expect(input('right')).toHaveFocus())
-  })
-
-  it('a multi-line paste into an xterm terminal asks first; Cancel pastes nothing, Paste pastes', async () => {
-    const user = userEvent.setup()
-    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
-    const input = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
-    input.focus()
-
-    await navigator.clipboard.writeText('echo ostiacancelled\necho two\n')
-    await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
-    const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent('It has 2 lines')
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-
-    await navigator.clipboard.writeText('echo ostiafirst\necho ostiapasted42')
-    await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
-    await screen.findByRole('dialog')
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: 'Paste' }))
-    await waitFor(() =>
-      expect(window.ostia.pty.write).toHaveBeenCalledWith(
-        'p1',
-        expect.stringContaining('echo ostiafirst\recho ostiapasted42'),
-        'paste',
-      ),
-    )
   })
 
   it('a link’s hint in a mouse-reporting program offers Ctrl+Click and leaves plain clicks to the program', async () => {
@@ -1463,8 +1284,8 @@ describe('TerminalView engines', () => {
         w1: { root: tabsOf('linked', linked, other), activePaneId: 'linked', zoomedPaneId: null },
       },
     })
-    await renderSettled(<TerminalView workspaceId="w1" paneId="linked" />)
-    const links = (terminalFor('linked') as unknown as Xterm).options.linkHandler as ILinkHandler
+    await renderGhostty(<TerminalView workspaceId="w1" paneId="linked" />)
+    const links = linkHandlerOf(terminalFor('linked') as unknown as Xterm)
     const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
 
     act(() => links.hover?.(new MouseEvent('mousemove'), 'slack://channel?id=1', linkRange))
@@ -1485,7 +1306,7 @@ describe('TerminalView engines', () => {
       },
     })
     act(() => useLayoutStore.getState().setLocked('w1', 'locked', true))
-    await renderSettled(
+    await renderGhostty(
       <>
         <TerminalView workspaceId="w1" paneId="own" />
         <TerminalView workspaceId="w1" paneId="locked" />
