@@ -42,5 +42,7 @@ export const agentsBridge: Pick<
     claimResume: (paneId, resume) => ipcRenderer.invoke('agent:claim-resume', paneId, resume),
     folderTrust: (paneId) => ipcRenderer.invoke('agent:folder-trust', paneId),
     trustFolder: (paneId, folder) => ipcRenderer.invoke('agent:trust-folder', paneId, folder),
+    folderTrustDone: (paneId) => ipcRenderer.invoke('agent:folder-trust-done', paneId),
+    onFolderTrustAsk: (cb) => listen('agent:folder-trust-ask', cb),
   },
 }

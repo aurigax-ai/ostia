@@ -31,7 +31,7 @@ describe('usePanePrompt', () => {
   })
 
   it('shows one card at a time, a permission request before a folder trust, and the next after the first is answered', () => {
-    useFolderTrustStore.setState({ byPane: { p1: '/work/repo' } })
+    useFolderTrustStore.setState({ byPane: { p1: { folder: '/work/repo', kind: 'resume' } } })
     useApprovalsStore.setState({
       pending: [
         {

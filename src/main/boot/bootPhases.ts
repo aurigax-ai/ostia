@@ -7,7 +7,7 @@ import { registerAgentTranscriptIpc } from '../agents/agentTranscript'
 import { registerAgentWiring } from '../agents/agentWiring'
 import { createAccountMoves } from '../agents/claudeAccounts/accountMovesWiring'
 import { registerClaudeAccountsWiring } from '../agents/claudeAccounts/claudeAccountsWiring'
-import { registerFolderTrustIpc } from '../agents/folderTrustIpc'
+import { createStartAsk, registerFolderTrustIpc } from '../agents/folderTrustIpc'
 import { currentPlaybookFiles, setPlaybookSettings } from '../agents/playbookFiles'
 import { createResumeClaimer, registerResumeClaimIpc } from '../agents/resumeClaims'
 import { createStartTrust } from '../agents/startTrust'
@@ -175,11 +175,13 @@ export function boot(wiring: Wiring): void {
       listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     ),
   )
-  registerFolderTrustIpc({ ...wiring, readSettingsFile })
+  const folderTrustDeps = { ...wiring, readSettingsFile }
+  registerFolderTrustIpc(folderTrustDeps)
   registerClaudeAccountsWiring({
     ...wiring,
     accountMoves,
     trustForStart: createStartTrust({ ...wiring, readSettingsFile }),
+    askTrust: createStartAsk(folderTrustDeps),
   })
   const { notifyDeps } = registerNotifyWiring({ ...wiring })
   registerSandboxWiring({ ...wiring, notifyDeps })

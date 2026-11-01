@@ -28,6 +28,8 @@ interface AgentSessionApi {
   claimResume: (paneId: string, resume: AgentResume) => Promise<ResumeVerdict>
   folderTrust: (paneId: string) => Promise<FolderTrust>
   trustFolder: (paneId: string, folder: string) => Promise<boolean>
+  folderTrustDone: (paneId: string) => Promise<void>
+  onFolderTrustAsk: (cb: (paneId: string, folder: string, inside: boolean) => void) => () => void
 }
 
 export interface AgentsBridge extends ParkBridge, ClaudeAccountsBridge {

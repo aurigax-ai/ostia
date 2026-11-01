@@ -2677,7 +2677,12 @@ describe('agent resume', () => {
       .mockResolvedValueOnce({ ok: true })
       .mockResolvedValue({ ok: false, holder: 'other tab' })
     const run = commands.execWith(ctx('s1', pane.id), 'agent.resume')
-    await vi.waitFor(() => expect(useFolderTrustStore.getState().byPane[pane.id]).toBe('/w'))
+    await vi.waitFor(() =>
+      expect(useFolderTrustStore.getState().byPane[pane.id]).toEqual({
+        folder: '/w',
+        kind: 'resume',
+      }),
+    )
     resumeAnyway(pane.id)
     const r = await run
     expect(r.ok).toBe(false)

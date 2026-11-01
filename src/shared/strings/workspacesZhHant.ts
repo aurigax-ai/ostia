@@ -221,8 +221,12 @@ export const workspacesZhHant: typeof workspacesEn = {
     folderTrustChoices: '更多信任方式',
     folderTrustLabel: 'Claude 資料夾信任',
     folderTrustOnce: '信任資料夾',
+    folderTrustOutsideBody:
+      'Claude 在你的工作區資料夾之外啟動。在新資料夾中 Claude 會先詢問。現在信任，Claude 就不會再自己詢問。',
     folderTrustResume: '不信任直接接回；由 Claude 詢問',
     folderTrustSkip: '讓 Claude 自己詢問',
+    folderTrustStartBody: '在新資料夾中 Claude 會先詢問。現在信任，Claude 就不會再自己詢問。',
+    folderTrustStartDismiss: '不信任直接啟動；由 Claude 詢問',
     folderTrustTitle: '要讓 Claude 信任 {name} 嗎？',
     forkAction: '分支',
     forkConversation: '將對話分支到新分頁',

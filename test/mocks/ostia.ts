@@ -315,6 +315,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       claimResume: vi.fn().mockResolvedValue({ ok: true }),
       folderTrust: vi.fn().mockResolvedValue({ state: 'trusted' }),
       trustFolder: vi.fn().mockResolvedValue(true),
+      folderTrustDone: vi.fn().mockResolvedValue(undefined),
+      onFolderTrustAsk: vi.fn().mockReturnValue(() => {}),
     },
     update: {
       state: vi.fn().mockResolvedValue(null),

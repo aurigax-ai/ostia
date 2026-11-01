@@ -6,9 +6,13 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 vi.mock('@/lib/terminal/blockActions', () => ({ runWhenIdle: vi.fn(() => vi.fn()) }))
 
 const { runWhenIdle } = await import('@/lib/terminal/blockActions')
-const { alwaysTrustWorkspaceFolders, claudeTrustGate, resumeAnyway, trustForClaude } = await import(
-  './folderTrust'
-)
+const {
+  alwaysTrustWorkspaceFolders,
+  claudeTrustGate,
+  resumeAnyway,
+  startFolderTrustAsks,
+  trustForClaude,
+} = await import('./folderTrust')
 const { resumeWhenIdle } = await import('./resumeFolder')
 const { resumeWorkspaces } = await import('./hibernationScheduler')
 
@@ -73,7 +77,9 @@ describe('claudeTrustGate', () => {
     folderTrust().mockResolvedValueOnce({ state: 'ask', folder: '/w/repo' })
     const gate = claudeTrustGate('p1', 'claude')
     expect(await settled(gate)).toBe('waiting')
-    expect(useFolderTrustStore.getState().byPane).toEqual({ p1: '/w/repo' })
+    expect(useFolderTrustStore.getState().byPane).toEqual({
+      p1: { folder: '/w/repo', kind: 'resume' },
+    })
     expect(trustFolder()).not.toHaveBeenCalled()
     await trustForClaude('p1')
     expect(await gate).toBe(true)
@@ -117,7 +123,11 @@ describe('claudeTrustGate', () => {
     resumeWhenIdle('p1', { agent: 'claude', id: 'abc' }, undefined, undefined, undefined, true)
     const asking = vi.mocked(runWhenIdle).mock.calls[1]?.[3]
     void asking?.()
-    await vi.waitFor(() => expect(useFolderTrustStore.getState().byPane).toEqual({ p1: '/w/repo' }))
+    await vi.waitFor(() =>
+      expect(useFolderTrustStore.getState().byPane).toEqual({
+        p1: { folder: '/w/repo', kind: 'resume' },
+      }),
+    )
     expect(folderTrust()).toHaveBeenCalledWith('p1')
     resumeAnyway('p1')
   })
@@ -131,7 +141,11 @@ describe('claudeTrustGate', () => {
   it('CFT-C30 a pane closed while its note waits stops the resume and leaves nothing behind', async () => {
     folderTrust().mockResolvedValue({ state: 'ask', folder: '/w/repo' })
     const gate = claudeTrustGate('p2', 'claude')
-    await vi.waitFor(() => expect(useFolderTrustStore.getState().byPane).toEqual({ p2: '/w/repo' }))
+    await vi.waitFor(() =>
+      expect(useFolderTrustStore.getState().byPane).toEqual({
+        p2: { folder: '/w/repo', kind: 'resume' },
+      }),
+    )
     useLayoutStore.getState().closePane('w1', 'p2')
     expect(await gate).toBe(false)
     expect(useFolderTrustStore.getState().byPane).toEqual({})
@@ -163,5 +177,85 @@ describe('claudeTrustGate', () => {
     for (const call of vi.mocked(runWhenIdle).mock.calls.slice(0, 3)) void call[3]?.()
     await vi.waitFor(() => expect(vi.mocked(runWhenIdle).mock.calls).toHaveLength(4))
     for (const id of ids) resumeAnyway(id)
+  })
+})
+
+describe('start asks from main', () => {
+  let layout: ReturnType<typeof useLayoutStore.getState>
+  let ask: (paneId: string, folder: string, inside: boolean) => void
+  let stop: () => void
+  const done = () => vi.mocked(window.ostia.agentSession.folderTrustDone)
+
+  beforeAll(() => {
+    layout = useLayoutStore.getState()
+  })
+
+  beforeEach(() => {
+    seedPanes('p1', 'p2')
+    vi.mocked(window.ostia.agentSession.onFolderTrustAsk).mockImplementationOnce((cb) => {
+      ask = cb
+      return () => {}
+    })
+    stop = startFolderTrustAsks()
+    done().mockClear()
+    trustFolder().mockClear()
+  })
+
+  afterEach(() => {
+    stop()
+    useFolderTrustStore.setState({ byPane: {} })
+    useLayoutStore.setState(layout, true)
+  })
+
+  it('CFT-C71 an ask for a folder inside the workspace holds a start note with the Always choice', () => {
+    ask('p1', '/w/repo', true)
+    expect(useFolderTrustStore.getState().byPane).toEqual({
+      p1: { folder: '/w/repo', kind: 'start' },
+    })
+    expect(done()).not.toHaveBeenCalled()
+  })
+
+  it('CFT-C72 an ask for a folder outside the workspace holds an outside note', () => {
+    ask('p1', '/o/repo', false)
+    expect(useFolderTrustStore.getState().byPane).toEqual({
+      p1: { folder: '/o/repo', kind: 'outside' },
+    })
+  })
+
+  it('CFT-C73 Trust writes the shown folder, then tells main the start can go on', async () => {
+    ask('p1', '/o/repo', false)
+    await trustForClaude('p1')
+    expect(trustFolder()).toHaveBeenCalledWith('p1', '/o/repo')
+    expect(done()).toHaveBeenCalledWith('p1')
+    expect(useFolderTrustStore.getState().byPane).toEqual({})
+  })
+
+  it('CFT-C74 Let Claude ask tells main to go on and writes nothing', () => {
+    ask('p1', '/o/repo', false)
+    resumeAnyway('p1')
+    expect(trustFolder()).not.toHaveBeenCalled()
+    expect(done()).toHaveBeenCalledWith('p1')
+  })
+
+  it('CFT-C75 Always never trusts a folder outside the workspace', async () => {
+    ask('p1', '/w/repo', true)
+    ask('p2', '/o/repo', false)
+    await alwaysTrustWorkspaceFolders()
+    expect(trustFolder()).toHaveBeenCalledTimes(1)
+    expect(trustFolder()).toHaveBeenCalledWith('p1', '/w/repo')
+    resumeAnyway('p2')
+  })
+
+  it('CFT-C76 an ask for a pane that is gone tells main to go on and shows nothing', () => {
+    ask('gone', '/o/repo', false)
+    expect(done()).toHaveBeenCalledWith('gone')
+    expect(useFolderTrustStore.getState().byPane).toEqual({})
+  })
+
+  it('CFT-C77 a pane closed while its start note waits tells main to go on', () => {
+    ask('p2', '/o/repo', false)
+    useLayoutStore.getState().closePane('w1', 'p2')
+    expect(done()).toHaveBeenCalledWith('p2')
+    expect(useFolderTrustStore.getState().byPane).toEqual({})
   })
 })

@@ -115,6 +115,7 @@ interface Resolved {
   root: string | null
   canonical: string | null
   key: string | null
+  outsideKey: string | null
 }
 
 async function resolve(place: TrustPlace): Promise<Resolved | null> {
@@ -126,8 +127,15 @@ async function resolve(place: TrustPlace): Promise<Resolved | null> {
   const root = await gitRoot(folder)
   const canonical = root ? await canonicalRoot(root) : null
   const key = root ?? folder
-  const allowed = !isRoot(key) && !isInsidePath(key, home) && isInsidePath(workDir, key)
-  return { folder, root, canonical, key: allowed ? key : null }
+  const eligible = !isRoot(key) && !isInsidePath(key, home)
+  const inside = eligible && isInsidePath(workDir, key)
+  return {
+    folder,
+    root,
+    canonical,
+    key: inside ? key : null,
+    outsideKey: eligible && !inside ? key : null,
+  }
 }
 
 export async function folderTrust(place: TrustPlace): Promise<FolderTrust> {
@@ -141,13 +149,20 @@ export async function folderTrust(place: TrustPlace): Promise<FolderTrust> {
   return resolved.key ? { state: 'ask', folder: resolved.key } : { state: 'unknown' }
 }
 
-export async function outsideTrust(place: TrustPlace): Promise<string | null> {
+export interface StartAsk {
+  folder: string
+  inside: boolean
+}
+
+export async function startAsk(place: TrustPlace): Promise<StartAsk | null> {
   const resolved = await resolve(place)
-  if (!resolved || resolved.key) return null
+  const folder = resolved?.key ?? resolved?.outsideKey
+  if (!resolved || !folder) return null
   const read = await readConfig(
     await claudeConfigFile(place.home, place.configDir, place.customOAuth),
   )
-  return read && !acceptedIn(read.config, resolved) ? resolved.folder : null
+  if (!read || acceptedIn(read.config, resolved)) return null
+  return { folder, inside: resolved.key !== null }
 }
 
 export async function editClaudeConfig(
@@ -194,8 +209,8 @@ function withTrust(config: ClaudeConfig, resolved: Resolved, key: string): Claud
 
 export async function trustFolder(place: TrustPlace, shown?: string): Promise<boolean> {
   const resolved = await resolve(place)
-  if (!resolved?.key || (shown !== undefined && shown !== resolved.key)) return false
-  const key = resolved.key
+  const key = resolved?.key ?? (shown === undefined ? null : resolved?.outsideKey)
+  if (!resolved || !key || (shown !== undefined && shown !== key)) return false
   const path = await claudeConfigFile(place.home, place.configDir, place.customOAuth)
   return editClaudeConfig(path, (config) => withTrust(config, resolved, key))
 }
