@@ -4,13 +4,13 @@ import { closeOnGuestPointer } from './guestPointer'
 
 const GUEST_ID = 41
 
-let pressed: Array<(guestId: number) => void> = []
+let pressed: Array<(guestId: number, at: number) => void> = []
 
 beforeEach(() => {
   pressed = []
   window.ostia = {
     guestInput: {
-      onPointerDown: (cb: (guestId: number) => void) => {
+      onPointerDown: (cb: (guestId: number, at: number) => void) => {
         pressed.push(cb)
         return () => {
           pressed = pressed.filter((held) => held !== cb)
@@ -43,8 +43,8 @@ function guestElement(): HTMLElement {
   return guest
 }
 
-const press = (guestId: number): void => {
-  for (const cb of pressed) cb(guestId)
+const press = (guestId: number, at = Date.now() + 1): void => {
+  for (const cb of pressed) cb(guestId, at)
 }
 
 describe('closeOnGuestPointer', () => {
@@ -67,6 +67,15 @@ describe('closeOnGuestPointer', () => {
     openCapture('p1', adapter())
     guest.focus()
     window.dispatchEvent(new Event('blur'))
+    expect(useCaptureStore.getState().open.p1).toBeDefined()
+    release()
+  })
+
+  it('ignores a press that happened before the bar opened, however late it arrives', () => {
+    const release = closeOnGuestPointer('p1', guestElement())
+    const pressedAt = Date.now()
+    openCapture('p1', adapter())
+    press(GUEST_ID, pressedAt - 1)
     expect(useCaptureStore.getState().open.p1).toBeDefined()
     release()
   })

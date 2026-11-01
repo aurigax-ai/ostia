@@ -1,5 +1,5 @@
 import type { WebviewTag } from 'electron'
-import { closeCapture } from './captureSession'
+import { closeCapture, useCaptureStore } from './captureSession'
 
 function guestIdOf(guest: HTMLElement): number | null {
   try {
@@ -10,7 +10,9 @@ function guestIdOf(guest: HTMLElement): number | null {
 }
 
 export function closeOnGuestPointer(paneId: string, guest: HTMLElement): () => void {
-  return window.ostia.guestInput.onPointerDown((guestId) => {
-    if (guestIdOf(guest) === guestId) closeCapture(paneId, 'guest-click')
+  return window.ostia.guestInput.onPointerDown((guestId, at) => {
+    if (guestIdOf(guest) !== guestId) return
+    const open = useCaptureStore.getState().open[paneId]
+    if (open && at > open.openedAt) closeCapture(paneId, 'guest-click')
   })
 }

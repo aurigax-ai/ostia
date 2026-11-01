@@ -75,7 +75,7 @@ interface GuestChordsApi {
 }
 
 interface GuestInputApi {
-  onPointerDown: (cb: (guestId: number) => void) => () => void
+  onPointerDown: (cb: (guestId: number, at: number) => void) => () => void
 }
 
 interface AppUpdateApi {

@@ -14,7 +14,7 @@ describe('announceGuestPointer', () => {
   it('tells the owner window which guest the human pressed in', () => {
     const { guest, owner } = setup()
     guest.emit('input-event', {}, { type: 'mouseDown' })
-    expect(owner.send).toHaveBeenCalledExactlyOnceWith(GUEST_POINTER_DOWN, 7)
+    expect(owner.send).toHaveBeenCalledExactlyOnceWith(GUEST_POINTER_DOWN, 7, expect.any(Number))
   })
 
   it('stays quiet for moves, releases and keys', () => {

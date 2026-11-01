@@ -37,6 +37,7 @@ export interface CaptureAdapter {
 
 export interface OpenCapture {
   key: number
+  openedAt: number
   adapter: CaptureAdapter
   sendRequest: number
   pending: boolean
@@ -138,7 +139,14 @@ export function openCapture(paneId: string, adapter: CaptureAdapter): void {
   useCaptureStore.setState((state) => ({
     open: {
       ...state.open,
-      [paneId]: { key: counter, adapter, sendRequest: 0, pending: false, error: null },
+      [paneId]: {
+        key: counter,
+        openedAt: Date.now(),
+        adapter,
+        sendRequest: 0,
+        pending: false,
+        error: null,
+      },
     },
   }))
 }
