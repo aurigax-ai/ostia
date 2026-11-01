@@ -59,7 +59,7 @@ describe('AgentOfferDialog', () => {
     cleanup()
     unregister()
     stores.forEach((store, i) => {
-      store.setState(inits[i] as never, true)
+      ;(store.setState as (state: unknown, replace: true) => void)(inits[i], true)
     })
     vi.mocked(window.ostia.extensions.answerAgentOffer).mockClear()
   })

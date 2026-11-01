@@ -176,7 +176,7 @@
     "word-extractor": "^1.0.4",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "yaml-language-server": "2.0.0",
-    "zustand": "^4.5.7"
+    "zustand": "^5.0.16"
   },
   "optionalDependencies": {
     "@vscode/ripgrep-darwin-arm64": "1.18.0",
