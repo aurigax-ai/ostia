@@ -67,6 +67,8 @@ export async function cellPoint(
 export async function hoverPoint(win: Page, point: Point): Promise<void> {
   await win.mouse.move(point.x, point.y + 80)
   await win.mouse.move(point.x, point.y, { steps: 6 })
+  await win.mouse.move(point.x + 1, point.y)
+  await win.mouse.move(point.x, point.y)
 }
 
 export async function clickWith(win: Page, point: Point, keys: string[]): Promise<void> {
