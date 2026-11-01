@@ -631,7 +631,7 @@ describe('SettingsPanel', () => {
     expect(picker).toHaveValue('#123456')
     const swatch = screen.getByTestId('accent-custom')
     expect(swatch).toHaveAttribute('data-selected', 'true')
-    expect(swatch).toHaveStyle({ background: '#123456' })
+    expect(swatch).toHaveStyle({ backgroundColor: '#123456' })
     for (const button of screen.getAllByRole('button', { name: /^Accent #/ })) {
       expect(button).toHaveAttribute('aria-pressed', 'false')
     }
@@ -711,10 +711,10 @@ describe('SettingsPanel', () => {
       'Preview: Adeberry Ostia theme, Gruvbox Light terminal, Nord editor',
     )
     expect(preview.querySelector('[data-preview="terminal"] > div:last-child')).toHaveStyle({
-      background: '#fbf1c7',
+      backgroundColor: '#fbf1c7',
     })
     expect(preview.querySelector('[data-preview="editor"] > div:last-child')).toHaveStyle({
-      background: '#2e3440',
+      backgroundColor: '#2e3440',
     })
   })
 
