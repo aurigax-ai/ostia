@@ -165,11 +165,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     stack.appendChild(box)
     const panes: LayerPane[] = []
     for (let i = 0; i < 2; i++) {
-      const pane = createLayerPane(
-        box,
-        { cols: term.cols, rows: term.rows },
-        deps.options(),
-      )
+      const pane = createLayerPane(box, { cols: term.cols, rows: term.rows }, deps.options())
       if (!pane) {
         for (const made of panes) made.dispose()
         box.remove()

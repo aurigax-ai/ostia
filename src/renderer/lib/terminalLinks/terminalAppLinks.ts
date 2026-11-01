@@ -1,5 +1,11 @@
 import { findAppLinks, linkKind } from '@shared/common/externalLinks'
-import type { OstiaTerminal as Terminal, TerminalLink, TerminalLinkProvider, TerminalRange, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
+import type {
+  OstiaTerminal as Terminal,
+  TerminalLink,
+  TerminalLinkProvider,
+  TerminalRange,
+  WebLinkHandler,
+} from '@/lib/terminal/ostiaTerminal'
 import { readLogicalLine } from './terminalFileLinks'
 
 export interface LinkHint {

@@ -1,6 +1,12 @@
 import { type FileUrlTarget, findFileUrls, opensFileUrl } from '@shared/files/fileUrls'
 import { LRUCache } from 'lru-cache'
-import type { OstiaTerminal as Terminal, TerminalLink, TerminalLinkProvider, TerminalRange, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
+import type {
+  OstiaTerminal as Terminal,
+  TerminalLink,
+  TerminalLinkProvider,
+  TerminalRange,
+  WebLinkHandler,
+} from '@/lib/terminal/ostiaTerminal'
 import type { PathLinkTarget } from './linkModifier'
 import { matchesOnRow, provideFound, readLogicalLine } from './terminalFileLinks'
 

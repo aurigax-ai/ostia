@@ -1,6 +1,12 @@
 import { findFileLinks, resolveLinkPath } from '@shared/files/fileLinks'
 import { LRUCache } from 'lru-cache'
-import type { OstiaTerminal as Terminal, TerminalLink, TerminalLinkProvider, TerminalPosition, TerminalRange } from '@/lib/terminal/ostiaTerminal'
+import type {
+  OstiaTerminal as Terminal,
+  TerminalLink,
+  TerminalLinkProvider,
+  TerminalPosition,
+  TerminalRange,
+} from '@/lib/terminal/ostiaTerminal'
 import type { PathLinkTarget } from './linkModifier'
 
 interface LogicalLine {

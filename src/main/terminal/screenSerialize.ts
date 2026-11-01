@@ -1,10 +1,16 @@
-import { type IBuffer, type IBufferCell, type IBufferLine, ColorKind } from '@aurigax-ai/ghostty-web'
+import {
+  ColorKind,
+  type IBuffer,
+  type IBufferCell,
+  type IBufferLine,
+} from '@aurigax-ai/ghostty-web'
 
 const SGR_RESET = '\x1b[0m'
 const SPACE = 32
 
 function colorParams(kind: ColorKind, index: number, rgb: number, fg: boolean): number[] {
-  if (kind === ColorKind.RGB) return [fg ? 38 : 48, 2, (rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255]
+  if (kind === ColorKind.RGB)
+    return [fg ? 38 : 48, 2, (rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255]
   if (kind !== ColorKind.PALETTE) return []
   if (index < 8) return [(fg ? 30 : 40) + index]
   if (index < 16) return [(fg ? 90 : 100) + index - 8]

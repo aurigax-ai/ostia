@@ -1,6 +1,6 @@
-import type { TerminalRange } from '@/lib/terminal/ostiaTerminal'
 import { linkKind } from '@shared/common/externalLinks'
 import type { LinkClick } from '@/lib/settings/terminalPaneSettings'
+import type { TerminalRange } from '@/lib/terminal/ostiaTerminal'
 import type { FileLinkAction } from './terminalFileLinks'
 import type { FileUrlAction } from './terminalFileUrls'
 
