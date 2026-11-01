@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   folderRefusal,
   loadPhoneWorkspace,
+  ownFolder,
   type PhoneWorkspacePaths,
   phoneFolderState,
   phoneWorkspaceDefaults,
@@ -232,5 +233,11 @@ describe('the Phone workspace', () => {
     expect(phoneWorkspaceDefaults(paths)).toEqual({ set: true, agent: 'codex' })
     rmSync(jobs, { recursive: true })
     expect(phoneWorkspaceDefaults(paths)).toEqual({ set: false, agent: 'codex' })
+  })
+})
+
+describe('ownFolder', () => {
+  it('passes on an error that is not a file system error', () => {
+    expect(() => ownFolder(undefined as unknown as string)).toThrow(TypeError)
   })
 })

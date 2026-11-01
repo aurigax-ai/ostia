@@ -6,6 +6,7 @@ import type { StreamEvent } from '../../shared/agents/agentStream'
 import { PiStream } from '../agent/piStream'
 import type { Ask } from '../approvals/asks'
 import type { PaneIdentity } from '../control/idRegistry'
+import { setErrorSink } from '../diagnostics/errorReport'
 import type { PaneEntry } from '../panes/paneList'
 import { AgentStreams, type AgentStreamsDeps, type PreparedStream } from './agentStreams'
 import type { CodexNotice, CodexRpc } from './codexRpc'
@@ -178,6 +179,27 @@ describe('AgentStreams, Claude', () => {
     }
     vi.useRealTimers()
     expect(got.live()).toEqual([{ type: 'ended', reason: 'unavailable' }])
+  })
+
+  it('ends the stream at once and reports it when the lookup fails in a way that is not a file error', async () => {
+    const warn = vi.fn()
+    setErrorSink({ file: '', info: vi.fn(), warn, error: vi.fn() })
+    let calls = 0
+    const { streams } = fake({
+      claudeFile: async () => {
+        calls += 1
+        if (calls > 1) throw new TypeError('bug')
+        return null
+      },
+    })
+    const got = collect(await opened(streams))
+    await vi.waitFor(() => expect(got.live()).toEqual([{ type: 'ended', reason: 'unavailable' }]))
+    expect(warn).toHaveBeenCalledWith('unexpected-error', {
+      scope: 'streamClaude',
+      name: 'TypeError',
+      code: undefined,
+    })
+    setErrorSink(null)
   })
 
   it('stops reading once closed', async () => {
@@ -424,9 +446,27 @@ describe('AgentStreams, Codex', () => {
     expect(await f.streams.open(pane, 5)).toEqual({ error: 'unavailable' })
   })
 
-  it('refuses when the app-server cannot be reached', async () => {
-    const f = fake({ codexConnect: async () => Promise.reject(new Error('ECONNREFUSED')) })
+  it('refuses when the app-server cannot be reached, without a report', async () => {
+    const warn = vi.fn()
+    setErrorSink({ file: '', info: vi.fn(), warn, error: vi.fn() })
+    const refused = Object.assign(new Error('connect'), { code: 'ECONNREFUSED' })
+    const f = fake({ codexConnect: async () => Promise.reject(refused) })
     expect(await f.streams.open(pane, 5)).toEqual({ error: 'unavailable' })
+    expect(warn).not.toHaveBeenCalled()
+    setErrorSink(null)
+  })
+
+  it('refuses and reports when connecting fails in a way that is not a connection error', async () => {
+    const warn = vi.fn()
+    setErrorSink({ file: '', info: vi.fn(), warn, error: vi.fn() })
+    const f = fake({ codexConnect: async () => Promise.reject(new TypeError('bug')) })
+    expect(await f.streams.open(pane, 5)).toEqual({ error: 'unavailable' })
+    expect(warn).toHaveBeenCalledWith('unexpected-error', {
+      scope: 'agentStreams',
+      name: 'TypeError',
+      code: undefined,
+    })
+    setErrorSink(null)
   })
 })
 

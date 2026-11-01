@@ -8,6 +8,7 @@ import {
   statSync,
 } from 'node:fs'
 import { basename, dirname, isAbsolute, join } from 'node:path'
+import { expectErrno } from '../../diagnostics/errorReport'
 import type { PhoneAgent } from '../../panes/phoneAgent'
 import { isInsidePath } from '../../platform/pathGuard'
 import { folderProblem } from '../../sandbox/srtConfig'
@@ -40,7 +41,8 @@ const DEFAULT: PhoneWorkspace = { folder: null, agent: 'claude' }
 export function ownFolder(defaultFolder: string): string {
   try {
     return join(realpathSync.native(dirname(defaultFolder)), basename(defaultFolder))
-  } catch {
+  } catch (err) {
+    expectErrno(err)
     return defaultFolder
   }
 }
@@ -56,7 +58,8 @@ function ownState(paths: PhoneWorkspacePaths): OwnState {
     try {
       accessSync(dirname(paths.defaultFolder), constants.W_OK)
       return 'absent'
-    } catch {
+    } catch (err) {
+      expectErrno(err)
       return 'missing'
     }
   }
@@ -68,7 +71,9 @@ function ensureOwnFolder(paths: PhoneWorkspacePaths): boolean {
     if (ownState(paths) === 'ready' && lstatSync(paths.defaultFolder).mode & 0o077) {
       chmodSync(paths.defaultFolder, 0o700)
     }
-  } catch {}
+  } catch (err) {
+    expectErrno(err)
+  }
   return ownState(paths) === 'ready'
 }
 
@@ -111,7 +116,8 @@ function checkFolder(
   try {
     real = realpathSync.native(folder)
     if (!statSync(real).isDirectory()) return { problem: 'missing' }
-  } catch {
+  } catch (err) {
+    expectErrno(err)
     return { problem: 'missing' }
   }
   if (real === ownFolder(paths.defaultFolder)) return { real }
@@ -121,7 +127,8 @@ function checkFolder(
     try {
       const rootReal = realpathSync.native(root)
       return isInsidePath(rootReal, real) || isInsidePath(real, rootReal)
-    } catch {
+    } catch (err) {
+      expectErrno(err)
       return false
     }
   })

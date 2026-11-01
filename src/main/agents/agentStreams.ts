@@ -3,6 +3,7 @@ import type { StreamAgent, StreamEnd, StreamEvent } from '../../shared/agents/ag
 import type { PiStream } from '../agent/piStream'
 import type { Ask, AskResolved } from '../approvals/asks'
 import type { PaneIdentity } from '../control/idRegistry'
+import { isErrno, reportError } from '../diagnostics/errorReport'
 import type { PaneEntry } from '../panes/paneList'
 import type { CodexNotice, CodexRpc } from './codexRpc'
 import { claudeSource } from './streamClaude'
@@ -45,6 +46,12 @@ function targetOf(entry: PaneEntry | undefined): Target | null {
     return { agent: entry.agent, session: entry.agentSessionId ?? null }
   }
   return null
+}
+
+class StreamUnavailable extends Error {}
+
+function reportUnexpected(err: unknown): void {
+  if (!(err instanceof StreamUnavailable) && !isErrno(err)) reportError('agentStreams', err)
 }
 
 class Subscription {
@@ -112,7 +119,8 @@ class Subscription {
         const backfill = await this.source.backfill(this.turns)
         this.deliver([...backfill.events, { type: 'live' }], true)
         this.goLive()
-      } catch {
+      } catch (err) {
+        reportUnexpected(err)
         this.end('agent-closed')
       }
     })
@@ -178,7 +186,8 @@ export class AgentStreams {
     this.subs.add(sub)
     try {
       await sub.prepare()
-    } catch {
+    } catch (err) {
+      reportUnexpected(err)
       sub.close()
       return { error: 'unavailable' }
     }
@@ -231,11 +240,11 @@ export class AgentStreams {
     }
     if (sub.agent === 'pi') {
       const stream = this.deps.pi(session)
-      if (!stream) throw new Error('no agent session')
+      if (!stream) throw new StreamUnavailable()
       return piSource(stream)
     }
     const socket = this.deps.codexSocket(sub.pane.externalId)
-    if (!socket) throw new Error('no codex socket')
+    if (!socket) throw new StreamUnavailable()
     return codexSource({
       threadId: session,
       connect: (onNotice) => this.deps.codexConnect(socket, onNotice),

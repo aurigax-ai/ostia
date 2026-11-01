@@ -30,6 +30,7 @@ import { ensureCaps, needsElevation } from '../approvals/controlElevation'
 import type { Reach, ScriptReach } from '../approvals/reach'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import type { AgentJournal } from '../diagnostics/agentJournal'
+import { reportError } from '../diagnostics/errorReport'
 import { privateRunDir, socketPath } from '../platform/privateTmp'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { externalPaneMessage, internalPaneArgs, SCRIPT_COMMANDS } from './commandArgs'
@@ -316,6 +317,16 @@ function callsOn(conn: MessageConnection, session: ConnectionSession, deps: Cont
   return onCall
 }
 
+function restrictSocket(listener: Server, path: string): void {
+  try {
+    chmodSync(path, 0o600)
+  } catch (err) {
+    reportError('controlSocketChmod', err)
+    listener.close()
+    rmSync(path, { force: true })
+  }
+}
+
 function answerBytes(result: unknown): number {
   try {
     return Buffer.byteLength(JSON.stringify(result) ?? '')
@@ -588,14 +599,11 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
   } catch {}
 
   handleConnection = (socket) => serveConnection(deps, socket)
-  server = createServer(handleConnection)
+  const listener = createServer(handleConnection)
+  server = listener
 
-  server.on('error', (err) => console.error('[control] socket server error:', err))
-  server.listen(path, () => {
-    try {
-      chmodSync(path, 0o600)
-    } catch {}
-  })
+  listener.on('error', (err) => console.error('[control] socket server error:', err))
+  listener.listen(path, () => restrictSocket(listener, path))
 }
 
 export function listenKeptControlSocket(path: string): void {
@@ -607,11 +615,7 @@ export function listenKeptControlSocket(path: string): void {
   keptPaths.push(path)
   const kept = createServer(handle)
   kept.on('error', (err) => console.error('[control] kept socket error:', err))
-  kept.listen(path, () => {
-    try {
-      chmodSync(path, 0o600)
-    } catch {}
-  })
+  kept.listen(path, () => restrictSocket(kept, path))
   keptServers.push(kept)
 }
 

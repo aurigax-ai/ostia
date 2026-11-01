@@ -188,3 +188,9 @@ describe('removing untouched generations', () => {
     expect(statSync(join(root, 'stray')).isFile()).toBe(true)
   })
 })
+
+describe('unexpected errors', () => {
+  it('passes on an error that is not a file system error', () => {
+    expect(() => touchGenerated(undefined as unknown as string)).toThrow(TypeError)
+  })
+})

@@ -30,6 +30,7 @@ import {
 } from '../diagnostics/agentJournal'
 import { createAppLog, LOG_FILE_NAME } from '../diagnostics/appLog'
 import { registerDiagnostics } from '../diagnostics/diagnostics'
+import { setErrorSink } from '../diagnostics/errorReport'
 import { registerGpuReport } from '../diagnostics/gpuReport'
 import { registerTelemetry, TELEMETRY_FILE } from '../diagnostics/telemetry'
 import { extensionHostParts, startExtensionHost } from '../extensions/extensionWiring'
@@ -103,6 +104,7 @@ export function boot(wiring: Wiring): void {
   })
   const logDir = join(app.getPath('userData'), 'logs')
   services.appLog = createAppLog(join(logDir, LOG_FILE_NAME))
+  setErrorSink(services.appLog)
   services.agentJournal = createAgentJournal(
     createAppLog(join(logDir, AGENT_JOURNAL_FILE_NAME), {
       maxBytes: AGENT_JOURNAL_MAX_BYTES,

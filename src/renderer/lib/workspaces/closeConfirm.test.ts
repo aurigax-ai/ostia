@@ -440,6 +440,16 @@ describe('what a quit loses', () => {
     })
   })
 
+  it('still asks before closing a scratch workspace whose file count could not be read', async () => {
+    seedWorkspace(terminal('p1', false), 'scratch')
+    vi.mocked(window.ostia.scratch.files).mockRejectedValue(new Error('ipc'))
+    void requestCloseWorkspace('w1')
+    await vi.waitFor(() => expect(useCloseConfirmStore.getState().pending).not.toBeNull())
+    expect(useCloseConfirmStore.getState().pending?.groups.map((g) => g.workspaceId)).toEqual([
+      'w1',
+    ])
+  })
+
   it('counts what each workspace loses for the quit dialog', () => {
     const losses = quitLosses([
       { workspaceId: 'w1', workspace: 'a', commands: ['npm run dev', 'make'], files: [FILE] },
