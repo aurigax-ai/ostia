@@ -1,11 +1,12 @@
-import { Terminal } from '@xterm/headless'
+import type { HeadlessTerminal } from '@aurigax-ai/ghostty-web'
+import { createHeadlessTerminal } from '../ghosttyHeadless'
 import { HistorySpill, SPILL_BATCH, type SpillSink } from './historySpill'
 
-export const SPILL_SCROLLBACK = 2 * SPILL_BATCH
+export const SPILL_SCROLLBACK = 6 * SPILL_BATCH
 const MODES_RESET = '\x1b[?1049l\x1b[!p\x1b[0m'
 
 export class SpillTerminal {
-  private readonly term: Terminal
+  private readonly term: HeadlessTerminal
   private readonly spill: HistorySpill
   private targetCols: number
   private targetRows: number
@@ -14,11 +15,10 @@ export class SpillTerminal {
   constructor(cols: number, rows: number, sink: SpillSink, seqOffset: number) {
     this.targetCols = Math.max(1, cols)
     this.targetRows = Math.max(1, rows)
-    this.term = new Terminal({
+    this.term = createHeadlessTerminal({
       cols: this.targetCols,
       rows: this.targetRows,
       scrollback: SPILL_SCROLLBACK,
-      allowProposedApi: true,
     })
     this.spill = new HistorySpill(this.term, sink, seqOffset)
   }
@@ -30,9 +30,7 @@ export class SpillTerminal {
 
   resync(screen: string): void {
     if (this.closed) return
-    this.term.write('', () => {
-      if (!this.closed) this.spill.lose()
-    })
+    this.spill.lose()
     this.resumeAfter(`${MODES_RESET}${screen}`)
   }
 
@@ -43,13 +41,11 @@ export class SpillTerminal {
   }
 
   private resumeAfter(text: string): void {
-    this.term.write(`${text}\r\n`, () => {
-      if (this.closed) return
-      const seamEnd = this.term.registerMarker(0)
-      if (!seamEnd) return
-      this.spill.resumeAt(seamEnd)
-      seamEnd.dispose()
-    })
+    this.term.write(`${text}\r\n`)
+    const seamEnd = this.term.registerMarker(0)
+    if (!seamEnd) return
+    this.spill.resumeAt(seamEnd)
+    seamEnd.dispose()
   }
 
   resize(cols: number, rows: number): void {
@@ -57,25 +53,20 @@ export class SpillTerminal {
     if (cols === this.targetCols && rows === this.targetRows) return
     this.targetCols = cols
     this.targetRows = rows
-    this.term.write('', () => {
-      if (!this.closed) this.term.resize(cols, rows)
-    })
+    this.term.resize(cols, rows)
   }
 
   async tail(): Promise<string[]> {
-    await this.parsed()
     return this.closed ? [] : this.spill.tail()
   }
 
   async pendingEnd(
     seq: number,
   ): Promise<{ line: number; endCol: number; exitCode: number } | null> {
-    await this.parsed()
     return this.closed ? null : this.spill.pendingEnd(seq)
   }
 
   async close(): Promise<number> {
-    await this.parsed()
     const seqEnd = this.spill.seqEnd
     if (this.closed) return seqEnd
     this.closed = true
@@ -83,10 +74,5 @@ export class SpillTerminal {
     this.spill.dispose()
     this.term.dispose()
     return seqEnd
-  }
-
-  private parsed(): Promise<void> {
-    if (this.closed) return Promise.resolve()
-    return new Promise((resolve) => this.term.write('', resolve))
   }
 }

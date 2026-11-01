@@ -1,4 +1,9 @@
-import type { IBufferNamespace, IDisposable, IMarker, Terminal } from '@xterm/headless'
+import type {
+  HeadlessTerminal,
+  IBufferNamespace,
+  IDisposable,
+  IMarker,
+} from '@aurigax-ai/ghostty-web'
 import { decodeCommandLine } from '../../../shared/terminal/commandLine'
 import { serializeLogicalLines } from '../screenSerialize'
 
@@ -55,7 +60,7 @@ export class HistorySpill {
   private readonly buffers: IBufferNamespace
 
   constructor(
-    private readonly term: Terminal,
+    private readonly term: HeadlessTerminal,
     private readonly history: SpillSink,
     seqOffset: number,
   ) {

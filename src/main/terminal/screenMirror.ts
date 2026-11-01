@@ -1,10 +1,11 @@
-import { type IBufferLine, type IMarker, Terminal } from '@xterm/headless'
+import type { HeadlessTerminal, IBufferLine, IMarker } from '@aurigax-ai/ghostty-web'
 import { type CwdReport, parseOsc7 } from '../../shared/terminal/osc7'
 import type { HistoryFeed } from './history/historyFeed'
 import type { PaneBannerText } from './paneBanner'
+import { createHeadlessTerminal } from './ghosttyHeadless'
 import { serializeLines } from './screenSerialize'
 
-const MIRROR_SCROLLBACK = 2000
+const MIRROR_SCROLLBACK = 4000
 export const HISTORY_LINES = 1000
 const PROMPT_START = 'A'
 const COMMAND_START = 'C'
@@ -17,7 +18,7 @@ function isBlank(line: IBufferLine | undefined): boolean {
 }
 
 export class ScreenMirror {
-  private readonly term: Terminal
+  private readonly term: HeadlessTerminal
   private promptStart: IMarker | undefined
   private promptStartCol = 0
   private untouched: { history: string; seamEnd: IMarker; prompted: boolean } | undefined
@@ -36,11 +37,10 @@ export class ScreenMirror {
   ) {
     this.targetCols = Math.max(1, cols)
     this.targetRows = Math.max(1, rows)
-    this.term = new Terminal({
+    this.term = createHeadlessTerminal({
       cols: this.targetCols,
       rows: this.targetRows,
       scrollback: MIRROR_SCROLLBACK,
-      allowProposedApi: true,
     })
     this.term.parser.registerOscHandler(133, (data) => {
       this.onPromptMark(data.split(';')[0])
@@ -87,25 +87,21 @@ export class ScreenMirror {
     this.targetCols = cols
     this.targetRows = rows
     this.feed?.resize(cols, rows)
-    this.term.write('', () => {
-      if (!this.disposed) this.term.resize(cols, rows)
-    })
+    this.term.resize(cols, rows)
+    this.changes++
   }
 
   flush(): Promise<void> {
-    if (this.disposed) return Promise.resolve()
-    return new Promise((resolve) => this.term.write('', resolve))
+    return Promise.resolve()
   }
 
   restore(history: string): void {
     if (this.disposed || !history) return
     this.feed?.restore(history)
-    this.term.write(`${history}\r\n`, () => {
-      if (this.disposed) return
-      this.clearUntouched()
-      const seamEnd = this.term.registerMarker(0)
-      if (seamEnd) this.untouched = { history, seamEnd, prompted: false }
-    })
+    this.term.write(`${history}\r\n`)
+    this.clearUntouched()
+    const seamEnd = this.term.registerMarker(0)
+    if (seamEnd) this.untouched = { history, seamEnd, prompted: false }
   }
 
   async pendingBlockEnd(

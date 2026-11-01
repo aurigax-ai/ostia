@@ -1,12 +1,13 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
 import { pageScriptPlugin } from './scripts/pageScriptPlugin.mjs'
+import { wasmBytesPlugin } from './scripts/wasmBytesPlugin.mjs'
 import { activeEntries, announce } from './test/quarantine.mjs'
 
 announce(activeEntries(), 'vitest')
 
 export default defineConfig({
-  plugins: [pageScriptPlugin()],
+  plugins: [pageScriptPlugin(), wasmBytesPlugin()],
   assetsInclude: ['**/*.md', '**/*.txt', '**/*.wasm'],
   resolve: {
     alias: {

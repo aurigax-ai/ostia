@@ -17,7 +17,7 @@
     "build:cli": "esbuild src/cli/index.ts --bundle --platform=node --format=cjs --external:commander --external:vscode-jsonrpc --outfile=out/cli/index.js",
     "build:tsnet": "node scripts/build-tsnet.mjs",
     "build:redaction-worker": "esbuild src/main/privacy/redactionWorker.ts --bundle --platform=node --format=cjs --outfile=out/redaction/worker.js",
-    "build:history-worker": "esbuild src/main/terminal/history/spillWorker.ts --bundle --platform=node --format=cjs --outfile=out/history/worker.js",
+    "build:history-worker": "esbuild src/main/terminal/history/spillWorker.ts --bundle --platform=node --format=cjs --loader:.wasm=binary --outfile=out/history/worker.js",
     "build:sandbox-host": "esbuild src/main/sandbox/host.ts --bundle --platform=node --format=esm --external:@anthropic-ai/sandbox-runtime --outfile=out/sandbox/host.mjs",
     "build:extensions": "node scripts/build-extensions.mjs",
     "build:sdk": "node packages/extension-sdk/scripts/build.mjs",

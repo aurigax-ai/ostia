@@ -91,7 +91,7 @@ for (const engine of BENCH_ENGINES.filter(
         const timelines = alignKeys(main, page, paneId, pid)
         const summary = summarize(timelines)
         console.log(
-          `BENCH echo ${engine.name} ${scenario.name} ${JSON.stringify({ keys: page.keys.length, matched: timelines.length, seen: { inputs: page.inputs.length, arrivals: page.arrivals.length, writeDone: page.writeDone.length, renders: page.renders.length, frameEnds: page.frameEnds.length, recv: main.recv.length, send: main.send.length }, parseHooked: main.parseHooked, mainLagP95: percentile(main.lag, 0.95), mainLagMax: percentile(main.lag, 1), ...summary })}`,
+          `BENCH echo ${engine.name} ${scenario.name} ${JSON.stringify({ keys: page.keys.length, matched: timelines.length, seen: { inputs: page.inputs.length, arrivals: page.arrivals.length, writeDone: page.writeDone.length, renders: page.renders.length, frameEnds: page.frameEnds.length, recv: main.recv.length, send: main.send.length }, mainLagP95: percentile(main.lag, 0.95), mainLagMax: percentile(main.lag, 1), ...summary })}`,
         )
         if (scenario.name !== 'idle') {
           console.log(

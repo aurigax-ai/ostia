@@ -147,7 +147,7 @@ describe('HistorySpill', () => {
   it('marks lines it lost instead of skipping them silently', async () => {
     const { history, mirror } = pane()
     const m = mirror(10, 5)
-    m.write('x'.repeat(10 * 2100))
+    m.write('x'.repeat(10 * 60000))
     m.write('\r\nend\r\n')
     await closed(m)
     const lines = await plain(history)
