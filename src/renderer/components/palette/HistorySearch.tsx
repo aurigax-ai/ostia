@@ -1,5 +1,5 @@
 import { BookmarkSimpleIcon } from '@phosphor-icons/react'
-import { useMemo } from 'react'
+import { type JSX, useMemo } from 'react'
 import { commands } from '@/commands/registry'
 import { IconButton } from '@/components/common/IconButton'
 import {

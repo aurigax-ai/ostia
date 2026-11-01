@@ -1,5 +1,5 @@
 import { XIcon } from '@phosphor-icons/react'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { ListRow } from '@/components/common/ListRow'
 import { Notice } from '@/components/common/Notice'

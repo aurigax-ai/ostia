@@ -8,7 +8,7 @@ import {
   TagIcon,
   TextAlignLeftIcon,
 } from '@phosphor-icons/react'
-import type { RefObject } from 'react'
+import type { JSX, RefObject } from 'react'
 import { PromptInputHeader } from '@/components/ai-elements/prompt-input'
 import { FileIcon } from '@/components/files/FileIcon'
 import { Button } from '@/components/ui/button'
@@ -35,7 +35,7 @@ interface ChatContextChipsProps {
   setPicking: (open: boolean) => void
   pickerQuery: string
   setPickerQuery: (query: string) => void
-  areaRef: RefObject<HTMLTextAreaElement>
+  areaRef: RefObject<HTMLTextAreaElement | null>
   context: ChatContext
   attachments: ChatContextItem[]
   willRedact: number

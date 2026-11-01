@@ -1,4 +1,5 @@
 import { StackIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { aggregateWorkspaceState } from '@/lib/attention/attention'
 import type { WorkspaceGroup } from '@/lib/sidebar/workspaceGroups'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'

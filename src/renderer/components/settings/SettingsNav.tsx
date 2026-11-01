@@ -4,7 +4,7 @@ import {
   type Icon as IconComponent,
   MagnifyingGlassIcon,
 } from '@phosphor-icons/react'
-import { Fragment, type RefObject, useRef } from 'react'
+import { Fragment, type JSX, type RefObject, useRef } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
 import { Button } from '@/components/ui/button'
@@ -22,8 +22,8 @@ export function SettingsNav({
   nav,
   openSettingsFile,
 }: {
-  navRef: RefObject<HTMLElement>
-  contentRef: RefObject<HTMLDivElement>
+  navRef: RefObject<HTMLElement | null>
+  contentRef: RefObject<HTMLDivElement | null>
   nav: SettingsNavigation
   openSettingsFile: () => void
 }): JSX.Element {
@@ -237,7 +237,7 @@ function NavDisclosure({
   listLabel: string
   expanded: boolean
   canToggle: boolean
-  buttonRef: React.RefObject<HTMLButtonElement>
+  buttonRef: React.RefObject<HTMLButtonElement | null>
   onOpen: () => void
   onToggle: (expanded: boolean) => void
   onOpenItem: (id: string) => void

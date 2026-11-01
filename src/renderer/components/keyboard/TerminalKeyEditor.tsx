@@ -1,5 +1,5 @@
 import { type ChordSpec, chordText } from '@shared/keyboard/chordSpec'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'

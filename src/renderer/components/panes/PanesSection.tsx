@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'

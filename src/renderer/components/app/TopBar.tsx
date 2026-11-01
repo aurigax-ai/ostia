@@ -9,7 +9,7 @@ import {
   ShieldCheckIcon,
   SidebarSimpleIcon,
 } from '@phosphor-icons/react'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { ClaudeAccountsMenu } from '@/components/agents/ClaudeAccountsMenu'
 import { NotificationCenter } from '@/components/agents/NotificationCenter'
 import { AssistantMenu } from '@/components/assist/AssistantMenu'

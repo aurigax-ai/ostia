@@ -7,7 +7,7 @@ import {
   PlayIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
-import { useId, useMemo, useState } from 'react'
+import { type JSX, useId, useMemo, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem, MenuLabel } from '@/components/common/Menu'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'

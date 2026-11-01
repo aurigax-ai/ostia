@@ -1,5 +1,6 @@
 import { GlobeIcon, TerminalWindowIcon } from '@phosphor-icons/react'
 import { Allotment } from 'allotment'
+import type { JSX } from 'react'
 import { ChordButton } from '@/components/common/ChordButton'
 import { EmptyState } from '@/components/common/EmptyState'
 import { useDict } from '@/lib/app/useDict'

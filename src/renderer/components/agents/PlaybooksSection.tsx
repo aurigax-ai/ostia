@@ -1,5 +1,5 @@
 import { removedPlaybookIds, resolvePlaybooks } from '@shared/agents/playbooks'
-import { useMemo, useState } from 'react'
+import { type JSX, useMemo, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
 import { SettingsList } from '@/components/settingsKit/SettingsList'

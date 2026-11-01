@@ -22,7 +22,7 @@
         "name": "yaml-language-server",
         "languages": ["yaml"],
         "run": {
-          "node": "server/node_modules/yaml-language-server/out/server/src/server.js",
+          "node": "server/node_modules/yaml-language-server/out/src/server.js",
           "args": ["--stdio"]
         },
         "settings": {

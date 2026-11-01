@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { workspaceTitle } from '@/lib/workspaces/workspaceTitle'

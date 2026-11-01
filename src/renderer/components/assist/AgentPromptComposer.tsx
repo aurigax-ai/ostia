@@ -1,5 +1,5 @@
 import type { AssistFeatureId, PromptReview } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type JSX, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { composerAgentName } from '@/commands/assistCompose'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'

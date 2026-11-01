@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { type JSX, useRef, useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'

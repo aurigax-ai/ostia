@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { commands } from '@/commands/registry'
 import { useSessionStaysStatus } from '@/components/agents/SessionStaysStatus'
 import { NoticeSlot } from '@/components/common/NoticeSlot'

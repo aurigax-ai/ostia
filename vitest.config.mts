@@ -11,20 +11,17 @@ export default defineConfig({
   assetsInclude: ['**/*.md', '**/*.txt', '**/*.wasm'],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src/renderer'),
-      '@shared': resolve(__dirname, 'src/shared'),
+      '@': resolve(import.meta.dirname, 'src/renderer'),
+      '@shared': resolve(import.meta.dirname, 'src/shared'),
       'vscode-jsonrpc/browser': resolve(
-        __dirname,
+        import.meta.dirname,
         'node_modules/vscode-jsonrpc/lib/browser/main.js',
       ),
     },
   },
   server: {
     fs: {
-      allow: [
-        __dirname,
-        realpathSync(resolve(__dirname, 'node_modules')),
-      ],
+      allow: [import.meta.dirname, realpathSync(resolve(import.meta.dirname, 'node_modules'))],
     },
   },
   test: {

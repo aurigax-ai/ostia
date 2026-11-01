@@ -1,5 +1,5 @@
 import { ArrowsMergeIcon, type Icon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { MenuItem, MenuSubContent, MenuSubTrigger } from '@/components/common/Menu'
 import { ContextMenuSub } from '@/components/ui/context-menu'
 import { fmt, useDict } from '@/lib/app/useDict'

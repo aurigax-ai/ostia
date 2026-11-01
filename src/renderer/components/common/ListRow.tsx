@@ -1,5 +1,5 @@
 import { CaretDownIcon, CaretRightIcon, type Icon as IconComponent } from '@phosphor-icons/react'
-import { useId, useState } from 'react'
+import { type JSX, useId, useState } from 'react'
 import { Item, ItemActions, ItemContent } from '@/components/ui/item'
 import { cn } from '@/lib/utils'
 import { IconButton } from './IconButton'

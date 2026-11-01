@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type MutableRefObject, type RefObject, useRef } from 'react'
+import { type JSX, type KeyboardEvent, type MutableRefObject, type RefObject, useRef } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { useDict } from '@/lib/app/useDict'
 import { planDraftPaste } from '@/lib/keyboard/pasteGate'

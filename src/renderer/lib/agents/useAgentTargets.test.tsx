@@ -39,7 +39,7 @@ describe('useAgentTargets', () => {
   afterEach(() => {
     cleanup()
     stores.forEach((store, i) => {
-      store.setState(inits[i] as never, true)
+      ;(store.setState as (state: unknown, replace: true) => void)(inits[i], true)
     })
   })
 
@@ -155,7 +155,7 @@ describe('useAgentTargets in a sidebar group', () => {
     cleanup()
     vi.mocked(window.ostia.sandbox.get).mockReset().mockResolvedValue(null)
     stores.forEach((store, i) => {
-      store.setState(inits[i] as never, true)
+      ;(store.setState as (state: unknown, replace: true) => void)(inits[i], true)
     })
   })
 

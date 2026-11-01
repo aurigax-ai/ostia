@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
 import { useDict } from '@/lib/app/useDict'

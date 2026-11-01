@@ -1,5 +1,5 @@
 import type { GitGraphData } from '@shared/boards/git'
-import { useEffect, useMemo, useRef } from 'react'
+import { type JSX, useEffect, useMemo, useRef } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { buildGraphModel, indexOfKey, WORKTREE } from '@/lib/git/gitView'
 import { type ChangeHandlers, ChangeSections, CountChips, type FolderState } from './ChangeList'

@@ -7,7 +7,7 @@ import {
   type SandboxGlobals,
 } from '@shared/sandbox/sandbox'
 import { parseSandboxGlobals } from '@shared/sandbox/sandboxParse'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'

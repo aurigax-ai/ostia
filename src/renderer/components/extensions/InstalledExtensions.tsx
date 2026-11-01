@@ -3,7 +3,7 @@ import type { FileKindInfo } from '@aurigax-ai/ostia-extension-sdk/contract/file
 import { GearIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { MarketplaceExtension } from '@shared/extensions/marketplace'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { isAssistExtension } from '@/components/assist/AssistantSection'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'

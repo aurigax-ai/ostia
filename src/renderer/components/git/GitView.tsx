@@ -1,4 +1,5 @@
 import { ArrowClockwiseIcon, XIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
 import { Tabs } from '@/components/ui/tabs'

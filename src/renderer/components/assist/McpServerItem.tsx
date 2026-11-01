@@ -9,7 +9,7 @@ import {
   mcpTransportOf,
 } from '@shared/assist/chatTools'
 import { quoteArgv } from '@shared/terminal/shellQuote'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Highlight, useSearchGroup } from '@/components/settingsKit/SettingsSearch'

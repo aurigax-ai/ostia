@@ -1,4 +1,5 @@
 import type { ExtensionIcon } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { JSX } from 'react'
 import { cn } from '@/lib/utils'
 import { extensionIcon } from './extensionIcons'
 

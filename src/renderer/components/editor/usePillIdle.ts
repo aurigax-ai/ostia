@@ -2,7 +2,7 @@ import { PILL_IDLE_MS } from '@aurigax-ai/ostia-extension-sdk/contract/pillIdle'
 import { type FocusEvent, type RefObject, useEffect, useRef, useState } from 'react'
 
 export interface PillIdle {
-  ref: RefObject<HTMLDivElement>
+  ref: RefObject<HTMLDivElement | null>
   state: 'visible' | 'idle'
   handlers: {
     onPointerEnter: () => void

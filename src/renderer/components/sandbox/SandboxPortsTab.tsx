@@ -1,6 +1,6 @@
 import type { Dict } from '@shared/app/dict'
 import type { PortsPolicy, SandboxPortRow } from '@shared/sandbox/sandbox'
-import { useCallback, useEffect, useState } from 'react'
+import { type JSX, useCallback, useEffect, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsList } from '@/components/settingsKit/SettingsList'

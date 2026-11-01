@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
@@ -12,8 +12,11 @@
         "noUnknownTypeSelector": "off",
         "noUnusedVariables": "off",
         "useHookAtTopLevel": "off",
-        "useParseIntRadix": "off"
+        "useParseIntRadix": "off",
+        "noPlaywrightMissingAwait": "off",
+                "usePlaywrightValidDescribeCallback": "off"
       },
+      "performance": { "useDomNodeTextContent": "off" },
       "style": { "noDescendingSpecificity": "off" },
       "suspicious": {
         "noTemplateCurlyInString": "off",
@@ -32,7 +35,7 @@
     "formatter": { "quoteStyle": "single", "semicolons": "asNeeded" }
   },
   "files": {
-    "includes": ["**", "!**/out", "!**/dist", "!**/node_modules"]
+    "includes": ["**", "!**/out", "!**/dist", "!**/node_modules", "!**/*.md"]
   },
   "overrides": [
     {

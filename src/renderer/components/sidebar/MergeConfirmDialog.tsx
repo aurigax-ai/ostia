@@ -1,5 +1,5 @@
 import { TerminalWindowIcon } from '@phosphor-icons/react'
-import { useId } from 'react'
+import { type JSX, useId } from 'react'
 import { ListRow } from '@/components/common/ListRow'
 import {
   AlertDialog,

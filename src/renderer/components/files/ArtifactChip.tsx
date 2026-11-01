@@ -1,6 +1,6 @@
 import { FilesIcon } from '@phosphor-icons/react'
 import type { ArtifactEntry } from '@shared/artifacts/artifacts'
-import { useMemo } from 'react'
+import { type JSX, useMemo } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { useAgoText } from '@/lib/app/localeFormat'

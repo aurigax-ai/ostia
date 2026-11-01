@@ -5,7 +5,7 @@ import {
   CopyIcon,
   PaperPlaneTiltIcon,
 } from '@phosphor-icons/react'
-import type { ReactElement } from 'react'
+import type { JSX, ReactElement } from 'react'
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { addToAgentPane } from '@/lib/agent/agentPane'

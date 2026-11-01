@@ -1,4 +1,5 @@
 import type { RemoteJob } from '@shared/remote/remoteSetup'
+import type { JSX } from 'react'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Button } from '@/components/ui/button'

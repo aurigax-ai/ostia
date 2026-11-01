@@ -13,7 +13,7 @@ function focusIsAround(area: HTMLTextAreaElement | null): boolean {
 }
 
 interface ChatFocusParams {
-  areaRef: RefObject<HTMLTextAreaElement>
+  areaRef: RefObject<HTMLTextAreaElement | null>
   draftSeed: string | undefined
   setDraft: (draft: string) => void
   chatKey: string

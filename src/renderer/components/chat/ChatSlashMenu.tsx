@@ -1,5 +1,5 @@
 import { XIcon } from '@phosphor-icons/react'
-import { type RefObject, useLayoutEffect, useRef } from 'react'
+import { type JSX, type RefObject, useLayoutEffect, useRef } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -23,7 +23,7 @@ export function ChatSlashMenu({
   rows: SlashRow[]
   activeKey: string | undefined
   anchor: MenuAnchor | null
-  areaRef: RefObject<HTMLTextAreaElement>
+  areaRef: RefObject<HTMLTextAreaElement | null>
   onActive: (key: string) => void
   onPick: (row: SlashRow) => void
 }): JSX.Element {

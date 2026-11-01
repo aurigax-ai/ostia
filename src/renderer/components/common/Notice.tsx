@@ -1,4 +1,5 @@
 import { InfoIcon, WarningCircleIcon, WarningIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 

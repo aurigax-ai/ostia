@@ -1,6 +1,7 @@
 import type { MailItem } from '@shared/agents/mailApi'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { JSX } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MailCount } from '@/components/common/MailCount'
 import { TabFace } from '@/components/panes/TabFace'

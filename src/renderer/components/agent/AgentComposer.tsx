@@ -1,6 +1,6 @@
 import type { UseChatHelpers } from '@ai-sdk/react'
 import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { type RefObject, useState } from 'react'
+import { type JSX, type RefObject, useState } from 'react'
 import {
   PromptInput,
   PromptInputBody,
@@ -34,7 +34,7 @@ export interface AgentComposerProps {
   ready: boolean
   draft: string
   setDraft: (draft: string) => void
-  areaRef: RefObject<HTMLTextAreaElement>
+  areaRef: RefObject<HTMLTextAreaElement | null>
   picking: boolean
   setPicking: (open: boolean) => void
   attachments: ChatContextItem[]

@@ -1,5 +1,5 @@
 import { PI_MANAGER_AGENT } from '@shared/agents/managerSettings'
-import { useRef } from 'react'
+import { type JSX, useRef } from 'react'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useAgentStore } from '@/stores/agent/agentStore'
 import { AgentView } from './AgentView'

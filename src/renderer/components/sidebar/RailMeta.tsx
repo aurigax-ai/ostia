@@ -1,5 +1,5 @@
 import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { type JSX, useLayoutEffect, useRef, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
 import { Badge } from '@/components/ui/badge'

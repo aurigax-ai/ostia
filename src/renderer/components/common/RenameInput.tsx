@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { type JSX, useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 
 export function RenameInput({

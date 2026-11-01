@@ -10,7 +10,7 @@ import {
 } from '@shared/agents/managerSettings'
 import { splitArgs } from '@shared/terminal/argv'
 import { quoteArgv } from '@shared/terminal/shellQuote'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { CommitInput } from '@/components/settingsKit/CommitInput'

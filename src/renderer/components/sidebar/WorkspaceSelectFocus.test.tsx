@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ReactNode } from 'react'
+import type { JSX, ReactNode } from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'

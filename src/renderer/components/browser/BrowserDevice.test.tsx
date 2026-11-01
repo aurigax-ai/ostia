@@ -1,6 +1,7 @@
 import { DEFAULT_DEVICE } from '@shared/browser/browserDevice'
 import { act, cleanup, fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { JSX } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { findPane, resetIds } from '@/lib/layout/tree'

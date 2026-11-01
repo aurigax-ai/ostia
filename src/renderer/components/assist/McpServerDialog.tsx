@@ -1,5 +1,5 @@
 import type { McpServerSettings } from '@shared/assist/chatTools'
-import { type FormEvent, useEffect, useId, useState } from 'react'
+import { type FormEvent, type JSX, useEffect, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type JSX, useEffect, useMemo, useState } from 'react'
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { childPath, splitPath } from '@/lib/files/fileTree'

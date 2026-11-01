@@ -5,7 +5,7 @@ import {
   type TelemetryReport,
   type TelemetryReports,
 } from '@shared/privacy/telemetry'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import {
   Dialog,

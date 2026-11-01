@@ -34,7 +34,7 @@ function contentOf(parts: Parts, limits: OfficeLimits): XmlElement {
 
 function count(element: XmlElement, name: string): number {
   const value = Number.parseInt(element.attributes.get(name) ?? '1', 10)
-  return value > 1 ? value : 1
+  return Math.max(value, 1)
 }
 
 function figureOf(frame: XmlElement): Figure | null {

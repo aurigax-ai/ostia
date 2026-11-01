@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { JSX, ReactNode } from 'react'
 
 export function ViewerMessage({ children }: { children: ReactNode }): JSX.Element {
   return (

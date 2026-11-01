@@ -2,6 +2,7 @@ import {
   parseRemotePath,
   type RemoteFileError,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type { JSX } from 'react'
 import { StatusLine } from '@/components/common/StatusLine'
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'

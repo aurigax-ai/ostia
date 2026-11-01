@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { allPanes } from '@/lib/layout/tree'
 import { rowFact } from '@/lib/workspaces/rowSummary'
 import { latestAttentionMessage, runningTitle } from '@/lib/workspaces/workspaceSummary'

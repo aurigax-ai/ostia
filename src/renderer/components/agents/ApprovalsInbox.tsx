@@ -1,5 +1,6 @@
 import type { Dict } from '@shared/app/dict'
 import type { ApprovalKind, ApprovalOutcome, ApprovalRequest } from '@shared/permissions/approvals'
+import type { JSX } from 'react'
 import { TextLink } from '@/components/common/TextLink'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'

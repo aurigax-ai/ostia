@@ -1,7 +1,7 @@
 import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { ViewDoc, ViewGap, ViewInfo, ViewTone } from '@shared/views/views'
-import { useMemo, useRef, useState } from 'react'
+import { type JSX, useMemo, useRef, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'

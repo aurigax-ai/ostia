@@ -1,5 +1,5 @@
 import { WarningIcon, XIcon } from '@phosphor-icons/react'
-import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { Component, type ErrorInfo, type JSX, type ReactNode } from 'react'
 import { commands } from '@/commands/registry'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'

@@ -1,5 +1,5 @@
 import { toAccelerator } from '@shared/keyboard/globalHotkey'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'

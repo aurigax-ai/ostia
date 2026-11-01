@@ -1,4 +1,5 @@
 import {
+  type JSX,
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
@@ -44,9 +45,9 @@ function useSplitMeasure({
   minSecond,
   collapseSecond,
 }: {
-  container: RefObject<HTMLDivElement>
-  firstPane: RefObject<HTMLDivElement>
-  handle: RefObject<HTMLDivElement>
+  container: RefObject<HTMLDivElement | null>
+  firstPane: RefObject<HTMLDivElement | null>
+  handle: RefObject<HTMLDivElement | null>
   split: boolean
   minFirst: number
   minSecond: number

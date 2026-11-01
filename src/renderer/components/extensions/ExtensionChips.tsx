@@ -1,7 +1,7 @@
 import type { PaneChipItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { CopyIcon, PencilSimpleIcon } from '@phosphor-icons/react'
 import { parseLocalPort } from '@shared/remote/remotePorts'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'

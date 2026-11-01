@@ -6,7 +6,7 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import type { AgentResume, ResumeFailure } from '@shared/agents/agentResume'
-import { useEffect, useReducer } from 'react'
+import { type JSX, useEffect, useReducer } from 'react'
 import { commands } from '@/commands/registry'
 import { MenuItem } from '@/components/common/Menu'
 import { PromptCard } from '@/components/common/PromptCard'

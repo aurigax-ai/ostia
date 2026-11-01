@@ -1,4 +1,5 @@
 import type { ServerStatus } from '@shared/server/serverApi'
+import type { JSX } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { useDict } from '@/lib/app/useDict'

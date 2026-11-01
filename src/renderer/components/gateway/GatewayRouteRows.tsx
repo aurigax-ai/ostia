@@ -7,7 +7,7 @@ import type {
   GatewayTailnetState,
 } from '@shared/gateway/gatewayApi'
 import { formatPhoneAddress, parsePhoneAddress } from '@shared/gateway/gatewayRoute'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { SignInNotice } from '@/components/server/SignInNotice'
 import { useServerStatus } from '@/components/server/useServerStatus'

@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import type { JSX } from 'react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useKeptLinkStatus } from '@/components/panes/KeptLinkStatus'
 import { useKeptLinkStore } from '@/stores/terminal/keptLinkStore'

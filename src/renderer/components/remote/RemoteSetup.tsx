@@ -1,5 +1,6 @@
 import { CheckCircleIcon, CircleIcon, ClockIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { SetupStep } from '@shared/remote/remoteSetup'
+import type { JSX } from 'react'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Button } from '@/components/ui/button'

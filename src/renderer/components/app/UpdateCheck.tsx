@@ -1,5 +1,6 @@
 import { ArrowClockwiseIcon, ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react'
 import type { ReleaseCheckError } from '@shared/app/releases'
+import type { JSX } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'

@@ -1,5 +1,6 @@
 import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { TerminalWindowIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { MailCount } from '@/components/common/MailCount'
 import { fmt, useDict } from '@/lib/app/useDict'

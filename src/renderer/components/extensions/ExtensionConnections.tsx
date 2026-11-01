@@ -4,7 +4,7 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { TrashIcon } from '@phosphor-icons/react'
-import { useCallback, useEffect, useState } from 'react'
+import { type JSX, useCallback, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { ControlRow } from '@/components/settingsKit/ControlRow'

@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, useState } from 'react'
+import { Fragment, type JSX, type ReactNode, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { TableBody, TableHead, TableRow } from '@/components/ui/table'

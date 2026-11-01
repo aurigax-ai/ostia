@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { type CommandChoice, commands } from '@/commands/registry'
 import { CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { countUsage } from '@/lib/app/usageCounts'

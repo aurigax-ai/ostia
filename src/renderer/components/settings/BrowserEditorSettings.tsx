@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { NumberInput } from '@/components/settingsKit/CommitInput'
 import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'

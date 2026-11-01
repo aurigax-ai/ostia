@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react'
+import type { JSX, KeyboardEvent } from 'react'
 import { PanelResizer } from '@/components/common/PanelResizer'
 import { useDict } from '@/lib/app/useDict'
 import { matchChord } from '@/lib/keyboard/chords'

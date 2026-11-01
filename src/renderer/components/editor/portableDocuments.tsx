@@ -1,4 +1,5 @@
 import { type PortableDocument, portableType } from '@shared/artifacts/portable'
+import type { JSX } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import { mermaidSvg } from '@/lib/files/mermaidImage'
 import { stylesMatching } from '@/lib/files/portableStyles'

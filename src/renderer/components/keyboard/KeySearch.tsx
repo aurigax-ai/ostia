@@ -1,6 +1,6 @@
 import { KeyboardIcon, MagnifyingGlassIcon, XIcon } from '@phosphor-icons/react'
 import { type ChordSpec, chordText, overlaps } from '@shared/keyboard/chordSpec'
-import { useCallback, useState } from 'react'
+import { type JSX, useCallback, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Kbd } from '@/components/ui/kbd'

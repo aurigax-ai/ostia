@@ -77,10 +77,11 @@ describe('removeProfile', () => {
   })
 })
 
+const NO_LOGIN = async () => false
+
 describe('sweepPendingProfiles', () => {
   const OLD = Date.now() + 60 * 60 * 1000
   const NONE: ReadonlySet<string> = new Set()
-  const NO_LOGIN = async () => false
 
   it('removes only folders still marked pending and older than the wait', async () => {
     createProfile(root, WORK, home)

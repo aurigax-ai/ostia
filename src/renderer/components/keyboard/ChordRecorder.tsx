@@ -5,7 +5,7 @@ import {
   parseChord,
   specFromEvent,
 } from '@shared/keyboard/chordSpec'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { useDict } from '@/lib/app/useDict'
 import { holdDoubleShift } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'

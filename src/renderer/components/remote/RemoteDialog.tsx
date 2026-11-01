@@ -1,4 +1,5 @@
 import type { RemoteChoice, SetupStep } from '@shared/remote/remoteSetup'
+import type { JSX } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,

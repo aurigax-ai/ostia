@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Highlight, useSearchLeaf } from './SettingsSearch'
 

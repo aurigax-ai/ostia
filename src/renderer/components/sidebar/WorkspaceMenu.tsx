@@ -16,6 +16,7 @@ import {
   XIcon,
   XSquareIcon,
 } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import {
   MenuCheckboxItem,
   MenuContent,

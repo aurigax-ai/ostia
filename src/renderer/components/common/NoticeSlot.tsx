@@ -1,5 +1,6 @@
 import {
   isValidElement,
+  type JSX,
   type ReactElement,
   type ReactNode,
   useEffect,

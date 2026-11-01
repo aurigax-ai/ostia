@@ -1,4 +1,5 @@
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
 import { toggleRightPanel } from '@/lib/panes/rightPanelFocus'

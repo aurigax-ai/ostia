@@ -26,7 +26,7 @@ function findAction(by: 1 | -1 | null): string {
 }
 
 interface MonacoEditorParams {
-  hostRef: RefObject<HTMLDivElement>
+  hostRef: RefObject<HTMLDivElement | null>
   editorRef: MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
   reducedMotionRef: MutableRefObject<boolean>
   setLiveEditor: (editor: monaco.editor.IStandaloneCodeEditor | null) => void

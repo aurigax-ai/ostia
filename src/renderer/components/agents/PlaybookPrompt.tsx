@@ -1,5 +1,5 @@
 import { playbookTextProblem, type TextProblem } from '@shared/agents/playbooks'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { useDict } from '@/lib/app/useDict'
 

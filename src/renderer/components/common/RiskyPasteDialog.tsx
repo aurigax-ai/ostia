@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { type JSX, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {

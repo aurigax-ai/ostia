@@ -1,7 +1,7 @@
 import type { Dict } from '@shared/app/dict'
 import type { SyncStatus } from '@shared/profileSync/profileSync'
 import type { ServerSyncStatus } from '@shared/profileSync/serverSync'
-import { useEffect, useMemo, useState } from 'react'
+import { type JSX, useEffect, useMemo, useState } from 'react'
 import { MachineValue } from '@/components/common/MachineValue'
 import { Notice } from '@/components/common/Notice'
 import { SignedInRows, SignedOutRows } from '@/components/server/SyncAccountRows'

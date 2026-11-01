@@ -1,4 +1,5 @@
 import { ArrowSquareInIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { useDict } from '@/lib/app/useDict'
 import { returnToMainWindow } from '@/lib/workspaces/windowHandoff'

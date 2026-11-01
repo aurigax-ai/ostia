@@ -1,5 +1,5 @@
 import { InfoIcon, WarningCircleIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
-import { useState } from 'react'
+import { type JSX, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'

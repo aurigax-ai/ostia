@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import '@testing-library/jest-dom/vitest'
 import type { PortableResult } from '@shared/artifacts/portable'
 import type { ShareAvailability, ShareView } from '@shared/artifacts/shares'

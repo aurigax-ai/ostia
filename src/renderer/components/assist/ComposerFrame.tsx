@@ -3,7 +3,7 @@ import type {
   AssistResponse,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { ChatCircleDotsIcon, XIcon } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { redactedCount } from '@/lib/assist/chatRedaction'

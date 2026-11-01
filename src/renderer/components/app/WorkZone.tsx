@@ -1,5 +1,5 @@
 import { PlusIcon, TerminalWindowIcon } from '@phosphor-icons/react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { commands } from '@/commands/registry'
 import { ChordButton } from '@/components/common/ChordButton'
 import { EmptyState } from '@/components/common/EmptyState'

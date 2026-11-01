@@ -1,5 +1,5 @@
 import { ArrowClockwiseIcon, CopyIcon, FolderOpenIcon, WarningIcon } from '@phosphor-icons/react'
-import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react'
+import { Component, type ErrorInfo, type JSX, type ReactNode, useEffect, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
 import {

@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Hint } from '@/components/common/Hint'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { type StateCounts, stateCounts } from '@/lib/workspaces/rowSummary'

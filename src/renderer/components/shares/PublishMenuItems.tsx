@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { type JSX, useEffect } from 'react'
 import { MenuItem } from '@/components/common/Menu'
 import { useDict } from '@/lib/app/useDict'
 import { useSharesStore } from '@/stores/files/sharesStore'

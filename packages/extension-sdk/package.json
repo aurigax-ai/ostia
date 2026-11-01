@@ -29,7 +29,7 @@
     "./api-contract": "./scripts/api-contract.mjs"
   },
   "dependencies": {
-    "@tanstack/virtual-core": "3.19.4",
+    "@tanstack/virtual-core": "3.19.9",
     "semver": "catalog:",
     "vscode-jsonrpc": "catalog:"
   },

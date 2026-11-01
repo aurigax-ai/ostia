@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { useChordLabel } from '@/lib/keyboard/chords'

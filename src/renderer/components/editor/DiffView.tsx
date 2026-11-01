@@ -10,7 +10,7 @@ import {
   ParagraphIcon,
   RowsIcon,
 } from '@phosphor-icons/react'
-import { useEffect, useRef } from 'react'
+import { type JSX, useEffect, useRef } from 'react'
 import { commands } from '@/commands/registry'
 import { IconButton } from '@/components/common/IconButton'
 import { Segmented } from '@/components/common/Segmented'

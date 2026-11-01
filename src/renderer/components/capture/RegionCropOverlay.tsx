@@ -1,6 +1,7 @@
 import type { PickBox } from '@shared/browser/pick'
 import { REGION_MIN, type RegionView } from '@shared/browser/regionCapture'
 import {
+  type JSX,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,

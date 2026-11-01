@@ -1,5 +1,5 @@
 import type { ShareView } from '@shared/artifacts/shares'
-import { useEffect, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { Notice } from '@/components/common/Notice'
 import { SignInNotice } from '@/components/server/SignInNotice'
 import { useServerStatus } from '@/components/server/useServerStatus'

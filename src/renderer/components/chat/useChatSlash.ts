@@ -133,8 +133,8 @@ export interface ChatSlashParams
   historyOn: boolean
   scratch: boolean
   provider: AssistProviderInfo | null
-  areaRef: RefObject<HTMLTextAreaElement>
-  rootRef: RefObject<HTMLDivElement>
+  areaRef: RefObject<HTMLTextAreaElement | null>
+  rootRef: RefObject<HTMLDivElement | null>
 }
 
 export function useChatSlash(params: ChatSlashParams) {

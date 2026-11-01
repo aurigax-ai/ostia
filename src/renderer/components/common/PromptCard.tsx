@@ -1,4 +1,5 @@
 import { type Icon as IconComponent, XIcon } from '@phosphor-icons/react'
+import type { JSX } from 'react'
 import { IconButton } from '@/components/common/IconButton'
 import { cn } from '@/lib/utils'
 

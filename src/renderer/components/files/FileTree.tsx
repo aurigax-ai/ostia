@@ -2,7 +2,7 @@ import type { RemoteFileError } from '@aurigax-ai/ostia-extension-sdk/contract/r
 import { CaretRightIcon, LockSimpleIcon } from '@phosphor-icons/react'
 import { archiveRoot, isArchivePath } from '@shared/archives/archivePaths'
 import type { FsEntry } from '@shared/files/filesApi'
-import { useEffect, useRef, useState } from 'react'
+import { type JSX, useEffect, useRef, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { useDict } from '@/lib/app/useDict'
 import { type CompactChain, childPath, compactChain } from '@/lib/files/fileTree'
