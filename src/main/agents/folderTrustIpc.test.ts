@@ -40,11 +40,10 @@ let startAsk: ReturnType<typeof createStartAsk>
 const done = (paneId: string, sender = '1') =>
   handlers.get('agent:folder-trust-done')?.({ sender: { id: Number(sender) } }, paneId)
 
-async function pending(promise: Promise<void>): Promise<'waiting' | 'done'> {
-  return Promise.race([
-    promise.then(() => 'done' as const),
-    new Promise<'waiting'>((r) => setTimeout(() => r('waiting'), 30)),
-  ])
+const asked = (count = 1) => vi.waitFor(() => expect(sent).toHaveLength(count))
+
+async function stillWaiting(promise: Promise<void>): Promise<boolean> {
+  return Promise.race([promise.then(() => false), Promise.resolve().then(() => true)])
 }
 
 const ask = (paneId: string, sender = '1') =>
@@ -153,10 +152,11 @@ describe('start ask', () => {
   it('CFT-C80 asks the owner window for an untrusted folder inside the workspace and waits for done', async () => {
     const identity = pane('p-ok', 'ws')
     const waiting = startAsk('', identity)
-    expect(await pending(waiting)).toBe('waiting')
+    await asked()
+    expect(await stillWaiting(waiting)).toBe(true)
     expect(sent).toEqual([['agent:folder-trust-ask', 'p-ok', project, true]])
     await done('p-ok')
-    expect(await pending(waiting)).toBe('done')
+    await waiting
   })
 
   it('CFT-C81 asks for a folder outside the workspace folder as outside, and Trust writes only that folder', async () => {
@@ -164,7 +164,8 @@ describe('start ask', () => {
     mkdirSync(other, { recursive: true })
     const identity = pane('p-out', 'ws', hostname(), '1', other)
     const waiting = startAsk('', identity)
-    expect(await pending(waiting)).toBe('waiting')
+    await asked()
+    expect(await stillWaiting(waiting)).toBe(true)
     expect(sent).toEqual([['agent:folder-trust-ask', 'p-out', other, false]])
     expect(await trust('p-out', '1', other)).toBe(true)
     expect(JSON.parse(readFileSync(config, 'utf8')).projects[other]).toEqual({
@@ -172,7 +173,7 @@ describe('start ask', () => {
     })
     expect(JSON.parse(readFileSync(config, 'utf8')).projects[project]).toBeUndefined()
     await done('p-out')
-    expect(await pending(waiting)).toBe('done')
+    await waiting
   })
 
   it('CFT-C82 never asks for home, or for a scratch, sandboxed, manager or remote pane', async () => {
@@ -183,7 +184,7 @@ describe('start ask', () => {
     const inScratch = pane('p-scratch', 'scratch')
     const inSandbox = pane('p-sandbox', 'sandbox')
     for (const identity of [remote, manager, atHome, inScratch, inSandbox]) {
-      expect(await pending(startAsk('', identity))).toBe('done')
+      await startAsk('', identity)
     }
     expect(sent).toEqual([])
   })
@@ -193,7 +194,7 @@ describe('start ask', () => {
       config,
       JSON.stringify({ projects: { [project]: { hasTrustDialogAccepted: true } } }),
     )
-    expect(await pending(startAsk('', pane('p-ok', 'ws')))).toBe('done')
+    await startAsk('', pane('p-ok', 'ws'))
     expect(sent).toEqual([])
   })
 
@@ -206,16 +207,18 @@ describe('start ask', () => {
       JSON.stringify({ projects: { [project]: { hasTrustDialogAccepted: true } } }),
     )
     const waiting = startAsk(profile, pane('p-ok', 'ws'))
-    expect(await pending(waiting)).toBe('waiting')
+    await asked()
+    expect(await stillWaiting(waiting)).toBe(true)
     expect(sent).toHaveLength(1)
     await done('p-ok')
   })
 
   it('CFT-C85 another window cannot release the wait', async () => {
     const waiting = startAsk('', pane('p-ok', 'ws'))
-    expect(await pending(waiting)).toBe('waiting')
+    await asked()
+    expect(await stillWaiting(waiting)).toBe(true)
     await done('p-ok', '2')
-    expect(await pending(waiting)).toBe('waiting')
+    expect(await stillWaiting(waiting)).toBe(true)
     await done('p-ok')
   })
 })
