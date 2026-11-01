@@ -13,6 +13,11 @@ export const terminalZhHant: typeof terminalEn = {
     select: '選取區塊',
     sendOutput: '將輸出傳送給代理程式…',
   },
+  engine: {
+    failed: 'Ghostty 無法啟動，此終端機無法開啟：{reason}',
+    finished: '指令已結束，結束碼 {code}',
+    output: '終端機輸出',
+  },
   find: {
     close: '關閉尋找',
     earlier: '較早 {count} 個',
@@ -22,11 +27,6 @@ export const terminalZhHant: typeof terminalEn = {
     noResults: '沒有結果',
     placeholder: '尋找',
     previous: '上一個符合項目',
-  },
-  engine: {
-    output: '終端機輸出',
-    finished: '指令已結束，結束碼 {code}',
-    failed: 'Ghostty 無法啟動，此終端機無法開啟：{reason}',
   },
   history: {
     empty: '沒有符合的指令',

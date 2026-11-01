@@ -15,8 +15,6 @@
         "browserSettings.duckduckgo",
         "browserSettings.bing",
         "browserSettings.kagi",
-        "settings.rendererXterm",
-        "settings.rendererGhostty",
         "settings.remoteTailscale",
         "git.title",
         "server.providerGithub",

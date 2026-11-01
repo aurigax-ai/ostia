@@ -11,6 +11,11 @@ export const terminalEn = {
     select: 'Select block',
     sendOutput: 'Send output to agent…',
   },
+  engine: {
+    failed: 'Ghostty could not start, so this terminal cannot open: {reason}',
+    finished: 'Command finished, exit {code}',
+    output: 'Terminal output',
+  },
   find: {
     close: 'Close find',
     earlier: '{count} earlier',
@@ -20,11 +25,6 @@ export const terminalEn = {
     noResults: 'No results',
     placeholder: 'Find',
     previous: 'Previous match',
-  },
-  engine: {
-    output: 'Terminal output',
-    finished: 'Command finished, exit {code}',
-    failed: 'Ghostty could not start, so this terminal cannot open: {reason}',
   },
   history: {
     empty: 'No matching commands',
