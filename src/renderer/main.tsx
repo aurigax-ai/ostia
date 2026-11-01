@@ -14,6 +14,7 @@ import { AppErrorBoundary, CrashTestHook, RecoveryScreen } from '@/components/ap
 import { startActivationResume } from '@/lib/agents/activationResume'
 import { startAgentRunningReport } from '@/lib/agents/agentRunningReport'
 import { startAutoResume } from '@/lib/agents/autoResume'
+import { startFolderTrustAsks } from '@/lib/agents/folderTrust'
 import { startHibernation } from '@/lib/agents/hibernationScheduler'
 import { startAgentDetection } from '@/lib/agents/paneAgent'
 import { startAppMenu } from '@/lib/app/appMenu'
@@ -175,6 +176,7 @@ async function boot(): Promise<void> {
   startQuestions()
   startMail()
   startSessionStays()
+  startFolderTrustAsks()
   startUserActions()
   startViews()
   startUpdateWatch()

@@ -1,5 +1,5 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import {
   DOM_RENDERER_SETTINGS,
   freshDataHome,
@@ -7,7 +7,6 @@ import {
   seedSettings,
   testHome,
 } from './dataHome'
-import { typeLine } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from './test'
 
 test.describe.configure({ timeout: 90_000 })
@@ -135,27 +134,6 @@ test('CFT-C18 with the setting on, the folder is trusted and the resume goes on 
     )
     expect(trusted(s)).toBe(true)
     await expect(win.getByRole('region', { name: 'Claude folder trust' })).toHaveCount(0)
-  } finally {
-    await app.close()
-  }
-})
-
-test('CFT-C64 agent run answers folder-not-trusted at once for Claude outside the workspace folder, starting nothing', async () => {
-  const s = setup(true, false)
-  const outside = join(dirname(s.project), 'elsewhere')
-  mkdirSync(outside, { recursive: true })
-  const { app, win } = await launch(s)
-  try {
-    await expect(win.locator(SHOWN_ROWS)).toContainText('❯', { timeout: 20_000 })
-    await win.locator('.xterm').first().click()
-    await typeLine(win, `ostia agent run claude hi --cwd '${outside}'; echo ran-$?`)
-    await expect(win.locator(SHOWN_ROWS)).toContainText(
-      `folder-not-trusted: ${outside} is outside the workspace folder`,
-      { timeout: 30_000 },
-    )
-    await expect(win.locator(SHOWN_ROWS)).toContainText('ran-')
-    expect(resumes(s)).toBe(0)
-    expect(trusted(s)).toBeUndefined()
   } finally {
     await app.close()
   }

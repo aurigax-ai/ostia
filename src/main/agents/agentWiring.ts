@@ -39,14 +39,11 @@ import type { ReapReason } from '../terminal/ptyReaper'
 import type { KeptAttention } from '../tmux/keptAttention'
 import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
 import type { WindowSend } from '../windows/windowSend'
-import type { ScratchFolders } from '../workspaces/scratchFolders'
 import type { AgentResumes } from './agentResumes'
 import type { AgentRunningPanes } from './agentRunning'
 import { codexSessionFolder } from './agentTranscript'
 import { type ReportedAgentWork, registerAgentWorkMethods } from './agentWork'
 import { tellPane } from './busStore'
-import type { ClaudeAccounts } from './claudeAccounts/claudeAccounts'
-import { createOutsideTrust } from './startTrust'
 
 interface AgentWiringDeps {
   execCommand: CommandBridge['execCommand']
@@ -74,8 +71,6 @@ interface AgentWiringDeps {
   ptys: Map<string, PtyEntry>
   paneIo: PtyIo['paneIo']
   workspaceSandboxes: WorkspaceSandboxes
-  scratchFolders: Pick<ScratchFolders, 'isScratch' | 'dirOf'>
-  claudeAccounts: Pick<ClaudeAccounts, 'currentDirectory'>
   killPty: (paneId: string, reason: ReapReason) => void
   windows: Map<string, BrowserWindow>
   terminalState: Map<string, TerminalStateSnapshot>
@@ -107,8 +102,6 @@ export function registerAgentWiring({
   ptys,
   paneIo,
   workspaceSandboxes,
-  scratchFolders,
-  claudeAccounts,
   killPty,
   windows,
   terminalState,
@@ -176,12 +169,6 @@ export function registerAgentWiring({
     },
     writePane: paneIo.write,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    outsideTrust: createOutsideTrust({
-      scratchFolders,
-      workspaceSandboxes,
-      readSettingsFile,
-      claudeAccounts,
-    }),
     remote,
     endShell: (paneId) => killPty(paneId, 'process-kill'),
     hasShell: (paneId) => ptys.has(paneId),

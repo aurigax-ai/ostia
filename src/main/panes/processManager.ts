@@ -1,4 +1,3 @@
-import { basename } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { ChangeSignal } from '../../shared/common/actThenConfirm'
@@ -195,7 +194,6 @@ export function registerProcessMethods(deps: ProcessDeps): {
           (await workersTab(ctx, workspaceOf(p.workspace) ?? ctx.identity.workspaceId)),
         deps.startsWithHook(argv),
         p.tab !== undefined && p.tab !== null,
-        basename(argv[0] ?? '') === 'claude',
       )
       recordOwner(ctx, started)
       return started

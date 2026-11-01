@@ -49,7 +49,10 @@ export function usePanePrompt(pane: PaneNode): JSX.Element | null {
   if (appLink) return <AppLinkPrompt paneId={pane.id} prompt={appLink} />
   if (approval) return <ApprovalPrompt request={approval} paneTitle={pane.title} />
   if (question) return <QuestionPrompt question={question} />
-  if (trustFolder) return <FolderTrustPrompt paneId={pane.id} folder={trustFolder} />
+  if (trustFolder)
+    return (
+      <FolderTrustPrompt paneId={pane.id} folder={trustFolder.folder} kind={trustFolder.kind} />
+    )
   if (pane.resumeFailed) return <ResumeFailedPrompt paneId={pane.id} failure={pane.resumeFailed} />
   if (
     pane.resumeFolderMissing &&

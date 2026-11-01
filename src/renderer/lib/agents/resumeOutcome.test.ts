@@ -236,7 +236,11 @@ describe('a typed resume that fails', () => {
       act('p1')
       const allowed = vi.mocked(runWhenIdle).mock.calls[0]?.[3]
       void allowed?.()
-      await vi.waitFor(() => expect(useFolderTrustStore.getState().byPane).toEqual({ p1: '/w' }))
+      await vi.waitFor(() =>
+        expect(useFolderTrustStore.getState().byPane).toEqual({
+          p1: { folder: '/w', kind: 'resume' },
+        }),
+      )
       resumeAnyway('p1')
     }
   })

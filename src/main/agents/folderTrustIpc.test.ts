@@ -13,7 +13,7 @@ vi.mock('electron', () => ({
 
 const { registerPane, removePane } = await import('../control/idRegistry')
 const { removeWorkspace, setWorkspaceWorkDir } = await import('../workspaces/workspaceRegistry')
-const { registerFolderTrustIpc } = await import('./folderTrustIpc')
+const { createStartAsk, registerFolderTrustIpc } = await import('./folderTrustIpc')
 
 let home: string
 let project: string
@@ -22,13 +22,30 @@ const ptys = new Map<string, unknown>()
 const scratch = new Set<string>()
 const sandboxed = new Set<string>()
 
-function pane(paneId: string, workspaceId: string, host = hostname(), windowId = '1') {
+function pane(
+  paneId: string,
+  workspaceId: string,
+  host = hostname(),
+  windowId = '1',
+  path = project,
+) {
   const identity = registerPane({ windowId, workspaceId, paneId })
-  ptys.set(paneId, { mirror: { cwdReport: { host, path: project } } })
+  ptys.set(paneId, { mirror: { cwdReport: { host, path } } })
   return identity
 }
 
 let accountDir: string | undefined
+const sent: unknown[][] = []
+let startAsk: ReturnType<typeof createStartAsk>
+const done = (paneId: string, sender = '1') =>
+  handlers.get('agent:folder-trust-done')?.({ sender: { id: Number(sender) } }, paneId)
+
+async function pending(promise: Promise<void>): Promise<'waiting' | 'done'> {
+  return Promise.race([
+    promise.then(() => 'done' as const),
+    new Promise<'waiting'>((r) => setTimeout(() => r('waiting'), 30)),
+  ])
+}
 
 const ask = (paneId: string, sender = '1') =>
   handlers.get('agent:folder-trust')?.({ sender: { id: Number(sender) } }, paneId)
@@ -46,13 +63,19 @@ beforeEach(() => {
   for (const id of ['ws', 'scratch', 'sandbox']) setWorkspaceWorkDir(id, project)
   scratch.add('scratch')
   sandboxed.add('sandbox')
-  registerFolderTrustIpc({
+  sent.length = 0
+  const deps = {
     ptys: ptys as never,
-    scratchFolders: { isScratch: (id) => scratch.has(id ?? '') },
-    workspaceSandboxes: { isEnabled: (id) => sandboxed.has(id) },
+    scratchFolders: { isScratch: (id: string | null | undefined) => scratch.has(id ?? '') },
+    workspaceSandboxes: { isEnabled: (id: string) => sandboxed.has(id) },
     readSettingsFile: () => ({}),
     claudeAccounts: { configDir: () => accountDir },
-  })
+    windows: new Map([
+      ['1', { isDestroyed: () => false, webContents: { send: (...a: unknown[]) => sent.push(a) } }],
+    ]) as never,
+  }
+  registerFolderTrustIpc(deps)
+  startAsk = createStartAsk(deps)
 })
 
 afterEach(() => {
@@ -123,5 +146,76 @@ describe('folder trust IPC', () => {
     expect(await trust('p-ok', '1', other)).toBe(false)
     expect(await handlers.get('agent:trust-folder')?.({ sender: { id: 1 } }, 'p-ok')).toBe(false)
     expect(readFileSync(config, 'utf8')).toBe('{"projects":{}}\n')
+  })
+})
+
+describe('start ask', () => {
+  it('CFT-C80 asks the owner window for an untrusted folder inside the workspace and waits for done', async () => {
+    const identity = pane('p-ok', 'ws')
+    const waiting = startAsk('', identity)
+    expect(await pending(waiting)).toBe('waiting')
+    expect(sent).toEqual([['agent:folder-trust-ask', 'p-ok', project, true]])
+    await done('p-ok')
+    expect(await pending(waiting)).toBe('done')
+  })
+
+  it('CFT-C81 asks for a folder outside the workspace folder as outside, and Trust writes only that folder', async () => {
+    const other = join(home, 'elsewhere', 'repo')
+    mkdirSync(other, { recursive: true })
+    const identity = pane('p-out', 'ws', hostname(), '1', other)
+    const waiting = startAsk('', identity)
+    expect(await pending(waiting)).toBe('waiting')
+    expect(sent).toEqual([['agent:folder-trust-ask', 'p-out', other, false]])
+    expect(await trust('p-out', '1', other)).toBe(true)
+    expect(JSON.parse(readFileSync(config, 'utf8')).projects[other]).toEqual({
+      hasTrustDialogAccepted: true,
+    })
+    expect(JSON.parse(readFileSync(config, 'utf8')).projects[project]).toBeUndefined()
+    await done('p-out')
+    expect(await pending(waiting)).toBe('done')
+  })
+
+  it('CFT-C82 never asks for home, or for a scratch, sandboxed, manager or remote pane', async () => {
+    const remote = pane('p-remote', 'ws', 'some-other-host')
+    const manager = pane('p-manager', 'ws')
+    manager.manager = true
+    const atHome = pane('p-home', 'ws', hostname(), '1', home)
+    const inScratch = pane('p-scratch', 'scratch')
+    const inSandbox = pane('p-sandbox', 'sandbox')
+    for (const identity of [remote, manager, atHome, inScratch, inSandbox]) {
+      expect(await pending(startAsk('', identity))).toBe('done')
+    }
+    expect(sent).toEqual([])
+  })
+
+  it('CFT-C83 goes on at once when Claude has accepted the folder', async () => {
+    writeFileSync(
+      config,
+      JSON.stringify({ projects: { [project]: { hasTrustDialogAccepted: true } } }),
+    )
+    expect(await pending(startAsk('', pane('p-ok', 'ws')))).toBe('done')
+    expect(sent).toEqual([])
+  })
+
+  it('CFT-C84 reads the config of the account the start uses', async () => {
+    const profile = join(home, 'accounts', 'work')
+    mkdirSync(profile, { recursive: true })
+    writeFileSync(join(profile, '.claude.json'), '{"projects":{}}\n')
+    writeFileSync(
+      config,
+      JSON.stringify({ projects: { [project]: { hasTrustDialogAccepted: true } } }),
+    )
+    const waiting = startAsk(profile, pane('p-ok', 'ws'))
+    expect(await pending(waiting)).toBe('waiting')
+    expect(sent).toHaveLength(1)
+    await done('p-ok')
+  })
+
+  it('CFT-C85 another window cannot release the wait', async () => {
+    const waiting = startAsk('', pane('p-ok', 'ws'))
+    expect(await pending(waiting)).toBe('waiting')
+    await done('p-ok', '2')
+    expect(await pending(waiting)).toBe('waiting')
+    await done('p-ok')
   })
 })

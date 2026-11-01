@@ -105,6 +105,7 @@ interface RegisterDeps {
   workspaceWindowId: (workspaceId: string) => string | undefined
   execCommand: CommandBridge['execCommand']
   trustForStart: (profileDir: string, identity: PaneIdentity) => Promise<boolean>
+  askTrust: (profileDir: string, identity: PaneIdentity) => Promise<void>
   windowIds: () => string[]
 }
 
@@ -184,6 +185,7 @@ export function registerClaudeAccountsWiring(deps: RegisterDeps): void {
     handler: async (_params, ctx) => {
       const dir = defaultOnly(ctx) ? '' : await claudeAccounts.startDirectory(ctx.identity.paneId)
       await deps.trustForStart(dir, ctx.identity)
+      await deps.askTrust(dir, ctx.identity)
       return { dir, memoryHome: dir === '' ? '' : claudeAccounts.defaultHome() }
     },
   })
