@@ -80,7 +80,7 @@
     "@ai-sdk/openai": "^4.0.81",
     "@ai-sdk/openai-compatible": "^3.0.59",
     "@ai-sdk/react": "^4.0.125",
-    "@aurigax-ai/ghostty-web": "0.3.7",
+    "@aurigax-ai/ghostty-web": "0.3.8",
     "@aurigax-ai/ostia-extension-sdk": "workspace:*",
     "@base-ui/react": "^1.7.0",
     "@biomejs/biome": "^2.5.15",
