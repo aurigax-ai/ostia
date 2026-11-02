@@ -37,8 +37,14 @@ fn ansi_names_are_unique() {
 
 #[test]
 fn appearance_is_dark_or_light_in_lowercase() {
-    assert_eq!(serde_json::to_string(&Appearance::Dark).unwrap(), "\"dark\"");
-    assert_eq!(serde_json::to_string(&Appearance::Light).unwrap(), "\"light\"");
+    assert_eq!(
+        serde_json::to_string(&Appearance::Dark).unwrap(),
+        "\"dark\""
+    );
+    assert_eq!(
+        serde_json::to_string(&Appearance::Light).unwrap(),
+        "\"light\""
+    );
     assert_eq!(
         serde_json::from_str::<Appearance>("\"dark\"").unwrap(),
         Appearance::Dark
