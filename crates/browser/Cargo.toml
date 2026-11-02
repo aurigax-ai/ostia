@@ -9,16 +9,24 @@ publish.workspace = true
 [dependencies]
 ostia-base.workspace = true
 ostia-contract.workspace = true
+ostia-control.workspace = true
+ostia-diagnostics.workspace = true
 ostia-rpc.workspace = true
 parking_lot.workspace = true
 regex.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 url.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["test-util"] }
+ostia-control.workspace = true
+ostia-diagnostics.workspace = true
+ostia-testkit.workspace = true
+serde.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt", "sync", "test-util", "time"] }
 
 [lints]
 workspace = true
