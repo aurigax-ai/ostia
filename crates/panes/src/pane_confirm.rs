@@ -28,13 +28,19 @@ pub struct ListedPane {
     pub agent: Option<String>,
 }
 
+pub type OutputCursor = Arc<dyn Fn(&str) -> Option<i64> + Send + Sync>;
+pub type AttentionState = Arc<dyn Fn(&ConfirmTarget) -> BoxFuture<Option<String>> + Send + Sync>;
+pub type PaneListing = Arc<dyn Fn() -> BoxFuture<Vec<ListedPane>> + Send + Sync>;
+pub type Delay = Arc<dyn Fn(u64) -> BoxFuture<()> + Send + Sync>;
+pub type HooksOn = Arc<dyn Fn(&str) -> bool + Send + Sync>;
+
 #[derive(Clone)]
 pub struct PaneConfirmDeps {
-    pub output_cursor: Arc<dyn Fn(&str) -> Option<i64> + Send + Sync>,
-    pub attention: Arc<dyn Fn(&ConfirmTarget) -> BoxFuture<Option<String>> + Send + Sync>,
-    pub panes: Arc<dyn Fn() -> BoxFuture<Vec<ListedPane>> + Send + Sync>,
-    pub delay: Arc<dyn Fn(u64) -> BoxFuture<()> + Send + Sync>,
-    pub hooks_on: Arc<dyn Fn(&str) -> bool + Send + Sync>,
+    pub output_cursor: OutputCursor,
+    pub attention: AttentionState,
+    pub panes: PaneListing,
+    pub delay: Delay,
+    pub hooks_on: HooksOn,
 }
 
 #[derive(Clone)]

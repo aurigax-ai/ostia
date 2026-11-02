@@ -26,14 +26,10 @@ pub fn human_input_source(raw: &Value) -> Option<HumanInputSource> {
 }
 
 fn units_start_with(data: &[u16], at: usize, prefix: &str) -> bool {
-    let mut at = at;
-    for unit in prefix.encode_utf16() {
-        if data.get(at) != Some(&unit) {
-            return false;
-        }
-        at += 1;
-    }
-    true
+    prefix
+        .encode_utf16()
+        .enumerate()
+        .all(|(offset, unit)| data.get(at + offset) == Some(&unit))
 }
 
 fn in_range(unit: u16, low: u8, high: u8) -> bool {
