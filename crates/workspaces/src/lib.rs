@@ -1,4 +1,7 @@
+pub mod app_menu;
 pub mod browser_device;
+pub mod clipboard_edits;
+pub mod close_guard;
 pub mod js_text;
 pub mod patterns;
 pub mod saved_scrollback;

@@ -17,6 +17,8 @@ pub mod build_info;
 pub mod capabilities;
 pub mod chord_spec;
 pub mod claude_attention;
+pub mod clipboard_capture;
+pub mod clipboard_chords;
 pub mod closing_line;
 pub mod codex_attention;
 pub mod command_line;
