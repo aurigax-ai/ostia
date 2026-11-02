@@ -107,7 +107,11 @@ impl BrowseProviders for Fake {
             let mut entries = Vec::new();
             let mut cut = false;
             for (index, item) in items.iter().enumerate() {
-                let cost = 512 + declared_size(item).div_ceil(512) * 512;
+                let cost = 512
+                    + declared_size(item)
+                        .min(data_of(item).len() as u64)
+                        .div_ceil(512)
+                        * 512;
                 if total + cost > limits.scan_bytes {
                     cut = true;
                     break;
