@@ -1,27 +1,38 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use ostia_model::layout::SplitNode;
+use ostia_model::layout::{Direction, LayoutNode, PaneNode, SplitNode, SurfaceKind};
 use ostia_model::panes::split_tabs::{SplitTabLayout, readable_columns, split_tab_layout};
-use serde_json::{Value, json};
 
-fn pane(id: &str) -> Value {
-    json!({"type": "pane", "id": id, "title": id, "kind": "terminal"})
+fn pane(id: &str) -> LayoutNode {
+    LayoutNode::from(PaneNode::new(id, id, SurfaceKind::Terminal))
 }
 
-fn nested(id: &str) -> Value {
-    json!({"type": "split", "id": id, "direction": "vertical", "children": [pane("n1"), pane("n2")], "sizes": [50.0, 50.0]})
+fn nested(id: &str) -> LayoutNode {
+    LayoutNode::from(SplitNode {
+        id: id.to_string(),
+        direction: Direction::Vertical,
+        children: vec![pane("n1"), pane("n2")],
+        sizes: vec![50.0, 50.0],
+        name: None,
+        folded: false,
+    })
 }
 
-fn split(direction: &str, children: Vec<Value>) -> SplitNode {
+fn split(direction: &str, children: Vec<LayoutNode>) -> SplitNode {
     let sizes: Vec<f64> = children.iter().map(|_| 50.0).collect();
-    serde_json::from_value(json!({
-        "type": "split",
-        "id": "s",
-        "direction": direction,
-        "children": children,
-        "sizes": sizes,
-    }))
-    .unwrap()
+    let direction = match direction {
+        "horizontal" => Direction::Horizontal,
+        "vertical" => Direction::Vertical,
+        other => panic!("unknown direction {other}"),
+    };
+    SplitNode {
+        id: "s".to_string(),
+        direction,
+        children,
+        sizes,
+        name: None,
+        folded: false,
+    }
 }
 
 #[test]
