@@ -16,12 +16,14 @@ pub struct KeptLauncherPaths {
     pub cli: PathBuf,
 }
 
+pub type WarnLauncher = Box<dyn Fn(Option<&str>) + Send + Sync>;
+
 pub struct KeptPlumbingOptions {
     pub launcher_dir: PathBuf,
     pub exec_path: String,
     pub app_path: PathBuf,
     pub listen: Box<dyn Fn() + Send + Sync>,
-    pub warn: Box<dyn Fn(Option<&str>) + Send + Sync>,
+    pub warn: WarnLauncher,
 }
 
 pub fn kept_launcher_paths(launcher_dir: &Path) -> KeptLauncherPaths {

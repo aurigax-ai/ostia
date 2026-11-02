@@ -69,10 +69,15 @@ pub trait KeptShellsSpawn {
     ) -> impl Future<Output = Result<Self::Pane, String>> + Send;
 }
 
+pub type WithKeptProcess = Box<dyn Fn(KeptMeta) -> KeptMeta + Send + Sync>;
+pub type KeptPaneEnv =
+    Box<dyn Fn(&BTreeMap<String, String>) -> BTreeMap<String, String> + Send + Sync>;
+pub type LogSpawnFailed = Box<dyn Fn(&str, &str) + Send + Sync>;
+
 pub struct KeptSpawnerDeps<S> {
     pub kept_shells: S,
     pub ensure_plumbing: Box<dyn Fn() + Send + Sync>,
-    pub with_kept_process: Box<dyn Fn(KeptMeta) -> KeptMeta + Send + Sync>,
+    pub with_kept_process: WithKeptProcess,
     pub kept_pane_env:
         Box<dyn Fn(&BTreeMap<String, String>) -> BTreeMap<String, String> + Send + Sync>,
     pub log_spawn_failed: Box<dyn Fn(&str, &str) + Send + Sync>,
