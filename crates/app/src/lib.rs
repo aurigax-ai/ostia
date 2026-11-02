@@ -1,3 +1,9 @@
+#[cfg(feature = "window")]
+extern crate gpui_kit as gpui;
+
+#[cfg(feature = "window")]
+pub mod shell;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
