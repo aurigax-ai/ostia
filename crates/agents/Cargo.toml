@@ -26,7 +26,10 @@ unicode-normalization.workspace = true
 workspace = true
 
 [dev-dependencies]
+ostia-panes.workspace = true
+ostia-terminal.workspace = true
 ostia-testkit.workspace = true
+ostia-workspaces.workspace = true
 tempfile.workspace = true
 tokio-tungstenite.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "sync", "test-util", "time"] }
