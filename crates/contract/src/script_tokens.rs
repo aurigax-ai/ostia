@@ -4,6 +4,7 @@ use chrono::{DateTime, Datelike, Local, NaiveDate, TimeZone, Utc};
 use ostia_base::js::static_regex;
 use regex::Regex;
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::capabilities::Capability;
 
@@ -17,6 +18,53 @@ pub const SCRIPT_CAPABILITIES: [Capability; 8] = [
     Capability::KillPane,
     Capability::Notify,
 ];
+
+pub const SCRIPT_TOKEN_PREFIX: &str = "ostia_";
+
+pub const POLKIT_ACTION: &str = "ai.aurigax.ostia.manage-script-tokens";
+pub const POLKIT_POLICY_FILE: &str = "ai.aurigax.ostia.manage-script-tokens.policy";
+pub const POLKIT_ACTIONS_DIR: &str = "/usr/share/polkit-1/actions";
+
+pub const SCRIPT_TOKEN_UI_CAPS: [Capability; 7] = [
+    Capability::ReadBoard,
+    Capability::Notify,
+    Capability::ReadOtherPane,
+    Capability::SendOtherPane,
+    Capability::KillPane,
+    Capability::TypeOtherPane,
+    Capability::Process,
+];
+
+pub const SCRIPT_TOKEN_RUN_CAPS: [Capability; 2] = [Capability::TypeOtherPane, Capability::Process];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScriptTokenPreset {
+    Readonly,
+    Coordinator,
+}
+
+pub const SCRIPT_TOKEN_PRESETS: [ScriptTokenPreset; 2] =
+    [ScriptTokenPreset::Readonly, ScriptTokenPreset::Coordinator];
+
+impl ScriptTokenPreset {
+    pub fn caps(self) -> &'static [Capability] {
+        match self {
+            Self::Readonly => &[Capability::ReadBoard, Capability::ReadOtherPane],
+            Self::Coordinator => &[
+                Capability::ReadBoard,
+                Capability::ReadOtherPane,
+                Capability::SendOtherPane,
+                Capability::TypeOtherPane,
+                Capability::Process,
+                Capability::Notify,
+            ],
+        }
+    }
+}
+
+pub fn is_script_token_preset(raw: &Value) -> bool {
+    matches!(raw.as_str(), Some("readonly" | "coordinator"))
+}
 
 pub const DEFAULT_TOKEN_EXPIRY: &str = "90d";
 pub const NEVER_EXPIRES: &str = "never";
@@ -37,6 +85,56 @@ pub enum ScriptTokenScope {
         #[serde(rename = "ownWorkspaces")]
         own_workspaces: bool,
     },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ScriptTokenSource {
+    Settings,
+    Cli,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptTokenInfo {
+    pub id: String,
+    pub name: String,
+    pub caps: Vec<Capability>,
+    pub scope: ScriptTokenScope,
+    pub created_at: String,
+    pub updated_at: String,
+    pub expires_at: Option<String>,
+    pub last_used_at: Option<String>,
+    pub source: ScriptTokenSource,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ScriptTokenCallOutcome {
+    Ok,
+    OutOfScope,
+    MissingPermission,
+    Error,
+    Regenerated,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptTokenCallTarget {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pane_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ScriptTokenCall {
+    pub at: String,
+    pub method: String,
+    pub target: ScriptTokenCallTarget,
+    pub outcome: ScriptTokenCallOutcome,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
 }
 
 fn unreadable(raw: &str) -> String {
