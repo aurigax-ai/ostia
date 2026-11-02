@@ -1,6 +1,7 @@
 use std::io::{Read, Write};
 
 use aes_gcm::aead::Aead;
+use aes_gcm::aead::consts::U12;
 use aes_gcm::{Aes256Gcm, Key, KeyInit, Nonce};
 use flate2::Compression;
 use flate2::read::DeflateDecoder;
@@ -41,7 +42,7 @@ pub fn seal_lines(key: &HistoryKey, lines: &[String]) -> Result<Vec<u8>, RecordE
     let packed = encoder.finish().map_err(RecordError::Deflate)?;
     let nonce_bytes = random_bytes::<NONCE_BYTES>();
     let sealed = cipher(key)
-        .encrypt(&Nonce::<Aes256Gcm>::from(nonce_bytes), packed.as_slice())
+        .encrypt(&Nonce::<U12>::from(nonce_bytes), packed.as_slice())
         .map_err(|_| RecordError::Authentication)?;
     let mut record = Vec::with_capacity(NONCE_BYTES + sealed.len());
     record.extend_from_slice(&nonce_bytes);
@@ -56,7 +57,7 @@ pub fn open_lines(key: &HistoryKey, record: &[u8]) -> Result<Vec<String>, Record
     let (nonce_bytes, sealed) = record.split_at(NONCE_BYTES);
     let nonce_array: [u8; NONCE_BYTES] = nonce_bytes.try_into().map_err(|_| RecordError::Short)?;
     let packed = cipher(key)
-        .decrypt(&Nonce::<Aes256Gcm>::from(nonce_array), sealed)
+        .decrypt(&Nonce::<U12>::from(nonce_array), sealed)
         .map_err(|_| RecordError::Authentication)?;
     let mut text = Vec::new();
     DeflateDecoder::new(packed.as_slice())
