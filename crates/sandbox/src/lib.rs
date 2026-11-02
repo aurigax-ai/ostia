@@ -4,11 +4,11 @@ pub mod package_lookups;
 pub mod package_policy;
 pub mod package_requests;
 pub mod packages;
-pub mod visibility;
 pub mod plugins_farm;
 pub mod protocol;
 pub mod pty_wrap;
 pub mod sandboxed_caller;
+pub mod visibility;
 
 use std::collections::HashSet;
 use std::sync::Arc;
