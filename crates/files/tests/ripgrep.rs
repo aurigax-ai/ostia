@@ -635,8 +635,9 @@ async fn reports_a_run_that_was_cancelled_while_running_as_cancelled_and_stops_t
     root.lines(&[hit("./a.rs", 1)]).put("sleep", "60");
     let cancel = CancellationToken::new();
     let started = std::time::Instant::now();
+    let q = query();
     let (result, ()) = tokio::join!(
-        search_text(fake_rg(), root.path(), &query(), &cancel, MATCH_LIMIT),
+        search_text(fake_rg(), root.path(), &q, &cancel, MATCH_LIMIT),
         async {
             tokio::time::sleep(Duration::from_millis(300)).await;
             cancel.cancel();

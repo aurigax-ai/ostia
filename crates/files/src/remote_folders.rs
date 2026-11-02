@@ -48,17 +48,25 @@ impl RemoteRefusal {
     }
 }
 
+pub type WindowOfWorkspace = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
+pub type RefusalOf = Arc<dyn Fn(&str) -> Option<RemoteRefusal> + Send + Sync>;
+pub type Confirm = Arc<dyn Fn(RemoteFolderConfirm) -> BoxFuture<'static, bool> + Send + Sync>;
+pub type FilesRequest = Arc<
+    dyn Fn(&str, RemoteFilesRequest) -> BoxFuture<'static, Result<Value, String>> + Send + Sync,
+>;
+pub type FolderClosed = Arc<dyn Fn(RemoteFolder) + Send + Sync>;
+pub type Publish = Arc<dyn Fn() + Send + Sync>;
+pub type NewId = Arc<dyn Fn() -> String + Send + Sync>;
+
 #[derive(Clone)]
 pub struct RemoteFoldersDeps {
-    pub window_of_workspace: Arc<dyn Fn(&str) -> Option<String> + Send + Sync>,
-    pub refusal: Arc<dyn Fn(&str) -> Option<RemoteRefusal> + Send + Sync>,
-    pub confirm: Arc<dyn Fn(RemoteFolderConfirm) -> BoxFuture<'static, bool> + Send + Sync>,
-    pub request: Arc<
-        dyn Fn(&str, RemoteFilesRequest) -> BoxFuture<'static, Result<Value, String>> + Send + Sync,
-    >,
-    pub closed: Arc<dyn Fn(RemoteFolder) + Send + Sync>,
-    pub publish: Arc<dyn Fn() + Send + Sync>,
-    pub new_id: Option<Arc<dyn Fn() -> String + Send + Sync>>,
+    pub window_of_workspace: WindowOfWorkspace,
+    pub refusal: RefusalOf,
+    pub confirm: Confirm,
+    pub request: FilesRequest,
+    pub closed: FolderClosed,
+    pub publish: Publish,
+    pub new_id: Option<NewId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
