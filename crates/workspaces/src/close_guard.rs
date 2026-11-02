@@ -300,11 +300,13 @@ type NativeConfirm = Box<
         + Sync,
 >;
 
+pub type WorkspacesOf = Box<dyn Fn(&dyn Window) -> Vec<WorkspaceName> + Send + Sync>;
+
 pub struct QuitCheck {
     pub scratch_files: Box<dyn Fn(&str) -> usize + Send + Sync>,
     pub kept: Vec<String>,
     pub kept_shells: Vec<String>,
-    pub workspaces_of: Box<dyn Fn(&dyn Window) -> Vec<WorkspaceName> + Send + Sync>,
+    pub workspaces_of: WorkspacesOf,
     pub processes: Box<dyn Fn() -> Vec<PaneProcess> + Send + Sync>,
     pub confirm_native: NativeConfirm,
 }

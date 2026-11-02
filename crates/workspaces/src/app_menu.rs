@@ -20,12 +20,14 @@ pub struct AppMenuText {
     pub view: String,
 }
 
+pub type RunCommand = Arc<dyn Fn(&str) + Send + Sync>;
+
 #[derive(Clone)]
 pub struct AppMenuDeps {
     pub product_name: String,
     pub text: Arc<dyn Fn() -> AppMenuText + Send + Sync>,
     pub open_settings: Arc<dyn Fn() + Send + Sync>,
-    pub run_command: Option<Arc<dyn Fn(&str) + Send + Sync>>,
+    pub run_command: Option<RunCommand>,
     pub reload_window: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
@@ -123,7 +125,7 @@ pub trait MenuHost: Send + Sync {
 
 fn command_items(
     entries: &[AppMenuEntry],
-    run: &Option<Arc<dyn Fn(&str) + Send + Sync>>,
+    run: &Option<RunCommand>,
     reload: &Option<Arc<dyn Fn() + Send + Sync>>,
 ) -> Vec<MenuItem> {
     entries

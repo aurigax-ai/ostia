@@ -101,13 +101,15 @@ type Snapshot =
 type WriteCapture =
     Arc<dyn Fn(ClipboardCapture) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
 
+pub type CopyViewerSelection = Arc<dyn Fn(&dyn WebContents) -> bool + Send + Sync>;
+
 pub struct ClipboardEditsDeps {
     pub is_app_window: Arc<dyn Fn(u64) -> bool + Send + Sync>,
     pub snapshot: Snapshot,
     pub write: WriteCapture,
     pub mac: bool,
     pub remap: Arc<dyn GuestRemap>,
-    pub copy_viewer_selection: Arc<dyn Fn(&dyn WebContents) -> bool + Send + Sync>,
+    pub copy_viewer_selection: CopyViewerSelection,
 }
 
 pub struct ClipboardEdits {
