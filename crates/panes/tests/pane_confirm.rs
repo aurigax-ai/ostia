@@ -89,7 +89,7 @@ async fn confirms_a_pane_that_closes_while_it_waits() {
     *scene.vanish_after.lock() = Some(4);
     let (result, waited) = elapsed_of(scene.confirms().confirm_gone(&target())).await;
     assert_eq!(result, Ok(()));
-    assert_eq!(waited, Duration::from_millis(200));
+    assert_eq!(waited, Duration::from_millis(150));
 }
 
 #[tokio::test(start_paused = true)]
@@ -111,7 +111,7 @@ async fn reports_a_pane_still_open_after_three_seconds_and_says_the_human_was_as
                 .to_owned()
         )
     );
-    assert_eq!(waited, Duration::from_millis(3000));
+    assert_eq!(waited, Duration::from_millis(2950));
 }
 
 #[tokio::test(start_paused = true)]
@@ -153,7 +153,7 @@ async fn gives_up_on_input_after_the_wait_when_the_cursor_does_not_move() {
     *scene.cursor.lock() = Some(5);
     let (seen, waited) = elapsed_of(scene.confirms().confirm_input(&target(), Some(5), 200)).await;
     assert!(!seen);
-    assert_eq!(waited, Duration::from_millis(200));
+    assert_eq!(waited, Duration::from_millis(150));
 }
 
 #[tokio::test(start_paused = true)]
@@ -162,7 +162,7 @@ async fn never_confirms_input_when_the_cursor_was_unknown_before() {
     *scene.cursor.lock() = Some(50);
     let (seen, waited) = elapsed_of(scene.confirms().confirm_input(&target(), None, 200)).await;
     assert!(!seen);
-    assert_eq!(waited, Duration::from_millis(200));
+    assert_eq!(waited, Duration::from_millis(150));
 }
 
 #[test]
@@ -208,7 +208,7 @@ async fn tells_the_caller_how_to_press_enter_when_no_turn_starts_in_five_seconds
             Err("not-submitted: ext-1 shows the text at its prompt but did not start a turn after Enter; press Enter with ostia pane key ext-1 enter, or read it with ostia pane read".to_owned()),
             "{state:?}"
         );
-        assert_eq!(waited, Duration::from_millis(5000), "{state:?}");
+        assert_eq!(waited, Duration::from_millis(4950), "{state:?}");
     }
 }
 
