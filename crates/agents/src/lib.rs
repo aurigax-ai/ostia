@@ -23,6 +23,7 @@ pub mod stream_codex;
 pub mod stream_pi;
 pub mod stream_source;
 pub mod transcript_files;
+pub mod trust_place;
 
 use serde::{Deserialize, Serialize};
 
