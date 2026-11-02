@@ -2,8 +2,17 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use ostia_base::Result;
 use ostia_base::atomic_write::{AtomicWriteOptions, write_file_atomic};
+use ostia_base::error::io_error;
 use parking_lot::Mutex;
+
+fn remove_if_present(path: &std::path::Path) -> Result<()> {
+    match std::fs::remove_file(path) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(io_error(path)(error)),
+        _ => Ok(()),
+    }
+}
 
 #[derive(Default)]
 struct Flags {
@@ -32,13 +41,14 @@ impl MailFlags {
         flags.written.remove(external_id);
     }
 
-    pub fn forget(&self, external_id: &str) {
+    pub fn forget(&self, external_id: &str) -> Result<()> {
         let mut flags = self.flags.lock();
         if let Some(index) = flags.paths.iter().position(|(id, _)| id == external_id) {
-            let (_, path) = flags.paths.remove(index);
-            let _ = std::fs::remove_file(path);
+            remove_if_present(&flags.paths[index].1)?;
+            flags.paths.remove(index);
         }
         flags.written.remove(external_id);
+        Ok(())
     }
 
     pub fn sync(&self, counts: &HashMap<String, usize>) {

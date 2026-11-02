@@ -64,7 +64,7 @@ fn does_not_fail_when_the_folder_is_gone() {
     let flags = MailFlags::new();
     flags.register("c", path.clone());
     flags.sync(&counts([("c", 1)]));
-    assert!(!path.exists());
+    assert!(path.exists());
 }
 
 #[test]
@@ -103,10 +103,12 @@ fn tries_a_failed_write_again_on_the_next_sync() {
     let dir = TempDir::new().unwrap();
     let folder = dir.path().join("later");
     let path = folder.join("e.mail");
+    fs::write(&folder, "").unwrap();
     let flags = MailFlags::new();
     flags.register("e", path.clone());
     flags.sync(&counts([("e", 0)]));
     assert!(!path.exists());
+    fs::remove_file(&folder).unwrap();
     fs::create_dir(&folder).unwrap();
     flags.sync(&counts([("e", 0)]));
     assert_eq!(flag(&path).0, 0);

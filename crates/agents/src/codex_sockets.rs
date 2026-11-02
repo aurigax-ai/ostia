@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use ostia_base::Result;
+use ostia_base::error::io_error;
 use ostia_base::host::Host;
 use ostia_base::js::js_number;
 use ostia_base::private_tmp::{private_run_dir, socket_path};
@@ -24,6 +26,13 @@ fn pid_file_of(socket: &Path) -> PathBuf {
     let mut name = socket.as_os_str().to_owned();
     name.push(".pid");
     PathBuf::from(name)
+}
+
+fn remove_if_present(path: &Path) -> Result<()> {
+    match fs::remove_file(path) {
+        Err(error) if error.kind() != ErrorKind::NotFound => Err(io_error(path)(error)),
+        _ => Ok(()),
+    }
 }
 
 fn kill_server(pid_file: &Path) {
@@ -58,13 +67,13 @@ impl CodexSockets {
         self.sockets.lock().get(external_id).cloned()
     }
 
-    pub fn forget(&self, external_id: &str) {
+    pub fn forget(&self, external_id: &str) -> Result<()> {
         let Some(path) = self.sockets.lock().remove(external_id) else {
-            return;
+            return Ok(());
         };
         let pid_file = pid_file_of(&path);
         kill_server(&pid_file);
-        let _ = fs::remove_file(&path);
-        let _ = fs::remove_file(&pid_file);
+        remove_if_present(&path)?;
+        remove_if_present(&pid_file)
     }
 }
