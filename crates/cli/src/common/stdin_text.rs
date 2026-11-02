@@ -73,7 +73,7 @@ pub async fn read_all_stdin() -> io::Result<String> {
     let mut bytes = Vec::new();
     stdin().read_to_end(&mut bytes).await?;
     Ok(without_final_newline(
-        String::from_utf8_lossy(&bytes).into_owned(),
+        Utf8Decoder::default().decode(&bytes, true),
     ))
 }
 
@@ -153,19 +153,33 @@ async fn read_masked_line() -> io::Result<String> {
     }
 }
 
+const INTERRUPTED_EXIT_CODE: i32 = 130;
+
+fn exit_on_interrupt() {
+    tokio::spawn(async {
+        if ctrl_c().await.is_ok() {
+            std::process::exit(INTERRUPTED_EXIT_CODE);
+        }
+    });
+}
+
 async fn read_line_no_echo() -> io::Result<String> {
     let raw = RawMode::enable()?;
     let outcome = tokio::select! {
-        line = read_masked_line() => line,
-        _ = ctrl_c() => Err(aborted()),
+        line = read_masked_line() => Some(line),
+        _ = ctrl_c() => None,
     };
     drop(raw);
+    exit_on_interrupt();
     let finished = match &outcome {
-        Ok(_) => true,
-        Err(error) => error.kind() == io::ErrorKind::Interrupted,
+        Some(Ok(_)) | None => true,
+        Some(Err(error)) => error.kind() == io::ErrorKind::Interrupted,
     };
     if finished {
         eprintln!();
     }
-    outcome
+    match outcome {
+        Some(line) => line,
+        None => std::process::exit(INTERRUPTED_EXIT_CODE),
+    }
 }

@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::Arc;
 
 use ostia_attention::WorkspaceLiveState;
@@ -56,7 +57,7 @@ impl PlatformEventType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum PlatformEvent {
     Notify {
         title: String,
@@ -93,6 +94,58 @@ pub enum PlatformEvent {
         path: String,
         change: String,
     },
+}
+
+impl fmt::Debug for PlatformEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Notify { from, .. } => f
+                .debug_struct("Notify")
+                .field("from", from)
+                .finish_non_exhaustive(),
+            Self::AgentNeedsInput { session_id } => f
+                .debug_struct("AgentNeedsInput")
+                .field("session_id", session_id)
+                .finish(),
+            Self::AgentDone { session_id } => f
+                .debug_struct("AgentDone")
+                .field("session_id", session_id)
+                .finish(),
+            Self::SessionState { session_id, state } => f
+                .debug_struct("SessionState")
+                .field("session_id", session_id)
+                .field("state", state)
+                .finish(),
+            Self::PaneState {
+                pane_id,
+                generation,
+                running,
+                block_count,
+                last_exit_code,
+                ..
+            } => f
+                .debug_struct("PaneState")
+                .field("pane_id", pane_id)
+                .field("generation", generation)
+                .field("running", running)
+                .field("block_count", block_count)
+                .field("last_exit_code", last_exit_code)
+                .finish_non_exhaustive(),
+            Self::AskCreated { .. } => f.debug_struct("AskCreated").finish_non_exhaustive(),
+            Self::AskResolved { ask_id, outcome } => f
+                .debug_struct("AskResolved")
+                .field("ask_id", ask_id)
+                .field("outcome", outcome)
+                .finish(),
+            Self::ArtifactChanged {
+                session_id, change, ..
+            } => f
+                .debug_struct("ArtifactChanged")
+                .field("session_id", session_id)
+                .field("change", change)
+                .finish_non_exhaustive(),
+        }
+    }
 }
 
 impl PlatformEvent {

@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -11,6 +12,7 @@ use parking_lot::Mutex;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
+use tokio::runtime::Handle;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::{oneshot, watch};
 use tokio::task::JoinHandle;
@@ -92,7 +94,7 @@ pub enum MailVia {
     Remote,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Mail {
     pub id: String,
@@ -130,6 +132,31 @@ pub struct Mail {
     pub failed_at: Option<String>,
     #[serde(skip_serializing_if = "is_false")]
     pub dismissed: bool,
+}
+
+impl fmt::Debug for Mail {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Mail")
+            .field("id", &self.id)
+            .field("kind", &self.kind)
+            .field("from", &self.from)
+            .field("to", &self.to)
+            .field("ts", &self.ts)
+            .field("state", &self.state)
+            .field("task", &self.task)
+            .field("quiet", &self.quiet)
+            .field("wakes", &self.wakes)
+            .field("route", &self.route)
+            .field("origin", &self.origin)
+            .field("pending", &self.pending)
+            .field("leased_until", &self.leased_until)
+            .field("via", &self.via)
+            .field("delivered_at", &self.delivered_at)
+            .field("reason", &self.reason)
+            .field("failed_at", &self.failed_at)
+            .field("dismissed", &self.dismissed)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -219,7 +246,7 @@ pub trait MailJournal: Send + Sync {
     fn lease_timeout(&self, age_ms: i64, to: &str);
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct MailDraft {
     pub id: Option<String>,
     pub route: Option<String>,
@@ -231,6 +258,22 @@ pub struct MailDraft {
     pub quiet: bool,
     pub wakes: bool,
     pub kind: Option<MailKind>,
+}
+
+impl fmt::Debug for MailDraft {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MailDraft")
+            .field("id", &self.id)
+            .field("route", &self.route)
+            .field("origin", &self.origin)
+            .field("from", &self.from)
+            .field("to", &self.to)
+            .field("task", &self.task)
+            .field("quiet", &self.quiet)
+            .field("wakes", &self.wakes)
+            .field("kind", &self.kind)
+            .finish_non_exhaustive()
+    }
 }
 
 impl MailDraft {
@@ -250,13 +293,24 @@ impl MailDraft {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct RemoteMail {
     pub id: String,
     pub origin: String,
     pub from: String,
     pub to: String,
     pub text: String,
+}
+
+impl fmt::Debug for RemoteMail {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RemoteMail")
+            .field("id", &self.id)
+            .field("origin", &self.origin)
+            .field("from", &self.from)
+            .field("to", &self.to)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -268,10 +322,18 @@ pub enum ReceiveOutcome {
 pub type ReceiveResult = Result<ReceiveOutcome, Arc<Error>>;
 pub type Receiving = Shared<BoxFuture<'static, ReceiveResult>>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct HandedMail {
     pub lease: String,
     pub messages: Vec<Mail>,
+}
+
+impl fmt::Debug for HandedMail {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HandedMail")
+            .field("messages", &self.messages)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -809,6 +871,7 @@ impl State {
 }
 
 struct Inner {
+    runtime: Handle,
     state: Mutex<State>,
     busy: watch::Sender<bool>,
     changed: EventHub<()>,
@@ -880,9 +943,10 @@ pub struct BusStore {
 }
 
 impl BusStore {
-    pub fn new(path: PathBuf, clock: Clock) -> Self {
+    pub fn new(path: PathBuf, clock: Clock, runtime: Handle) -> Self {
         Self {
             inner: Arc::new(Inner {
+                runtime,
                 state: Mutex::new(State {
                     path,
                     clock,
@@ -914,12 +978,14 @@ impl BusStore {
         if !state.inflight {
             state.inflight = true;
             self.inner.busy.send_replace(true);
-            tokio::spawn(drain(Arc::clone(&self.inner)));
+            self.inner.runtime.spawn(drain(Arc::clone(&self.inner)));
         }
         if !state.change_queued {
             state.change_queued = true;
             let inner = Arc::clone(&self.inner);
-            tokio::spawn(async move { announce_change(&inner) });
+            self.inner
+                .runtime
+                .spawn(async move { announce_change(&inner) });
         }
     }
 
@@ -1010,8 +1076,10 @@ impl BusStore {
             Prepared::Full => return ready(Ok(ReceiveOutcome::Full)).boxed().shared(),
             Prepared::Write { mail, path, value } => (mail, path, value),
         };
-        let write =
-            tokio::spawn(async move { save_json_async(&path, &value, SaveOptions::SECURE).await });
+        let write = self
+            .inner
+            .runtime
+            .spawn(async move { save_json_async(&path, &value, SaveOptions::SECURE).await });
         let store = self.clone();
         let release = key.clone();
         let work: BoxFuture<'static, ReceiveResult> = async move {

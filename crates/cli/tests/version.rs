@@ -123,9 +123,19 @@ fn puts_the_stamp_path_by_how_deep_app_asar_sits_above_the_cli_folder() {
     }
 }
 
+fn installed_cli(info: Option<Value>) -> (TempDir, PathBuf) {
+    let (out, cli) = out_dir(info);
+    let exe = cli.join("ostia");
+    fs::copy(env!("CARGO_BIN_EXE_ostia"), &exe).unwrap();
+    (out, exe)
+}
+
 #[test]
 fn prints_the_version_of_the_build_it_ships_with() {
-    let run = Command::new(env!("CARGO_BIN_EXE_ostia"))
+    let (_out, exe) = installed_cli(Some(
+        json!({"version": "0.5.12-rc.4+sha.1a2b3c", "builtAt": "2026-10-17T00:00:00Z"}),
+    ));
+    let run = Command::new(&exe)
         .arg("--version")
         .env_clear()
         .output()
@@ -133,6 +143,22 @@ fn prints_the_version_of_the_build_it_ships_with() {
     assert_eq!(run.status.code(), Some(0));
     assert_eq!(
         String::from_utf8(run.stdout).unwrap(),
-        format!("{}\n", env!("CARGO_PKG_VERSION"))
+        "0.5.12-rc.4+sha.1a2b3c\n"
+    );
+}
+
+#[test]
+fn prints_no_version_without_a_stamp() {
+    let (_out, exe) = installed_cli(None);
+    let run = Command::new(&exe)
+        .arg("--version")
+        .env_clear()
+        .output()
+        .unwrap();
+    assert_eq!(run.status.code(), Some(1));
+    assert_eq!(String::from_utf8(run.stdout).unwrap(), "");
+    assert_eq!(
+        String::from_utf8(run.stderr).unwrap(),
+        "ostia: build-info.json is missing\n"
     );
 }

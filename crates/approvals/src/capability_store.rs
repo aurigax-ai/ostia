@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -7,13 +9,12 @@ use ostia_base::atomic_write::{AtomicWriteOptions, write_file_atomic};
 use ostia_base::host::Host;
 use ostia_base::json_store::load_json;
 use ostia_contract::capabilities::{Capability, DEFAULT_CAPABILITIES};
+use ostia_contract::reach::{ReachMode, parse_reach_mode};
 use ostia_control::CapabilityStore as ControlCapabilityStore;
 use parking_lot::Mutex;
 use serde_json::{Map, Value};
 
-use crate::reach::{ReachMode, parse_reach_mode};
-
-const ALWAYS_ASK: [Capability; 2] = [Capability::Destructive, Capability::Credentials];
+use crate::approval_answers::ALWAYS_ASK;
 
 fn read_settings(path: &Path) -> Option<Value> {
     load_json(path)
@@ -103,10 +104,20 @@ impl State {
         }
     }
 
-    fn write_capabilities(&self, change: impl FnOnce(&mut Map<String, Value>)) -> bool {
+    fn write_target(&self) -> Option<PathBuf> {
         if !self.settings_path.parent().is_some_and(Path::is_dir) {
-            return false;
+            return None;
         }
+        match fs::symlink_metadata(&self.settings_path) {
+            Ok(_) => fs::canonicalize(&self.settings_path).ok(),
+            Err(_) => Some(self.settings_path.clone()),
+        }
+    }
+
+    fn write_capabilities(&self, change: impl FnOnce(&mut Map<String, Value>)) -> bool {
+        let Some(target) = self.write_target() else {
+            return false;
+        };
         let mut settings = if self.settings_path.exists() {
             match load_json(&self.settings_path) {
                 Some(Value::Object(map)) => map,
@@ -122,10 +133,16 @@ impl State {
             return false;
         };
         text.push('\n');
+        let mode = fs::metadata(&target)
+            .ok()
+            .map(|meta| meta.permissions().mode() & 0o7777);
         write_file_atomic(
-            &self.settings_path,
+            &target,
             text.as_bytes(),
-            AtomicWriteOptions::default(),
+            AtomicWriteOptions {
+                mode,
+                dir_mode: None,
+            },
         )
         .is_ok()
     }

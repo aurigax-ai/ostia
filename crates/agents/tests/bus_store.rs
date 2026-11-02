@@ -73,7 +73,11 @@ impl Rig {
     fn new() -> Self {
         let dir = TempDir::new().unwrap();
         let time = Time::at(START);
-        let store = BusStore::new(dir.path().join("ostia").join("bus.json"), time.clock());
+        let store = BusStore::new(
+            dir.path().join("ostia").join("bus.json"),
+            time.clock(),
+            tokio::runtime::Handle::current(),
+        );
         let observed = Arc::new(Mutex::new(Vec::new()));
         let sink = Arc::clone(&observed);
         store.set_observer(Some(Arc::new(move |observation: BusObservation| {
@@ -1339,4 +1343,41 @@ async fn dismisses_only_failed_mail_of_the_pane_that_is_not_dismissed_yet() {
     rig.store.dismiss_failed("b");
     assert!(rig.store.get_mail(&failed.id).unwrap().dismissed);
     assert!(!rig.store.get_mail(&queued.id).unwrap().dismissed);
+}
+
+#[tokio::test]
+async fn debug_output_never_carries_message_text_or_a_lease() {
+    let rig = Rig::new();
+    let mail = rig.ab("secret-message-text");
+    let draft = MailDraft::new("a", "b", "secret-draft-text");
+    let remote = RemoteMail {
+        id: "r1".to_owned(),
+        origin: "o".to_owned(),
+        from: "a".to_owned(),
+        to: "b".to_owned(),
+        text: "secret-remote-text".to_owned(),
+    };
+    let handed = rig
+        .store
+        .lease_mail("b", MailVia::Read, all)
+        .expect("a leased batch");
+    let shown = format!("{mail:?} {draft:?} {remote:?} {handed:?}");
+    assert!(!shown.contains("secret"), "{shown}");
+    assert!(!shown.contains(&handed.lease), "{shown}");
+}
+
+#[test]
+fn a_store_built_on_a_handle_works_from_a_thread_outside_any_runtime() {
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let dir = TempDir::new().unwrap();
+    let time = Time::at(START);
+    let store = BusStore::new(
+        dir.path().join("ostia").join("bus.json"),
+        time.clock(),
+        runtime.handle().clone(),
+    );
+    let mail = store.enqueue(MailDraft::new("a", "b", "hello"));
+    assert_eq!(store.get_mail(&mail.id).unwrap().state, MailState::Queued);
+    runtime.block_on(store.flush());
+    assert!(dir.path().join("ostia").join("bus.json").exists());
 }

@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::APP_DIR_NAME;
+use crate::error::{Result, io_error};
 use crate::node_path;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,7 +65,20 @@ impl Host {
     }
 
     pub fn app_config_dir(&self) -> PathBuf {
-        self.config_home().join(APP_DIR_NAME)
+        match self.platform {
+            Platform::Darwin => self
+                .home
+                .join("Library")
+                .join("Application Support")
+                .join(APP_DIR_NAME),
+            Platform::Linux => self.config_home().join(APP_DIR_NAME),
+        }
+    }
+
+    pub fn ensure_app_config_dir(&self) -> Result<PathBuf> {
+        let dir = self.app_config_dir();
+        fs::create_dir_all(&dir).map_err(io_error(&dir))?;
+        Ok(dir)
     }
 
     pub fn app_data_dir(&self) -> PathBuf {

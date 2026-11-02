@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use ostia_base::js::js_trim;
 use ostia_base::node_path;
 use ostia_base::path_guard::{expand_home, is_inside_path};
+use ostia_base::regular_file::{RegularFileRead, read_regular_file};
 use ostia_contract::reach::ReachMode;
 use ostia_contract::sandbox::{WorkspaceSandbox, sandbox_merge_refusal};
 use parking_lot::Mutex;
@@ -101,13 +102,17 @@ pub fn unconfirmed_members(
         .collect()
 }
 
+const GIT_FILE_MAX: u64 = 64 * 1024;
+
 fn real_or(path: &Path) -> PathBuf {
     fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
 
 fn read_trimmed(path: &Path) -> Option<String> {
-    let bytes = fs::read(path).ok()?;
-    Some(js_trim(&String::from_utf8_lossy(&bytes)).to_owned())
+    match read_regular_file(&fs::canonicalize(path).ok()?, GIT_FILE_MAX) {
+        RegularFileRead::Ok(bytes) => Some(js_trim(&String::from_utf8_lossy(&bytes)).to_owned()),
+        _ => None,
+    }
 }
 
 fn resolve_from(base: &Path, raw: &str) -> PathBuf {

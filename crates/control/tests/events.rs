@@ -161,3 +161,20 @@ fn keeps_the_order_of_events_for_one_subscriber() {
         ]
     );
 }
+
+#[test]
+fn debug_output_never_carries_notify_or_ask_text() {
+    let notify = format!(
+        "{:?}",
+        notify("secret-title", Some("secret-body"), "pane-1")
+    );
+    assert!(notify.contains("pane-1"));
+    assert!(!notify.contains("secret"));
+    let ask = format!(
+        "{:?}",
+        PlatformEvent::AskCreated {
+            ask: serde_json::json!({"title": "secret-ask"}),
+        }
+    );
+    assert!(!ask.contains("secret"));
+}

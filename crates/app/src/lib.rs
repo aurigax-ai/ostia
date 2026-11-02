@@ -54,6 +54,7 @@ pub fn cap_filter(registry: IdRegistry, sandboxes: WorkspaceSandboxes) -> CapFil
 
 impl App {
     pub fn start(host: &Host) -> Result<Self> {
+        host.ensure_app_config_dir()?;
         let salt = load_pane_id_salt(&store_path(host, "pane-id-salt", StoreScope::Global, None));
         let registry = IdRegistry::new(&salt);
         let grants = Arc::new(CapabilityStore::new(host));

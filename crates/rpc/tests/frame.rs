@@ -156,3 +156,145 @@ fn closes_on_a_body_that_is_not_json() {
     conn.send(&frame(4, b"nope"));
     assert!(conn.closed);
 }
+
+struct ReferenceReader {
+    buffer: Vec<u8>,
+    next_length: Option<i64>,
+    errors: Vec<String>,
+    lengths: Vec<i64>,
+}
+
+impl ReferenceReader {
+    fn new() -> Self {
+        Self {
+            buffer: Vec::new(),
+            next_length: None,
+            errors: Vec::new(),
+            lengths: Vec::new(),
+        }
+    }
+
+    fn header_end(&self) -> Option<usize> {
+        let mut state = 0;
+        for (at, byte) in self.buffer.iter().enumerate() {
+            match *byte {
+                b'\r' => {
+                    state = match state {
+                        0 => 1,
+                        2 => 3,
+                        _ => 0,
+                    };
+                }
+                b'\n' => {
+                    if state == 3 {
+                        return Some(at + 1);
+                    }
+                    state = if state == 1 { 2 } else { 0 };
+                }
+                _ => state = 0,
+            }
+        }
+        None
+    }
+
+    fn content_length(block: &[u8]) -> Result<i64, String> {
+        let text: String = block.iter().map(|byte| (byte & 0x7f) as char).collect();
+        let lines: Vec<&str> = text.split("\r\n").collect();
+        let mut length = None;
+        for line in &lines[..lines.len().saturating_sub(2)] {
+            let colon = line
+                .find(':')
+                .ok_or_else(|| format!("no colon in {line:?}"))?;
+            if line[..colon].eq_ignore_ascii_case("content-length") {
+                length = Some(line[colon + 1..].trim().to_owned());
+            }
+        }
+        let raw = length.ok_or_else(|| "no Content-Length".to_owned())?;
+        let (sign, digits) = match raw.strip_prefix('-') {
+            Some(rest) => (-1, rest),
+            None => (1, raw.strip_prefix('+').unwrap_or(&raw)),
+        };
+        let digits: String = digits.chars().take_while(char::is_ascii_digit).collect();
+        let value: i64 = digits
+            .parse()
+            .map_err(|_| format!("not a number: {raw:?}"))?;
+        Ok(sign * value)
+    }
+
+    fn feed(&mut self, data: &[u8]) {
+        self.buffer.extend_from_slice(data);
+        loop {
+            let length = if let Some(length) = self.next_length {
+                length
+            } else {
+                let Some(end) = self.header_end() else { return };
+                let block: Vec<u8> = self.buffer.drain(..end).collect();
+                match Self::content_length(&block) {
+                    Ok(length) => {
+                        self.next_length = Some(length);
+                        self.lengths.push(length);
+                        length
+                    }
+                    Err(error) => {
+                        self.errors.push(error);
+                        return;
+                    }
+                }
+            };
+            let Ok(wanted) = usize::try_from(length) else {
+                return;
+            };
+            if self.buffer.len() < wanted {
+                return;
+            }
+            self.buffer.drain(..wanted);
+            self.next_length = None;
+        }
+    }
+}
+
+#[test]
+fn never_lets_the_reader_see_a_header_it_would_read_differently() {
+    let alphabet = [
+        "\r",
+        "\n",
+        "\r\n",
+        "Content-Length: 3",
+        "Content-Length: 99999",
+        "a",
+        ":",
+        " ",
+    ];
+    let max = 20;
+    let mut seed: u64 = 7;
+    let mut pick = || {
+        seed = (seed * 1_103_515_245 + 12345) & 0x7fff_ffff;
+        alphabet[usize::try_from(seed).unwrap() % alphabet.len()]
+    };
+    for round in 0..400 {
+        let input: String = (0..12).map(|_| pick()).collect();
+        let mut conn = Connection::new(max);
+        let mut reader = ReferenceReader::new();
+        for data in [input.as_bytes(), b"\r\n\r\n"] {
+            conn.send(data);
+            if !conn.closed {
+                reader.feed(data);
+            }
+        }
+        if !conn.closed {
+            assert!(
+                reader.errors.is_empty(),
+                "round {round} {input:?}: {:?}",
+                reader.errors
+            );
+            assert!(
+                reader
+                    .lengths
+                    .iter()
+                    .all(|length| (0..=i64::try_from(max).unwrap()).contains(length)),
+                "round {round} {input:?}: {:?}",
+                reader.lengths
+            );
+        }
+    }
+}
