@@ -14,7 +14,7 @@ export { ViewStateStore } from './src/main/git/viewState'
 export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
 export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
 export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/paneBanner'
-export { en, zhHant } from './src/shared/app/dict'
+export { en, zhHant, mergeCatalog } from './src/shared/app/dict'
 export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
 export { scrollbackToSave } from './src/main/workspaces/savedScrollback'
 export { USAGE_TABLE } from './src/cli/common/usageTable'
@@ -46,6 +46,7 @@ const {
   integrationNotLoadedNotice,
   en,
   zhHant,
+  mergeCatalog,
   parseSnapshot,
   scrollbackToSave,
   ViewStateStore,
@@ -516,4 +517,8 @@ saveJson(join(out, 'install-replace-pending.json'), {
   version: '0.6.0',
 })
 saveJson(join(out, 'install-replace-swept.json'), null)
+saveJson(join(out, 'dict-en.json'), en)
+saveJson(join(out, 'dict-zh-hant.json'), zhHant)
+saveJson(join(out, 'dict-en-merged.json'), mergeCatalog({}))
+saveJson(join(out, 'dict-zh-hant-merged.json'), mergeCatalog(zhHant))
 saveJson(join(out, 'release-check-dismissed.json'), { dismissedVersion: '0.3.0' })
