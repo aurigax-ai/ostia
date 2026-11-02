@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
@@ -95,14 +96,14 @@ pub async fn read_desktop(host: &Host, file: &str) -> Option<String> {
     .flatten()
 }
 
-async fn query_default(scheme: String) -> String {
+async fn query_default(scheme: String, env: BTreeMap<String, String>) -> String {
     let args = vec![
         "query".to_owned(),
         "default".to_owned(),
         format!("x-scheme-handler/{scheme}"),
     ];
     tokio::task::spawn_blocking(move || {
-        run_bounded(std::path::Path::new("xdg-mime"), &args, QUERY_TIMEOUT)
+        run_bounded(std::path::Path::new("xdg-mime"), &args, &env, QUERY_TIMEOUT)
     })
     .await
     .ok()
@@ -111,10 +112,13 @@ async fn query_default(scheme: String) -> String {
 }
 
 pub fn system_handler_lookup(host: Host) -> HandlerLookup {
+    let env = host.env.clone();
     HandlerLookup {
         platform: host.platform,
         protocol_app: Arc::new(|_| String::new()),
-        query_default: Arc::new(|scheme| query_default(scheme.to_owned()).boxed()),
+        query_default: Arc::new(move |scheme| {
+            query_default(scheme.to_owned(), env.clone()).boxed()
+        }),
         read_desktop: Arc::new(move |file| {
             let host = host.clone();
             let file = file.to_owned();
