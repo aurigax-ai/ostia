@@ -11,6 +11,7 @@ const work = mkdtempSync(join(tmpdir(), 'rust-fixtures-'))
 const ENTRY = `
 export { ParkedStore } from './src/main/park/parkedStore'
 export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
+export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -22,7 +23,7 @@ await build({
   outfile: bundle,
   logLevel: 'error',
 })
-const { ParkedStore, saveJson, saveJsonAsync } = createRequire(import.meta.url)(bundle)
+const { ParkedStore, saveJson, saveJsonAsync, parseSnapshot } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
   v: 1,
@@ -159,4 +160,89 @@ store.park({ workspaceId: 'w2', resume: { agent: 'agy', id: 's3' }, title: 'thir
 writeFileSync(join(out, 'parked-sessions-before.json'), readFileSync(parked))
 store.remove(gone.record.id)
 writeFileSync(join(out, 'parked-sessions-after.json'), readFileSync(parked))
+
+const SNAPSHOT_BEFORE = {
+  v: 1,
+  savedAt: '2026-08-06T00:00:00.000Z',
+  activeWorkspaceId: 'ghost',
+  leftPanel: 'files',
+  rightPanel: 'graphs',
+  bounds: { x: 10.6, y: -20, width: 1280.4, height: 799.5 },
+  detachedBounds: {
+    w1: { x: 5, y: 5, width: 640, height: 480 },
+    nope: { x: 5, y: 5, width: 640, height: 480 },
+  },
+  groups: [
+    { id: 'g1', name: '  api é  ', color: 'purple', collapsed: true },
+    { id: 'g1', name: 'duplicate' },
+    { id: 'g2', name: 'no members' },
+  ],
+  workspaces: [
+    {
+      id: 'w1',
+      name: 'terminal',
+      customName: '  payments  ',
+      description: '  PR #7  ',
+      groupId: 'g1',
+      kind: 'terminal',
+      workDir: '/home/u/proj',
+      projectDir: '/home/u/proj/sub',
+      anchored: true,
+      origin: { workspaceId: 'w0', index: 5000, groupId: 'g0', beside: { paneId: 'p0', zone: 'left' } },
+      activePaneId: 'p9',
+      root: {
+        type: 'tabs',
+        id: 't1',
+        activeId: 'p9',
+        children: [
+          { type: 'pane', id: 'p1', title: 'zsh', kind: 'terminal', cwd: '/home/u/proj', defaultTitle: true, collapsed: true },
+          {
+            type: 'split',
+            id: 'sp1',
+            name: '  api  ',
+            folded: true,
+            direction: 'vertical',
+            sizes: [2, 1, 1],
+            children: [
+              { type: 'pane', id: 'p2', title: 'a.ts', kind: 'editor', filePath: '/home/u/proj/a.ts', viewType: 'default' },
+              { type: 'pane', id: 'p3', title: 'gone', kind: 'retired-kind' },
+              {
+                type: 'pane',
+                id: 'p4',
+                title: 'site',
+                kind: 'browser',
+                url: 'http://x/',
+                browserProfile: 'shared',
+                browserDevice: { preset: 'iphone-se', width: 900, height: 100, dpr: 7, zoom: 'actual' },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'w2',
+      name: '',
+      kind: 'scratch',
+      workDir: '/tmp/x',
+      root: { type: 'pane', id: 'p5', title: 'zsh', kind: 'terminal' },
+    },
+    { id: 'w3', name: 'agents', pinned: true, groupId: 'g1', kind: 'bogus', workDir: '', root: { type: 'pane', id: 'p6', title: 'claude', kind: 'agent', agentSessionId: 'a1', titlePinned: true, resume: { agent: 'claude', id: 'abc-1', args: ['--model', 'opus'] }, agentRunning: true, keepAwake: true } },
+  ],
+  windows: [
+    {
+      id: 'd1',
+      bounds: { x: 0, y: 0, width: 800, height: 600 },
+      activeWorkspaceId: 'w7',
+      leftPanel: 'files',
+      rightPanel: 'keeper',
+      workspaces: [
+        { id: 'w7', name: 'detached', kind: 'terminal', workDir: '~', activePaneId: 'p8', root: { type: 'pane', id: 'p8', title: 'zsh', kind: 'terminal' } },
+      ],
+    },
+    { id: 'bad id!', bounds: { x: 0, y: 0, width: 800, height: 600 }, workspaces: [] },
+  ],
+}
+writeFileSync(join(out, 'workspace-snapshot-before.json'), `${JSON.stringify(SNAPSHOT_BEFORE, null, 2)}\n`)
+saveJson(join(out, 'workspace-snapshot-after.json'), parseSnapshot(SNAPSHOT_BEFORE))
 rmSync(work, { recursive: true, force: true })
