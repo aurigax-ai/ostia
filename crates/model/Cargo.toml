@@ -23,4 +23,5 @@ url.workspace = true
 
 [dev-dependencies]
 futures-util = { workspace = true }
+ostia-approvals = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }

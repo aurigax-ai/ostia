@@ -5485,6 +5485,7 @@ name = "ostia-model"
 version = "0.0.0"
 dependencies = [
  "futures-util",
+ "ostia-approvals",
  "ostia-base",
  "ostia-contract",
  "ostia-workspaces",
