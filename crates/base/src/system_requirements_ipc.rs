@@ -17,16 +17,21 @@ pub struct InstallArgs {
     pub argv: Vec<String>,
 }
 
+type InstallHintFn = dyn Fn(&[MissingRequirement]) -> InstallHint + Send + Sync;
+type InvokeInstallFn = dyn Fn(InstallArgs, Value) -> BoxFuture<Value> + Send + Sync;
+type Lookup<T> = Arc<dyn Fn(&str) -> T + Send + Sync>;
+type Supplier<T> = Arc<dyn Fn() -> T + Send + Sync>;
+
 pub struct SystemRequirementsDeps {
-    pub owner_window: Arc<dyn Fn(&str) -> Option<String> + Send + Sync>,
-    pub work_dir: Arc<dyn Fn(&str) -> Option<String> + Send + Sync>,
-    pub locale: Arc<dyn Fn() -> Option<String> + Send + Sync>,
-    pub system_extension_enabled: Arc<dyn Fn() -> bool + Send + Sync>,
-    pub missing: Arc<dyn Fn(&str) -> Vec<MissingRequirement> + Send + Sync>,
-    pub settled: Option<Arc<dyn Fn() -> BoxFuture<()> + Send + Sync>>,
-    pub label: Option<Arc<dyn Fn(&str) -> String + Send + Sync>>,
-    pub install_hint: Arc<dyn Fn(&[MissingRequirement]) -> InstallHint + Send + Sync>,
-    pub invoke_install: Arc<dyn Fn(InstallArgs, Value) -> BoxFuture<Value> + Send + Sync>,
+    pub owner_window: Lookup<Option<String>>,
+    pub work_dir: Lookup<Option<String>>,
+    pub locale: Supplier<Option<String>>,
+    pub system_extension_enabled: Supplier<bool>,
+    pub missing: Lookup<Vec<MissingRequirement>>,
+    pub settled: Option<Supplier<BoxFuture<()>>>,
+    pub label: Option<Lookup<String>>,
+    pub install_hint: Arc<InstallHintFn>,
+    pub invoke_install: Arc<InvokeInstallFn>,
 }
 
 pub fn requirements_install_args(feature: &str, missing: &[MissingRequirement]) -> InstallArgs {

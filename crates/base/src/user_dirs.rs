@@ -238,13 +238,15 @@ fn move_entry(
     }
 }
 
+type RenameFn = dyn Fn(&Path, &Path) -> io::Result<()>;
+
 fn move_into(
     from: &Path,
     to: &Path,
     prefix: &str,
     dir_move: &DirMove,
     result: &mut MoveResult,
-    rename: Option<&dyn Fn(&Path, &Path) -> io::Result<()>>,
+    rename: Option<&RenameFn>,
 ) -> Result<()> {
     if rename.is_some() {
         let mode = fs::symlink_metadata(from)

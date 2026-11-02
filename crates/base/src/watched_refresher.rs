@@ -28,12 +28,15 @@ pub trait RefreshSource: Send + Sync + 'static {
     fn cleared(&self) {}
 }
 
+type SendFn<S> = dyn Fn(&str, &str, &<S as RefreshSource>::Items) + Send + Sync;
+type LogFn = dyn Fn(&str) + Send + Sync;
+
 pub struct WatchedRefresherOptions<S: RefreshSource> {
     pub channel: String,
     pub debounce: Duration,
     pub events: HashSet<String>,
-    pub send: Arc<dyn Fn(&str, &str, &S::Items) + Send + Sync>,
-    pub log: Option<Arc<dyn Fn(&str) + Send + Sync>>,
+    pub send: Arc<SendFn<S>>,
+    pub log: Option<Arc<LogFn>>,
 }
 
 struct State {

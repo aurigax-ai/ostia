@@ -1,19 +1,14 @@
-use std::io::Read;
+use std::io::{ErrorKind, Read};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+const BUSY_RETRIES: u32 = 100;
 const POLL: Duration = Duration::from_millis(10);
 
 pub fn run_bounded(file: &Path, args: &[String], timeout: Duration) -> Option<String> {
-    let mut child = Command::new(file)
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
+    let mut child = spawn(file, args)?;
     let mut stdout = child.stdout.take()?;
     let reader = thread::spawn(move || {
         let mut bytes = Vec::new();
@@ -35,4 +30,21 @@ pub fn run_bounded(file: &Path, args: &[String], timeout: Duration) -> Option<St
     status
         .success()
         .then(|| String::from_utf8_lossy(&bytes).into_owned())
+}
+
+fn spawn(file: &Path, args: &[String]) -> Option<Child> {
+    for _ in 0..BUSY_RETRIES {
+        let spawned = Command::new(file)
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn();
+        match spawned {
+            Ok(child) => return Some(child),
+            Err(error) if error.kind() == ErrorKind::ExecutableFileBusy => thread::sleep(POLL),
+            Err(_) => return None,
+        }
+    }
+    None
 }

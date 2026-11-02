@@ -1,7 +1,5 @@
 use std::collections::BTreeMap;
 
-use crate::js::non_empty;
-
 const RELAUNCHED: &str = "OSTIA_NO_NEW_PRIVS_RELAUNCHED";
 
 pub fn relaunch_without_no_new_privs(
@@ -10,7 +8,7 @@ pub fn relaunch_without_no_new_privs(
     launch: &mut dyn FnMut(&BTreeMap<String, String>) -> bool,
     warn: &mut dyn FnMut(&str),
 ) -> bool {
-    let relaunched = non_empty(env.get(RELAUNCHED).map(String::as_str)).is_some();
+    let relaunched = env.contains_key(RELAUNCHED);
     env.remove(RELAUNCHED);
     if !no_new_privs {
         return false;

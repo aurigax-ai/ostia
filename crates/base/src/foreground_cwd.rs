@@ -61,7 +61,7 @@ where
         ],
     );
     let line = out.split('\n').find(|line| line.starts_with('n'))?;
-    folder_of(line[1..].as_bytes())
+    folder_of(&line.as_bytes()[1..])
 }
 
 fn tool_output(bin: &str, args: &[String]) -> String {
