@@ -373,30 +373,31 @@ fn puts_the_process_environment_back_before_a_restart() {
     assert_eq!(launched, env(&[("PATH", "/bin")]));
 }
 
-fn fake_busctl_env() -> (tempfile::TempDir, Env) {
+fn fake_busctl_env() -> (ostia_testscript::ScriptsGuard, tempfile::TempDir, Env) {
+    let scripts = ostia_testscript::lock();
     let dir = tempfile::tempdir().unwrap();
     let script = dir.path().join("busctl");
-    std::fs::write(
+    ostia_testscript::write_script(
         &script,
         "#!/bin/sh\nif [ -n \"${HOME+x}\" ] || [ -n \"${DRI_PRIME+x}\" ] || [ \"$MARKER\" != yes ]; then exit 1; fi\necho '{\"type\":\"aa{sv}\",\"data\":[]}'\n",
+        0o755,
     )
     .unwrap();
-    std::fs::set_permissions(&script, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
     let env = Env::from([
         ("PATH".to_owned(), dir.path().to_string_lossy().into_owned()),
         ("MARKER".to_owned(), "yes".to_owned()),
     ]);
-    (dir, env)
+    (scripts, dir, env)
 }
 
 #[test]
 fn reads_the_gpus_with_a_child_that_sees_only_the_passed_environment() {
-    let (_dir, env) = fake_busctl_env();
+    let (_scripts, _dir, env) = fake_busctl_env();
     assert_eq!(read_switcheroo_gpus(&env), Some(Vec::new()));
 }
 
 #[tokio::test]
 async fn queries_the_gpus_with_a_child_that_sees_only_the_passed_environment() {
-    let (_dir, env) = fake_busctl_env();
+    let (_scripts, _dir, env) = fake_busctl_env();
     assert_eq!(query_switcheroo_gpus(&env).await, Some(Vec::new()));
 }

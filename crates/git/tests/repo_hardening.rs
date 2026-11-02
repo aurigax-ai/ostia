@@ -3,7 +3,6 @@
 mod support;
 
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use ostia_git::git::{ChangeArea, FileChange};
@@ -19,7 +18,7 @@ struct Armed {
 }
 
 fn armed() -> Armed {
-    let sandbox = Sandbox::new("ostia-git-hardening-");
+    let sandbox = Sandbox::scripted("ostia-git-hardening-");
     let repo = sandbox.path("repo");
     let hooks = sandbox.dir("hooks");
     init_repo(&repo);
@@ -33,14 +32,15 @@ fn armed() -> Armed {
     commit_all(&repo, "first");
     for hook in ["pre-commit", "post-checkout"] {
         let path = hooks.join(hook);
-        write(
+        ostia_testscript::write_script(
             &path,
             &format!(
                 "#!/bin/sh\ntouch \"{}\"\n",
                 sandbox.marks.join(hook).display()
             ),
-        );
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+            0o755,
+        )
+        .unwrap();
     }
     git(
         &repo,
@@ -155,7 +155,7 @@ struct Nested {
 }
 
 fn nested() -> Nested {
-    let sandbox = Sandbox::new("ostia-git-hardening-");
+    let sandbox = Sandbox::scripted("ostia-git-hardening-");
     let outer = sandbox.path("outer");
     let inner = sandbox.path("inner");
     init_repo(&inner);
@@ -275,7 +275,7 @@ async fn diffs_stages_unstages_and_discards_a_path_inside_the_submodule_in_the_s
 
 #[tokio::test]
 async fn does_not_follow_a_submodule_path_that_leads_outside_the_repository() {
-    let sandbox = Sandbox::new("ostia-git-hardening-");
+    let sandbox = Sandbox::scripted("ostia-git-hardening-");
     let other = sandbox.path("other");
     init_repo(&other);
     write(other.join("secret.txt"), "x\n");
@@ -318,7 +318,7 @@ struct Extra {
 }
 
 fn extra() -> Extra {
-    let sandbox = Sandbox::new("ostia-git-hardening-");
+    let sandbox = Sandbox::scripted("ostia-git-hardening-");
     let base = sandbox.dir("extra");
     let owner = base.join("owner");
     let sub_source = base.join("subsource");
@@ -395,7 +395,7 @@ async fn does_not_recurse_into_submodules_when_the_repository_asks_for_it() {
 
 #[tokio::test]
 async fn never_fetches_from_a_promisor_remote_to_find_a_missing_object() {
-    let sandbox = Sandbox::new("ostia-git-hardening-");
+    let sandbox = Sandbox::scripted("ostia-git-hardening-");
     let lazy = sandbox.dir("extra").join("lazy");
     init_repo(&lazy);
     write(lazy.join("a.txt"), "content\n");

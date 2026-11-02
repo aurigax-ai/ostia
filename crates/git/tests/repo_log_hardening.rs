@@ -7,7 +7,7 @@ use support::{Sandbox, git, host, init_repo, write};
 
 #[tokio::test]
 async fn never_runs_gpg_program_for_the_log_the_graph_or_a_commit_detail() {
-    let sandbox = Sandbox::new("ostia-git-log-hardening-");
+    let sandbox = Sandbox::scripted("ostia-git-log-hardening-");
     let repo = sandbox.path("repo");
     init_repo(&repo);
     write(repo.join("a.txt"), "one\n");
@@ -58,7 +58,7 @@ async fn never_runs_gpg_program_for_the_log_the_graph_or_a_commit_detail() {
 
 #[tokio::test]
 async fn does_not_use_a_bare_repository_found_in_the_folder() {
-    let sandbox = Sandbox::new("ostia-git-log-hardening-");
+    let sandbox = Sandbox::scripted("ostia-git-log-hardening-");
     let repo = sandbox.path("repo");
     init_repo(&repo);
     write(repo.join("a.txt"), "one\n");

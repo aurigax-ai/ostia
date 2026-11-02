@@ -13,6 +13,7 @@ use ostia_base::system_requirements::{
     Requirements, SANDBOX_FEATURE,
 };
 use ostia_base::tool_path::{LoginPathOptions, ShellRunner, ToolPath};
+use ostia_testscript::ScriptsGuard;
 use tempfile::{TempDir, tempdir};
 
 struct Rig {
@@ -20,6 +21,7 @@ struct Rig {
     requirements: Requirements,
     tool_path: ToolPath,
     counter: usize,
+    _scripts: ScriptsGuard,
 }
 
 fn rig_with_path(path: &str) -> Rig {
@@ -29,12 +31,14 @@ fn rig_with_path(path: &str) -> Rig {
         cwd: "/".into(),
         platform: Platform::Linux,
     };
+    let scripts = ostia_testscript::lock();
     let tool_path = ToolPath::new(&host);
     Rig {
         root: tempdir().unwrap(),
         requirements: Requirements::new(tool_path.clone()),
         tool_path,
         counter: 0,
+        _scripts: scripts,
     }
 }
 
@@ -47,9 +51,7 @@ impl Rig {
         let dir = self.root.path().join(name);
         fs::create_dir_all(&dir).unwrap();
         for program in programs {
-            let file = dir.join(program);
-            fs::write(&file, "#!/bin/sh\n").unwrap();
-            fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).unwrap();
+            ostia_testscript::write_script(&dir.join(program), "#!/bin/sh\n", 0o755).unwrap();
         }
         dir
     }
@@ -58,9 +60,12 @@ impl Rig {
         self.counter += 1;
         let dir = self.root.path().join(format!("tmux-{}", self.counter));
         fs::create_dir_all(&dir).unwrap();
-        let file = dir.join("tmux");
-        fs::write(&file, format!("#!/bin/sh\necho '{version}'\n")).unwrap();
-        fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).unwrap();
+        ostia_testscript::write_script(
+            &dir.join("tmux"),
+            &format!("#!/bin/sh\necho '{version}'\n"),
+            0o755,
+        )
+        .unwrap();
         dir
     }
 }
@@ -461,15 +466,15 @@ fn ksh_c80_asks_tmux_for_its_version_once_per_program_file_again_only_after_the_
     fs::create_dir_all(&dir).unwrap();
     let runs = dir.join("runs");
     let tmux = dir.join("tmux");
-    fs::write(
+    ostia_testscript::write_script(
         &tmux,
-        format!(
+        &format!(
             "#!/bin/sh\necho run >> '{}'\necho 'tmux 3.4'\n",
             runs.display()
         ),
+        0o755,
     )
     .unwrap();
-    fs::set_permissions(&tmux, fs::Permissions::from_mode(0o755)).unwrap();
     let check = || {
         rig.requirements
             .missing_requirements(KEEP_SHELLS_FEATURE, &env(Platform::Linux, &dir))
