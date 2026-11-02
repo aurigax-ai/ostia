@@ -8,7 +8,6 @@ pub mod bus_store;
 mod bus_text;
 pub mod codex_rpc;
 pub mod codex_sockets;
-pub mod codex_stream;
 pub mod extension_agents;
 mod iso_time;
 pub mod mail_delivery;

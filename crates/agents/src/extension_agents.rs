@@ -1,14 +1,13 @@
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
 
 use ostia_base::clock::Clock;
-use ostia_base::js::{js_trim, static_regex, utf16_len};
+use ostia_base::js::{js_trim, utf16_len};
 use ostia_base::path_guard::expand_home;
 use ostia_contract::agent_launch::resume_flags;
 use ostia_contract::agent_resume::{AgentResume, ResumableAgent};
+use ostia_contract::manager_settings::is_manager_agent_name;
 use ostia_contract::shell_quote::quote_arg;
 use ostia_diagnostics::renderer_reports::ReportLimiter;
-use regex::Regex;
 use serde_json::Value;
 
 pub const AGENT_TASKS_PER_MINUTE: usize = 6;
@@ -19,9 +18,6 @@ const AGENT_OFFER_TEXT_MAX: usize = 2000;
 const AGENT_OFFER_LABEL_MAX: usize = 120;
 const AGENT_PROMPT_MAX: usize = 16_000;
 const WORKSPACE_ID_MAX: usize = 200;
-
-static MANAGER_AGENT_NAME: LazyLock<Regex> =
-    LazyLock::new(|| static_regex(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"));
 
 fn has_control_character(text: &str, allowed: &str) -> bool {
     text.chars()
@@ -56,7 +52,7 @@ pub fn agent_prompt(raw: &Value) -> Option<String> {
 
 pub fn agent_name(raw: &Value) -> Option<String> {
     let name = raw.as_str()?;
-    MANAGER_AGENT_NAME.is_match(name).then(|| name.to_owned())
+    is_manager_agent_name(name).then(|| name.to_owned())
 }
 
 pub fn workspace_id_of(raw: &Value) -> Option<String> {

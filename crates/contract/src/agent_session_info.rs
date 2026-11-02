@@ -1,19 +1,19 @@
-use serde::Serialize;
+use ostia_base::js::js_trim;
 use serde_json::{Map, Value};
 
 use crate::utf16_prefix::utf16_prefix;
-use ostia_base::js::{JsNumber, js_trim};
 
 const FIELD_MAX: usize = 200;
 const PATH_MAX: usize = 4096;
+const THOUSAND: u64 = 1000;
+const MILLION: u64 = 1_000_000;
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AgentSessionInfo {
     pub title: Option<String>,
     pub model: Option<String>,
-    pub context_tokens: Option<JsNumber>,
-    pub context_window: Option<JsNumber>,
+    pub context_tokens: Option<u64>,
+    pub context_window: Option<u64>,
     pub cwd: Option<String>,
     pub branch: Option<String>,
     pub version: Option<String>,
@@ -21,22 +21,31 @@ pub struct AgentSessionInfo {
     pub effort: Option<String>,
 }
 
-fn clipped(value: Option<&Value>, max: usize) -> Option<String> {
-    let text = js_trim(value?.as_str()?);
-    (!text.is_empty()).then(|| utf16_prefix(text, max).to_owned())
+fn cut(value: Option<&Value>, max: usize) -> Option<String> {
+    let trimmed = js_trim(value?.as_str()?);
+    (!trimmed.is_empty()).then(|| utf16_prefix(trimmed, max).to_owned())
 }
 
 fn text(value: Option<&Value>) -> Option<String> {
-    clipped(value, FIELD_MAX)
+    cut(value, FIELD_MAX)
 }
 
 fn path_text(value: Option<&Value>) -> Option<String> {
-    clipped(value, PATH_MAX)
+    cut(value, PATH_MAX)
 }
 
-fn count(value: Option<&Value>) -> Option<f64> {
-    let number = value?.as_f64().filter(|n| n.is_finite() && *n >= 0.0)?;
-    Some((number + 0.5).floor())
+fn count(value: Option<&Value>) -> Option<u64> {
+    let number = value?.as_number()?.as_f64()?;
+    if !number.is_finite() || number < 0.0 {
+        return None;
+    }
+    let floor = number.floor();
+    let rounded = if number - floor >= 0.5 {
+        floor + 1.0
+    } else {
+        floor
+    };
+    Some(rounded as u64)
 }
 
 fn records(lines: &[String]) -> Vec<Map<String, Value>> {
@@ -44,68 +53,61 @@ fn records(lines: &[String]) -> Vec<Map<String, Value>> {
         .iter()
         .filter(|line| !js_trim(line).is_empty())
         .filter_map(|line| match serde_json::from_str::<Value>(line) {
-            Ok(Value::Object(record)) => Some(record),
+            Ok(Value::Object(entry)) => Some(entry),
             _ => None,
         })
         .collect()
 }
 
-fn kind(entry: &Map<String, Value>) -> Option<&str> {
-    entry.get("type").and_then(Value::as_str)
-}
-
-fn record_of(value: Option<&Value>) -> Option<&Map<String, Value>> {
-    value.and_then(Value::as_object)
+fn keep<T>(next: Option<T>, current: &mut Option<T>) {
+    if next.is_some() {
+        *current = next;
+    }
 }
 
 pub fn claude_session_info(lines: &[String]) -> AgentSessionInfo {
     let mut info = AgentSessionInfo::default();
     let mut custom_title: Option<String> = None;
     for entry in records(lines) {
-        let entry_type = kind(&entry);
-        match entry_type {
-            Some("ai-title") => info.title = text(entry.get("aiTitle")).or(info.title),
-            Some("custom-title") => {
-                custom_title = text(entry.get("customTitle")).or(custom_title);
-            }
-            Some("permission-mode") => info.mode = text(entry.get("permissionMode")).or(info.mode),
+        let kind = entry.get("type").and_then(Value::as_str);
+        match kind {
+            Some("ai-title") => keep(text(entry.get("aiTitle")), &mut info.title),
+            Some("custom-title") => keep(text(entry.get("customTitle")), &mut custom_title),
+            Some("permission-mode") => keep(text(entry.get("permissionMode")), &mut info.mode),
             _ => {}
         }
         if entry.get("isSidechain") == Some(&Value::Bool(true)) {
             continue;
         }
-        if entry_type != Some("user") && entry_type != Some("assistant") {
+        if kind != Some("user") && kind != Some("assistant") {
             continue;
         }
-        info.cwd = path_text(entry.get("cwd")).or(info.cwd);
-        info.branch = text(entry.get("gitBranch")).or(info.branch);
-        info.version = text(entry.get("version")).or(info.version);
-        let Some(message) = record_of(entry.get("message")) else {
+        keep(path_text(entry.get("cwd")), &mut info.cwd);
+        keep(text(entry.get("gitBranch")), &mut info.branch);
+        keep(text(entry.get("version")), &mut info.version);
+        let Some(message) = entry
+            .get("message")
+            .and_then(Value::as_object)
+            .filter(|_| kind == Some("assistant"))
+        else {
             continue;
         };
-        if entry_type != Some("assistant") {
-            continue;
-        }
-        info.model = text(message.get("model")).or(info.model);
-        info.effort = text(entry.get("effort")).or(info.effort);
-        let Some(usage) = record_of(message.get("usage")) else {
+        keep(text(message.get("model")), &mut info.model);
+        keep(text(entry.get("effort")), &mut info.effort);
+        let Some(usage) = message.get("usage").and_then(Value::as_object) else {
             continue;
         };
-        let parts: Vec<Option<f64>> = [
-            "input_tokens",
-            "cache_creation_input_tokens",
-            "cache_read_input_tokens",
-        ]
-        .iter()
-        .map(|key| count(usage.get(*key)))
-        .collect();
+        let parts = [
+            count(usage.get("input_tokens")),
+            count(usage.get("cache_creation_input_tokens")),
+            count(usage.get("cache_read_input_tokens")),
+        ];
         if parts.iter().any(Option::is_some) {
-            let sum: f64 = parts.iter().map(|part| part.unwrap_or(0.0)).sum();
-            info.context_tokens = Some(JsNumber(sum));
+            info.context_tokens = Some(parts.iter().flatten().sum());
         }
     }
-    if let Some(title) = custom_title.filter(|title| !title.is_empty()) {
-        info.title = Some(title);
+    if custom_title.is_some() {
+        info.title = custom_title;
     }
     info
 }
@@ -113,43 +115,65 @@ pub fn claude_session_info(lines: &[String]) -> AgentSessionInfo {
 pub fn codex_session_info(lines: &[String]) -> AgentSessionInfo {
     let mut info = AgentSessionInfo::default();
     for entry in records(lines) {
-        let Some(payload) = record_of(entry.get("payload")) else {
+        let Some(payload) = entry.get("payload").and_then(Value::as_object) else {
             continue;
         };
-        match kind(&entry) {
+        match entry.get("type").and_then(Value::as_str) {
             Some("session_meta") => {
-                info.cwd = path_text(payload.get("cwd")).or(info.cwd);
-                info.version = text(payload.get("cli_version")).or(info.version);
-                info.context_window = count(payload.get("context_window"))
-                    .map(JsNumber)
-                    .or(info.context_window);
-                if let Some(git) = record_of(payload.get("git")) {
-                    info.branch = text(git.get("branch")).or(info.branch);
+                keep(path_text(payload.get("cwd")), &mut info.cwd);
+                keep(text(payload.get("cli_version")), &mut info.version);
+                keep(
+                    count(payload.get("context_window")),
+                    &mut info.context_window,
+                );
+                if let Some(git) = payload.get("git").and_then(Value::as_object) {
+                    keep(text(git.get("branch")), &mut info.branch);
                 }
             }
             Some("turn_context") => {
-                info.model = text(payload.get("model")).or(info.model);
-                info.cwd = path_text(payload.get("cwd")).or(info.cwd);
-                info.effort = text(payload.get("effort")).or(info.effort);
-                info.mode = text(payload.get("approval_policy")).or(info.mode);
+                keep(text(payload.get("model")), &mut info.model);
+                keep(path_text(payload.get("cwd")), &mut info.cwd);
+                keep(text(payload.get("effort")), &mut info.effort);
+                keep(text(payload.get("approval_policy")), &mut info.mode);
             }
             Some("event_msg")
                 if payload.get("type").and_then(Value::as_str) == Some("token_count") =>
             {
-                let Some(usage) = record_of(payload.get("info")) else {
+                let Some(usage) = payload.get("info").and_then(Value::as_object) else {
                     continue;
                 };
-                info.context_window = count(usage.get("model_context_window"))
-                    .map(JsNumber)
-                    .or(info.context_window);
-                if let Some(last) = record_of(usage.get("last_token_usage")) {
-                    info.context_tokens = count(last.get("input_tokens"))
-                        .map(JsNumber)
-                        .or(info.context_tokens);
+                keep(
+                    count(usage.get("model_context_window")),
+                    &mut info.context_window,
+                );
+                if let Some(last) = usage.get("last_token_usage").and_then(Value::as_object) {
+                    keep(count(last.get("input_tokens")), &mut info.context_tokens);
                 }
             }
             _ => {}
         }
     }
     info
+}
+
+fn to_fixed(value: f64, digits: i32) -> String {
+    let places = digits as usize;
+    let ties = value * 2f64.powi(digits + 1);
+    let is_tie = ties.fract() == 0.0 && (ties as u64) % 2 == 1;
+    if is_tie {
+        let factor = 10f64.powi(digits);
+        let scaled = (value * factor).floor() + 1.0;
+        return format!("{:.places$}", scaled / factor);
+    }
+    format!("{value:.places$}")
+}
+
+pub fn format_tokens(n: u64) -> String {
+    if n < THOUSAND {
+        return n.to_string();
+    }
+    if n < MILLION {
+        return format!("{}k", to_fixed(n as f64 / 1000.0, 1));
+    }
+    format!("{}M", to_fixed(n as f64 / 1_000_000.0, 2))
 }
