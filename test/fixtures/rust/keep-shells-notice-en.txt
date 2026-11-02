@@ -1,0 +1,2 @@
+[2m Keep shells: tmux 3.2 or newer is not installed.
+ This shell will not survive a restart.[0m

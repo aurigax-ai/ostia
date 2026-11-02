@@ -7,13 +7,17 @@ pub mod codex_stream;
 mod iso_time;
 pub mod mail_delivery;
 pub mod mailers;
+pub mod manager;
+pub mod manager_session;
 pub mod playbook_enabled;
 pub mod playbook_files;
 pub mod playbooks;
+pub mod portal_caller;
 pub mod skill_directive;
 pub mod stream_codex;
 pub mod stream_pi;
 pub mod stream_source;
+pub mod transcript_files;
 
 use serde::{Deserialize, Serialize};
 

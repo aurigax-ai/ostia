@@ -10,6 +10,7 @@ publish.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-terminal.workspace = true
+notify.workspace = true
 parking_lot.workspace = true
 regex.workspace = true
 serde.workspace = true

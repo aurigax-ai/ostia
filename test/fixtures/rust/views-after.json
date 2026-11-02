@@ -1,0 +1,14 @@
+{
+  "agents": {
+    "enabled": false
+  },
+  "notes": {
+    "enabled": false
+  },
+  "ports": {
+    "enabled": true
+  },
+  "late": {
+    "enabled": true
+  }
+}

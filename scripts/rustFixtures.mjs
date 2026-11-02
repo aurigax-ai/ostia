@@ -14,7 +14,9 @@ export { ViewStateStore } from './src/main/git/viewState'
 export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
 export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
 export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/paneBanner'
+export { en, zhHant, mergeCatalog } from './src/shared/app/dict'
 export { en, zhHant } from './src/shared/app/dict'
+export { keepShellsNotice, tmuxMissing } from './src/main/tmux/keepShellsBanner'
 export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
 export { scrollbackToSave } from './src/main/workspaces/savedScrollback'
 export { USAGE_TABLE } from './src/cli/common/usageTable'
@@ -22,6 +24,7 @@ export * as bus from './src/main/agents/busStore'
 export { encodeViewerSelection } from './packages/extension-sdk/src/contract/viewerSelection'
 export { createHeadlessTerminal } from './src/shared/terminal/ghosttyHeadless'
 export { createTelemetry } from './src/main/diagnostics/telemetry'
+export { ViewStore } from './src/main/workspaces/viewHost'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -44,8 +47,11 @@ const {
   ostiaLauncherScript,
   errorBanner,
   integrationNotLoadedNotice,
+  keepShellsNotice,
+  tmuxMissing,
   en,
   zhHant,
+  mergeCatalog,
   parseSnapshot,
   scrollbackToSave,
   ViewStateStore,
@@ -54,6 +60,7 @@ const {
   encodeViewerSelection,
   createHeadlessTerminal,
   createTelemetry,
+  ViewStore,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -237,6 +244,21 @@ writeFileSync(
   join(out, 'pane-banner-integration-zh-hant.txt'),
   integrationNotLoadedNotice(zhHant.native.paneBanner, 'EACCES'),
 )
+writeFileSync(
+  join(out, 'keep-shells-notice-en.txt'),
+  keepShellsNotice(en.native.paneBanner, tmuxMissing(en.native.paneBanner)),
+)
+writeFileSync(
+  join(out, 'keep-shells-notice-zh-hant.txt'),
+  keepShellsNotice(zhHant.native.paneBanner, tmuxMissing(zhHant.native.paneBanner)),
+)
+writeFileSync(
+  join(out, 'keep-shells-notice-multiline.txt'),
+  keepShellsNotice(
+    en.native.paneBanner,
+    'tmux could not start its server: line one\n\x1b]0;x\x07two  \x7f three',
+  ),
+)
 
 const SNAPSHOT_BEFORE = {
   v: 1,
@@ -350,6 +372,16 @@ writeFileSync(join(out, 'git-view-state-before.json'), readFileSync(viewFile))
 view.setChosen('/r/b', null)
 view.setChosen('/r/a', ['refs/heads/next'])
 writeFileSync(join(out, 'git-view-state-after.json'), readFileSync(viewFile))
+const viewsFile = join(work, 'views', 'views.json')
+mkdirSync(join(work, 'views'), { recursive: true })
+const views = new ViewStore(viewsFile)
+views.set('agents', { enabled: true })
+views.set('notes', { enabled: false })
+views.set('ports', { enabled: true })
+writeFileSync(join(out, 'views-before.json'), readFileSync(viewsFile))
+views.set('agents', { enabled: false })
+views.set('late', { enabled: true })
+writeFileSync(join(out, 'views-after.json'), readFileSync(viewsFile))
 writeFileSync(join(out, 'cli-usage-table.json'), `${JSON.stringify(USAGE_TABLE, null, 1)}\n`)
 
 const BUS_FIXED_MS = Date.parse('2026-10-18T10:00:00.000Z')
@@ -516,4 +548,8 @@ saveJson(join(out, 'install-replace-pending.json'), {
   version: '0.6.0',
 })
 saveJson(join(out, 'install-replace-swept.json'), null)
+saveJson(join(out, 'dict-en.json'), en)
+saveJson(join(out, 'dict-zh-hant.json'), zhHant)
+saveJson(join(out, 'dict-en-merged.json'), mergeCatalog({}))
+saveJson(join(out, 'dict-zh-hant-merged.json'), mergeCatalog(zhHant))
 saveJson(join(out, 'release-check-dismissed.json'), { dismissedVersion: '0.3.0' })

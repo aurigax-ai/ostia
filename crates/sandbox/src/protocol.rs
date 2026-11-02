@@ -1,0 +1,1 @@
+pub const HOST_PROTOCOL_VERSION: u32 = 1;
