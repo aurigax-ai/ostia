@@ -16,7 +16,7 @@ fn status(seccomp: u64) -> String {
     format!("Name:\tx\nSeccomp:\t{seccomp}\nSeccomp_filters:\t1\n")
 }
 
-fn fake_proc(files: &[(&str, String)]) -> impl Fn(&str) -> Option<String> {
+fn fake_proc(files: &[(&str, String)]) -> impl Fn(&str) -> Option<String> + use<> {
     let files: HashMap<String, String> = files
         .iter()
         .map(|(path, text)| ((*path).to_owned(), text.clone()))
@@ -32,7 +32,11 @@ fn caller(seccomp: u64) -> Peer {
     }
 }
 
-fn world(caller_seccomp: u64, shell_seccomp: u64, start: &str) -> impl Fn(&str) -> Option<String> {
+fn world(
+    caller_seccomp: u64,
+    shell_seccomp: u64,
+    start: &str,
+) -> impl Fn(&str) -> Option<String> + use<> {
     fake_proc(&[
         ("/proc/10/stat", stat(start)),
         ("/proc/10/status", status(caller_seccomp)),
