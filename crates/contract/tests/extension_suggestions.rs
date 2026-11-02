@@ -91,7 +91,7 @@ fn labels_the_kind_of_file_a_notice_talks_about() {
 
 #[test]
 fn has_an_entry_for_every_language_server_extension_in_the_source_tree_and_no_other() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../extensions");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src/extensions");
     let mut extensions: Vec<String> = fs::read_dir(root)
         .unwrap()
         .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
