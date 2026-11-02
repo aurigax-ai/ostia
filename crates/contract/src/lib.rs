@@ -6,9 +6,13 @@ pub mod commands;
 pub mod extensions;
 pub mod hidden_text;
 pub mod open_files;
+pub mod pty_api;
 pub mod reach;
 pub mod sandbox;
 pub mod script_tokens;
+pub mod scrollback_history;
+pub mod shell_quote;
+pub mod terminal_replies;
 pub mod terminal_state;
 
 pub const TARGET_PANE_PARAM: &str = "targetPaneId";
