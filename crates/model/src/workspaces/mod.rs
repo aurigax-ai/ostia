@@ -11,4 +11,6 @@ pub mod tab_workspace_move;
 pub mod window_workspaces;
 pub mod workspace_order;
 pub mod workspace_state;
+pub mod workspace_summary;
+pub mod workspace_title;
 pub mod workspaces_store;

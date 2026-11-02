@@ -5,8 +5,9 @@ use ostia_model::ids::IdNamespace;
 use ostia_model::stores::app::settings_model::NewWorkspacePlacement;
 use ostia_model::workspaces::actions::{close_workspace, ensure_terminal, new_tab_or_terminal};
 use ostia_model::workspaces::layout_store::LayoutStore;
+use ostia_model::workspaces::workspace_title::workspace_title;
 use ostia_model::workspaces::workspaces_store::{
-    WorkspaceKind, WorkspacesStore, name_from_work_dir, workspace_title,
+    WorkspaceKind, WorkspacesStore, name_from_work_dir,
 };
 
 fn add(store: &mut WorkspacesStore, work_dir: &str) -> String {
@@ -203,9 +204,13 @@ fn rename_shows_a_name_the_user_chose_and_clears_it_with_an_empty_name() {
     let mut store = WorkspacesStore::default();
     let a = add(&mut store, "/a");
     store.rename(&a, " mine ");
-    assert_eq!(workspace_title(store.workspace(&a).expect("a")), "mine");
+    let shown = |store: &WorkspacesStore| {
+        let workspace = store.workspace(&a).expect("a");
+        workspace_title(&workspace.name, workspace.custom_name.as_deref()).to_owned()
+    };
+    assert_eq!(shown(&store), "mine");
     store.rename(&a, "  ");
-    assert_eq!(workspace_title(store.workspace(&a).expect("a")), "a");
+    assert_eq!(shown(&store), "a");
 }
 
 #[test]
