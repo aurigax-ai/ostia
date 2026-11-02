@@ -17,12 +17,15 @@ const DESKTOP_SUFFIX: &str = ".desktop";
 static SECTION: LazyLock<Regex> =
     LazyLock::new(|| static_regex(&format!(r"^\[({JS_DOT}+)\][{JS_SPACE_CLASS}]*$")));
 
+pub type QueryDefault = Arc<dyn Fn(&str) -> BoxFuture<'static, String> + Send + Sync>;
+pub type ReadDesktop = Arc<dyn Fn(&str) -> BoxFuture<'static, Option<String>> + Send + Sync>;
+
 #[derive(Clone)]
 pub struct HandlerLookup {
     pub platform: Platform,
     pub protocol_app: Arc<dyn Fn(&str) -> String + Send + Sync>,
-    pub query_default: Arc<dyn Fn(&str) -> BoxFuture<'static, String> + Send + Sync>,
-    pub read_desktop: Arc<dyn Fn(&str) -> BoxFuture<'static, Option<String>> + Send + Sync>,
+    pub query_default: QueryDefault,
+    pub read_desktop: ReadDesktop,
 }
 
 pub fn desktop_name(entry: &str) -> Option<String> {

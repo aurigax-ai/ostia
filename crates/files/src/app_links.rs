@@ -16,15 +16,16 @@ use serde_json::Value;
 use crate::app_handler::{HandlerLookup, handler_name};
 use crate::browser_pages::{BrowserHost, BrowserLaunch, browser_launch};
 
+pub type StartBrowser =
+    Arc<dyn Fn(BrowserLaunch, BTreeMap<String, String>) -> BoxFuture<'static, bool> + Send + Sync>;
+
 #[derive(Clone)]
 pub struct AppLinkDeps {
     pub read_settings: Arc<dyn Fn() -> Value + Send + Sync>,
     pub open_external: Arc<dyn Fn(String) -> BoxFuture<'static, bool> + Send + Sync>,
     pub lookup: HandlerLookup,
     pub browser: BrowserHost,
-    pub start_browser: Arc<
-        dyn Fn(BrowserLaunch, BTreeMap<String, String>) -> BoxFuture<'static, bool> + Send + Sync,
-    >,
+    pub start_browser: StartBrowser,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
