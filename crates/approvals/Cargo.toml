@@ -18,8 +18,7 @@ regex.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 
+ostia-testkit.workspace = true
+
 [lints]
 workspace = true
-
-[dev-dependencies]
-ostia-testkit.workspace = true
