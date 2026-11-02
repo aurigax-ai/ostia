@@ -558,6 +558,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "unicode-normalization",
  "uuid",
 ]
 
