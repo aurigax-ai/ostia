@@ -1,0 +1,6 @@
+{
+  "paths": [
+    "@ROOT@/outside/app.log",
+    "@ROOT@/outside/other.log"
+  ]
+}
