@@ -7,7 +7,7 @@ use similar::{ChangeTag, TextDiff};
 
 struct SideBySide {
     left: Entity<EditorState>,
-    right: Entity<EditorState>,
+    right: Option<Entity<EditorState>>,
 }
 
 impl Render for SideBySide {
@@ -77,13 +77,26 @@ fn main() {
         let rss_before = resident_kib();
         gpui_kit::open_window(WindowOptions::default(), cx, |window, cx| {
             let started = Instant::now();
-            let left = cx.new(|cx| EditorState::new(window, cx).language(language.clone()));
-            let right = cx.new(|cx| EditorState::new(window, cx).language(language.clone()));
+            let soft_wrap = std::env::var_os("SPIKE_NOWRAP").is_none();
+            let single = std::env::var_os("SPIKE_SINGLE").is_some();
+            let left = cx.new(|cx| {
+                EditorState::new(window, cx)
+                    .language(language.clone())
+                    .soft_wrap(soft_wrap)
+            });
             left.update(cx, |state, cx| {
                 state.set_value(left_text.as_str(), window, cx)
             });
-            right.update(cx, |state, cx| {
-                state.set_value(right_text.as_str(), window, cx)
+            let right = (!single).then(|| {
+                let right = cx.new(|cx| {
+                    EditorState::new(window, cx)
+                        .language(language.clone())
+                        .soft_wrap(soft_wrap)
+                });
+                right.update(cx, |state, cx| {
+                    state.set_value(right_text.as_str(), window, cx)
+                });
+                right
             });
             eprintln!(
                 "open_ms={} rss_delta_kib={}",
