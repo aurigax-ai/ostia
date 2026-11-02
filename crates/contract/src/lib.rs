@@ -17,6 +17,8 @@ pub mod finished_hibernate;
 pub mod hidden_text;
 pub mod keep_shells;
 pub mod hook_payload;
+pub mod incident;
+pub mod onboard_playbook;
 pub mod open_files;
 pub mod proto_guard;
 pub mod osc7;
