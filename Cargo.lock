@@ -5208,7 +5208,10 @@ dependencies = [
  "ostia-base",
  "ostia-contract",
  "ostia-diagnostics",
+ "ostia-panes",
+ "ostia-terminal",
  "ostia-testkit",
+ "ostia-workspaces",
  "parking_lot",
  "regex",
  "rustix",
@@ -5217,6 +5220,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-tungstenite",
+ "tracing",
  "unicode-normalization",
  "uuid",
 ]
