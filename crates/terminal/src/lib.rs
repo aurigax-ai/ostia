@@ -1,6 +1,9 @@
+pub mod agent_hook_commands;
 pub mod attention_file;
 pub mod control_mode;
 pub mod folder_access;
+pub mod completion_specs;
+pub mod generated_folder;
 pub mod headless_screen;
 pub mod history_feed;
 pub mod history_ipc;
@@ -9,6 +12,8 @@ pub mod history_search;
 pub mod history_spill;
 pub mod keep_shells_banner;
 pub mod kept_attention;
+pub mod local_prompt;
+pub mod mark_nonce;
 pub mod pane_banner;
 pub mod pane_histories;
 pub mod pane_history;

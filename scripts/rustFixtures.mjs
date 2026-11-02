@@ -571,3 +571,12 @@ saveJson(join(out, 'dict-zh-hant.json'), zhHant)
 saveJson(join(out, 'dict-en-merged.json'), mergeCatalog({}))
 saveJson(join(out, 'dict-zh-hant-merged.json'), mergeCatalog(zhHant))
 saveJson(join(out, 'release-check-dismissed.json'), { dismissedVersion: '0.3.0' })
+
+const figDir = mkdtempSync(join(tmpdir(), 'rust-fig-specs-'))
+const { writeFigSpecs } = await import('./completionSpecs.mjs')
+await writeFigSpecs(figDir)
+mkdirSync(join(out, 'completion-specs'), { recursive: true })
+for (const name of ['git.json', 'tar.json']) {
+  writeFileSync(join(out, 'completion-specs', name), readFileSync(join(figDir, name)))
+}
+rmSync(figDir, { recursive: true, force: true })
