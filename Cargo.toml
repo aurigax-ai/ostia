@@ -22,6 +22,7 @@ ostia-base = { path = "crates/base" }
 ostia-contract = { path = "crates/contract" }
 ostia-control = { path = "crates/control" }
 ostia-model = { path = "crates/model" }
+ostia-panes = { path = "crates/panes" }
 ostia-park = { path = "crates/park" }
 ostia-rpc = { path = "crates/rpc" }
 ostia-testkit = { path = "crates/testkit" }
