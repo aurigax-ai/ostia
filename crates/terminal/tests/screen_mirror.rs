@@ -101,7 +101,7 @@ fn screen_text(data: &str, cols: u16, rows: u16) -> Vec<String> {
     } else {
         term.serialize(0, total - 1)
             .iter()
-            .map(|line| strip_vt(line))
+            .map(|line| strip_vt(line).trim_end().to_owned())
             .collect()
     };
     while lines.last().is_some_and(|line| line.trim().is_empty()) {
