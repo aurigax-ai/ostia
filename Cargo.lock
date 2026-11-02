@@ -1012,7 +1012,11 @@ dependencies = [
 name = "ostia-privacy"
 version = "0.0.0"
 dependencies = [
- "serde",
+ "ostia-base",
+ "ostia-contract",
+ "serde_json",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
