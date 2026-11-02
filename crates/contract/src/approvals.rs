@@ -23,10 +23,10 @@ pub enum ApprovalAnswer {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ApprovalOutcome {
-    #[serde(untagged)]
-    Answer(ApprovalAnswer),
     Auto,
     Timeout,
+    #[serde(untagged)]
+    Answer(ApprovalAnswer),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
