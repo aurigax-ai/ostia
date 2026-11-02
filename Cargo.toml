@@ -13,7 +13,9 @@ publish = false
 [workspace.dependencies]
 ostia-agents = { path = "crates/agents" }
 ostia-sandbox = { path = "crates/sandbox" }
+ostia-panes = { path = "crates/panes" }
 ostia-terminal = { path = "crates/terminal" }
+ostia-workspaces = { path = "crates/workspaces" }
 ostia-app = { path = "crates/app", default-features = false }
 ostia-ui = { path = "crates/ui" }
 ostia-approvals = { path = "crates/approvals" }
@@ -23,7 +25,6 @@ ostia-contract = { path = "crates/contract" }
 ostia-diagnostics = { path = "crates/diagnostics" }
 ostia-control = { path = "crates/control" }
 ostia-model = { path = "crates/model" }
-ostia-panes = { path = "crates/panes" }
 ostia-park = { path = "crates/park" }
 ostia-rpc = { path = "crates/rpc" }
 ostia-testkit = { path = "crates/testkit" }
