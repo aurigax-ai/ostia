@@ -354,10 +354,8 @@ impl Render for BrowserView {
                 let (lx, ly) = view.local(event.position);
                 view.last_mouse = (lx as i32, ly as i32);
                 if let Some(browser) = view.active_browser() {
-                    let (x, y) = view.local(event.position);
-                    view.last_mouse = (x as i32, y as i32);
                     let flags = input::modifier_flags(event.modifiers, event.pressed_button);
-                    input::send_move(browser, &input::mouse_event(x, y, flags), false);
+                    input::send_move(browser, &input::mouse_event(lx, ly, flags), false);
                 }
             }))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::mouse_down))
