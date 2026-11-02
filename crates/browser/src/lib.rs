@@ -1,8 +1,11 @@
+pub mod browse_method;
 pub mod browse_world;
 pub mod browser_profile;
 pub mod browser_profiles;
+pub mod browser_storage;
 pub mod browser_user_agent;
 pub mod credentials;
+pub mod guest_chords;
 pub mod guest_first_load;
 pub mod guest_inject;
 pub mod guest_key;
