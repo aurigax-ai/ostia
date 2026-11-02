@@ -15,7 +15,6 @@ export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
 export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
 export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/paneBanner'
 export { en, zhHant, mergeCatalog } from './src/shared/app/dict'
-export { en, zhHant } from './src/shared/app/dict'
 export { keepShellsNotice, tmuxMissing } from './src/main/tmux/keepShellsBanner'
 export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
 export { scrollbackToSave } from './src/main/workspaces/savedScrollback'
@@ -26,6 +25,8 @@ export { createHeadlessTerminal } from './src/shared/terminal/ghosttyHeadless'
 export { createTelemetry } from './src/main/diagnostics/telemetry'
 export { ViewStore } from './src/main/workspaces/viewHost'
 export { OpenFileGrants } from './src/main/files/openFileGrants'
+export { ExtensionStore } from './src/main/extensions/extensionStore'
+export { ExtensionLaunches } from './src/main/extensions/extensionLaunches'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -63,6 +64,8 @@ const {
   createTelemetry,
   ViewStore,
   OpenFileGrants,
+  ExtensionStore,
+  ExtensionLaunches,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -236,6 +239,27 @@ store.park({ workspaceId: 'w2', resume: { agent: 'agy', id: 's3' }, title: 'thir
 writeFileSync(join(out, 'parked-sessions-before.json'), readFileSync(parked))
 store.remove(gone.record.id)
 writeFileSync(join(out, 'parked-sessions-after.json'), readFileSync(parked))
+const extensionsFile = join(work, 'extensions.json')
+const extensionStore = new ExtensionStore(extensionsFile)
+extensionStore.set('demo', {
+  enabled: true,
+  approved: ['notify', 'shell'],
+  approvedKinds: ['demo.grid:view:default:*.csv'],
+  serversOff: ['pyright'],
+})
+extensionStore.set('plain', { enabled: false, approved: null })
+extensionStore.set('gone', { enabled: true, approved: [] })
+writeFileSync(join(out, 'extensions-before.json'), readFileSync(extensionsFile))
+extensionStore.delete('gone')
+writeFileSync(join(out, 'extensions-after.json'), readFileSync(extensionsFile))
+const launchesFile = join(work, 'extension-launches.json')
+const launches = new ExtensionLaunches(launchesFile)
+launches.set('graphs', true)
+launches.set('activity', true)
+launches.set('beta', true)
+writeFileSync(join(out, 'extension-launches-before.json'), readFileSync(launchesFile))
+launches.set('activity', false)
+writeFileSync(join(out, 'extension-launches-after.json'), readFileSync(launchesFile))
 writeFileSync(join(out, 'pane-launcher.sh'), ostiaLauncherScript())
 writeFileSync(join(out, 'pane-banner-error.txt'), errorBanner('Sandbox unavailable'))
 writeFileSync(

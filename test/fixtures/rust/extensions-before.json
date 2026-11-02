@@ -1,0 +1,23 @@
+{
+  "demo": {
+    "enabled": true,
+    "approved": [
+      "notify",
+      "shell"
+    ],
+    "approvedKinds": [
+      "demo.grid:view:default:*.csv"
+    ],
+    "serversOff": [
+      "pyright"
+    ]
+  },
+  "plain": {
+    "enabled": false,
+    "approved": null
+  },
+  "gone": {
+    "enabled": true,
+    "approved": []
+  }
+}
