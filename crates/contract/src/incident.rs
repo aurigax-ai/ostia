@@ -10,7 +10,7 @@ pub const INCIDENT_EVENTS_MAX: usize = 50;
 pub const INCIDENT_PANES_MAX: usize = 32;
 pub const INCIDENT_STALL_MS: u64 = 8000;
 pub const INCIDENT_KEPT_MAX: usize = 20;
-pub const INCIDENT_KEEP_MS: u64 = 30 * 24 * 3600_000;
+pub const INCIDENT_KEEP_MS: u64 = 30 * 24 * 3_600_000;
 pub const INCIDENT_BLOCK_TAG: &str = "ostia-incident";
 pub const INCIDENT_WORDS_MAX: usize = 2000;
 
@@ -101,8 +101,8 @@ impl IncidentPeriod {
 
     pub fn window_ms(&self) -> u64 {
         match self {
-            Self::Day => 24 * 3600_000,
-            Self::Week => 7 * 24 * 3600_000,
+            Self::Day => 24 * 3_600_000,
+            Self::Week => 7 * 24 * 3_600_000,
             Self::Month => INCIDENT_KEEP_MS,
         }
     }
