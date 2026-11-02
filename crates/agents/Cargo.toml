@@ -13,6 +13,7 @@ ostia-base.workspace = true
 ostia-contract.workspace = true
 parking_lot.workspace = true
 regex.workspace = true
+rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
