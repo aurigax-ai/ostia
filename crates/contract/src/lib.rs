@@ -4,6 +4,7 @@ pub mod agent_skills;
 pub mod capabilities;
 pub mod commands;
 pub mod extensions;
+pub mod file_links;
 pub mod hidden_text;
 pub mod open_files;
 pub mod reach;
