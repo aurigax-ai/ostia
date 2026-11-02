@@ -8,9 +8,9 @@ use anyhow::Result;
 use futures::StreamExt as _;
 use futures::channel::mpsc::unbounded;
 use gpui_kit::{
-    App, Bounds, Context, FocusHandle, InteractiveElement as _, IntoElement, KeyDownEvent,
-    ParentElement as _, Render, Styled as _, Window, WindowBounds, WindowOptions, div, px, rgb,
-    size,
+    App, AppContext as _, Bounds, Context, FocusHandle, InteractiveElement as _, IntoElement,
+    KeyDownEvent, ParentElement as _, Render, Styled as _, Window, WindowBounds, WindowOptions,
+    div, px, rgb, size,
 };
 use spike_terminal::element::{LINE_HEIGHT, TerminalElement};
 use spike_terminal::frame::Frame;
