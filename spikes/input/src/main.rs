@@ -398,6 +398,8 @@ fn main() {
         let (_, spike) = gpui_kit::open_window(WindowOptions::default(), cx, |window, cx| {
             let input = cx.new(|cx| InputState::new(window, cx));
             let term = cx.new(Terminal::new);
+            let focus = term.read(cx).focus.clone();
+            window.focus(&focus, cx);
             cx.new(|_| Spike {
                 input,
                 term,
