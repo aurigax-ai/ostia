@@ -251,7 +251,7 @@ pub fn crosses_sandbox(
         Some(from) => {
             !from.is_empty()
                 && *from != destination
-                && (is_sandboxed(*from) || is_sandboxed(destination))
+                && (is_sandboxed(from) || is_sandboxed(destination))
         }
         None => false,
     })
