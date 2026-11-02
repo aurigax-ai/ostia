@@ -1,0 +1,10 @@
+{
+  "chosen": {
+    "/r/c": [
+      "refs/heads/x"
+    ],
+    "/r/a": [
+      "refs/heads/next"
+    ]
+  }
+}

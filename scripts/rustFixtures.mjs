@@ -10,6 +10,7 @@ const work = mkdtempSync(join(tmpdir(), 'rust-fixtures-'))
 
 const ENTRY = `
 export { ParkedStore } from './src/main/park/parkedStore'
+export { ViewStateStore } from './src/main/git/viewState'
 export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
 export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
 export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/paneBanner'
@@ -36,6 +37,7 @@ const {
   en,
   zhHant,
   parseSnapshot,
+  ViewStateStore,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -304,4 +306,14 @@ const SNAPSHOT_BEFORE = {
 }
 writeFileSync(join(out, 'workspace-snapshot-before.json'), `${JSON.stringify(SNAPSHOT_BEFORE, null, 2)}\n`)
 saveJson(join(out, 'workspace-snapshot-after.json'), parseSnapshot(SNAPSHOT_BEFORE))
+
+const viewFile = join(work, 'git', 'view.json')
+const view = new ViewStateStore(viewFile)
+view.setChosen('/r/a', ['refs/heads/main', 'refs/remotes/origin/dev'])
+view.setChosen('/r/b', ['refs/heads/é'])
+view.setChosen('/r/c', ['refs/heads/x'])
+writeFileSync(join(out, 'git-view-state-before.json'), readFileSync(viewFile))
+view.setChosen('/r/b', null)
+view.setChosen('/r/a', ['refs/heads/next'])
+writeFileSync(join(out, 'git-view-state-after.json'), readFileSync(viewFile))
 rmSync(work, { recursive: true, force: true })

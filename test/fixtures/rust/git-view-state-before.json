@@ -1,0 +1,14 @@
+{
+  "chosen": {
+    "/r/a": [
+      "refs/heads/main",
+      "refs/remotes/origin/dev"
+    ],
+    "/r/b": [
+      "refs/heads/é"
+    ],
+    "/r/c": [
+      "refs/heads/x"
+    ]
+  }
+}
