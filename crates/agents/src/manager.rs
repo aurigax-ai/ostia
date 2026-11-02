@@ -94,7 +94,8 @@ pub struct ManagerDeps {
 
 fn parse_saved_resume(raw: &Value) -> Option<SavedManagerResume> {
     let record = raw.as_object()?;
-    let resume = parse_agent_resume(record.get("resume").unwrap_or(&Value::Null))?;
+    let mut resume = parse_agent_resume(record.get("resume").unwrap_or(&Value::Null))?;
+    resume.typed = None;
     let agent = record.get("agent")?.as_str()?;
     if !MANAGER_AGENT_NAME.is_match(agent) {
         return None;

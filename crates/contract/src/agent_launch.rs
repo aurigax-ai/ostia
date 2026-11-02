@@ -1,11 +1,12 @@
 use std::sync::LazyLock;
 
-use ostia_base::js::{JS_SPACE_CLASS, js_trim, static_regex, utf16_len};
+use ostia_base::js::{JS_SPACE_CLASS, is_js_space, js_trim, static_regex, utf16_len};
 use regex::Regex;
 use serde::{Serialize, Serializer};
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use crate::agent_resume::ResumableAgent;
+use crate::app_env::{ENV_PREFIX, EnvSource, env_name};
 use crate::hidden_text::has_control_character;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -21,6 +22,10 @@ const MAX_ARG_LENGTH: usize = 2048;
 const MAX_ARGS_LENGTH: usize = 8192;
 const MAX_ENV: usize = 32;
 const MAX_ENV_VALUE: usize = 1024;
+const MAX_COMMAND_LINE: usize = 16384;
+
+pub const AGENT_ARGS_SEPARATOR: &str = "\u{1f}";
+pub const CODEX_HOOK_ARGS_JSON: &str = "hook-args.json";
 
 fn claude_flag(name: &str) -> Option<Arity> {
     Some(match name {
@@ -128,7 +133,7 @@ fn is_model_config(value: &str) -> bool {
     value.find('=').is_some_and(|eq| {
         eq > 0
             && matches!(
-                ostia_base::js::js_trim(&value[..eq]),
+                js_trim(&value[..eq]),
                 "model"
                     | "model_reasoning_effort"
                     | "model_reasoning_summary"
@@ -325,13 +330,9 @@ static ENV_KEY_SEGMENT: LazyLock<Regex> = LazyLock::new(|| static_regex(r"(?i-u)
 
 static ABSOLUTE_PATH: LazyLock<Regex> = LazyLock::new(|| static_regex(r"^(/|[A-Za-z]:[\\/])"));
 
-const APP_ENV_PREFIX: &str = "OSTIA_";
-
 fn is_safe_config(agent: ResumableAgent, value: &str) -> bool {
     if agent == ResumableAgent::Claude {
-        return !value
-            .trim_start_matches(ostia_base::js::is_js_space)
-            .starts_with('{');
+        return !value.trim_start_matches(is_js_space).starts_with('{');
     }
     let key = js_trim(value.split('=').next().unwrap_or(value));
     !ENV_KEY_SEGMENT.is_match(key) && !SECRET_NAME.is_match(key)
@@ -374,7 +375,7 @@ fn safe_env(raw: Option<&Value>) -> Vec<(String, String)> {
         if SECRET_NAME.is_match(name) && name != "CLAUDE_SKIP_SESSION_LOG" {
             continue;
         }
-        if name.starts_with(APP_ENV_PREFIX) {
+        if name.starts_with(ENV_PREFIX) {
             continue;
         }
         let Some(value) = value.as_str() else {
@@ -425,4 +426,143 @@ pub fn typed_launch_of(agent: ResumableAgent, raw: &Value) -> Option<TypedLaunch
         .map_or_else(Vec::new, |argv| typed_flags(agent, &argv));
     let env = safe_env(record.get("env"));
     (!args.is_empty() || !env.is_empty()).then_some(TypedLaunch { args, env })
+}
+
+pub fn agent_args_env(agent: ResumableAgent) -> &'static str {
+    match agent {
+        ResumableAgent::Claude => "CLAUDE_ARGS",
+        ResumableAgent::Codex => "CODEX_ARGS",
+        ResumableAgent::Agy => "AGY_ARGS",
+    }
+}
+
+pub fn leads_with_flag(text: &str) -> bool {
+    text.trim_start_matches(is_js_space).starts_with(['-', '+'])
+}
+
+pub fn captured_args(agent: ResumableAgent, env: &EnvSource) -> Option<Vec<String>> {
+    let raw = env.get(&env_name(agent_args_env(agent)))?;
+    if raw.is_empty() {
+        return Some(Vec::new());
+    }
+    let argv: Vec<String> = raw.split(AGENT_ARGS_SEPARATOR).map(str::to_owned).collect();
+    Some(resume_flags(agent, &argv))
+}
+
+fn is_operator(ch: char) -> bool {
+    matches!(ch, ';' | '&' | '|' | '<' | '>' | '(' | ')' | '\n')
+}
+
+fn is_unquoted_safe(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || "_./:,@%+=#-".contains(ch)
+}
+
+static ASSIGNMENT: LazyLock<Regex> = LazyLock::new(|| static_regex(r"^[A-Za-z_][A-Za-z0-9_]*="));
+
+const UNREADABLE_WORD: &str = "\u{0}";
+
+struct Word {
+    text: String,
+    safe: bool,
+}
+
+fn read_word(line: &[char], start: usize) -> Option<(Word, usize)> {
+    let mut at = start;
+    let mut text = String::new();
+    let mut safe = true;
+    while at < line.len() {
+        let ch = line[at];
+        if ch == ' ' || ch == '\t' || is_operator(ch) {
+            break;
+        }
+        if ch == '\'' {
+            let close = line[at + 1..].iter().position(|c| *c == '\'')? + at + 1;
+            text.extend(&line[at + 1..close]);
+            at = close + 1;
+        } else if ch == '"' {
+            let mut end = at + 1;
+            while end < line.len() && line[end] != '"' {
+                if line[end] == '\\' {
+                    end += 1;
+                }
+                end += 1;
+            }
+            if end >= line.len() {
+                return None;
+            }
+            let inner = &line[at + 1..end];
+            if inner.iter().any(|c| matches!(c, '$' | '`' | '\\')) {
+                safe = false;
+            }
+            text.extend(inner);
+            at = end + 1;
+        } else if ch == '\\' {
+            if at + 1 >= line.len() {
+                return None;
+            }
+            text.push(line[at + 1]);
+            at += 2;
+        } else {
+            if !is_unquoted_safe(ch) {
+                safe = false;
+            }
+            text.push(ch);
+            at += 1;
+        }
+    }
+    Some((Word { text, safe }, at))
+}
+
+pub fn typed_launch(agent: ResumableAgent, line: &str) -> Option<TypedLaunch> {
+    if utf16_len(line) > MAX_COMMAND_LINE {
+        return None;
+    }
+    let line: Vec<char> = line.chars().collect();
+    let mut assigned: Map<String, Value> = Map::new();
+    let mut words: Option<Vec<Value>> = None;
+    let mut command_start = true;
+    let mut at = 0;
+    while at < line.len() {
+        if line[at] == ' ' || line[at] == '\t' {
+            at += 1;
+            continue;
+        }
+        if is_operator(line[at]) {
+            if words.is_some() {
+                break;
+            }
+            command_start = true;
+            assigned = Map::new();
+            at += 1;
+            continue;
+        }
+        let start = at;
+        let (word, end) = read_word(&line, at)?;
+        at = end;
+        let raw: String = line[start..at].iter().collect();
+        if let Some(words) = words.as_mut() {
+            let text = if word.safe {
+                word.text
+            } else {
+                UNREADABLE_WORD.to_owned()
+            };
+            words.push(Value::String(text));
+        } else if command_start && ASSIGNMENT.is_match(&raw) {
+            if word.safe
+                && let Some((name, value)) = word.text.split_once('=')
+            {
+                assigned.insert(name.to_owned(), Value::String(value.to_owned()));
+            }
+        } else if command_start {
+            command_start = false;
+            if raw == agent.name() || raw == format!("'{}'", agent.name()) {
+                words = Some(Vec::new());
+            }
+        }
+    }
+    let words = words?;
+    typed_launch_of(
+        agent,
+        &serde_json::json!({ "args": words, "env": assigned }),
+    )
 }

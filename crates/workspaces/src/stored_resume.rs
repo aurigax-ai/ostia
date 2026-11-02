@@ -1,4 +1,4 @@
-use ostia_contract::agent_launch::{TypedLaunch, typed_launch_of};
+use ostia_contract::agent_launch::TypedLaunch;
 use ostia_contract::agent_resume::{AgentResume, parse_agent_resume};
 use serde::Serialize;
 use serde_json::Value;
@@ -19,10 +19,8 @@ pub struct ResumeFailure {
 }
 
 pub fn parse_stored_resume(raw: &Value) -> Option<StoredResume> {
-    let resume = parse_agent_resume(raw)?;
-    let typed = raw
-        .get("typed")
-        .and_then(|typed| typed_launch_of(resume.agent, typed));
+    let mut resume = parse_agent_resume(raw)?;
+    let typed = resume.typed.take();
     Some(StoredResume { resume, typed })
 }
 

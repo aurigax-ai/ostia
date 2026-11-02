@@ -172,6 +172,7 @@ fn resume_of(id: &str, cwd: Option<&str>) -> StoredResume {
             id: id.to_owned(),
             cwd: cwd.map(str::to_owned),
             args: Vec::new(),
+            typed: None,
         },
         typed: None,
     }
