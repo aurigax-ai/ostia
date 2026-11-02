@@ -76,6 +76,8 @@ struct Session {
     unsent_chars: usize,
     in_flight: usize,
     dropping: bool,
+    resyncing: bool,
+    deferred: Vec<String>,
     screen: ScreenText,
     closing: Option<watch::Sender<bool>>,
 }
@@ -236,6 +238,10 @@ impl ClientInner {
             let Some(session) = state.sessions.get_mut(&id) else {
                 return;
             };
+            if session.resyncing {
+                session.deferred.push(data.to_string());
+                return;
+            }
             if session.dropping {
                 return;
             }
@@ -417,7 +423,7 @@ impl ClientInner {
 
     fn parsed(&self, id: u64, chars: usize) {
         let mut effects = Vec::new();
-        {
+        let screen = {
             let mut state = self.state.lock();
             let Some(session) = state.sessions.get_mut(&id) else {
                 return;
@@ -427,20 +433,44 @@ impl ClientInner {
                 effects.push(Effect::Release(pressure.clone(), chars));
             }
             let low = usize::try_from(SPILL_BACKLOG.low).unwrap_or(usize::MAX);
-            if session.dropping && session.unsent_chars + session.in_flight <= low {
-                session.dropping = false;
-                let screen = (session.screen)();
-                self.post(
-                    &mut state,
-                    SpillRequest::Resync {
-                        session: id,
-                        screen,
-                    },
-                    &mut effects,
-                );
+            if session.dropping
+                && !session.resyncing
+                && session.unsent_chars + session.in_flight <= low
+            {
+                session.resyncing = true;
+                Some(session.screen.clone())
+            } else {
+                None
             }
-        }
+        };
         run(effects);
+        let Some(screen) = screen else {
+            return;
+        };
+        let text = screen();
+        let mut effects = Vec::new();
+        let deferred = {
+            let mut state = self.state.lock();
+            let Some(session) = state.sessions.get_mut(&id) else {
+                return;
+            };
+            session.dropping = false;
+            session.resyncing = false;
+            let deferred = std::mem::take(&mut session.deferred);
+            self.post(
+                &mut state,
+                SpillRequest::Resync {
+                    session: id,
+                    screen: text,
+                },
+                &mut effects,
+            );
+            deferred
+        };
+        run(effects);
+        for data in deferred {
+            self.queue(id, &data);
+        }
     }
 }
 
@@ -494,6 +524,8 @@ impl SpillClient {
                     unsent_chars: 0,
                     in_flight: 0,
                     dropping: false,
+                    resyncing: false,
+                    deferred: Vec::new(),
                     screen: Arc::new(String::new),
                     closing: None,
                 },

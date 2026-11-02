@@ -10,9 +10,11 @@ use history_support::{mark, numbered};
 use ostia_terminal::spill_host::{SpillEvent, SpillHostPort, SpillRequest, serve_spill};
 use parking_lot::Mutex;
 
+type RequestListener = Arc<dyn Fn(SpillRequest) + Send + Sync>;
+
 struct HostPort {
     events: Mutex<Sender<SpillEvent>>,
-    listener: Mutex<Option<Arc<dyn Fn(SpillRequest) + Send + Sync>>>,
+    listener: Mutex<Option<RequestListener>>,
 }
 
 impl SpillHostPort for HostPort {

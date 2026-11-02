@@ -77,6 +77,7 @@ pub struct HistorySpill {
     frontier: Option<Marker>,
     held: bool,
     alt_tail: Option<Vec<String>>,
+    alt_ends: Option<Vec<(u64, BlockEnd)>>,
     finished: bool,
     marks: Vec<PendingMark>,
     seq: u64,
@@ -95,6 +96,7 @@ impl HistorySpill {
             frontier: None,
             held: false,
             alt_tail: None,
+            alt_ends: None,
             finished: false,
             marks: Vec::new(),
             seq: seq_offset,
@@ -192,6 +194,17 @@ impl HistorySpill {
     }
 
     pub fn pending_end(&self, screen: &HeadlessScreen, seq: u64) -> Option<BlockEnd> {
+        if !screen.is_normal() {
+            return self
+                .alt_ends
+                .as_ref()
+                .and_then(|ends| ends.iter().find(|(found, _)| *found == seq))
+                .map(|(_, end)| *end);
+        }
+        self.live_pending_end(screen, seq)
+    }
+
+    fn live_pending_end(&self, screen: &HeadlessScreen, seq: u64) -> Option<BlockEnd> {
         let frontier = self
             .frontier
             .as_ref()
@@ -264,11 +277,24 @@ impl HistorySpill {
     }
 
     pub fn on_alternate_screen_set(&mut self, screen: &HeadlessScreen) {
+        if screen.is_normal() {
+            let ends = self
+                .marks
+                .iter()
+                .filter(|mark| mark.kind == MarkKind::End)
+                .filter_map(|mark| {
+                    self.live_pending_end(screen, mark.seq)
+                        .map(|end| (mark.seq, end))
+                })
+                .collect();
+            self.alt_ends = Some(ends);
+        }
         self.alt_tail = Some(self.tail(screen));
     }
 
     pub fn on_alternate_screen_reset(&mut self) {
         self.alt_tail = None;
+        self.alt_ends = None;
     }
 
     pub fn on_clear_scrollback(&mut self, screen: &HeadlessScreen) {

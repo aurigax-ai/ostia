@@ -306,12 +306,12 @@ impl Inner {
         if (self.deps.setting)() == ScrollbackHistory::Off {
             return false;
         }
-        if fs::DirBuilder::new()
+        if let Err(err) = fs::DirBuilder::new()
             .recursive(true)
             .mode(0o700)
             .create(&self.run_dir)
-            .is_err()
         {
+            asking.fail(&errno_code(&err));
             return false;
         }
         let free_bytes: FreeBytes = self
