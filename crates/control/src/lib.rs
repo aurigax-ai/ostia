@@ -1,4 +1,6 @@
 pub mod auth;
+pub mod command_args;
+pub mod command_bridge;
 pub mod conn;
 pub mod discovery;
 pub mod events;
@@ -6,6 +8,7 @@ pub mod foreign_sandbox;
 pub mod identity;
 pub mod method;
 pub mod pane_id_salt;
+pub mod script_call_usage;
 pub mod server;
 pub mod socket_path;
 
