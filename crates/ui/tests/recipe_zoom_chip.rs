@@ -5,18 +5,19 @@ extern crate gpui_kit as gpui;
 use gpui_kit::prelude::*;
 use gpui_kit::test::TestWindowExt as _;
 use gpui_kit::{
-    App, AppContext as _, Context, IntoElement, Render, RenderOnce, TestAppContext, Window,
-    WindowOptions, div,
+    App, Context, IntoElement, Render, RenderOnce, TestAppContext, Window, WindowOptions, div,
 };
 use ostia_ui::components::{Button, ButtonSize, ButtonVariant, IconName};
 
 const RESET_ZOOM: &str = "Reset zoom to 100%";
 const CHIP_ID: &str = "zoom-chip";
 
+type ResetHandler = Box<dyn Fn(&mut Window, &mut App)>;
+
 #[derive(IntoElement)]
 struct ZoomChip {
     percent: Option<u32>,
-    on_reset: Box<dyn Fn(&mut Window, &mut App)>,
+    on_reset: ResetHandler,
 }
 
 impl RenderOnce for ZoomChip {

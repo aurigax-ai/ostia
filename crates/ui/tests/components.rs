@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use gpui_kit::prelude::*;
 use gpui_kit::test::TestWindowExt as _;
-use gpui_kit::{AppContext as _, Context, Render, TestAppContext, Window, WindowOptions, div};
+use gpui_kit::{Context, Render, TestAppContext, Window, WindowOptions, div};
 use ostia_ui::components::{
     Button, ControlRow, Segmented, SegmentedOption, StatusLine, StatusTone, Switch, TextLink,
 };
