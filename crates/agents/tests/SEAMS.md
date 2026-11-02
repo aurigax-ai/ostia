@@ -27,6 +27,7 @@
 ## C9-J071 trust_place
 
 - `ostia_agents::trust_place`: `CwdReport { pub host: String, pub path: String }` (`Clone`), `PaneIdentity { pub pane_id: String, pub workspace_id: String, pub manager: bool }`, `TrustPlace { pub folder: PathBuf, pub work_dir: PathBuf, pub home: PathBuf }` (`Debug + PartialEq`, no `config_dir` and no `custom_oauth`, the caller adds them), `TrustPlaceDeps { pub home: PathBuf, pub hostname: Option<String>, pub work_dir_of: Box<dyn Fn(&str) -> Option<String> + Send + Sync>, pub cwd_report: Box<dyn Fn(&str) -> Option<CwdReport> + Send + Sync>, pub is_scratch: Box<dyn Fn(&str) -> bool + Send + Sync>, pub sandbox_enabled: Box<dyn Fn(&str) -> bool + Send + Sync> }`, `trust_place_of(&TrustPlaceDeps, &PaneIdentity, Option<&str>) -> Option<TrustPlace>`. `work_dir_of` is `workDirForWorkspace`, `cwd_report` is `ptys.get(paneId)?.mirror.cwdReport`, `home` and `hostname` replace `homedir()` and `hostname()`. The code uses `workspace_folder` and `ostia_contract::osc7::is_host_named`. An empty scratch folder is falsy.
+
 ## C9-J070 agent_left, agent_running, agent_transcript, origin_agents, stream_claude
 
 - Dev-dependencies added: `ostia-panes`, `ostia-terminal`, `ostia-workspaces` (path lines added to the root `[workspace.dependencies]`). The code agent adds them as `[dependencies]` too.
