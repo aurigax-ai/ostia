@@ -54,16 +54,22 @@ pub struct IncidentReportOut {
     pub redacted: usize,
 }
 
+pub type Redact = Arc<dyn Fn(&str) -> BoxFuture<'static, Redacted> + Send + Sync>;
+pub type ExternalOf = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
+pub type AgentOf = Arc<dyn Fn(&str) -> BoxFuture<'static, Option<String>> + Send + Sync>;
+pub type SettingsOf = Arc<dyn Fn(&str) -> Map<String, Value> + Send + Sync>;
+pub type PickSavePath = Arc<dyn Fn() -> BoxFuture<'static, Option<PathBuf>> + Send + Sync>;
+
 pub struct IncidentActionsDeps {
     pub incidents: IncidentTimeline,
-    pub redact: Arc<dyn Fn(&str) -> BoxFuture<'static, Redacted> + Send + Sync>,
-    pub external_of: Arc<dyn Fn(&str) -> Option<String> + Send + Sync>,
-    pub agent_of: Arc<dyn Fn(&str) -> BoxFuture<'static, Option<String>> + Send + Sync>,
-    pub settings: Arc<dyn Fn(&str) -> Map<String, Value> + Send + Sync>,
+    pub redact: Redact,
+    pub external_of: ExternalOf,
+    pub agent_of: AgentOf,
+    pub settings: SettingsOf,
     pub app: Arc<dyn Fn() -> String + Send + Sync>,
     pub platform: String,
     pub open_external: Arc<dyn Fn(&str) -> bool + Send + Sync>,
-    pub pick_save_path: Arc<dyn Fn() -> BoxFuture<'static, Option<PathBuf>> + Send + Sync>,
+    pub pick_save_path: PickSavePath,
     pub copy_to_clipboard: Arc<dyn Fn(&str) + Send + Sync>,
 }
 

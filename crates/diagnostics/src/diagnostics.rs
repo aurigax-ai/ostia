@@ -46,6 +46,10 @@ pub trait WindowContents {
     fn toggle_devtools(&self);
 }
 
+pub type StartRecovery = Arc<dyn Fn(&WindowId, RecoveryReason) + Send + Sync>;
+pub type FinishRecovery = Arc<dyn Fn(&WindowId, &HashSet<PaneId>) + Send + Sync>;
+pub type OpenPath = Arc<dyn Fn(&Path) -> BoxFuture<'static, String> + Send + Sync>;
+
 pub struct DiagnosticsDeps {
     pub log: Arc<dyn AppLog>,
     pub telemetry: Arc<dyn ErrorTelemetry>,
@@ -54,9 +58,9 @@ pub struct DiagnosticsDeps {
     pub test_hooks: bool,
     pub packaged: bool,
     pub now: Clock,
-    pub start_recovery: Arc<dyn Fn(&WindowId, RecoveryReason) + Send + Sync>,
-    pub finish_recovery: Arc<dyn Fn(&WindowId, &HashSet<PaneId>) + Send + Sync>,
-    pub open_path: Arc<dyn Fn(&Path) -> BoxFuture<'static, String> + Send + Sync>,
+    pub start_recovery: StartRecovery,
+    pub finish_recovery: FinishRecovery,
+    pub open_path: OpenPath,
 }
 
 #[derive(Debug, Clone)]
