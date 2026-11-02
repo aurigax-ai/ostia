@@ -3,19 +3,12 @@ use std::sync::LazyLock;
 
 use ostia_base::js::{JS_SPACE_CLASS, js_trim, static_regex};
 use regex::Regex;
-use unicode_normalization::UnicodeNormalization;
 
-use crate::agent_plugins::AgentHookEvent;
+pub use crate::agent_plugins::skill_directive;
 
 const SKILL_KEYS: [&str; 2] = ["name", "description"];
 
-static LINE_BREAK: LazyLock<Regex> =
-    LazyLock::new(|| static_regex(r"\r\n|[\n\r\x{0085}\x{2028}\x{2029}]"));
 static LINE_END: LazyLock<Regex> = LazyLock::new(|| static_regex(r"\r?\n"));
-static INLINE_INJECTION: LazyLock<Regex> =
-    LazyLock::new(|| static_regex(r"[!\x{01c3}][`\x{02cb}\x{02f4}\x{2035}$]"));
-static FENCED_INJECTION: LazyLock<Regex> =
-    LazyLock::new(|| static_regex(r"(?:[`\x{02cb}\x{02f4}\x{2035}]{3,}|~{3,})[ \t]*[!\x{01c3}$]"));
 static FIELD_LINE: LazyLock<Regex> =
     LazyLock::new(|| static_regex(r"^([A-Za-z][A-Za-z0-9_-]*):(?: +(.*))?$"));
 static LEADING_SPACE: LazyLock<Regex> =
@@ -31,7 +24,7 @@ static ANCHOR_START: LazyLock<Regex> = LazyLock::new(|| static_regex(r"^[&*!]"))
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExtensionAgentHook {
     pub ext_id: String,
-    pub event: AgentHookEvent,
+    pub event: String,
     pub command: String,
 }
 
@@ -58,19 +51,6 @@ pub struct AgentPluginContent {
 pub enum SkillFrontmatter {
     Valid { name: String, description: String },
     Invalid { error: String },
-}
-
-pub fn skill_directive(text: &str) -> Option<String> {
-    for (index, line) in LINE_BREAK.split(text).enumerate() {
-        let flat: String = line.nfkc().collect();
-        if INLINE_INJECTION.is_match(&flat) || FENCED_INJECTION.is_match(&flat) {
-            return Some(format!(
-                "line {}: shell injection (!` or a ```! block) is not allowed",
-                index + 1
-            ));
-        }
-    }
-    None
 }
 
 fn has_control_character(line: &str) -> bool {

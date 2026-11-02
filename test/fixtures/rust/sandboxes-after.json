@@ -1,0 +1,30 @@
+{
+  "w1": {
+    "enabled": true,
+    "allowRead": [
+      "~/notes"
+    ],
+    "domains": [
+      "example.com"
+    ],
+    "controls": {
+      "browser": "unrestricted"
+    },
+    "allowWrite": [
+      "~/builds"
+    ],
+    "deniedDomains": [
+      "ads.example.com"
+    ],
+    "switches": {
+      "gitConfig": true
+    },
+    "ports": "deny"
+  },
+  "w2": {
+    "enabled": false,
+    "allowRead": [],
+    "domains": [],
+    "controls": {}
+  }
+}

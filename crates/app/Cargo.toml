@@ -13,6 +13,7 @@ window = [
     "dep:futures",
     "dep:gpui-kit",
     "dep:libghostty-vt",
+    "dep:ostia-model",
     "dep:ostia-ui",
     "dep:portable-pty",
 ]
@@ -27,6 +28,7 @@ anyhow = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 gpui-kit = { workspace = true, optional = true }
 libghostty-vt = { workspace = true, optional = true }
+ostia-model = { workspace = true, optional = true }
 ostia-ui = { workspace = true, optional = true }
 portable-pty = { workspace = true, optional = true }
 ostia-approvals.workspace = true
@@ -43,8 +45,10 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+ostia-model.workspace = true
 ostia-ui.workspace = true
 gpui-kit = { workspace = true, features = ["test-support"] }
+tempfile.workspace = true
 
 [lints]
 workspace = true

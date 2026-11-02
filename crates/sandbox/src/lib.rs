@@ -13,6 +13,10 @@ pub mod plugins_farm;
 pub mod protocol;
 pub mod pty_wrap;
 pub mod sandboxed_caller;
+pub mod spawn_env;
+pub mod srt_config;
+pub mod store;
+pub mod violations;
 pub mod visibility;
 
 use std::collections::HashSet;

@@ -6,7 +6,7 @@ use ostia_base::js::{is_js_space, js_trim, static_regex, utf16_len};
 use regex::Regex;
 use serde_json::{Map, Value};
 
-use crate::skill_directive::skill_directive;
+use ostia_contract::agent_skills::skill_directive;
 
 pub const PLAYBOOK_TEXT_MAX: usize = 8000;
 pub const PLAYBOOK_DESCRIPTION_MAX: usize = 120;

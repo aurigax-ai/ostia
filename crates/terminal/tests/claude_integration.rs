@@ -4,35 +4,51 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use ostia_agents::bundled_skills::CORE_SKILL_FILES;
-use ostia_agents::playbook_files::PlaybookFile;
-use ostia_agents::playbooks::PlaybookExtraFile;
-use ostia_contract::agent_plugins::AgentHookEvent;
 use ostia_contract::agent_skills::{
     AgentPluginContent, AgentSkillFile, ExtensionAgentHook, LoadedAgentSkill,
 };
 use ostia_terminal::claude_integration::{
     AGENT_SKILL_NAME, CLAUDE_FOLD_DIR, CLAUDE_FOLD_SOURCE, CLAUDE_MOD_FILE, CLAUDE_MOD_SOURCE,
-    claude_fold_manifest, claude_hook_settings, claude_plugin_manifest, claude_wrapper,
-    write_claude_fold_plugin, write_claude_plugin, write_playbook_file, write_skill_files,
+    ClaudePluginDeps, PlaybookSkill, PlaybookSkillFile, claude_fold_manifest, claude_hook_settings,
+    claude_plugin_manifest, claude_wrapper, write_claude_fold_plugin, write_claude_plugin,
+    write_playbook_file, write_skill_files,
 };
 use serde_json::{Value, json};
 use tempfile::tempdir;
 
-fn hook(ext_id: &str, event: AgentHookEvent, command: &str) -> ExtensionAgentHook {
+fn hook(ext_id: &str, event: &str, command: &str) -> ExtensionAgentHook {
     ExtensionAgentHook {
         ext_id: ext_id.to_owned(),
-        event,
+        event: event.to_owned(),
         command: command.to_owned(),
     }
 }
 
 fn fixture_hooks() -> Vec<ExtensionAgentHook> {
     vec![
-        hook("acme.notes", AgentHookEvent::Stop, "check"),
-        hook("acme.notes", AgentHookEvent::Notification, "ping"),
-        hook("acme.lint", AgentHookEvent::PreToolUse, "lint"),
+        hook("acme.notes", "Stop", "check"),
+        hook("acme.notes", "Notification", "ping"),
+        hook("acme.lint", "PreToolUse", "lint"),
     ]
+}
+
+const FAKE_CORE_FILES: [(&str, &str); 2] =
+    [("SKILL.md", "core skill"), ("ref/notes.md", "core notes")];
+
+fn write_fake_core_skill(dir: &Path) -> ostia_base::Result<()> {
+    for (path, text) in FAKE_CORE_FILES {
+        let target = dir.join(path);
+        fs::create_dir_all(target.parent().unwrap()).unwrap();
+        fs::write(target, text).unwrap();
+    }
+    Ok(())
+}
+
+fn deps(playbooks: &[PlaybookSkill]) -> ClaudePluginDeps<'_> {
+    ClaudePluginDeps {
+        write_core_skill: &write_fake_core_skill,
+        playbooks,
+    }
 }
 
 fn pretty(value: &Value) -> String {
@@ -201,7 +217,7 @@ fn describes_the_claude_plugin_and_the_fold_plugin_as_the_ts_app_does() {
 fn writes_the_claude_plugin_manifest_hooks_module_and_core_skill() {
     let dir = tempdir().unwrap();
     let plugin = dir.path().join("claude-plugin");
-    write_claude_plugin(&plugin, &AgentPluginContent::default(), &[]).unwrap();
+    write_claude_plugin(&plugin, &AgentPluginContent::default(), &deps(&[])).unwrap();
     assert_eq!(
         read(&plugin.join(".claude-plugin/plugin.json")),
         format!("{}\n", pretty(&claude_plugin_manifest()))
@@ -216,12 +232,11 @@ fn writes_the_claude_plugin_manifest_hooks_module_and_core_skill() {
         format!("{}\n", pretty(&settings))
     );
     assert_eq!(read(&plugin.join("hooks/register.ts")), CLAUDE_MOD_SOURCE);
-    for file in CORE_SKILL_FILES {
+    for (path, text) in FAKE_CORE_FILES {
         assert_eq!(
-            read(&plugin.join("skills").join(AGENT_SKILL_NAME).join(file.path)),
-            file.text,
-            "{}",
-            file.path
+            read(&plugin.join("skills").join(AGENT_SKILL_NAME).join(path)),
+            text,
+            "{path}"
         );
     }
 }
@@ -234,7 +249,7 @@ fn writes_extension_hooks_into_the_plugin_hooks_json() {
         skills: Vec::new(),
         hooks: fixture_hooks(),
     };
-    write_claude_plugin(&plugin, &content, &[]).unwrap();
+    write_claude_plugin(&plugin, &content, &deps(&[])).unwrap();
     let written: Value = serde_json::from_str(&read(&plugin.join("hooks/hooks.json"))).unwrap();
     assert_eq!(
         written["hooks"],
@@ -266,16 +281,15 @@ fn writes_each_extension_skill_and_playbook_under_its_own_skills_folder() {
         }],
         hooks: Vec::new(),
     };
-    let playbooks = vec![PlaybookFile {
+    let playbooks = vec![PlaybookSkill {
         id: "review".to_owned(),
-        description: "Review".to_owned(),
         skill: "playbook skill".to_owned(),
-        files: vec![PlaybookExtraFile {
+        files: vec![PlaybookSkillFile {
             path: "notes/extra.md".to_owned(),
             text: "extra".to_owned(),
         }],
     }];
-    write_claude_plugin(&plugin, &content, &playbooks).unwrap();
+    write_claude_plugin(&plugin, &content, &deps(&playbooks)).unwrap();
     assert_eq!(
         read(&plugin.join("skills/acme-notes/SKILL.md")),
         "---\nname: acme-notes\n---\n"
@@ -295,16 +309,15 @@ fn writes_each_extension_skill_and_playbook_under_its_own_skills_folder() {
 fn writes_a_playbook_skill_and_its_nested_files_creating_the_folders() {
     let dir = tempdir().unwrap();
     let target = dir.path().join("deep").join("playbook");
-    let playbook = PlaybookFile {
+    let playbook = PlaybookSkill {
         id: "p".to_owned(),
-        description: "d".to_owned(),
         skill: "skill text".to_owned(),
         files: vec![
-            PlaybookExtraFile {
+            PlaybookSkillFile {
                 path: "a/b/c.md".to_owned(),
                 text: "c".to_owned(),
             },
-            PlaybookExtraFile {
+            PlaybookSkillFile {
                 path: "top.md".to_owned(),
                 text: "top".to_owned(),
             },

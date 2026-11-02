@@ -5,8 +5,6 @@ use ostia_base::js_json::parse_js_json;
 use regex::Regex;
 use serde_json::Value;
 
-pub use crate::agent_plugins::HookAgent;
-
 pub const AGENT_HOOK_INPUT_MAX: usize = 1024 * 1024;
 
 static ID_PATTERN: LazyLock<Regex> =
@@ -33,7 +31,7 @@ fn non_empty_list(value: Option<&Value>) -> bool {
         .is_some_and(|items| !items.is_empty())
 }
 
-pub fn parse_agent_stop(_agent: HookAgent, input: &str) -> Option<AgentStop> {
+pub fn parse_agent_stop(_agent: &str, input: &str) -> Option<AgentStop> {
     if input.len() > AGENT_HOOK_INPUT_MAX {
         return None;
     }

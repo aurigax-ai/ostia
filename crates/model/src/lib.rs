@@ -1,5 +1,11 @@
+pub mod attention;
+pub mod ids;
 pub mod keyboard;
+pub mod layout;
+pub mod panes;
 pub mod settings;
 pub mod sidebar;
+pub mod stores;
 pub mod terminal;
 pub mod terminal_links;
+pub mod workspaces;

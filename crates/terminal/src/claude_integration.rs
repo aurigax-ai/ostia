@@ -1,12 +1,10 @@
 use std::fs;
 use std::path::Path;
 
-use ostia_agents::bundled_skills::{CORE_SKILL_FILES, write_bundled_skill};
-use ostia_agents::playbook_files::PlaybookFile;
 use ostia_base::atomic_write::{AtomicWriteOptions, write_file_atomic};
 use ostia_base::error::io_error;
 use ostia_base::{PRODUCT_NAME, Result, node_path};
-use ostia_contract::agent_plugins::{AgentHookEvent, HookAgent};
+use ostia_contract::agent_plugins::AGENT_HOOK_EVENTS;
 use ostia_contract::agent_skills::{AgentPluginContent, ExtensionAgentHook, LoadedAgentSkill};
 use ostia_contract::claude_attention::CLAUDE_QUESTION_TOOLS;
 use serde_json::{Map, Value, json};
@@ -30,21 +28,21 @@ pub const CLAUDE_FOLD_DIR: &str = "claude-fold";
 const CLAUDE_PLUGIN_DIR: &str = "claude-plugin";
 pub const AGENT_SKILL_NAME: &str = PRODUCT_NAME;
 
-fn own_commands(event: AgentHookEvent) -> Vec<String> {
+fn own_commands(event: &str) -> Vec<String> {
     match event {
-        AgentHookEvent::SessionStart => vec![
+        "SessionStart" => vec![
             hook_command("resume-token claude -"),
-            bus_hook_command(AgentHookEvent::SessionStart),
+            bus_hook_command("SessionStart"),
         ],
-        AgentHookEvent::UserPromptSubmit => vec![
+        "UserPromptSubmit" => vec![
             hook_command("state working"),
-            bus_hook_command(AgentHookEvent::UserPromptSubmit),
+            bus_hook_command("UserPromptSubmit"),
             turn_hook_command("UserPromptSubmit"),
         ],
-        AgentHookEvent::PostToolUse => vec![turn_hook_command("PostToolUse")],
-        AgentHookEvent::Notification => vec![hook_command("claude-hook Notification")],
-        AgentHookEvent::Stop => vec![hook_command("claude-hook Stop"), turn_hook_command("Stop")],
-        AgentHookEvent::PreToolUse | AgentHookEvent::SessionEnd => Vec::new(),
+        "PostToolUse" => vec![turn_hook_command("PostToolUse")],
+        "Notification" => vec![hook_command("claude-hook Notification")],
+        "Stop" => vec![hook_command("claude-hook Stop"), turn_hook_command("Stop")],
+        _ => Vec::new(),
     }
 }
 
@@ -54,14 +52,14 @@ fn plain_group(command: &str) -> Value {
 
 pub fn claude_hook_settings(extension_hooks: &[ExtensionAgentHook]) -> Value {
     let mut hooks = Map::new();
-    for event in AgentHookEvent::ALL {
+    for event in AGENT_HOOK_EVENTS {
         let mut commands = own_commands(event);
-        commands.extend(hooks_for(extension_hooks, HookAgent::Claude, event));
+        commands.extend(hooks_for(extension_hooks, "claude", event));
         if commands.is_empty() {
             continue;
         }
         let group = json!({"hooks": commands.iter().map(|command| command_hook(command)).collect::<Vec<_>>()});
-        hooks.insert(event.as_str().to_owned(), json!([group]));
+        hooks.insert(event.to_owned(), json!([group]));
     }
     let matcher = CLAUDE_QUESTION_TOOLS.join("|");
     for (event, cli_args) in [
@@ -93,7 +91,7 @@ pub fn claude_hook_settings(extension_hooks: &[ExtensionAgentHook]) -> Value {
     }
     hooks.insert(
         "PermissionRequest".to_owned(),
-        json!([plain_group(&permission_hook_command(HookAgent::Claude))]),
+        json!([plain_group(&permission_hook_command("claude"))]),
     );
     json!({"hooks": hooks})
 }
@@ -135,7 +133,27 @@ fn pretty_line(value: &Value) -> String {
     )
 }
 
-pub fn write_playbook_file(dir: &Path, playbook: &PlaybookFile) -> Result<()> {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PlaybookSkillFile {
+    pub path: String,
+    pub text: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PlaybookSkill {
+    pub id: String,
+    pub skill: String,
+    pub files: Vec<PlaybookSkillFile>,
+}
+
+pub type CoreSkillWriter<'a> = &'a dyn Fn(&Path) -> Result<()>;
+
+pub struct ClaudePluginDeps<'a> {
+    pub write_core_skill: CoreSkillWriter<'a>,
+    pub playbooks: &'a [PlaybookSkill],
+}
+
+pub fn write_playbook_file(dir: &Path, playbook: &PlaybookSkill) -> Result<()> {
     make_dir(dir)?;
     write_text(&dir.join(AGENT_SKILL_ENTRY), &playbook.skill)?;
     for file in &playbook.files {
@@ -160,7 +178,7 @@ pub fn write_skill_files(dir: &Path, skill: &LoadedAgentSkill) -> Result<()> {
 pub fn write_claude_plugin(
     dir: &Path,
     content: &AgentPluginContent,
-    playbooks: &[PlaybookFile],
+    deps: &ClaudePluginDeps<'_>,
 ) -> Result<()> {
     make_dir(&dir.join(".claude-plugin"))?;
     make_dir(&dir.join("hooks"))?;
@@ -181,11 +199,11 @@ pub fn write_claude_plugin(
     )?;
     write_text(&dir.join("hooks").join(CLAUDE_MOD_FILE), CLAUDE_MOD_SOURCE)?;
     let skills = dir.join("skills");
-    write_bundled_skill(&skills.join(AGENT_SKILL_NAME), CORE_SKILL_FILES)?;
+    (deps.write_core_skill)(&skills.join(AGENT_SKILL_NAME))?;
     for skill in &content.skills {
         write_skill_files(&node_path::join(&skills, &skill.id), skill)?;
     }
-    for playbook in playbooks {
+    for playbook in deps.playbooks {
         write_playbook_file(&node_path::join(&skills, &playbook.id), playbook)?;
     }
     Ok(())

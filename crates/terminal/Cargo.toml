@@ -13,7 +13,6 @@ flate2.workspace = true
 hex.workspace = true
 libc.workspace = true
 libghostty-vt.workspace = true
-ostia-agents.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-sandbox.workspace = true
@@ -32,7 +31,6 @@ tracing.workspace = true
 workspace = true
 
 [dev-dependencies]
-ostia-agents.workspace = true
 ostia-testkit.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }

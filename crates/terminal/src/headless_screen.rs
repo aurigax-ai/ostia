@@ -1,7 +1,7 @@
 use libghostty_vt::fmt::Format;
 use libghostty_vt::screen::{Screen, TrackedGridRef};
 use libghostty_vt::selection::{FormatOptions, Selection};
-use libghostty_vt::terminal::{Point, PointCoordinate, PointSpace};
+use libghostty_vt::terminal::{Mode, Point, PointCoordinate, PointSpace};
 use libghostty_vt::{Terminal, TerminalOptions};
 use ostia_base::js::js_trim;
 
@@ -38,6 +38,22 @@ impl HeadlessScreen {
             self.cols = cols;
             self.rows = rows;
         }
+    }
+
+    pub fn cols(&self) -> u16 {
+        self.cols
+    }
+
+    pub fn rows(&self) -> u16 {
+        self.rows
+    }
+
+    pub fn bracketed_paste(&self) -> bool {
+        self.term.mode(Mode::BRACKETED_PASTE).unwrap_or(false)
+    }
+
+    pub fn row_text(&self, y: usize) -> String {
+        self.format_rows(y, y, Format::Plain)
     }
 
     pub fn is_normal(&self) -> bool {
@@ -134,12 +150,6 @@ impl HeadlessScreen {
         if to < from {
             return Vec::new();
         }
-        let text = normalize_vt(&self.format_rows(from, to, Format::Vt));
-        let printed: Vec<&str> = if text.is_empty() {
-            Vec::new()
-        } else {
-            text.split("\r\n").collect()
-        };
         let mut starts = vec![from];
         for y in from + 1..=to {
             if !self.row_is_continuation(y) {
@@ -147,25 +157,44 @@ impl HeadlessScreen {
             }
         }
         let mut lines = Vec::with_capacity(starts.len());
-        let mut at = 0usize;
+        let mut group_first = 0usize;
         for (index, &start) in starts.iter().enumerate() {
             let rows = starts.get(index + 1).copied().unwrap_or(to + 1) - start;
             let mut blank = 0usize;
-            while blank + 1 < rows
-                && self
-                    .format_rows(start + blank, start + blank, Format::Vt)
-                    .is_empty()
-            {
+            while blank + 1 < rows && self.row_is_blank(start + blank) {
                 blank += 1;
             }
-            at += blank;
-            let row_text = printed.get(at).copied().unwrap_or("");
-            at += 1;
+            if blank == 0 {
+                continue;
+            }
+            if group_first < index {
+                lines.extend(self.serialize_lines(&starts[group_first..index], start - 1));
+            }
+            let text = normalize_vt(&self.format_rows(start + blank, start + rows - 1, Format::Vt));
             let mut line = " ".repeat(blank * usize::from(self.cols));
-            line.push_str(row_text);
+            line.push_str(&text);
             lines.push(line);
+            group_first = index + 1;
         }
+        lines.extend(self.serialize_lines(&starts[group_first..], to));
         lines
+    }
+
+    fn serialize_lines(&self, starts: &[usize], last_row: usize) -> Vec<String> {
+        let Some(&first) = starts.first() else {
+            return Vec::new();
+        };
+        let text = normalize_vt(&self.format_rows(first, last_row, Format::Vt));
+        let mut printed = if text.is_empty() {
+            Vec::<&str>::new()
+        } else {
+            text.split("\r\n").collect()
+        }
+        .into_iter();
+        starts
+            .iter()
+            .map(|_| printed.next().unwrap_or("").to_owned())
+            .collect()
     }
 }
 

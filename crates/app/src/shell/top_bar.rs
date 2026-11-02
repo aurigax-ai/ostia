@@ -17,6 +17,10 @@ pub(super) fn render(cx: &mut Context<ShellRoot>) -> impl IntoElement + use<> {
     let t = *cx.tokens();
     let root = cx.entity().downgrade();
     let toggle = cx.listener(|this, _, _, cx| this.toggle_rail(cx));
+    let new_workspace = cx.listener(|this, _, _, cx| {
+        this.stores.new_workspace(cx);
+        this.show_workspace(cx);
+    });
     let settings = cx.listener(|this, _, _, cx| this.select_view(ActiveView::Settings, cx));
     let stop = |_: &gpui_kit::MouseDownEvent, _: &mut gpui_kit::Window, cx: &mut gpui_kit::App| {
         cx.stop_propagation();
@@ -44,6 +48,13 @@ pub(super) fn render(cx: &mut Context<ShellRoot>) -> impl IntoElement + use<> {
                 .flex_1()
                 .items_center()
                 .min_w(RAIL_W - SPACE_2)
+                .child(
+                    div().on_mouse_down(MouseButton::Left, stop).child(
+                        IconButton::new("new-workspace", IconName::Plus, "New workspace")
+                            .size(IconButtonSize::Bar)
+                            .on_click(new_workspace),
+                    ),
+                )
                 .child(
                     div().on_mouse_down(MouseButton::Left, stop).child(
                         IconButton::new("toggle-rail", IconName::SidebarSimple, "Toggle sidebar")
