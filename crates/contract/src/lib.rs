@@ -1,12 +1,14 @@
 pub mod agent_launch;
 pub mod agent_resume;
 pub mod agent_skills;
+pub mod assist;
 pub mod capabilities;
 pub mod commands;
 pub mod extensions;
 pub mod hidden_text;
 pub mod open_files;
 pub mod reach;
+pub mod redaction;
 pub mod sandbox;
 pub mod script_tokens;
 pub mod terminal_state;

@@ -1,7 +1,4 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RedactionSettings {
-    pub enabled: bool,
-    pub patterns: Vec<String>,
-}
+pub mod redaction;
+pub mod redaction_scan;
+pub mod redaction_targets;
+pub mod secret_scanner;
