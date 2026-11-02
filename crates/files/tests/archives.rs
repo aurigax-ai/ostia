@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::fs::{self, File};
+use std::fs;
 use std::os::unix::fs::FileExt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
