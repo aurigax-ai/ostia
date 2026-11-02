@@ -78,7 +78,7 @@ fn pane_folder(pane_id: &str) -> String {
 
 type Setting = Arc<dyn Fn() -> ScrollbackHistory + Send + Sync>;
 type StartSpill = Arc<dyn Fn() -> SpillClient + Send + Sync>;
-type FreeBytes = Arc<dyn Fn(&Path) -> Result<u64, String> + Send + Sync>;
+type FreeBytes = Arc<dyn Fn(&Path) -> std::result::Result<u64, String> + Send + Sync>;
 type OnFailed = Arc<dyn Fn(&str, &str) + Send + Sync>;
 
 #[derive(Clone)]
@@ -91,7 +91,7 @@ pub struct PaneHistoriesDeps {
     pub segment_bytes: Option<u64>,
 }
 
-fn statfs_free(dir: &Path) -> Result<u64, String> {
+fn statfs_free(dir: &Path) -> std::result::Result<u64, String> {
     rustix::fs::statvfs(dir)
         .map(|stats| stats.f_bavail.saturating_mul(stats.f_frsize))
         .map_err(|errno| errno_code(&errno.into()))
