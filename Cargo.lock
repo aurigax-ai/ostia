@@ -5577,6 +5577,8 @@ dependencies = [
  "parking_lot",
  "percent-encoding",
  "regex",
+ "rustix",
+ "serde",
  "serde_json",
  "tempfile",
  "tokio",
