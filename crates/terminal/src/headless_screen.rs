@@ -1,7 +1,7 @@
 use libghostty_vt::fmt::Format;
 use libghostty_vt::screen::{Screen, TrackedGridRef};
 use libghostty_vt::selection::{FormatOptions, Selection};
-use libghostty_vt::terminal::{Point, PointCoordinate, PointSpace};
+use libghostty_vt::terminal::{Mode, Point, PointCoordinate, PointSpace};
 use libghostty_vt::{Terminal, TerminalOptions};
 use ostia_base::js::js_trim;
 
@@ -38,6 +38,22 @@ impl HeadlessScreen {
             self.cols = cols;
             self.rows = rows;
         }
+    }
+
+    pub fn cols(&self) -> u16 {
+        self.cols
+    }
+
+    pub fn rows(&self) -> u16 {
+        self.rows
+    }
+
+    pub fn bracketed_paste(&self) -> bool {
+        self.term.mode(Mode::BRACKETED_PASTE).unwrap_or(false)
+    }
+
+    pub fn row_text(&self, y: usize) -> String {
+        self.format_rows(y, y, Format::Plain)
     }
 
     pub fn is_normal(&self) -> bool {
