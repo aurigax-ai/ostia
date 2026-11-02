@@ -14,7 +14,7 @@ fn utf16(text: &str) -> Vec<u16> {
 }
 
 fn is_separator(unit: u16) -> bool {
-    [b'/', b'\\', b'_', b'-', b'.', b' '].contains(&u8::try_from(unit).unwrap_or(0))
+    b"/\\_-. ".contains(&u8::try_from(unit).unwrap_or(0))
 }
 
 fn is_lower_stable(unit: u16) -> bool {

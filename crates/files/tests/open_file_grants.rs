@@ -405,7 +405,7 @@ fn does_not_hold_a_scratch_grant_for_a_path_that_is_already_remembered() {
             },
         )
         .unwrap();
-    assert_eq!(fx.remembered(), [file.clone()]);
+    assert_eq!(fx.remembered(), std::slice::from_ref(&file));
     assert_eq!(fx.grants().confine(&file), Some(file));
 }
 
