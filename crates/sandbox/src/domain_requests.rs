@@ -25,13 +25,17 @@ pub struct DomainAsk {
     pub origin: DomainAskOrigin,
 }
 
+pub type BlockedDomains = Arc<dyn Fn(&WorkspaceId) -> Vec<String> + Send + Sync>;
+pub type DomainAsker = Arc<dyn Fn(DomainAsk) -> BoxFuture<'static, ApprovalOutcome> + Send + Sync>;
+pub type DomainAllower = Arc<dyn Fn(&WorkspaceId, &str) + Send + Sync>;
+
 #[derive(Clone)]
 pub struct DomainRequestsDeps {
     pub is_sandboxed: Arc<dyn Fn(&WorkspaceId) -> bool + Send + Sync>,
-    pub blocked_domains: Arc<dyn Fn(&WorkspaceId) -> Vec<String> + Send + Sync>,
-    pub ask: Arc<dyn Fn(DomainAsk) -> BoxFuture<'static, ApprovalOutcome> + Send + Sync>,
-    pub allow_workspace: Arc<dyn Fn(&WorkspaceId, &str) + Send + Sync>,
-    pub allow_until_restart: Arc<dyn Fn(&WorkspaceId, &str) + Send + Sync>,
+    pub blocked_domains: BlockedDomains,
+    pub ask: DomainAsker,
+    pub allow_workspace: DomainAllower,
+    pub allow_until_restart: DomainAllower,
     pub now: Arc<dyn Fn() -> i64 + Send + Sync>,
 }
 

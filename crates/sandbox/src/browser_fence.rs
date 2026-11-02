@@ -13,10 +13,14 @@ pub struct BrowserPolicy {
     pub denied: Vec<String>,
 }
 
+pub type PolicyLookup = Arc<dyn Fn(&WorkspaceId) -> Option<BrowserPolicy> + Send + Sync>;
+pub type DomainRequester =
+    Arc<dyn Fn(&WorkspaceId, &str) -> BoxFuture<'static, bool> + Send + Sync>;
+
 #[derive(Clone)]
 pub struct BrowserFenceDeps {
-    pub policy: Arc<dyn Fn(&WorkspaceId) -> Option<BrowserPolicy> + Send + Sync>,
-    pub request_domain: Arc<dyn Fn(&WorkspaceId, &str) -> BoxFuture<'static, bool> + Send + Sync>,
+    pub policy: PolicyLookup,
+    pub request_domain: DomainRequester,
 }
 
 #[derive(Clone)]
