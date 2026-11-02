@@ -81,7 +81,7 @@ impl Fixture {
                 {
                     use std::io::Write;
                     let mut input = running.stdin.take().unwrap();
-                    input.write_all(payload.to_string().as_bytes()).unwrap();
+                    let _ = input.write_all(payload.to_string().as_bytes());
                 }
                 let output = running.wait_with_output().unwrap();
                 stdout.push_str(&String::from_utf8(output.stdout).unwrap());
