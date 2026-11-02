@@ -129,6 +129,11 @@ fn open(
         })
         .expect("window")
     });
+    cx.update_window(handle, |_, window, _| window.activate_window())
+        .expect("window update");
+    cx.run_until_parked();
+    cx.update_window(handle, |_, window, cx| window.render_frame(cx))
+        .expect("window update");
     (handle, view)
 }
 
