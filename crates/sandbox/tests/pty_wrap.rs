@@ -124,7 +124,7 @@ fn treats_an_empty_resize_pipe_and_an_empty_port_bridge_as_none_and_quotes_an_em
     );
     assert!(
         sandboxed_shell_command("bash -i", Some(""), Some(PIPE), None)
-            .contains("export SHELL=''; exec bash -i")
+            .contains("export SHELL='\\'''\\''; exec bash -i")
     );
 }
 
