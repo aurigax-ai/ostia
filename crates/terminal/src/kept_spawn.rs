@@ -78,9 +78,8 @@ pub struct KeptSpawnerDeps<S> {
     pub kept_shells: S,
     pub ensure_plumbing: Box<dyn Fn() + Send + Sync>,
     pub with_kept_process: WithKeptProcess,
-    pub kept_pane_env:
-        Box<dyn Fn(&BTreeMap<String, String>) -> BTreeMap<String, String> + Send + Sync>,
-    pub log_spawn_failed: Box<dyn Fn(&str, &str) + Send + Sync>,
+    pub kept_pane_env: KeptPaneEnv,
+    pub log_spawn_failed: LogSpawnFailed,
 }
 
 pub struct KeptSpawner<S> {
