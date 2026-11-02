@@ -22,7 +22,6 @@ pub mod playbook_enabled;
 pub mod playbook_files;
 pub mod playbooks;
 pub mod portal_caller;
-pub mod skill_directive;
 pub mod stream_claude;
 pub mod stream_codex;
 pub mod stream_pi;
