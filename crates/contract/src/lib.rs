@@ -1,3 +1,4 @@
+pub mod act_then_confirm;
 pub mod agent_issues;
 pub mod agent_launch;
 pub mod agent_resume;
@@ -52,6 +53,7 @@ pub mod pty_api;
 pub mod question_text;
 pub mod reach;
 pub mod redaction;
+pub mod relative_time;
 pub mod releases;
 pub mod remote_folders;
 pub mod sandbox;
