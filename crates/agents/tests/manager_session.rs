@@ -111,8 +111,10 @@ impl ManagerEnds for Manager {
     }
 }
 
+type Attach = Box<dyn Fn(&str, SessionSink) -> Option<SessionHandle>>;
+
 struct Rig {
-    attach: Box<dyn Fn(&str, SessionSink) -> Option<SessionHandle>>,
+    attach: Attach,
     stream: Arc<FakeStream>,
     waiting: Waiting,
     ends: Ends,
