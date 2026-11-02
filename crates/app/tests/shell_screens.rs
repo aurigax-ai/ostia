@@ -204,6 +204,27 @@ fn closing_the_last_pane_leaves_an_empty_workspace(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn shell_keys_work_with_no_pane_open(cx: &mut TestAppContext) {
+    let opened = open(Screen::Main, cx);
+    let press = |key: &'static str, cx: &mut TestAppContext| {
+        cx.update_window(opened.handle, |_, window, cx| {
+            window.render_frame(cx);
+            window.press(key, cx);
+        })
+        .expect("window update");
+        cx.run_until_parked();
+    };
+    press("ctrl-shift-t", cx);
+    assert!(exists(&opened, name("pane-tab", "pane-1"), cx));
+    click(&opened, name("pane-close", "pane-1"), cx);
+    assert!(exists(&opened, "empty-new-terminal".into(), cx));
+    press("ctrl-shift-t", cx);
+    assert!(exists(&opened, name("pane-tab", "pane-2"), cx));
+    press("ctrl-shift-n", cx);
+    assert_eq!(active_workspace(&opened, cx).as_deref(), Some("w2"));
+}
+
+#[gpui_kit::test]
 fn switching_workspaces_keeps_the_surfaces_of_both(cx: &mut TestAppContext) {
     let opened = open(Screen::Main, cx);
     click(&opened, "empty-new-terminal", cx);

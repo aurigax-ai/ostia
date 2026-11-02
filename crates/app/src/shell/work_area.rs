@@ -4,7 +4,7 @@ use std::sync::Arc;
 use gpui_kit::component::{h_resizable, resizable_panel, v_resizable};
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    AnyElement, App, Context, ElementId, Entity, EntityId, Render, Role, Subscription,
+    AnyElement, App, Context, ElementId, Entity, EntityId, FocusHandle, Render, Role, Subscription,
     TestSupportExt as _, Window, div, px,
 };
 use ostia_model::layout::focus_direction::keyboard_pane_id;
@@ -37,6 +37,7 @@ pub struct WorkArea {
     stores: WindowStores,
     bridge: Bridge,
     terminals: Terminals,
+    shell_focus: FocusHandle,
     surfaces: HashMap<String, Surface>,
     focused: Option<String>,
     _subscriptions: Vec<Subscription>,
@@ -56,6 +57,7 @@ impl WorkArea {
         stores: WindowStores,
         bridge: Bridge,
         terminals: Terminals,
+        shell_focus: FocusHandle,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -72,6 +74,7 @@ impl WorkArea {
             stores,
             bridge,
             terminals,
+            shell_focus,
             surfaces: HashMap::new(),
             focused: None,
             _subscriptions: subscriptions,
@@ -156,6 +159,9 @@ impl WorkArea {
             .is_some_and(|(_, layout)| slot_count(&layout.root) > 1);
         let moved = target != self.focused;
         self.focused = target.clone();
+        if moved && target.is_none() {
+            window.focus(&self.shell_focus, cx);
+        }
         for (pane_id, surface) in &self.surfaces {
             let is_target = target.as_deref() == Some(pane_id.as_str());
             surface.view.update(cx, |view, cx| {

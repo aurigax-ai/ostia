@@ -39,6 +39,8 @@ pub struct ShellRoot {
 
 impl ShellRoot {
     pub fn new(options: ShellOptions, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let focus = cx.focus_handle();
+        window.focus(&focus, cx);
         let stores = WindowStores::new(&options.namespace, cx);
         stores.new_workspace(cx);
         let work = cx.new(|cx| {
@@ -46,12 +48,12 @@ impl ShellRoot {
                 stores.clone(),
                 options.bridge.clone(),
                 options.terminals.clone(),
+                focus.clone(),
                 window,
                 cx,
             )
         });
         let settings = cx.new(|cx| SettingsScreen::new(window, cx));
-        let focus = cx.focus_handle();
         let view = match options.screen {
             Screen::Settings => ActiveView::Settings,
             Screen::Main | Screen::Palette => ActiveView::Workspace,
