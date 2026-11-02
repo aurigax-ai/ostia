@@ -8,6 +8,7 @@ pub mod app_menu;
 pub mod argv;
 pub mod build_info;
 pub mod archive_paths;
+pub mod attention;
 pub mod capabilities;
 pub mod chord_spec;
 pub mod command_line;
