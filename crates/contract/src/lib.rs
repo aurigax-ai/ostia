@@ -16,6 +16,7 @@ pub mod discrete_gpu;
 pub mod extensions;
 pub mod finished_hibernate;
 pub mod global_hotkey;
+pub mod file_links;
 pub mod hidden_text;
 pub mod hook_payload;
 pub mod incident;
