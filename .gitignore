@@ -19,3 +19,4 @@ PRODUCT.md
 scripts/install-skills.sh
 
 bench-results/
+target/

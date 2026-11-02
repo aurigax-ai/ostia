@@ -1,0 +1,58 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+exclude = ["spikes"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.97"
+license-file = "LICENSE"
+publish = false
+
+[workspace.dependencies]
+ostia-agents = { path = "crates/agents" }
+ostia-sandbox = { path = "crates/sandbox" }
+ostia-terminal = { path = "crates/terminal" }
+ostia-app = { path = "crates/app" }
+ostia-approvals = { path = "crates/approvals" }
+ostia-attention = { path = "crates/attention" }
+ostia-base = { path = "crates/base" }
+ostia-contract = { path = "crates/contract" }
+ostia-control = { path = "crates/control" }
+ostia-park = { path = "crates/park" }
+ostia-rpc = { path = "crates/rpc" }
+ostia-testkit = { path = "crates/testkit" }
+
+bytes = "1"
+futures-util = "0.3"
+getrandom = "0.4"
+hex = "0.4"
+hmac = "0.13"
+libc = "0.2"
+parking_lot = "0.12"
+regex = "1"
+rustix = { version = "1", features = ["fs", "process", "system"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.11"
+tempfile = "3"
+thiserror = "2"
+tokio = { version = "1.53", features = ["io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-util = { version = "0.7", features = ["codec", "rt"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+dbg_macro = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"

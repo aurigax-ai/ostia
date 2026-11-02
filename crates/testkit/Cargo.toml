@@ -1,0 +1,23 @@
+[package]
+name = "ostia-testkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+ostia-app.workspace = true
+ostia-control.workspace = true
+ostia-contract.workspace = true
+ostia-base.workspace = true
+ostia-rpc.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+ostia-park.workspace = true

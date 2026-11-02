@@ -1,0 +1,16 @@
+[package]
+name = "ostia-approvals"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+ostia-base.workspace = true
+ostia-contract.workspace = true
+ostia-control.workspace = true
+parking_lot.workspace = true
+
+[lints]
+workspace = true
