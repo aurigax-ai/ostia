@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use ostia_base::EventHub;
 use ostia_base::js::{is_js_space, js_trim};
-use tokio::time::{Instant, interval_at, sleep};
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::time::{Instant, Interval, MissedTickBehavior, Sleep, interval_at, sleep};
 
 const OUTPUT_LINES: usize = 20;
 
@@ -96,19 +97,35 @@ fn blank(status: StartOutcome) -> StartReport {
     }
 }
 
-async fn settle<T, Fut>(
-    changes: &EventHub<()>,
-    poll: Duration,
-    timeout: Duration,
+struct Armed {
+    signals: UnboundedReceiver<()>,
+    ticks: Interval,
+    deadline: Sleep,
+}
+
+fn arm(changes: &EventHub<()>, poll: Duration, timeout: Duration) -> Armed {
+    let mut ticks = interval_at(Instant::now() + poll, poll);
+    ticks.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    Armed {
+        signals: changes.subscribe(),
+        ticks,
+        deadline: sleep(timeout),
+    }
+}
+
+async fn wait_until<T, Fut>(
+    armed: Armed,
     mut observe: impl FnMut() -> Fut,
     on_timeout: impl FnOnce() -> T,
 ) -> T
 where
     Fut: Future<Output = Option<T>>,
 {
-    let mut signals = changes.subscribe();
-    let mut ticks = interval_at(Instant::now() + poll, poll);
-    let deadline = sleep(timeout);
+    let Armed {
+        mut signals,
+        mut ticks,
+        deadline,
+    } = armed;
     tokio::pin!(deadline);
     loop {
         if let Some(settled) = observe().await {
@@ -198,21 +215,27 @@ fn timed_out(watch: &StartWatch) -> StartReport {
     }
 }
 
-pub async fn confirm_start(watch: StartWatch) -> StartReport {
+pub fn confirm_start(watch: StartWatch) -> impl Future<Output = StartReport> + Send {
     let timeout = if watch.agent_hook {
         watch.timing.agent
     } else {
         watch.timing.process
     };
     let mut running_since = None;
-    settle(
-        &watch.changes,
-        watch.timing.poll,
-        timeout,
-        || std::future::ready(observe_start(&watch, &mut running_since)),
-        || timed_out(&watch),
-    )
-    .await
+    let first = observe_start(&watch, &mut running_since);
+    let armed = arm(&watch.changes, watch.timing.poll, timeout);
+    async move {
+        if let Some(report) = first {
+            return report;
+        }
+        let watch_ref = &watch;
+        wait_until(
+            armed,
+            || std::future::ready(observe_start(watch_ref, &mut running_since)),
+            || timed_out(watch_ref),
+        )
+        .await
+    }
 }
 
 async fn observe_turn<P: TurnProbe>(watch: &TurnWatch<P>) -> Option<bool> {
@@ -228,25 +251,21 @@ async fn observe_turn<P: TurnProbe>(watch: &TurnWatch<P>) -> Option<bool> {
     .then_some(true)
 }
 
-pub async fn confirm_turn<P: TurnProbe>(watch: TurnWatch<P>) -> TurnReport {
-    let pane_id = (watch.entry)().pane_id;
-    let watch_ref = &watch;
-    let turn_started = settle(
-        &watch.changes,
-        watch.timing.poll,
-        watch.timing.turn,
-        || observe_turn(watch_ref),
-        || false,
-    )
-    .await;
-    let session = watch
-        .probe
-        .session(&pane_id)
-        .await
-        .filter(|session| !session.is_empty());
-    TurnReport {
-        turn_started,
-        session,
+pub fn confirm_turn<P: TurnProbe>(watch: TurnWatch<P>) -> impl Future<Output = TurnReport> + Send {
+    let armed = arm(&watch.changes, watch.timing.poll, watch.timing.turn);
+    async move {
+        let pane_id = (watch.entry)().pane_id;
+        let watch_ref = &watch;
+        let turn_started = wait_until(armed, || observe_turn(watch_ref), || false).await;
+        let session = watch
+            .probe
+            .session(&pane_id)
+            .await
+            .filter(|session| !session.is_empty());
+        TurnReport {
+            turn_started,
+            session,
+        }
     }
 }
 
