@@ -3,6 +3,7 @@ pub mod ids;
 pub mod keyboard;
 pub mod layout;
 pub mod panes;
+pub mod platform;
 pub mod settings;
 pub mod sidebar;
 pub mod stores;
