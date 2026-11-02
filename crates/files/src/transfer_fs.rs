@@ -1,11 +1,19 @@
-use std::fs::{File, FileType, Metadata};
+use std::fs::{File, Metadata};
 use std::future::Future;
 use std::io::{self, Read, Write};
+use std::os::fd::OwnedFd;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use rustix::fs::{Mode, OFlags};
+
+use crate::at_fs;
+
+const S_IFMT: u32 = 0o170_000;
+const S_IFDIR: u32 = 0o040_000;
+const S_IFREG: u32 = 0o100_000;
+const S_IFLNK: u32 = 0o120_000;
 
 #[derive(Clone, Copy, Debug)]
 pub struct EntryStat {
@@ -13,7 +21,6 @@ pub struct EntryStat {
     pub ino: u64,
     pub mode: u32,
     pub uid: u32,
-    file_type: FileType,
 }
 
 impl EntryStat {
@@ -23,20 +30,30 @@ impl EntryStat {
             ino: metadata.ino(),
             mode: metadata.mode(),
             uid: metadata.uid(),
-            file_type: metadata.file_type(),
         }
     }
 
     pub fn is_directory(&self) -> bool {
-        self.file_type.is_dir()
+        self.mode & S_IFMT == S_IFDIR
     }
 
     pub fn is_file(&self) -> bool {
-        self.file_type.is_file()
+        self.mode & S_IFMT == S_IFREG
     }
 
     pub fn is_symbolic_link(&self) -> bool {
-        self.file_type.is_symlink()
+        self.mode & S_IFMT == S_IFLNK
+    }
+}
+
+impl From<at_fs::EntryStat> for EntryStat {
+    fn from(stat: at_fs::EntryStat) -> Self {
+        Self {
+            dev: stat.dev,
+            ino: stat.ino,
+            mode: stat.mode,
+            uid: stat.uid,
+        }
     }
 }
 
@@ -46,6 +63,12 @@ pub struct OpenFile {
 }
 
 impl OpenFile {
+    pub(crate) fn from_owned(fd: OwnedFd) -> Self {
+        Self {
+            file: Some(Arc::new(File::from(fd))),
+        }
+    }
+
     fn handle(&self) -> io::Result<Arc<File>> {
         self.file
             .clone()
@@ -107,7 +130,7 @@ pub trait TransferFs: Send + Sync {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NodeTransferFs;
 
-async fn blocking<T: Send + 'static>(
+pub(crate) async fn blocking<T: Send + 'static>(
     work: impl FnOnce() -> io::Result<T> + Send + 'static,
 ) -> io::Result<T> {
     match tokio::task::spawn_blocking(work).await {
@@ -158,9 +181,7 @@ impl TransferFs for NodeTransferFs {
                 OFlags::from_bits_retain(flags.cast_unsigned()),
                 Mode::from_bits_truncate(mode),
             )?;
-            Ok(OpenFile {
-                file: Some(Arc::new(File::from(fd))),
-            })
+            Ok(OpenFile::from_owned(fd))
         })
         .await
     }

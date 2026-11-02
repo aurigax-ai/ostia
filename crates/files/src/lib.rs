@@ -6,6 +6,7 @@ pub mod archive_file;
 pub mod archive_tree;
 pub mod archives;
 pub mod at_fs;
+pub mod at_transfer_fs;
 pub mod browse_providers;
 pub mod browser_pages;
 pub mod exclusive_transfer;
