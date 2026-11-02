@@ -21,6 +21,9 @@ pub mod open_file_grants;
 pub mod open_waits;
 #[cfg(target_os = "linux")]
 pub mod proc_at_fs;
+pub mod remote_folders;
+pub mod ripgrep;
+pub mod search;
 pub mod transfer_fs;
 pub mod trash_mounts;
 pub mod watched_files;

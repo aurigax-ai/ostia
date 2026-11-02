@@ -25,6 +25,7 @@ ostia-contract = { path = "crates/contract" }
 ostia-diagnostics = { path = "crates/diagnostics" }
 ostia-control = { path = "crates/control" }
 ostia-model = { path = "crates/model" }
+ostia-panes = { path = "crates/panes" }
 ostia-park = { path = "crates/park" }
 ostia-rpc = { path = "crates/rpc" }
 ostia-testkit = { path = "crates/testkit" }
@@ -69,6 +70,7 @@ tokio-util = { version = "0.7", features = ["codec", "rt"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unicode-normalization = "0.1"
+unicode-segmentation = "1"
 url = "2"
 uuid = { version = "1", features = ["v4"] }
 writeable = "0.6"

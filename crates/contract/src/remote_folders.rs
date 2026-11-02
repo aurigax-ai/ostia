@@ -98,7 +98,7 @@ pub struct RemoteFailure {
 }
 
 impl RemoteFailure {
-    fn of(error: &'static str) -> Self {
+    pub fn of(error: &'static str) -> Self {
         Self {
             ok: false,
             error: RemoteFileError(error),

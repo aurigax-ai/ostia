@@ -7,6 +7,7 @@ license-file.workspace = true
 publish.workspace = true
 
 [dependencies]
+futures-util.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-terminal.workspace = true
@@ -16,12 +17,12 @@ regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+url.workspace = true
+unicode-segmentation.workspace = true
 
 [lints]
 workspace = true
 
 [dev-dependencies]
-ostia-base.workspace = true
-serde_json.workspace = true
 tempfile.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

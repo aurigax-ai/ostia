@@ -1,6 +1,7 @@
 pub mod confirm_discard;
 pub mod git;
 pub mod history;
+pub mod repo;
 pub mod scope;
 pub mod status;
 pub mod text;
