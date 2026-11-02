@@ -12,5 +12,10 @@ ostia-contract.workspace = true
 ostia-control.workspace = true
 parking_lot.workspace = true
 
+[dev-dependencies]
+ostia-rpc.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+
 [lints]
 workspace = true
