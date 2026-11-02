@@ -366,6 +366,42 @@ fn keeps_a_panes_agent_resume_token_and_drops_a_malformed_one() {
 }
 
 #[test]
+fn keeps_the_typed_launch_of_a_stored_resume_and_filters_it_again_on_read() {
+    let stored = json!({
+        "agent": "claude",
+        "id": "abc-1",
+        "typed": {
+            "args": ["--dangerously-skip-permissions", "--model", "opus", "--bogus", "--add-dir", "/w"],
+            "env": {"GL_ISSUE": "685", "OPENAI_API_KEY": "k", "PATH": "/x", "OSTIA_X": "1"}
+        }
+    });
+    let root = pane_with(json!({"resume": stored})).unwrap();
+    assert_eq!(
+        root.pointer("/resume/typed").unwrap(),
+        &json!({
+            "args": ["--dangerously-skip-permissions", "--add-dir=/w"],
+            "env": {"GL_ISSUE": "685"}
+        })
+    );
+    let failed = pane_with(json!({
+        "resumeFailed": {
+            "resume": {"agent": "codex", "id": "d-1", "typed": {"args": ["--yolo"]}},
+            "exitCode": 2
+        }
+    }))
+    .unwrap();
+    assert_eq!(
+        failed.pointer("/resumeFailed/resume/typed").unwrap(),
+        &json!({"args": ["--yolo"]})
+    );
+    let empty = pane_with(json!({
+        "resume": {"agent": "claude", "id": "abc-1", "typed": {"args": ["--bogus"]}}
+    }))
+    .unwrap();
+    assert!(empty.pointer("/resume/typed").is_none());
+}
+
+#[test]
 fn keeps_a_view_pane_by_name_and_drops_one_without_a_valid_view_name() {
     let with_view = |view_name: Option<Value>| {
         let mut pane = json!({"type": "pane", "id": "pane-1", "title": "Board", "kind": "view"});

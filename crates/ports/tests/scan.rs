@@ -2,7 +2,9 @@
 
 use std::net::TcpListener;
 
-use ostia_ports::scan::scan_trees;
+use std::time::Duration;
+
+use ostia_ports::scan::{read_tool, scan_trees};
 
 fn own_pid() -> i32 {
     i32::try_from(std::process::id()).unwrap()
@@ -56,4 +58,30 @@ async fn gives_a_tree_with_no_listeners_and_no_ssh_an_empty_entry() {
     let info = trees.get(&pid).unwrap();
     assert!(info.ports.is_empty());
     assert!(info.ssh.is_none());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn keeps_the_partial_output_of_a_tool_that_runs_past_the_timeout() {
+    let text = read_tool(
+        "sh",
+        &["-c", "printf partial; exec sleep 30"],
+        Duration::from_millis(500),
+        1024,
+    )
+    .await;
+    assert_eq!(text, "partial");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn stops_reading_a_tool_at_the_output_limit_and_keeps_what_fits() {
+    let text = read_tool(
+        "sh",
+        &["-c", "yes abcdefghij | head -c 100000"],
+        Duration::from_secs(10),
+        1000,
+    )
+    .await;
+    assert_eq!(text.len(), 1000);
 }

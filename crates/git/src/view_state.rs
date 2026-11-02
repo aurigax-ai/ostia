@@ -1,8 +1,12 @@
-use std::path::PathBuf;
+use std::fs::DirBuilder;
+use std::os::unix::fs::DirBuilderExt;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use ostia_base::Result;
-use ostia_base::json_store::{SaveOptions, load_json, save_json};
+use ostia_base::atomic_write::{AtomicWriteOptions, write_file_atomic};
+use ostia_base::error::io_error;
+use ostia_base::json_store::load_json;
 use parking_lot::Mutex;
 use serde_json::{Map, Value, json};
 
@@ -79,6 +83,34 @@ impl ViewStateStore {
             .iter()
             .map(|(root, refs)| (root.clone(), json!(refs)))
             .collect();
-        save_json(file, &json!({ "chosen": chosen }), SaveOptions::SECURE)
+        let text =
+            serde_json::to_string_pretty(&json!({ "chosen": chosen })).map_err(|source| {
+                ostia_base::Error::Json {
+                    path: file.clone(),
+                    source,
+                }
+            })?;
+        if let Some(folder) = file
+            .parent()
+            .filter(|folder| !folder.as_os_str().is_empty())
+        {
+            create_private_folder(folder)?;
+        }
+        write_file_atomic(
+            file,
+            text.as_bytes(),
+            AtomicWriteOptions {
+                mode: Some(0o600),
+                dir_mode: None,
+            },
+        )
     }
+}
+
+fn create_private_folder(folder: &Path) -> Result<()> {
+    DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(folder)
+        .map_err(io_error(folder))
 }

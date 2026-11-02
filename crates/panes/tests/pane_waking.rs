@@ -252,3 +252,37 @@ async fn still_tells_a_standing_subscriber_while_a_caller_waits() {
     );
     assert_eq!(drain(&mut ends), vec!["p1:failed"]);
 }
+
+#[tokio::test(start_paused = true)]
+async fn counts_the_timeout_from_the_call_not_from_the_first_poll() {
+    let waking = PaneWaking::new();
+    waking.start("p1");
+    let token = never();
+    let done = waking.until(&["p1"], Duration::from_millis(1000), &token);
+    tokio::pin!(done);
+    tokio::time::advance(Duration::from_millis(1000)).await;
+    assert_eq!(
+        poll!(done.as_mut()),
+        std::task::Poll::Ready(WakeWaitResult::Timeout)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn never_times_out_when_the_wake_ends_while_the_wait_begins() {
+    let waking = Arc::new(PaneWaking::new());
+    let token = never();
+    for round in 0..2000 {
+        let pane = format!("p{round}");
+        waking.start(&pane);
+        let ender = {
+            let waking = Arc::clone(&waking);
+            let pane = pane.clone();
+            std::thread::spawn(move || waking.end(&pane, WakeEnd::Started, None))
+        };
+        let result = waking
+            .until(&[pane.as_str()], Duration::from_secs(5), &token)
+            .await;
+        ender.join().unwrap();
+        assert_eq!(result, WakeWaitResult::Started, "round {round}");
+    }
+}

@@ -62,6 +62,30 @@ struct Inner {
     state: Mutex<State>,
 }
 
+struct WithdrawOnDrop {
+    relay: AgentOfferRelay,
+    request_id: String,
+    window: WindowId,
+}
+
+impl WithdrawOnDrop {
+    fn send_withdrawn(&self) {
+        (self.relay.inner.deps.send)(
+            &self.window,
+            AGENT_OFFER_WITHDRAWN_CHANNEL,
+            json!(self.request_id),
+        );
+    }
+}
+
+impl Drop for WithdrawOnDrop {
+    fn drop(&mut self) {
+        if self.relay.withdraw(&self.request_id) {
+            self.send_withdrawn();
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct AgentOfferRelay {
     inner: Arc<Inner>,
@@ -88,7 +112,9 @@ impl AgentOfferRelay {
             label,
             text,
         } = offer;
-        let Some(window) = (self.inner.deps.window_of)(&workspace_id) else {
+        let Some(window) =
+            (self.inner.deps.window_of)(&workspace_id).filter(|window| !window.as_str().is_empty())
+        else {
             return Box::pin(ready(AgentOfferDelivery::NotDelivered));
         };
         let (finish, mut answered) = oneshot::channel();
@@ -123,7 +149,11 @@ impl AgentOfferRelay {
                 .timeout
                 .unwrap_or(Duration::from_millis(AGENT_OFFER_TIMEOUT_MS)),
         );
-        let relay = self.clone();
+        let guard = WithdrawOnDrop {
+            relay: self.clone(),
+            request_id,
+            window,
+        };
         Box::pin(async move {
             let settled = tokio::select! {
                 answer = &mut answered => Settled::Answered(answer.ok().flatten()),
@@ -132,12 +162,8 @@ impl AgentOfferRelay {
             match settled {
                 Settled::Answered(pane_id) => AgentOfferDelivery::Delivered { pane_id },
                 Settled::TimedOut => {
-                    if relay.withdraw(&request_id) {
-                        (relay.inner.deps.send)(
-                            &window,
-                            AGENT_OFFER_WITHDRAWN_CHANNEL,
-                            json!(request_id),
-                        );
+                    if guard.relay.withdraw(&guard.request_id) {
+                        guard.send_withdrawn();
                         AgentOfferDelivery::Delivered { pane_id: None }
                     } else {
                         AgentOfferDelivery::Delivered {

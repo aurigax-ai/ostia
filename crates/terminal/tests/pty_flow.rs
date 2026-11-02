@@ -230,7 +230,8 @@ async fn resumes_a_pty_whose_renderer_stopped_acknowledging_hidden_or_hung_windo
 async fn never_touches_the_pty_after_dispose() {
     let pty = FakePty::default();
     let flow = pty.flow();
-    flow.open("w1", shown).sent(FLOW_HIGH_WATERMARK + 1);
+    let lane = flow.open("w1", shown);
+    lane.sent(FLOW_HIGH_WATERMARK + 1);
     flow.dispose();
     tokio::time::advance(stall() * 2).await;
     next_turn().await;
@@ -275,4 +276,108 @@ fn uses_the_documented_flow_numbers() {
     assert_eq!(FLOW_HIGH_WATERMARK, 100_000);
     assert_eq!(FLOW_LOW_WATERMARK, 5_000);
     assert_eq!(FLOW_STALL_MS, 1_000);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_dropped_lane_leaves_the_flow_and_resumes_a_pty_it_held() {
+    let pty = FakePty::default();
+    let flow = pty.flow();
+    let lane = flow.open("w1", shown);
+    lane.sent(FLOW_HIGH_WATERMARK + 1);
+    assert_eq!(pty.calls(), ["pause"]);
+    drop(lane);
+    assert_eq!(pty.calls(), ["pause", "resume"]);
+    assert!(!flow.is_paused());
+}
+
+struct ReadingPty {
+    flow: std::sync::OnceLock<PtyFlowControl>,
+    calls: Mutex<Vec<(&'static str, bool)>>,
+}
+
+impl ReadingPty {
+    fn record(&self, call: &'static str) {
+        let paused = self.flow.get().unwrap().is_paused();
+        self.calls.lock().push((call, paused));
+    }
+}
+
+impl FlowTarget for ReadingPty {
+    fn pause(&self) {
+        self.record("pause");
+    }
+
+    fn resume(&self) {
+        self.record("resume");
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn calls_the_pty_and_the_visibility_check_without_holding_the_flow_lock() {
+    let pty = Arc::new(ReadingPty {
+        flow: std::sync::OnceLock::new(),
+        calls: Mutex::new(Vec::new()),
+    });
+    let flow = PtyFlowControl::new(pty.clone());
+    pty.flow.set(flow.clone()).ok().unwrap();
+    let probe = flow.clone();
+    let lane = flow.open("w1", move || {
+        probe.is_paused();
+        true
+    });
+    lane.sent(FLOW_HIGH_WATERMARK + 1);
+    flow.ack("w1", FLOW_HIGH_WATERMARK + 1);
+    assert_eq!(*pty.calls.lock(), [("pause", true), ("resume", false)]);
+    flow.dispose();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn delivers_in_order_when_a_flush_races_the_scheduled_one() {
+    let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+    let sent = Arc::new(Mutex::new(Vec::new()));
+    let sink = Arc::clone(&sent);
+    let first = Arc::new(AtomicBool::new(true));
+    let out = CoalescedOutput::new(move |data: String| {
+        if first.swap(false, Ordering::SeqCst) {
+            entered_tx.send(()).unwrap();
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        sink.lock().push(data);
+    });
+    out.push("a");
+    entered_rx.recv().unwrap();
+    out.push("b");
+    out.flush();
+    assert_eq!(*sent.lock(), ["a", "b"]);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn keeps_every_chunk_in_order_under_concurrent_flushes() {
+    let (sent, out) = collector();
+    let out = Arc::new(out);
+    let flusher = {
+        let out = Arc::clone(&out);
+        tokio::task::spawn_blocking(move || {
+            for _ in 0..20_000 {
+                out.flush();
+                std::thread::yield_now();
+            }
+        })
+    };
+    let pusher = {
+        let out = Arc::clone(&out);
+        tokio::spawn(async move {
+            for i in 0..20_000 {
+                out.push(&format!("{i},"));
+                if i % 7 == 0 {
+                    tokio::task::yield_now().await;
+                }
+            }
+        })
+    };
+    pusher.await.unwrap();
+    flusher.await.unwrap();
+    out.flush();
+    let expected: String = (0..20_000).map(|i| format!("{i},")).collect();
+    assert_eq!(sent.lock().concat(), expected);
 }

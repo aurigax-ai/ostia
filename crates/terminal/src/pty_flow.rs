@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -25,13 +25,19 @@ pub struct FlowMarks {
     pub low: i64,
 }
 
-type Shown = Box<dyn Fn() -> bool + Send + Sync>;
+type Shown = Arc<dyn Fn() -> bool + Send + Sync>;
 
 struct LaneState {
     id: String,
     unacked: i64,
     marks: FlowMarks,
     shown: Shown,
+}
+
+#[derive(Clone, Copy)]
+enum Command {
+    Pause,
+    Resume,
 }
 
 #[derive(Default)]
@@ -41,6 +47,8 @@ struct FlowState {
     next_serial: u64,
     paused: bool,
     stall_generation: u64,
+    commands: VecDeque<Command>,
+    delivering: bool,
 }
 
 fn current_lane<'a>(st: &'a mut FlowState, id: &str) -> Option<&'a mut LaneState> {
@@ -54,16 +62,49 @@ struct Inner {
 }
 
 impl Inner {
+    fn update<R>(self: &Arc<Self>, change: impl FnOnce(&Arc<Self>, &mut FlowState) -> R) -> R {
+        let result = {
+            let mut st = self.state.lock();
+            change(self, &mut st)
+        };
+        self.deliver_commands();
+        result
+    }
+
+    fn deliver_commands(&self) {
+        {
+            let mut st = self.state.lock();
+            if st.delivering || st.commands.is_empty() {
+                return;
+            }
+            st.delivering = true;
+        }
+        loop {
+            let command = {
+                let mut st = self.state.lock();
+                let Some(command) = st.commands.pop_front() else {
+                    st.delivering = false;
+                    return;
+                };
+                command
+            };
+            match command {
+                Command::Pause => self.target.pause(),
+                Command::Resume => self.target.resume(),
+            }
+        }
+    }
+
     fn pause_pty(self: &Arc<Self>, st: &mut FlowState) {
         st.paused = true;
         self.arm_stall(st);
-        self.target.pause();
+        st.commands.push_back(Command::Pause);
     }
 
     fn resume_pty(&self, st: &mut FlowState) {
         st.paused = false;
         st.stall_generation += 1;
-        self.target.resume();
+        st.commands.push_back(Command::Resume);
     }
 
     fn arm_stall(self: &Arc<Self>, st: &mut FlowState) {
@@ -73,14 +114,15 @@ impl Inner {
         let timer = tokio::time::sleep(Duration::from_millis(FLOW_STALL_MS));
         tokio::spawn(async move {
             timer.await;
-            let mut st = inner.state.lock();
-            if st.stall_generation != generation {
-                return;
-            }
-            for lane in st.lanes.values_mut() {
-                lane.unacked = 0;
-            }
-            inner.resume_pty(&mut st);
+            inner.update(|inner, st| {
+                if st.stall_generation != generation {
+                    return;
+                }
+                for lane in st.lanes.values_mut() {
+                    lane.unacked = 0;
+                }
+                inner.resume_pty(st);
+            });
         });
     }
 
@@ -133,20 +175,22 @@ impl PtyFlowControl {
         shown: impl Fn() -> bool + Send + Sync + 'static,
         marks: FlowMarks,
     ) -> FlowLane {
-        let mut st = self.inner.state.lock();
-        st.next_serial += 1;
-        let serial = st.next_serial;
-        st.lanes.insert(
-            serial,
-            LaneState {
-                id: id.to_owned(),
-                unacked: 0,
-                marks,
-                shown: Box::new(shown),
-            },
-        );
-        st.current.insert(id.to_owned(), serial);
-        self.inner.settle(&mut st);
+        let serial = self.inner.update(|inner, st| {
+            st.next_serial += 1;
+            let serial = st.next_serial;
+            st.lanes.insert(
+                serial,
+                LaneState {
+                    id: id.to_owned(),
+                    unacked: 0,
+                    marks,
+                    shown: Arc::new(shown),
+                },
+            );
+            st.current.insert(id.to_owned(), serial);
+            inner.settle(st);
+            serial
+        });
         FlowLane {
             inner: Arc::clone(&self.inner),
             serial,
@@ -157,33 +201,36 @@ impl PtyFlowControl {
         if chars <= 0 {
             return;
         }
-        let mut st = self.inner.state.lock();
-        let Some(lane) = current_lane(&mut st, id) else {
-            return;
-        };
-        lane.unacked = (lane.unacked - chars).max(0);
-        if st.paused {
-            self.inner.arm_stall(&mut st);
-        }
-        self.inner.settle(&mut st);
+        self.inner.update(|inner, st| {
+            let Some(lane) = current_lane(st, id) else {
+                return;
+            };
+            lane.unacked = (lane.unacked - chars).max(0);
+            if st.paused {
+                inner.arm_stall(st);
+            }
+            inner.settle(st);
+        });
     }
 
     pub fn hidden(&self, id: &str) {
-        let mut st = self.inner.state.lock();
-        let Some(lane) = current_lane(&mut st, id) else {
-            return;
-        };
-        lane.unacked = 0;
-        self.inner.settle(&mut st);
+        self.inner.update(|inner, st| {
+            let Some(lane) = current_lane(st, id) else {
+                return;
+            };
+            lane.unacked = 0;
+            inner.settle(st);
+        });
     }
 
     pub fn release(&self, id: &str) {
-        let mut st = self.inner.state.lock();
-        let Some(serial) = st.current.remove(id) else {
-            return;
-        };
-        st.lanes.remove(&serial);
-        self.inner.settle(&mut st);
+        self.inner.update(|inner, st| {
+            let Some(serial) = st.current.remove(id) else {
+                return;
+            };
+            st.lanes.remove(&serial);
+            inner.settle(st);
+        });
     }
 
     pub fn dispose(&self) {
@@ -196,31 +243,47 @@ impl PtyFlowControl {
 
 impl FlowLane {
     pub fn sent(&self, chars: i64) {
-        let mut st = self.inner.state.lock();
-        let Some(lane) = st.lanes.get_mut(&self.serial) else {
-            return;
+        let shown = {
+            let st = self.inner.state.lock();
+            let Some(lane) = st.lanes.get(&self.serial) else {
+                return;
+            };
+            Arc::clone(&lane.shown)
         };
-        if !(lane.shown)() {
-            lane.unacked = 0;
-            return;
-        }
-        lane.unacked += chars;
-        let over = lane.unacked > lane.marks.high;
-        if over && !st.paused {
-            self.inner.pause_pty(&mut st);
-        }
+        let visible = shown();
+        self.inner.update(|inner, st| {
+            let Some(lane) = st.lanes.get_mut(&self.serial) else {
+                return;
+            };
+            if !visible {
+                lane.unacked = 0;
+                return;
+            }
+            lane.unacked += chars;
+            let over = lane.unacked > lane.marks.high;
+            if over && !st.paused {
+                inner.pause_pty(st);
+            }
+        });
     }
 
     pub fn close(&self) {
-        let mut st = self.inner.state.lock();
-        let Some(lane) = st.lanes.remove(&self.serial) else {
-            return;
-        };
-        if st.current.get(&lane.id) != Some(&self.serial) {
-            return;
-        }
-        st.current.remove(&lane.id);
-        self.inner.settle(&mut st);
+        self.inner.update(|inner, st| {
+            let Some(lane) = st.lanes.remove(&self.serial) else {
+                return;
+            };
+            if st.current.get(&lane.id) != Some(&self.serial) {
+                return;
+            }
+            st.current.remove(&lane.id);
+            inner.settle(st);
+        });
+    }
+}
+
+impl Drop for FlowLane {
+    fn drop(&mut self) {
+        self.close();
     }
 }
 
@@ -230,6 +293,7 @@ pub struct CoalescedOutput {
 
 struct Coalesced {
     deliver: Box<dyn Fn(String) + Send + Sync>,
+    order: Mutex<()>,
     pending: Mutex<Pending>,
 }
 
@@ -242,6 +306,7 @@ struct Pending {
 
 impl Coalesced {
     fn flush(&self) {
+        let _order = self.order.lock();
         let data = {
             let mut pending = self.pending.lock();
             if let Some(handle) = pending.scheduled.take() {
@@ -261,6 +326,7 @@ impl CoalescedOutput {
         Self {
             shared: Arc::new(Coalesced {
                 deliver: Box::new(deliver),
+                order: Mutex::new(()),
                 pending: Mutex::new(Pending::default()),
             }),
         }
