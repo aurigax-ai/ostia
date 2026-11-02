@@ -6,8 +6,8 @@ use super::model::{
 };
 use super::pane::parse_pane;
 use super::{MAX_LAYOUT_DEPTH, MAX_PANES};
-use crate::js_json::JsNumber;
 use crate::workspace_text::normalize_split_tab_name;
+use ostia_base::js::JsNumber;
 
 pub enum Parsed {
     Node(SnapshotNode),

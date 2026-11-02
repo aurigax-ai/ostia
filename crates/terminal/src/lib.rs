@@ -1,3 +1,4 @@
+pub mod attention_file;
 pub mod pane_banner;
 pub mod pane_launcher;
 pub mod pty_flow;

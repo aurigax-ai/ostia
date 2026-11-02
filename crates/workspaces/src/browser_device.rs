@@ -1,8 +1,8 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::js_json::JsNumber;
 use crate::js_text::js_round;
+use ostia_base::js::JsNumber;
 
 const RESPONSIVE: &str = "responsive";
 const SIZE_MIN: f64 = 50.0;

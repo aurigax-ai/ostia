@@ -4,6 +4,7 @@ use std::sync::LazyLock;
 use icu_collator::options::CollatorOptions;
 use icu_collator::{CollatorBorrowed, CollatorPreferences};
 use regex::Regex;
+use serde::{Serialize, Serializer};
 
 #[allow(clippy::expect_used)]
 static COLLATOR: LazyLock<CollatorBorrowed<'static>> = LazyLock::new(|| {
@@ -138,6 +139,45 @@ fn is_decimal_literal(text: &str) -> bool {
     at == bytes.len()
 }
 
+pub fn js_number_text(value: f64) -> String {
+    if value.is_nan() {
+        return "NaN".to_owned();
+    }
+    if value.is_infinite() {
+        let text = if value > 0.0 { "Infinity" } else { "-Infinity" };
+        return text.to_owned();
+    }
+    if value == 0.0 {
+        return "0".to_owned();
+    }
+    let sign = if value < 0.0 { "-" } else { "" };
+    let scientific = format!("{:e}", value.abs());
+    let Some((mantissa, exponent)) = scientific.split_once('e') else {
+        return scientific;
+    };
+    let exponent: i32 = exponent.parse().unwrap_or(0);
+    let digits: String = mantissa.chars().filter(|ch| *ch != '.').collect();
+    let count = i32::try_from(digits.len()).unwrap_or(i32::MAX);
+    let point = exponent + 1;
+    let body = if count <= point && point <= 21 {
+        format!("{digits}{}", "0".repeat((point - count) as usize))
+    } else if 0 < point && point <= 21 {
+        let (whole, fraction) = digits.split_at(point as usize);
+        format!("{whole}.{fraction}")
+    } else if -6 < point && point <= 0 {
+        format!("0.{}{digits}", "0".repeat((-point) as usize))
+    } else {
+        let exp = point - 1;
+        let sign_exp = if exp < 0 { '-' } else { '+' };
+        let coefficient = match digits.split_at(1) {
+            (lead, rest) if !rest.is_empty() => format!("{lead}.{rest}"),
+            _ => digits.clone(),
+        };
+        format!("{coefficient}e{sign_exp}{}", exp.abs())
+    };
+    format!("{sign}{body}")
+}
+
 pub fn js_number(text: &str) -> f64 {
     let text = js_trim(text);
     if text.is_empty() {
@@ -159,4 +199,21 @@ pub fn js_number(text: &str) -> f64 {
         return f64::NAN;
     }
     text.parse().unwrap_or(f64::NAN)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct JsNumber(pub f64);
+
+pub fn serialize_js_number<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
+    if value.fract() == 0.0 && value.abs() < i64::MAX as f64 {
+        serializer.serialize_i64(*value as i64)
+    } else {
+        serializer.serialize_f64(*value)
+    }
+}
+
+impl Serialize for JsNumber {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serialize_js_number(&self.0, serializer)
+    }
 }

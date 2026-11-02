@@ -1,8 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use serde::Serialize;
 use serde_json::Value;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub enum RemapKey {
     ControlLeft,
     ControlRight,
@@ -21,7 +22,8 @@ const REMAP_KEYS: [RemapKey; 6] = [
     RemapKey::MetaRight,
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum RemapTarget {
     Control,
     Option,
@@ -44,12 +46,17 @@ enum Family {
 
 const FAMILIES: [Family; 3] = [Family::Ctrl, Family::Alt, Family::Meta];
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
 pub struct ModifierRemap(BTreeMap<RemapKey, RemapTarget>);
 
 impl ModifierRemap {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn entries(&self) -> impl Iterator<Item = (RemapKey, RemapTarget)> + '_ {
+        self.0.iter().map(|(key, target)| (*key, *target))
     }
 }
 
@@ -60,7 +67,7 @@ impl<const N: usize> From<[(RemapKey, RemapTarget); N]> for ModifierRemap {
 }
 
 impl RemapKey {
-    fn code(self) -> &'static str {
+    pub fn code(self) -> &'static str {
         match self {
             Self::ControlLeft => "ControlLeft",
             Self::ControlRight => "ControlRight",

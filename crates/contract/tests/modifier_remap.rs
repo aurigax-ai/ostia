@@ -412,3 +412,23 @@ fn compares_flags_field_by_field() {
         flags(false, false, false)
     ));
 }
+
+#[test]
+fn lists_its_entries_and_serializes_as_a_code_to_target_map() {
+    let remap = table([
+        (RemapKey::ControlLeft, RemapTarget::Command),
+        (RemapKey::MetaRight, RemapTarget::Option),
+    ]);
+    assert_eq!(
+        remap.entries().collect::<Vec<_>>(),
+        vec![
+            (RemapKey::ControlLeft, RemapTarget::Command),
+            (RemapKey::MetaRight, RemapTarget::Option),
+        ]
+    );
+    assert_eq!(RemapKey::MetaRight.code(), "MetaRight");
+    assert_eq!(
+        serde_json::to_value(&remap).unwrap(),
+        json!({ "ControlLeft": "command", "MetaRight": "option" })
+    );
+}

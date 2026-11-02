@@ -1,3 +1,4 @@
+use ostia_base::js::serialize_js_number;
 use serde::de::{Error as _, Unexpected};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -75,13 +76,15 @@ pub struct OstiaPromptSpawn {
     pub same_line: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PtySpawnOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cwd: Option<String>,
-    pub cols: i64,
-    pub rows: i64,
+    #[serde(serialize_with = "serialize_js_number")]
+    pub cols: f64,
+    #[serde(serialize_with = "serialize_js_number")]
+    pub rows: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub role: Option<PtyRole>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

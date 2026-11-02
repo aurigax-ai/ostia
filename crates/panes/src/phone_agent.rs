@@ -1,7 +1,5 @@
-use ostia_base::js::{is_js_space, js_trim, utf16_len};
-use ostia_contract::hidden_text::is_control;
-
-use crate::hidden_text::is_hidden_format;
+use ostia_base::js::{is_js_space, utf16_len};
+use ostia_contract::question_text::plain_block;
 
 const COMMAND_MAX: usize = 8 * 1024;
 
@@ -79,24 +77,6 @@ pub fn phone_agent_command(agent: PhoneAgent, raw: &str) -> Option<String> {
     }
     let command = quote_argv(&[agent.command(), prompt.as_str()]);
     (utf16_len(&command) <= COMMAND_MAX).then_some(command)
-}
-
-fn plain_block(raw: &str) -> String {
-    let normalized = raw.replace("\r\n", "\n").replace('\r', "\n");
-    js_trim(&without_controls(&normalized)).to_owned()
-}
-
-fn without_controls(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for ch in text.chars() {
-        let code = u32::from(ch);
-        if is_hidden_format(code) {
-            out.push_str(&format!("\\u{code:04x}"));
-        } else if !is_control(code) || ch == '\n' || ch == '\t' {
-            out.push(ch);
-        }
-    }
-    out
 }
 
 fn leads_with_flag(text: &str) -> bool {

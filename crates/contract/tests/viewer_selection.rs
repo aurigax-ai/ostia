@@ -126,3 +126,11 @@ fn reads_a_body_the_ts_encoder_wrote_and_writes_the_same_bytes_as_the_ts_encoder
     assert_eq!(encode_viewer_selection(&meta, Some(&png)), with_png);
     assert_eq!(encode_viewer_selection(&meta, None), without_png);
 }
+
+#[test]
+fn keeps_a_selection_whose_text_has_a_lone_surrogate_escape() {
+    let json = br#"{"text":"a\ud83d","capture":{"kind":"pdf"}}"#;
+    let decoded = decode_viewer_selection(&framed(json, &[])).unwrap();
+    assert_eq!(decoded.meta["text"], "a\u{fffd}");
+    assert_eq!(decoded.meta["capture"]["kind"], "pdf");
+}

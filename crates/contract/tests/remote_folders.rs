@@ -287,9 +287,34 @@ fn passes_a_known_error_through_and_turns_anything_else_into_failed() {
 }
 
 #[test]
+fn drops_a_huge_run_of_repeated_names_without_a_quadratic_scan() {
+    let mut items: Vec<Value> = (0..REMOTE_ENTRIES_MAX - 1)
+        .map(|i| json!({ "name": format!("f{i}"), "dir": false }))
+        .collect();
+    items.extend((0..1_000_000).map(|_| json!({ "name": "f4998", "dir": false })));
+    let raw = json!({ "ok": true, "entries": items });
+    let started = std::time::Instant::now();
+    let listing = wire(normalize_remote_listing(&raw));
+    assert!(started.elapsed() < std::time::Duration::from_secs(5));
+    assert_eq!(
+        listing["entries"].as_array().unwrap().len(),
+        REMOTE_ENTRIES_MAX - 1
+    );
+    assert_eq!(listing["truncated"], json!(false));
+}
+
+#[test]
 fn counts_utf_8_bytes_like_an_encoder() {
-    for text in ["", "abc", "é", "好", "😀", "a😀好é"] {
-        assert_eq!(utf8_length(text), text.len(), "{text}");
+    let encoder_lengths = [
+        ("", 0),
+        ("abc", 3),
+        ("é", 2),
+        ("好", 3),
+        ("😀", 4),
+        ("a😀好é", 10),
+    ];
+    for (text, expected) in encoder_lengths {
+        assert_eq!(utf8_length(text), expected, "{text}");
     }
 }
 

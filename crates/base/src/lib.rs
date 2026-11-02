@@ -11,6 +11,7 @@ pub mod host;
 pub mod ids;
 pub mod inheritable_files;
 pub mod js;
+pub mod js_json;
 pub mod json_store;
 pub mod no_new_privs;
 pub mod no_new_privs_relaunch;

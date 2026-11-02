@@ -6,9 +6,11 @@ use std::sync::Arc;
 use ostia_base::host::Host;
 use ostia_base::json_store::{SaveOptions, StoreScope, load_json, save_json_async, store_path};
 use ostia_base::{Error, Result};
+use ostia_contract::proto_guard::is_dangerous_segment;
 use ostia_terminal::pty_ring_buffer::tail_cut;
 use parking_lot::Mutex;
 use serde_json::{Map, Value};
+use tokio::runtime::Handle;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
@@ -31,10 +33,6 @@ pub fn trim_scrollback(data: &str, cap_bytes: usize) -> String {
     let units: Vec<u16> = data.encode_utf16().collect();
     let cut = tail_cut(data, cap_bytes);
     String::from_utf16_lossy(&units[cut..])
-}
-
-fn is_dangerous_segment(segment: &str) -> bool {
-    matches!(segment, "__proto__" | "prototype" | "constructor")
 }
 
 pub fn scrollback_to_save(
@@ -75,20 +73,21 @@ impl SavedScrollback {
         }
     }
 
-    fn queue<Fut>(&self, work: Fut) -> JoinHandle<Result<()>>
+    fn queue<Fut>(&self, work: Fut) -> Result<JoinHandle<Result<()>>>
     where
         Fut: Future<Output = Result<()>> + Send + 'static,
     {
+        let runtime = Handle::try_current().map_err(|error| Error::Task(error.to_string()))?;
         let (done, finished) = oneshot::channel::<()>();
         let before = self.state.lock().writes.replace(finished);
-        tokio::spawn(async move {
+        Ok(runtime.spawn(async move {
             if let Some(before) = before {
                 let _ = before.await;
             }
             let outcome = work.await;
             let _ = done.send(());
             outcome
-        })
+        }))
     }
 
     pub fn save_scrollback(
@@ -96,6 +95,7 @@ impl SavedScrollback {
         by_pane: &[(String, String)],
         unsaved: &dyn Fn(&str) -> bool,
     ) -> impl Future<Output = Result<()>> + use<> {
+        let started_at = self.state.lock().epoch;
         let data = scrollback_to_save(by_pane, unsaved);
         let record: Map<String, Value> = data
             .into_iter()
@@ -103,7 +103,6 @@ impl SavedScrollback {
             .collect();
         let path = scrollback_path(&self.host);
         let state = Arc::clone(&self.state);
-        let started_at = self.state.lock().epoch;
         let handle = self.queue(async move {
             let current = state.lock().epoch;
             if current != started_at {
@@ -112,7 +111,7 @@ impl SavedScrollback {
             save_json_async(&path, &record, SaveOptions::default()).await
         });
         async move {
-            handle
+            handle?
                 .await
                 .map_err(|error| Error::Task(error.to_string()))?
         }
@@ -183,7 +182,7 @@ impl SavedScrollback {
         let handle = self.queue(async move { remove_if_present(&scrollback) });
         async move {
             outcome?;
-            handle
+            handle?
                 .await
                 .map_err(|error| Error::Task(error.to_string()))?
         }

@@ -1,4 +1,5 @@
 use ostia_base::js::non_empty;
+use ostia_base::js_json::parse_js_json;
 use ostia_rpc::{Client, ClientError};
 use serde_json::{Map, Value, json};
 
@@ -133,7 +134,7 @@ pub fn build_command_call(
     let mut call = Map::new();
     call.insert("id".to_owned(), Value::String(id.to_owned()));
     if let Some(raw) = non_empty(flags.rest.first().map(String::as_str)) {
-        call.insert("args".to_owned(), serde_json::from_str(raw)?);
+        call.insert("args".to_owned(), parse_js_json(raw)?);
     }
     if let Some(workspace_id) = non_empty(resolved_workspace) {
         call.insert(

@@ -312,3 +312,9 @@ async fn reports_an_unknown_reference_from_the_workspace_list_the_app_returns() 
         "{err}"
     );
 }
+
+#[test]
+fn reads_an_argument_with_a_lone_surrogate_escape_like_a_script_parser() {
+    let built = call("tab.new", &flags(&[r#"{"t":"a\ud83d"}"#]), None);
+    assert_eq!(built["args"]["t"], "a\u{fffd}");
+}

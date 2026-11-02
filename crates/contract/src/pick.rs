@@ -1,7 +1,10 @@
 use std::sync::LazyLock;
 
 use chrono::{DateTime, Utc};
-use ostia_base::js::{JS_SPACE_CLASS, is_js_space, js_trim, non_empty, static_regex, utf16_len};
+use ostia_base::js::{
+    JS_SPACE_CLASS, is_js_space, js_number_text, js_trim, non_empty, serialize_js_number,
+    static_regex, utf16_len,
+};
 use regex::Regex;
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -50,17 +53,23 @@ static NON_SLUG_RUN: LazyLock<Regex> = LazyLock::new(|| static_regex("[^a-z0-9]+
 static CAPTURE_REPORT_NAME: LazyLock<Regex> =
     LazyLock::new(|| static_regex(r"^capture-([0-9]+)(?:-[a-z0-9-]*)?\.(?:md|png)$"));
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub struct PickBox {
+    #[serde(serialize_with = "serialize_js_number")]
     pub x: f64,
+    #[serde(serialize_with = "serialize_js_number")]
     pub y: f64,
+    #[serde(serialize_with = "serialize_js_number")]
     pub width: f64,
+    #[serde(serialize_with = "serialize_js_number")]
     pub height: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub struct PickViewport {
+    #[serde(serialize_with = "serialize_js_number")]
     pub width: f64,
+    #[serde(serialize_with = "serialize_js_number")]
     pub height: f64,
 }
 
@@ -84,7 +93,7 @@ pub struct PickFailedRequest {
     pub ts: i64,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct PickTable {
     pub rows: usize,
     pub columns: usize,
@@ -92,7 +101,8 @@ pub struct PickTable {
     pub csv: String,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PickCapture {
     pub id: String,
     pub url: String,
@@ -101,10 +111,12 @@ pub struct PickCapture {
     pub label: String,
     pub html: String,
     pub html_truncated: bool,
+    #[serde(rename = "box")]
     pub box_: PickBox,
     pub viewport: PickViewport,
     pub has_text: bool,
     pub table: Option<PickTable>,
+    #[serde(serialize_with = "serialize_styles")]
     pub styles: Vec<(String, String)>,
     pub role: String,
     pub name: String,
@@ -142,7 +154,7 @@ fn js_text(value: &Value) -> String {
         Value::Null => String::new(),
         Value::String(text) => text.clone(),
         Value::Bool(flag) => flag.to_string(),
-        Value::Number(number) => (number.as_f64().unwrap_or(f64::NAN) + 0.0).to_string(),
+        Value::Number(number) => js_number_text(number.as_f64().unwrap_or(f64::NAN)),
         Value::Array(items) => items
             .iter()
             .map(|item| {
@@ -258,6 +270,13 @@ pub fn normalize_table(raw: &Value) -> Option<PickTable> {
         truncated: lines.len() < cleaned.len(),
         csv: lines.join("\n"),
     })
+}
+
+fn serialize_styles<S: serde::Serializer>(
+    styles: &[(String, String)],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.collect_map(styles.iter().map(|(key, value)| (key, value)))
 }
 
 fn normalize_styles(styles: &Value) -> Vec<(String, String)> {
@@ -585,7 +604,7 @@ pub fn next_pick_report_number(names: &[&str]) -> u64 {
     names
         .iter()
         .filter_map(|name| CAPTURE_REPORT_NAME.captures(name))
-        .filter_map(|captures| captures.get(1)?.as_str().parse::<u64>().ok())
+        .map(|captures| captures[1].parse::<u64>().unwrap_or(u64::MAX))
         .fold(0, u64::max)
-        + 1
+        .saturating_add(1)
 }

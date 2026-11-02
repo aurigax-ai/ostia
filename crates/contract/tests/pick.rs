@@ -625,3 +625,42 @@ fn ignores_report_names_that_do_not_match_the_pattern() {
 fn quotes_a_path_with_a_tab_in_a_reference() {
     assert_eq!(report_reference("/tmp/a\tb"), "@\"/tmp/a\tb\" ");
 }
+
+#[test]
+fn does_not_wrap_or_panic_on_a_huge_report_number() {
+    assert_eq!(
+        next_pick_report_number(&["capture-99999999999999999999999999.md"]),
+        u64::MAX
+    );
+    assert_eq!(
+        next_pick_report_number(&["capture-18446744073709551615.png"]),
+        u64::MAX
+    );
+}
+
+#[test]
+fn prints_a_numeric_title_like_a_script_number() {
+    let mut r = raw();
+    r["title"] = json!(1e21);
+    assert_eq!(normalize_capture(&r, extras()).title, "1e+21");
+    r["title"] = json!(1.5e-7);
+    assert_eq!(normalize_capture(&r, extras()).title, "1.5e-7");
+}
+
+#[test]
+fn serializes_a_capture_with_the_script_field_names() {
+    let wire = serde_json::to_value(capture()).unwrap();
+    assert_eq!(
+        wire["box"],
+        json!({ "x": 10.12, "y": 20, "width": 120, "height": 32 })
+    );
+    assert_eq!(wire["viewport"], json!({ "width": 800, "height": 600 }));
+    assert_eq!(
+        wire["styles"],
+        json!({ "display": "inline-block", "color": "rgb(0, 0, 0)" })
+    );
+    assert_eq!(wire["hasText"], json!(true));
+    assert_eq!(wire["htmlTruncated"], json!(false));
+    assert_eq!(wire["capturedAt"], json!("2026-09-28T10:00:00.000Z"));
+    assert_eq!(wire["table"], Value::Null);
+}
