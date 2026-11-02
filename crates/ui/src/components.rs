@@ -25,7 +25,7 @@ pub mod tooltip;
 pub use crate::icons::IconName;
 pub use badge::{Badge, BadgeVariant};
 pub use button::{Button, ButtonSize, ButtonVariant, ClickHandler};
-pub use control_row::{ControlRow, ExperimentalBadge, ToggleRow};
+pub use control_row::{ControlRow, ExperimentalBadge, toggle_row};
 pub use dialog::{close_dialog, open_dialog};
 pub use empty_state::{EmptyBlock, EmptyState, EmptySurfaceSize};
 pub use icon_button::{IconButton, IconButtonSize};
@@ -42,7 +42,7 @@ pub use select_field::{SelectEvent, SelectField, SelectFieldState, SelectOption,
 pub use settings_page::{SettingsGroup, SettingsPage, SettingsSubgroup};
 pub use split_button::SplitButton;
 pub use state_badge::{StateBadge, WorkspaceState};
-pub use status_line::{StatusAction, StatusLine, StatusTone};
+pub use status_line::{StatusLine, StatusTone, status_action};
 pub use switch::Switch;
 pub use text_link::TextLink;
 pub use tooltip::{Tooltip, hint};

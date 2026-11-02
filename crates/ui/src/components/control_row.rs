@@ -128,21 +128,17 @@ impl RenderOnce for ControlRow {
     }
 }
 
-pub struct ToggleRow;
-
-impl ToggleRow {
-    pub fn new(
-        id: impl Into<gpui_kit::ElementId>,
-        label: impl Into<SharedString>,
-        desc: impl Into<SharedString>,
-        checked: bool,
-        on_change: impl Fn(&bool, &mut Window, &mut App) + 'static,
-    ) -> ControlRow {
-        let label = label.into();
-        ControlRow::new(label.clone())
-            .desc(desc)
-            .control(Switch::new(id, label, checked).on_change(on_change))
-    }
+pub fn toggle_row(
+    id: impl Into<gpui_kit::ElementId>,
+    label: impl Into<SharedString>,
+    desc: impl Into<SharedString>,
+    checked: bool,
+    on_change: impl Fn(&bool, &mut Window, &mut App) + 'static,
+) -> ControlRow {
+    let label = label.into();
+    ControlRow::new(label.clone())
+        .desc(desc)
+        .control(Switch::new(id, label, checked).on_change(on_change))
 }
 
 #[derive(IntoElement)]

@@ -114,13 +114,9 @@ impl RenderOnce for StatusLine {
     }
 }
 
-pub struct StatusAction;
-
-impl StatusAction {
-    pub fn new(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Button {
-        Button::new(id)
-            .label(label)
-            .variant(ButtonVariant::Ghost)
-            .size(ButtonSize::Xs)
-    }
+pub fn status_action(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Button {
+    Button::new(id)
+        .label(label)
+        .variant(ButtonVariant::Ghost)
+        .size(ButtonSize::Xs)
 }

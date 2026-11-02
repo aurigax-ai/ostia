@@ -7,8 +7,8 @@ use ostia_ui::components::{
     Badge, BadgeVariant, Button, ButtonSize, ButtonVariant, ControlRow, EmptyBlock, EmptyState,
     IconButton, IconName, Input, ListRow, Notice, NoticeTone, PromptCard, PromptTone, Segmented,
     SegmentedOption, SelectEvent, SelectField, SelectFieldState, SelectOption, SettingsGroup,
-    SettingsPage, SplitButton, TextLink, ToggleRow, close_dialog, menu_item, open_dialog,
-    select_state,
+    SettingsPage, SplitButton, TextLink, close_dialog, menu_item, open_dialog, select_state,
+    toggle_row,
 };
 use ostia_ui::icons::{IconSize, icon};
 use ostia_ui::theme::{UiTheme, set_theme, themes};
@@ -349,7 +349,7 @@ impl SettingsScreen {
         });
         SettingsGroup::new("Fixture controls")
             .desc("One row of each control kind. The values stay in memory. The settings store is not ported.")
-            .child(ToggleRow::new(
+            .child(toggle_row(
                 "fixture-switch",
                 "Switch",
                 "A fixture toggle.",
