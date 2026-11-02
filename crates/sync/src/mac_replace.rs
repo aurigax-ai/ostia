@@ -15,6 +15,7 @@ use ostia_base::json_store::load_json;
 use ostia_contract::build_info::{parse_build_info, release_version};
 use ostia_contract::install_method::{ReplaceAvailability, ReplaceBlock, ReplaceFailure};
 use ostia_contract::releases::{ReleaseInfo, dmg_asset_name};
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::Command;
 use tokio::time::Instant;
 
@@ -100,31 +101,51 @@ pub struct CommandResult {
 pub type CommandFuture = Pin<Box<dyn Future<Output = CommandResult> + Send>>;
 pub type RunCommand = Arc<dyn Fn(String, Vec<String>) -> CommandFuture + Send + Sync>;
 
+async fn drain<R: AsyncRead + Unpin + Send + 'static>(stream: Option<R>) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    if let Some(mut stream) = stream {
+        let _ = stream.read_to_end(&mut bytes).await;
+    }
+    bytes
+}
+
 pub async fn run_command(command: &str, args: &[String]) -> CommandResult {
-    let mut process = Command::new(command);
-    process
+    let spawned = Command::new(command)
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    match tokio::time::timeout(COMMAND_TIMEOUT, process.output()).await {
-        Ok(Ok(output)) => CommandResult {
-            code: if output.status.success() {
-                0
-            } else {
-                output.status.code().unwrap_or(1)
-            },
-            output: format!(
-                "{}{}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            ),
-        },
-        _ => CommandResult {
+        .kill_on_drop(true)
+        .spawn();
+    let Ok(mut child) = spawned else {
+        return CommandResult {
             code: 1,
             output: String::new(),
-        },
+        };
+    };
+    let stdout = tokio::spawn(drain(child.stdout.take()));
+    let stderr = tokio::spawn(drain(child.stderr.take()));
+    let status = match tokio::time::timeout(COMMAND_TIMEOUT, child.wait()).await {
+        Ok(status) => status.ok(),
+        Err(_) => {
+            let _ = child.kill().await;
+            None
+        }
+    };
+    let stdout = stdout.await.unwrap_or_default();
+    let stderr = stderr.await.unwrap_or_default();
+    let code = match status {
+        Some(status) if status.success() => 0,
+        Some(status) => status.code().unwrap_or(1),
+        None => 1,
+    };
+    CommandResult {
+        code,
+        output: format!(
+            "{}{}",
+            String::from_utf8_lossy(&stdout),
+            String::from_utf8_lossy(&stderr)
+        ),
     }
 }
 

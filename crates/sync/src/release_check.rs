@@ -372,19 +372,27 @@ impl ReleaseChecker {
     }
 
     pub fn check(&self, trigger: ReleaseCheckTrigger) -> CheckFuture {
-        let mut running = self.inner.running.lock();
-        if let Some(existing) = running.as_ref() {
-            return existing.clone();
+        let (sender, receiver) = tokio::sync::oneshot::channel::<ReleaseCheckResult>();
+        let shared = (Box::pin(async move {
+            receiver.await.unwrap_or(ReleaseCheckResult::Error {
+                error: ReleaseCheckError::Unavailable,
+            })
+        }) as Pin<Box<dyn Future<Output = ReleaseCheckResult> + Send>>)
+            .shared();
+        {
+            let mut running = self.inner.running.lock();
+            if let Some(existing) = running.as_ref() {
+                return existing.clone();
+            }
+            *running = Some(shared.clone());
         }
         let work = self.run(trigger);
         let checker = self.clone();
-        let shared = (Box::pin(async move {
+        tokio::spawn(async move {
             let result = work.await;
             checker.inner.running.lock().take();
-            result
-        }) as Pin<Box<dyn Future<Output = ReleaseCheckResult> + Send>>)
-            .shared();
-        *running = Some(shared.clone());
+            let _ = sender.send(result);
+        });
         shared
     }
 

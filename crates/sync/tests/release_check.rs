@@ -31,6 +31,8 @@ use serde_json::{Value, json};
 use support::{FakeHttp, Reply, eventually, linux_host};
 use tempfile::TempDir;
 
+type LogEntry = (ReleaseCheckTrigger, String, Option<String>);
+type Logs = Arc<Mutex<Vec<LogEntry>>>;
 type LatestFuture = Pin<Box<dyn Future<Output = LatestRelease> + Send>>;
 type ReplaceFuture = Pin<Box<dyn Future<Output = Result<(), ReplaceError>> + Send>>;
 type OpenFuture = Pin<Box<dyn Future<Output = Option<String>> + Send>>;
@@ -93,7 +95,7 @@ struct CheckerRig {
     fetched: Arc<Mutex<Vec<UpdateChannel>>>,
     saved: Arc<Mutex<Vec<String>>>,
     changes: Arc<Mutex<Vec<Option<ReleaseInfo>>>>,
-    logs: Arc<Mutex<Vec<(ReleaseCheckTrigger, String, Option<String>)>>>,
+    logs: Logs,
 }
 
 #[derive(Default)]
@@ -112,7 +114,7 @@ fn checker_rig(options: RigOptions) -> CheckerRig {
     let fetched: Arc<Mutex<Vec<UpdateChannel>>> = Arc::default();
     let saved: Arc<Mutex<Vec<String>>> = Arc::default();
     let changes: Arc<Mutex<Vec<Option<ReleaseInfo>>>> = Arc::default();
-    let logs: Arc<Mutex<Vec<(ReleaseCheckTrigger, String, Option<String>)>>> = Arc::default();
+    let logs: Logs = Arc::default();
     let dismissed = options.dismissed.map(str::to_owned);
     let checker = ReleaseChecker::new(ReleaseCheckerDeps {
         current_version: options.current.unwrap_or("0.2.0").to_owned(),

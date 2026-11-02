@@ -385,10 +385,11 @@ pub(crate) async fn fetch_text(
         let response = follow_allowed(&release_request(url, base))
             .await
             .map_err(|error| replace_failure(&error))?;
-        response
-            .read_capped(max_bytes)
-            .await
-            .ok_or_else(|| ReplaceError::new(ReplaceFailure::TooLarge))
+        match response.read_capped_or_error(max_bytes).await {
+            Ok(Some(text)) => Ok(text),
+            Ok(None) => Err(ReplaceError::new(ReplaceFailure::TooLarge)),
+            Err(error) => Err(replace_failure(&error)),
+        }
     })
     .await
 }
