@@ -3,9 +3,9 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use ostia_contract::agent_stream::StreamEvent;
 use ostia_agents::stream_pi::{PiListener, PiStreamPort, pi_source};
 use ostia_agents::stream_source::{Emit, StreamSource};
+use ostia_contract::agent_stream::StreamEvent;
 use serde_json::{Value, json};
 
 fn ev(value: Value) -> StreamEvent {
