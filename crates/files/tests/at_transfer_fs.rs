@@ -325,7 +325,7 @@ async fn takes_a_path_as_fd_relative_only_when_it_is_dev_fd_digits_and_one_name(
         format!("{FD_DIR}//name"),
         format!("/dev/fdx/{fd}/name"),
         format!("/dev/{fd}/name"),
-        format!("{FD_DIR}"),
+        FD_DIR.to_owned(),
     ] {
         let _ = fs.lstat(Path::new(&path)).await;
         assert!(fx.fake.calls().is_empty(), "{path}");
