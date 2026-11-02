@@ -5,6 +5,8 @@ pub mod capabilities;
 pub mod commands;
 pub mod extensions;
 pub mod hidden_text;
+pub mod incident;
+pub mod onboard_playbook;
 pub mod open_files;
 pub mod reach;
 pub mod sandbox;
