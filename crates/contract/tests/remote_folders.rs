@@ -289,7 +289,7 @@ fn passes_a_known_error_through_and_turns_anything_else_into_failed() {
 #[test]
 fn counts_utf_8_bytes_like_an_encoder() {
     for text in ["", "abc", "é", "好", "😀", "a😀好é"] {
-        assert_eq!(utf8_length(text), text.as_bytes().len(), "{text}");
+        assert_eq!(utf8_length(text), text.len(), "{text}");
     }
 }
 
