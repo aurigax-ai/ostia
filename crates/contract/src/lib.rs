@@ -1,5 +1,6 @@
 pub mod agent_launch;
 pub mod agent_resume;
+pub mod agent_skills;
 pub mod capabilities;
 pub mod extensions;
 pub mod hidden_text;
