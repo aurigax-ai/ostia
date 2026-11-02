@@ -36,15 +36,18 @@ use crate::method::{Callers, MethodContext, MethodTable, caller_allowed};
 
 const DETAIL_HIDDEN_PREFIXES: [&str; 2] = ["vault.", "secret."];
 
+pub type PtyPid = Arc<dyn Fn(&PaneId) -> Option<i32> + Send + Sync>;
+pub type TerminalState = Arc<dyn Fn(&PaneId) -> Option<TerminalStateSnapshot> + Send + Sync>;
+pub type ScriptCovers =
+    Arc<dyn Fn(PaneIdentity, AuthedConn, WorkspaceId) -> BoxFuture<'static, bool> + Send + Sync>;
+
 pub struct ServerDeps {
     pub auth: Arc<ControlAuth>,
     pub version: Option<String>,
     pub is_sandboxed: Arc<dyn Fn(&WorkspaceId) -> bool + Send + Sync>,
-    pub pty_pid: Arc<dyn Fn(&PaneId) -> Option<i32> + Send + Sync>,
-    pub terminal_state: Arc<dyn Fn(&PaneId) -> Option<TerminalStateSnapshot> + Send + Sync>,
-    pub script_covers: Arc<
-        dyn Fn(PaneIdentity, AuthedConn, WorkspaceId) -> BoxFuture<'static, bool> + Send + Sync,
-    >,
+    pub pty_pid: PtyPid,
+    pub terminal_state: TerminalState,
+    pub script_covers: ScriptCovers,
 }
 
 pub struct ControlServer {
