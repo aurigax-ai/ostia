@@ -143,7 +143,7 @@ fn trims_again_after_it_cuts_a_group_name() {
 }
 
 #[test]
-fn gives_no_group_name_when_the_cut_leaves_only_space() {
+fn keeps_the_text_when_space_surrounds_it_before_and_after_the_cut() {
     let text = format!("{}x", " ".repeat(59));
     assert_eq!(name(json!(text)), Some("x".to_owned()));
     let text = format!("x{}", " ".repeat(80));
