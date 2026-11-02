@@ -33,16 +33,22 @@ pub const PORTS_ITEMS_CHANNEL: &str = "ports:items";
 
 type Groups = Vec<(String, WorkspaceProcesses)>;
 type PaneList = Pin<Box<dyn Future<Output = Vec<PaneRef>> + Send>>;
+type SettingsFn = Box<dyn Fn() -> PortsSettings + Send + Sync>;
+type ListPanesFn = Box<dyn Fn() -> PaneList + Send + Sync>;
+type RendererPaneIdFn = Box<dyn Fn(&str) -> Option<String> + Send + Sync>;
+type SendFn = Box<dyn Fn(&str, &str, Value) + Send + Sync>;
+type ScanFn = Box<dyn Fn(Vec<i32>, i32) -> TreeMap + Send + Sync>;
+type LogFn = Box<dyn Fn(&str) + Send + Sync>;
 type TreeMap = Pin<Box<dyn Future<Output = HashMap<i32, TreeInfo>> + Send>>;
 
 pub struct PortsServiceDeps {
-    pub settings: Box<dyn Fn() -> PortsSettings + Send + Sync>,
-    pub list_panes: Box<dyn Fn() -> PaneList + Send + Sync>,
-    pub renderer_pane_id: Box<dyn Fn(&str) -> Option<String> + Send + Sync>,
-    pub send: Box<dyn Fn(&str, &str, Value) + Send + Sync>,
-    pub scan: Option<Box<dyn Fn(Vec<i32>, i32) -> TreeMap + Send + Sync>>,
+    pub settings: SettingsFn,
+    pub list_panes: ListPanesFn,
+    pub renderer_pane_id: RendererPaneIdFn,
+    pub send: SendFn,
+    pub scan: Option<ScanFn>,
     pub host_pid: Option<i32>,
-    pub log: Option<Box<dyn Fn(&str) + Send + Sync>>,
+    pub log: Option<LogFn>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
