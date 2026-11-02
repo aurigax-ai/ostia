@@ -1,19 +1,25 @@
 pub mod agent_launch;
 pub mod agent_resume;
 pub mod agent_skills;
+pub mod app_menu;
+pub mod build_info;
 pub mod capabilities;
+pub mod chord_spec;
 pub mod commands;
+pub mod discrete_gpu;
 pub mod extensions;
 pub mod hidden_text;
 pub mod open_files;
 pub mod proto_guard;
 pub mod reach;
 pub mod remote_folders;
+pub mod releases;
 pub mod sandbox;
 pub mod script_tokens;
 pub mod scrollbar;
 pub mod terminal_state;
 pub mod viewer_selection;
+pub mod zoom;
 
 pub const TARGET_PANE_PARAM: &str = "targetPaneId";
 pub const SANDBOXED_REFUSAL: &str =
