@@ -3,6 +3,7 @@ pub mod agent_resume;
 pub mod agent_skills;
 pub mod capabilities;
 pub mod commands;
+pub mod extension_suggestions;
 pub mod extensions;
 pub mod hidden_text;
 pub mod open_files;
