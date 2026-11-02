@@ -13,3 +13,8 @@ parking_lot.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+ostia-testkit.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

@@ -11,6 +11,9 @@ const work = mkdtempSync(join(tmpdir(), 'rust-fixtures-'))
 const ENTRY = `
 export { ParkedStore } from './src/main/park/parkedStore'
 export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
+export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
+export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/paneBanner'
+export { en, zhHant } from './src/shared/app/dict'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -22,7 +25,16 @@ await build({
   outfile: bundle,
   logLevel: 'error',
 })
-const { ParkedStore, saveJson, saveJsonAsync } = createRequire(import.meta.url)(bundle)
+const {
+  ParkedStore,
+  saveJson,
+  saveJsonAsync,
+  ostiaLauncherScript,
+  errorBanner,
+  integrationNotLoadedNotice,
+  en,
+  zhHant,
+} = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
   v: 1,
@@ -159,4 +171,14 @@ store.park({ workspaceId: 'w2', resume: { agent: 'agy', id: 's3' }, title: 'thir
 writeFileSync(join(out, 'parked-sessions-before.json'), readFileSync(parked))
 store.remove(gone.record.id)
 writeFileSync(join(out, 'parked-sessions-after.json'), readFileSync(parked))
+writeFileSync(join(out, 'pane-launcher.sh'), ostiaLauncherScript())
+writeFileSync(join(out, 'pane-banner-error.txt'), errorBanner('Sandbox unavailable'))
+writeFileSync(
+  join(out, 'pane-banner-integration-en.txt'),
+  integrationNotLoadedNotice(en.native.paneBanner, 'ENOSPC'),
+)
+writeFileSync(
+  join(out, 'pane-banner-integration-zh-hant.txt'),
+  integrationNotLoadedNotice(zhHant.native.paneBanner, 'EACCES'),
+)
 rmSync(work, { recursive: true, force: true })
