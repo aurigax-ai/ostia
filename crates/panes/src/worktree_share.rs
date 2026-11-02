@@ -4,7 +4,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use ostia_base::js::non_empty;
 use parking_lot::Mutex;
+use tokio::runtime::Handle;
 
 const DEBOUNCE: Duration = Duration::from_millis(400);
 
@@ -18,8 +20,10 @@ pub struct SharePane {
 }
 
 pub trait WorktreeShareDeps: Send + Sync + 'static {
-    fn panes(&self) -> impl Future<Output = Vec<SharePane>> + Send;
-    fn key(&self, cwd: &str) -> impl Future<Output = Option<String>> + Send;
+    type Error: Send + 'static;
+
+    fn panes(&self) -> impl Future<Output = Result<Vec<SharePane>, Self::Error>> + Send;
+    fn key(&self, cwd: &str) -> impl Future<Output = Result<Option<String>, Self::Error>> + Send;
     fn identity(&self, external_id: &str) -> Option<String>;
     fn remote(&self, pane_id: &str) -> bool;
 }
@@ -33,6 +37,7 @@ struct Cached {
 
 struct Inner<D> {
     deps: D,
+    runtime: Handle,
     keys: Mutex<HashMap<String, Cached>>,
     shared: Mutex<HashMap<String, Vec<String>>>,
     scheduled: AtomicBool,
@@ -47,9 +52,10 @@ impl<D> Clone for WorktreeShare<D> {
 }
 
 impl<D: WorktreeShareDeps> WorktreeShare<D> {
-    pub fn new(deps: D) -> Self {
+    pub fn new(deps: D, runtime: Handle) -> Self {
         Self(Arc::new(Inner {
             deps,
+            runtime,
             keys: Mutex::new(HashMap::new()),
             shared: Mutex::new(HashMap::new()),
             scheduled: AtomicBool::new(false),
@@ -61,10 +67,10 @@ impl<D: WorktreeShareDeps> WorktreeShare<D> {
             return;
         }
         let share = self.clone();
-        tokio::spawn(async move {
+        self.0.runtime.spawn(async move {
             tokio::time::sleep(DEBOUNCE).await;
             share.0.scheduled.store(false, Ordering::SeqCst);
-            share.check().await;
+            let _ = share.check().await;
         });
     }
 
@@ -77,21 +83,25 @@ impl<D: WorktreeShareDeps> WorktreeShare<D> {
             .unwrap_or_default()
     }
 
-    pub async fn check(&self) {
+    pub async fn check(&self) -> Result<(), D::Error> {
         let inner = &*self.0;
         let entries: Vec<SharePane> = inner
             .deps
             .panes()
-            .await
+            .await?
             .into_iter()
-            .filter(|pane| pane.agent.is_some() && !pane.hibernated && pane.cwd.is_some())
+            .filter(|pane| {
+                non_empty(pane.agent.as_deref()).is_some()
+                    && !pane.hibernated
+                    && non_empty(pane.cwd.as_deref()).is_some()
+            })
             .collect();
         let live: HashSet<String> = entries.iter().map(|pane| pane.pane_id.clone()).collect();
         inner.keys.lock().retain(|id, _| live.contains(id));
 
         let mut groups: HashMap<String, Vec<String>> = HashMap::new();
         for pane in &entries {
-            let Some(cwd) = pane.cwd.as_deref() else {
+            let Some(cwd) = non_empty(pane.cwd.as_deref()) else {
                 continue;
             };
             let Some(identity) = inner.deps.identity(&pane.pane_id) else {
@@ -107,7 +117,7 @@ impl<D: WorktreeShareDeps> WorktreeShare<D> {
             let key = if same {
                 known.and_then(|k| k.key)
             } else {
-                inner.deps.key(cwd).await
+                inner.deps.key(cwd).await?
             };
             if !same {
                 inner.keys.lock().insert(
@@ -136,5 +146,6 @@ impl<D: WorktreeShareDeps> WorktreeShare<D> {
             }
         }
         *inner.shared.lock() = shared;
+        Ok(())
     }
 }

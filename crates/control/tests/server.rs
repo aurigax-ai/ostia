@@ -149,6 +149,15 @@ fn fixture_with(
     shell_pid: Option<i32>,
     read_proc: ReadProc,
 ) -> Fixture {
+    fixture_versioned(approver, shell_pid, read_proc, Some("9.9.9".to_owned()))
+}
+
+fn fixture_versioned(
+    approver: Option<Arc<dyn Approver>>,
+    shell_pid: Option<i32>,
+    read_proc: ReadProc,
+    version: Option<String>,
+) -> Fixture {
     let dir = TempDir::new().unwrap();
     let socket = dir.path().join("c.sock");
     let registry = IdRegistry::new(&[1; 32]);
@@ -169,7 +178,7 @@ fn fixture_with(
     }));
     let deps = ServerDeps {
         auth,
-        version: Some("9.9.9".to_owned()),
+        version,
         is_sandboxed: Arc::new(|_| false),
         pty_pid: Arc::new(move |_| shell_pid),
         terminal_state: Arc::new(|pane: &PaneId| {
@@ -247,6 +256,18 @@ async fn accepts_hello_with_the_real_token_and_serves_whoami() {
         json!({"externalId": identity.external_id, "paneId": "p1", "workspaceId": "s1"})
             .to_string()
     );
+}
+
+#[tokio::test]
+async fn leaves_the_version_out_of_hello_when_it_is_empty() {
+    let fixture = fixture_versioned(None, None, Arc::new(proc_fs), Some(String::new()));
+    let identity = pane(&fixture, "p1");
+    let client = Client::connect(&fixture.socket).await.unwrap();
+    let hello = client
+        .request("hello", Some(&json!({"token": identity.token})))
+        .await
+        .unwrap();
+    assert_eq!(hello, json!({"externalId": identity.external_id}));
 }
 
 #[tokio::test]

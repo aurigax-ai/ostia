@@ -1,21 +1,24 @@
 use ostia_base::PaneId;
 
-pub trait SizedPty {
+pub trait SizedPty: Send {
     fn cols(&self) -> u16;
     fn rows(&self) -> u16;
     fn resize(&mut self, cols: u16, rows: u16) -> Result<(), String>;
 }
 
-pub trait ScreenMirror {
+pub trait ScreenMirror: Send {
     fn resize(&mut self, cols: u16, rows: u16);
 }
 
-pub trait SizeWindow {
+pub trait SizeWindow: Send {
     fn is_destroyed(&self) -> bool;
     fn send_size(&self, pane_id: &PaneId, cols: u16, rows: u16, held: bool);
 }
 
-type SizeListener = Box<dyn Fn(u16, u16)>;
+pub type SizeListener = Box<dyn Fn(u16, u16) + Send>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SizeListenerId(u64);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PtyHold {
@@ -34,7 +37,8 @@ pub struct PtySizeEntry {
     pty: Box<dyn SizedPty>,
     mirror: Box<dyn ScreenMirror>,
     windows: Vec<(String, Box<dyn SizeWindow>)>,
-    size_listeners: Vec<SizeListener>,
+    size_listeners: Vec<(SizeListenerId, SizeListener)>,
+    next_listener: u64,
     hold: Option<PtyHold>,
 }
 
@@ -45,6 +49,7 @@ impl PtySizeEntry {
             mirror,
             windows: Vec::new(),
             size_listeners: Vec::new(),
+            next_listener: 0,
             hold: None,
         }
     }
@@ -56,8 +61,19 @@ impl PtySizeEntry {
         }
     }
 
-    pub fn add_size_listener(&mut self, listener: SizeListener) {
-        self.size_listeners.push(listener);
+    pub fn remove_window(&mut self, id: &str) {
+        self.windows.retain(|(key, _)| key != id);
+    }
+
+    pub fn add_size_listener(&mut self, listener: SizeListener) -> SizeListenerId {
+        let id = SizeListenerId(self.next_listener);
+        self.next_listener += 1;
+        self.size_listeners.push((id, listener));
+        id
+    }
+
+    pub fn remove_size_listener(&mut self, id: SizeListenerId) {
+        self.size_listeners.retain(|(key, _)| *key != id);
     }
 
     pub fn hold(&self) -> Option<&PtyHold> {
@@ -89,7 +105,7 @@ pub fn resize_pty(entry: Option<&mut PtySizeEntry>, cols: u16, rows: u16) {
     }
     entry.mirror.resize(cols, rows);
     if changed {
-        for listener in &entry.size_listeners {
+        for (_, listener) in &entry.size_listeners {
             listener(cols, rows);
         }
     }

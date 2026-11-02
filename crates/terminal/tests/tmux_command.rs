@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use base64::Engine as _;
 use ostia_terminal::tmux_command::{
     META_OPTION, NewWindowSpec, decode_meta, encode_meta, new_window_command, send_keys_commands,
     tmux_quote,
@@ -152,4 +153,17 @@ fn decodes_an_empty_or_broken_value_to_null() {
 #[test]
 fn decodes_any_json_value_not_only_objects() {
     assert_eq!(decode_meta("NQ=="), json!(5));
+}
+
+fn encoded(json_text: &str) -> String {
+    base64::engine::general_purpose::STANDARD.encode(json_text)
+}
+
+#[test]
+fn keeps_a_meta_with_a_lone_surrogate_escape_instead_of_dropping_it() {
+    let raw = encoded(r#"{"t":"a\ud800b","l":"\udc00","p":"\ud83d\ude00","s":"\\ud800"}"#);
+    assert_eq!(
+        decode_meta(&raw),
+        json!({"t": "a\u{fffd}b", "l": "\u{fffd}", "p": "\u{1f600}", "s": "\\ud800"})
+    );
 }

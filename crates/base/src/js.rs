@@ -1,4 +1,16 @@
+use std::cmp::Ordering;
+use std::sync::LazyLock;
+
+use icu_collator::CollatorBorrowed;
+use icu_collator::options::CollatorOptions;
 use regex::Regex;
+
+static COLLATOR: LazyLock<CollatorBorrowed<'static>> =
+    LazyLock::new(|| CollatorBorrowed::new_root(CollatorOptions::default()));
+
+pub fn locale_compare(left: &str, right: &str) -> Ordering {
+    COLLATOR.compare(left, right)
+}
 
 pub const JS_SPACE_CLASS: &str = r"\t\n\x0b\x0c\r \x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}";
 
@@ -26,6 +38,10 @@ pub fn is_js_space(ch: char) -> bool {
             | '\u{3000}'
             | '\u{feff}'
     )
+}
+
+pub fn non_empty(text: Option<&str>) -> Option<&str> {
+    text.filter(|value| !value.is_empty())
 }
 
 pub fn js_trim(text: &str) -> &str {

@@ -144,6 +144,42 @@ writeFileSync(
   )}\n`,
 )
 
+const LOCALE_WORDS = [
+  'Zeta',
+  'alpha',
+  'a_b',
+  'a-b',
+  'a/b',
+  'ab',
+  'a b',
+  'A',
+  'a',
+  'B',
+  'b',
+  'résumé',
+  'resume',
+  'Résumé',
+  'ä',
+  'z',
+  'Z',
+  '10',
+  '9',
+  '',
+  'origin/main',
+  'feature/x',
+  'Feature/x',
+  '日本語',
+  '😀',
+  'ss',
+  'ß',
+]
+
+const LOCALE_ROWS = []
+for (const a of LOCALE_WORDS) {
+  for (const b of LOCALE_WORDS) LOCALE_ROWS.push({ a, b, order: Math.sign(a.localeCompare(b)) })
+}
+writeFileSync(join(out, 'locale-compare.json'), `${JSON.stringify(LOCALE_ROWS)}\n`)
+
 const times = [1700000000123, 9, 1.5]
 const parked = join(work, 'parked-sessions.json')
 const store = new ParkedStore(parked, () => times.shift())

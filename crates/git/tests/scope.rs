@@ -368,3 +368,17 @@ fn refuses_a_scope_that_is_not_an_object_or_has_a_bad_kind_or_refs() {
         assert_eq!(scope_of(raw), None, "{case}");
     }
 }
+
+#[test]
+fn breaks_a_time_tie_by_locale_order_not_by_bytes() {
+    let output = [
+        line(&["refs/heads/Zeta", &"a".repeat(40), "10", ""]),
+        line(&["refs/heads/alpha", &"b".repeat(40), "10", ""]),
+        line(&["refs/heads/a_b", &"c".repeat(40), "10", ""]),
+        line(&["refs/heads/a-b", &"d".repeat(40), "10", ""]),
+        line(&["refs/heads/ab", &"e".repeat(40), "10", ""]),
+    ]
+    .join("\n");
+    let branches = parse_branch_refs(&output, None);
+    assert_eq!(names(&branches), ["a_b", "a-b", "ab", "alpha", "Zeta"]);
+}

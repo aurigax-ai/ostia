@@ -9,6 +9,9 @@ pub struct GuestKeyInput {
     pub shift: bool,
     pub alt: bool,
     pub meta: bool,
+    pub is_auto_repeat: bool,
+    pub is_composing: bool,
+    pub remapped: bool,
 }
 
 impl GuestKeyInput {

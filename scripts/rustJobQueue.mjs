@@ -64,6 +64,9 @@ const IMPORT =
   /(?:^|\n)\s*(import|export)\s+(type\s+)?(?:[^'"\n;]*?(?:\n[^'"\n;]*?)*?\s+from\s+)?['"]([^'"]+)['"]|\b(?:import|require)\(\s*['"]([^'"]+)['"]\s*\)/g
 
 const known = new Set()
+const BEHAVIOUR =
+  /^export\s+(?:default\s+)?(?:(?:async\s+)?function|class|enum)\b|^export\s+const\s+\w+[^=\n]*=\s*(?:async\s*)?(?:\([^)]*\)|\w+)\s*(?::[^=\n]+)?=>/m
+const PARTIAL_PORTS = new Set(['src/shared/keyboard/chordSpec.ts'])
 
 function resolveImport(file, spec) {
   let base
@@ -129,7 +132,9 @@ function emptyFolder(folder) {
 const folders = new Map()
 const prereqFolders = new Map()
 const fileEntries = new Map()
+const sharedEntries = new Map()
 const testFiles = []
+const sharedTestFiles = []
 
 function record(file, table, isJob) {
   const folder = folderOf(file)
@@ -139,22 +144,21 @@ function record(file, table, isJob) {
   const lines = text.split('\n').length - 1
   if (isTest(file)) {
     entry.tests += lines
-    if (isJob) testFiles.push({ file, lines })
+    ;(isJob ? testFiles : sharedTestFiles).push({ file, lines })
     return
   }
   entry.source += lines
   entry.files += 1
-  if (isJob) {
-    const found = importsOf(file, text).filter(({ target }) => !isTest(target))
-    fileEntries.set(file, {
-      lines,
-      imports: found.filter(({ typeOnly }) => !typeOnly).map(({ target }) => target),
-      typeImports: found.filter(({ typeOnly }) => typeOnly).map(({ target }) => target),
-      flags: CONTENT_FLAGS.filter(([pattern]) => pattern.test(text)).map(([, flag]) => flag),
-      electron: /from 'electron'/.test(text),
-      tests: [],
-    })
-  }
+  const found = importsOf(file, text).filter(({ target }) => !isTest(target))
+  ;(isJob ? fileEntries : sharedEntries).set(file, {
+    lines,
+    imports: found.filter(({ typeOnly }) => !typeOnly).map(({ target }) => target),
+    typeImports: found.filter(({ typeOnly }) => typeOnly).map(({ target }) => target),
+    flags: CONTENT_FLAGS.filter(([pattern]) => pattern.test(text)).map(([, flag]) => flag),
+    electron: /from 'electron'/.test(text),
+    behaviour: BEHAVIOUR.test(text),
+    tests: [],
+  })
   for (const [pattern, flag] of CONTENT_FLAGS) if (pattern.test(text)) entry.flags.add(flag)
   if (/from 'electron'/.test(text)) entry.electron = true
   for (const { target, typeOnly } of importsOf(file, text)) {
@@ -255,22 +259,23 @@ const JOB_MAX_FILES = 5
 
 const stemOf = (file) => basename(file).replace(/\..*$/, '')
 
-function attachTests() {
+function attachTests(tests, table) {
   const orphans = []
-  for (const test of testFiles) {
+  for (const test of tests) {
     const stem = stemOf(test.file)
-    const candidates = [...fileEntries.keys()]
+    const candidates = [...table.keys()]
       .filter((file) => folderOf(file) === folderOf(test.file) && stem.startsWith(stemOf(file)))
       .sort((a, b) => stemOf(b).length - stemOf(a).length)
-    if (candidates.length > 0) fileEntries.get(candidates[0]).tests.push(test)
+    if (candidates.length > 0) table.get(candidates[0]).tests.push(test)
     else orphans.push(test)
   }
   return orphans
 }
 
-const orphanTests = attachTests()
+const orphanTests = attachTests(testFiles, fileEntries)
+const sharedOrphanTests = attachTests(sharedTestFiles, sharedEntries)
 
-function depthsInside(members) {
+function depthsInside(members, table = fileEntries) {
   const depths = new Map()
   const visiting = new Set()
   const loops = new Set()
@@ -282,7 +287,7 @@ function depthsInside(members) {
     }
     visiting.add(file)
     let depth = 0
-    for (const target of fileEntries.get(file).imports) {
+    for (const target of table.get(file).imports) {
       if (members.has(target)) depth = Math.max(depth, depthOf(target) + 1)
     }
     visiting.delete(file)
@@ -293,12 +298,12 @@ function depthsInside(members) {
   return { depths, loops }
 }
 
-function splitByLimits(files) {
+function splitByLimits(files, table = fileEntries) {
   const batches = []
   let batch = []
   let size = 0
   for (const file of files) {
-    const lines = fileEntries.get(file).lines
+    const lines = table.get(file).lines
     if (batch.length > 0 && (batch.length >= JOB_MAX_FILES || size + lines > JOB_MAX_LINES)) {
       batches.push(batch)
       batch = []
@@ -375,6 +380,137 @@ function cycleSection({ group, cycleId }) {
   ]
 }
 
+const snakeOf = (name) => name.replace(/([A-Z])/g, (letter) => `_${letter.toLowerCase()}`)
+
+function rustFiles(kind) {
+  const found = new Map()
+  const walk = (dir) => {
+    for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+      const path = `${dir}/${entry.name}`
+      if (entry.isDirectory()) walk(path)
+      else if (entry.name.endsWith('.rs')) found.set(entry.name.slice(0, -3), path)
+    }
+  }
+  for (const crate of readdirSync(join(root, 'crates'), { withFileTypes: true })) {
+    if (!crate.isDirectory()) continue
+    try {
+      walk(`crates/${crate.name}/${kind}`)
+    } catch {}
+  }
+  return found
+}
+
+const rustSources = rustFiles('src')
+const rustTests = rustFiles('tests')
+const UNMATCHABLE = new Set(['index', 'types', 'lib', 'mod', 'constants'])
+
+function portStatus(file, entry) {
+  const stem = snakeOf(stemOf(file))
+  if (UNMATCHABLE.has(stem)) return 'todo'
+  const source = rustSources.get(stem)
+  if (!source) return 'todo'
+  const crate = source.split('/')[1]
+  if (PARTIAL_PORTS.has(file)) return `partial ${crate}`
+  if (entry.tests.length > 0 && !rustTests.has(stem)) return `no-tests ${crate}`
+  return `ported ${crate}`
+}
+
+const stepOfFolder = new Map()
+groups.forEach((group, index) => {
+  for (const folder of group) stepOfFolder.set(folder, index + 1)
+})
+
+function firstNeeded() {
+  const needed = new Map()
+  const lower = (file, step) => {
+    if (step < (needed.get(file) ?? Infinity)) {
+      needed.set(file, step)
+      return true
+    }
+    return false
+  }
+  for (const [file, entry] of fileEntries) {
+    for (const target of [...entry.imports, ...entry.typeImports]) {
+      if (sharedEntries.has(target)) lower(target, stepOfFolder.get(folderOf(file)))
+    }
+  }
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const [file, entry] of sharedEntries) {
+      if (!needed.has(file)) continue
+      for (const target of [...entry.imports, ...entry.typeImports]) {
+        if (sharedEntries.has(target) && lower(target, needed.get(file))) changed = true
+      }
+    }
+  }
+  return needed
+}
+
+function sharedSection() {
+  const needed = firstNeeded()
+  const members = new Set(
+    [...sharedEntries].filter(([, e]) => e.behaviour || e.tests.length > 0).map(([f]) => f),
+  )
+  const { depths } = depthsInside(members, sharedEntries)
+  const buckets = new Map()
+  for (const file of members) {
+    const key = `${String(depths.get(file)).padStart(3, '0')} ${folderOf(file)}`
+    buckets.set(key, [...(buckets.get(key) ?? []), file])
+  }
+  const jobs = []
+  for (const key of [...buckets.keys()].sort()) {
+    for (const files of splitByLimits(buckets.get(key).sort(), sharedEntries)) {
+      jobs.push({
+        depth: depths.get(files[0]),
+        folder: folderOf(files[0]),
+        files,
+        step: Math.min(...files.map((file) => needed.get(file) ?? 9999)),
+      })
+    }
+  }
+  jobs.sort((a, b) => a.step - b.step || a.depth - b.depth || a.folder.localeCompare(b.folder))
+  const jobOfFile = new Map()
+  jobs.forEach((job, index) => {
+    job.id = `S-J${String(index + 1).padStart(3, '0')}`
+    for (const file of job.files) jobOfFile.set(file, job.id)
+  })
+  const typesOnly = [...sharedEntries].filter(([file]) => !members.has(file))
+  const total = (pick) => [...members].reduce((sumOf, file) => sumOf + pick(sharedEntries.get(file)), 0)
+  const testLines = total((entry) => entry.tests.reduce((sumOf, test) => sumOf + test.lines, 0))
+  const rows = jobs.map((job) => {
+    const entries = job.files.map((file) => sharedEntries.get(file))
+    const needs = new Set()
+    for (const entry of entries) {
+      for (const target of entry.imports) {
+        const other = jobOfFile.get(target)
+        if (other && other !== job.id) needs.add(other)
+      }
+    }
+    const names = job.files.map(
+      (file, at) => `\`${basename(file)}\` ${entries[at].lines} ${portStatus(file, entries[at])}`,
+    )
+    const tests = entries.flatMap((entry) => entry.tests)
+    const testNames = tests.map((test) => `\`${basename(test.file)}\` ${test.lines}`)
+    const testSum = tests.reduce((sumOf, test) => sumOf + test.lines, 0)
+    const sourceSum = entries.reduce((sumOf, entry) => sumOf + entry.lines, 0)
+    const step = job.step === 9999 ? 'none' : String(job.step)
+    return `| ${job.id} | ${job.depth} | \`${job.folder}\` | ${names.join(' ')} | ${testNames.join(' ') || '-'} | ${sourceSum} | ${testSum} | ${[...needs].sort().join(' ') || '-'} | ${step} |`
+  })
+  return [
+    '',
+    `## Shared jobs: ${members.size} modules with behaviour, ${jobs.length} jobs`,
+    '',
+    `Every file under \`src/shared\` and \`packages/extension-sdk/src/contract\` that exports a function, class, enum or arrow function, or that has a test, with its tests. Files with no behaviour and no test (${typesOnly.length}: types, constants, data tables) have no job. Source lines of jobs: ${total((entry) => entry.lines)}. Test lines: ${testLines}. Each job is the files of one folder at one depth, at most ${JOB_MAX_FILES} files and ${JOB_MAX_LINES} source lines. Jobs are in the order to run: sorted by the first queue step that imports them, then by depth. A job can start when every job in Needs is merged. Port the job before the step in First step.`,
+    'Status comes from file names under \`crates/*/src\` and \`crates/*/tests\`: \`ported <crate>\` has source and tests, \`partial <crate>\` has only some functions, \`no-tests <crate>\` has source and no test file, \`todo\` has none. A \`partial\` or \`no-tests\` file still needs its job.',
+    `Test files with no matching source file: ${sharedOrphanTests.map((test) => `\`${test.file}\``).join(' ') || 'none'}. Give each to the job that owns what it tests.`,
+    '',
+    '| Job | Depth | Folder | Files, lines and status | Tests and lines | Source | Test lines | Needs | First step |',
+    '|---|---|---|---|---|---|---|---|---|',
+    ...rows,
+  ]
+}
+
 const cycleEntries = groups.flatMap((group, index) =>
   group.length > 1 ? [{ group, cycleId: `C${index + 1}` }] : [],
 )
@@ -403,6 +539,7 @@ const text = [
   '| Folder | Source | Tests | Used by | Security |',
   '|---|---|---|---|---|',
   ...prereqRows,
+  ...sharedSection(),
   ...cycleEntries.flatMap(cycleSection),
   '',
 ].join('\n')

@@ -10,6 +10,7 @@ use futures_util::future::BoxFuture;
 use futures_util::stream::FuturesUnordered;
 use futures_util::{FutureExt, StreamExt};
 use ostia_base::error::io_error;
+use ostia_base::js::non_empty;
 use ostia_base::random::random_bytes;
 use ostia_base::{ExternalId, PaneId, Result, WorkspaceId};
 use ostia_contract::capabilities::Capability;
@@ -187,7 +188,7 @@ impl ControlServer {
         let authed = authed.ok_or_else(|| RpcError::invalid_request("invalid or missing token"))?;
         let mut answer = Map::new();
         answer.insert("externalId".to_owned(), json!(authed.external_id));
-        if let Some(version) = &self.deps.version {
+        if let Some(version) = non_empty(self.deps.version.as_deref()) {
             answer.insert("version".to_owned(), json!(version));
         }
         Ok(Value::Object(answer))

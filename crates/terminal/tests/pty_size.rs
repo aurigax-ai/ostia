@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use ostia_base::PaneId;
 use ostia_terminal::pty_size::{
-    HoldOutcome, PtyHold, PtySizeEntry, ScreenMirror, SizeWindow, SizedPty, hold_pty, release_pty,
-    resize_for_all, resize_from_desktop, resize_pty,
+    HoldOutcome, PtyHold, PtySizeEntry, ScreenMirror, SizeListenerId, SizeWindow, SizedPty,
+    hold_pty, release_pty, resize_for_all, resize_from_desktop, resize_pty,
 };
 use parking_lot::Mutex;
 
@@ -111,11 +111,11 @@ fn add_window(entry: &mut PtySizeEntry, log: &Log, id: &str, name: &'static str,
     );
 }
 
-fn listen(entry: &mut PtySizeEntry, log: &Log) {
+fn listen(entry: &mut PtySizeEntry, log: &Log) -> SizeListenerId {
     let log = log.clone();
     entry.add_size_listener(Box::new(move |cols, rows| {
         log.lock().push(format!("listener {cols}x{rows}"));
-    }));
+    }))
 }
 
 fn lines(log: &Log) -> Vec<String> {
@@ -419,4 +419,37 @@ fn resize_from_desktop_skips_destroyed_windows() {
     clear(&log);
     resize_from_desktop(&pane(), &mut entry, 100, 30);
     assert!(!lines(&log).iter().any(|line| line.starts_with("window")));
+}
+
+#[test]
+fn stops_telling_a_removed_window_and_a_removed_listener() {
+    let (mut entry, log) = entry_at(80, 24);
+    add_window(&mut entry, &log, "w1", "a", false);
+    add_window(&mut entry, &log, "w2", "b", false);
+    let kept = listen(&mut entry, &log);
+    let dropped = listen(&mut entry, &log);
+    entry.remove_window("w1");
+    entry.remove_size_listener(dropped);
+    clear(&log);
+    resize_for_all(&pane(), &mut entry, 100, 30);
+    let seen = lines(&log);
+    assert!(seen.iter().any(|line| line.starts_with("window b")));
+    assert!(!seen.iter().any(|line| line.starts_with("window a")));
+    assert_eq!(
+        seen.iter()
+            .filter(|line| line.starts_with("listener"))
+            .count(),
+        1
+    );
+    entry.remove_size_listener(kept);
+    clear(&log);
+    resize_for_all(&pane(), &mut entry, 90, 20);
+    assert!(!lines(&log).iter().any(|line| line.starts_with("listener")));
+}
+
+fn assert_send<T: Send>() {}
+
+#[test]
+fn an_entry_can_move_between_tokio_tasks() {
+    assert_send::<PtySizeEntry>();
 }

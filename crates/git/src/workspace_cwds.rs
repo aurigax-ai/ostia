@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
+use ostia_base::js::non_empty;
 use ostia_base::path_guard::expand_home;
 use ostia_base::{Host, PaneId, WorkspaceId};
 
@@ -15,10 +16,6 @@ pub struct CwdPane {
     pub workspace_id: WorkspaceId,
     pub kind: String,
     pub cwd: Option<String>,
-}
-
-fn non_empty(text: Option<&str>) -> Option<&str> {
-    text.filter(|value| !value.is_empty())
 }
 
 #[derive(Default)]

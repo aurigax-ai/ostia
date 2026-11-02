@@ -9,6 +9,7 @@ publish.workspace = true
 [dependencies]
 getrandom.workspace = true
 hex.workspace = true
+icu_collator.workspace = true
 libc.workspace = true
 parking_lot.workspace = true
 regex.workspace = true

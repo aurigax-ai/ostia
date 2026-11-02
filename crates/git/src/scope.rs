@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use ostia_base::js::{is_js_space, js_number, utf16_len};
+use ostia_base::js::{is_js_space, js_number, locale_compare, utf16_len};
 use serde_json::Value;
 
 use crate::git::{BranchRef, GraphScope, ScopePlan};
@@ -86,7 +86,7 @@ pub fn parse_branch_refs(output: &str, head: Option<&str>) -> Vec<BranchRef> {
             .cmp(&a.current)
             .then(a.remote.cmp(&b.remote))
             .then(b.time.cmp(&a.time))
-            .then(a.name.cmp(&b.name))
+            .then_with(|| locale_compare(&a.name, &b.name))
     });
     refs
 }

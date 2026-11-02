@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::sync::LazyLock;
 
-use ostia_base::js::{js_trim, static_regex, utf16_len};
+use ostia_base::js::{js_trim, non_empty, static_regex, utf16_len};
 use regex::Regex;
 
 use crate::git::{
@@ -138,10 +138,6 @@ pub fn summarize(status: &RepoStatus) -> StatusSummary {
     summary.added = i64::try_from(added.len()).unwrap_or(i64::MAX);
     summary.changed = i64::try_from(changed.len()).unwrap_or(i64::MAX);
     summary
-}
-
-fn non_empty(text: Option<&str>) -> Option<&str> {
-    text.filter(|value| !value.is_empty())
 }
 
 fn utf16_prefix(text: &str, units: usize) -> &str {
