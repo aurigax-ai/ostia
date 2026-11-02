@@ -22,6 +22,8 @@ workspace = true
 
 [dev-dependencies]
 ostia-base.workspace = true
+ostia-contract.workspace = true
+parking_lot.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
