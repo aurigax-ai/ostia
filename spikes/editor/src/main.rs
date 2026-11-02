@@ -1,3 +1,7 @@
+mod lsp;
+mod provider;
+mod selftest;
+
 use std::fs;
 use std::time::Instant;
 
@@ -8,6 +12,31 @@ use similar::{ChangeTag, TextDiff};
 struct SideBySide {
     left: Entity<EditorState>,
     right: Option<Entity<EditorState>>,
+    _selftest: Option<Task<()>>,
+}
+
+impl SideBySide {
+    fn new(
+        left: Entity<EditorState>,
+        right: Option<Entity<EditorState>>,
+        file: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        cx.observe(&left, |_, _, cx| cx.notify()).detach();
+        let selftest = std::env::var(selftest::ENV).ok().map(|kind| {
+            let (left, right) = (left.clone(), right.clone());
+            cx.spawn_in(window, async move |_, cx| match kind.as_str() {
+                "editing" => selftest::editing(left, right, cx).await,
+                _ => selftest::language_server(left, file, cx).await,
+            })
+        });
+        Self {
+            left,
+            right,
+            _selftest: selftest,
+        }
+    }
 }
 
 impl Render for SideBySide {
@@ -103,7 +132,7 @@ fn main() {
                 started.elapsed().as_millis(),
                 resident_kib().saturating_sub(rss_before)
             );
-            cx.new(|_| SideBySide { left, right })
+            cx.new(|cx| SideBySide::new(left, right, left_path.clone(), window, cx))
         })
         .expect("open window");
     });
