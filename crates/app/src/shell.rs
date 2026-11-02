@@ -11,8 +11,8 @@ mod work_area;
 
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    App, Bounds, Context, Entity, KeyBinding, Render, Window, WindowBounds, WindowDecorations,
-    WindowOptions, point, px, size,
+    App, Bounds, Entity, KeyBinding, WindowBounds, WindowDecorations, WindowOptions, point, px,
+    size,
 };
 
 pub use fixtures::{FixtureWorkspace, fixture_workspaces};

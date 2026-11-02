@@ -35,10 +35,6 @@ impl WorkArea {
         area
     }
 
-    pub fn pane_count(&self) -> usize {
-        self.panes.len()
-    }
-
     fn sync_active(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let split = self.panes.len() > 1;
         for (index, pane) in self.panes.iter().enumerate() {
