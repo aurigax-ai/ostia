@@ -5,6 +5,5 @@ pub mod id_namespace;
 pub mod layout_store;
 pub mod merge_eligibility;
 pub mod merge_refusal_text;
-pub mod tab_history;
 pub mod workspace_order;
 pub mod workspaces_store;

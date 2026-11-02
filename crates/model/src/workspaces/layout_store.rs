@@ -10,7 +10,7 @@ use crate::layout::tree::{
     select_tab, slot_count, split_pane, tabs_of_pane,
 };
 use crate::layout::types::{Direction, LayoutNode, PaneNode, TabNode};
-use crate::workspaces::tab_history::TabHistories;
+use crate::panes::tab_history::TabHistories;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct WorkspaceLayout {
@@ -265,7 +265,7 @@ impl LayoutStore {
     }
 
     pub fn remove_workspace(&mut self, workspace_id: &str) -> Vec<String> {
-        self.histories.forget_workspace(workspace_id);
+        self.histories.forget_workspace_tabs(workspace_id);
         self.by_workspace
             .remove(workspace_id)
             .map(|layout| pane_ids(&layout.root))
