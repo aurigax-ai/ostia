@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use ostia_base::Clock;
+use ostia_base::clock::Clock;
 use ostia_browser::guest_pointer::{GUEST_POINTER_DOWN, PointerOwner, announce_guest_pointer};
 
 struct FakeOwner {
