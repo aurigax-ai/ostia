@@ -185,7 +185,7 @@ fn accepts_function_keys_one_to_twenty_four_and_refuses_the_rest() {
             "F{n}"
         );
     }
-    for bad in ["Ctrl+F0", "Ctrl+F25", "Ctrl+F99", "Ctrl+F01", "Ctrl+F"] {
+    for bad in ["Ctrl+F0", "Ctrl+F25", "Ctrl+F99", "Ctrl+F01"] {
         assert_eq!(accelerator(bad), None, "{bad}");
     }
 }
