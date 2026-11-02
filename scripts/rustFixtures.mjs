@@ -11,6 +11,7 @@ const work = mkdtempSync(join(tmpdir(), 'rust-fixtures-'))
 const ENTRY = `
 export { ParkedStore } from './src/main/park/parkedStore'
 export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
+export * as bus from './src/main/agents/busStore'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -22,7 +23,7 @@ await build({
   outfile: bundle,
   logLevel: 'error',
 })
-const { ParkedStore, saveJson, saveJsonAsync } = createRequire(import.meta.url)(bundle)
+const { ParkedStore, saveJson, saveJsonAsync, bus } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
   v: 1,
@@ -159,4 +160,42 @@ store.park({ workspaceId: 'w2', resume: { agent: 'agy', id: 's3' }, title: 'thir
 writeFileSync(join(out, 'parked-sessions-before.json'), readFileSync(parked))
 store.remove(gone.record.id)
 writeFileSync(join(out, 'parked-sessions-after.json'), readFileSync(parked))
+
+const BUS_FIXED_MS = Date.parse('2026-10-18T10:00:00.000Z')
+const RealDate = Date
+globalThis.Date = class extends RealDate {
+  constructor(...args) {
+    super(...(args.length > 0 ? args : [BUS_FIXED_MS]))
+  }
+
+  static now() {
+    return BUS_FIXED_MS
+  }
+}
+const busFile = join(work, 'bus.json')
+bus.setBusPath(busFile)
+bus.enqueue({ id: 'm1', from: 'a', to: 'b', text: 'build é green\nsecond line' })
+bus.enqueue({
+  id: 'm2',
+  from: 'a',
+  to: 'c',
+  text: 'do the task',
+  task: true,
+  wakes: true,
+  route: 'remote:h',
+  origin: 'remote:h',
+})
+bus.enqueue({ id: 'm3', from: 'a', to: 'd', text: 'read me' })
+const handed = bus.leaseMail('d', 'read', () => true)
+bus.ackMail('d', handed.lease)
+bus.enqueue({ id: 'm4', from: 'a', to: 'e', text: 'lost' })
+bus.failPaneMail('e')
+bus.watchPane('boss', 'w1', ['done', 'command'])
+bus.claimWake('ext-1', BUS_FIXED_MS, 3, 60_000)
+await bus.flushBus()
+writeFileSync(join(out, 'bus-before.json'), readFileSync(busFile))
+bus.dismissFailed('e')
+await bus.flushBus()
+writeFileSync(join(out, 'bus-after.json'), readFileSync(busFile))
+globalThis.Date = RealDate
 rmSync(work, { recursive: true, force: true })
