@@ -14,10 +14,13 @@ pub struct BrowserPaneOwner {
     pub workspace_id: String,
 }
 
+type OwnerOf = Arc<dyn Fn(&str) -> Option<BrowserPaneOwner> + Send + Sync>;
+type WorkspaceCheck = Arc<dyn Fn(&str) -> bool + Send + Sync>;
+
 pub struct BrowserProfilesDeps {
-    pub owner_of: Arc<dyn Fn(&str) -> Option<BrowserPaneOwner> + Send + Sync>,
-    pub is_scratch: Arc<dyn Fn(&str) -> bool + Send + Sync>,
-    pub is_sandboxed: Arc<dyn Fn(&str) -> bool + Send + Sync>,
+    pub owner_of: OwnerOf,
+    pub is_scratch: WorkspaceCheck,
+    pub is_sandboxed: WorkspaceCheck,
 }
 
 #[derive(Clone)]

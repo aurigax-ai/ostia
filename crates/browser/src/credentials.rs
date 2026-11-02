@@ -114,9 +114,12 @@ pub enum CredentialImportResult {
     },
 }
 
+type Load = Box<dyn Fn() -> Vec<StoredCredential> + Send + Sync>;
+type Save = Box<dyn Fn(&[StoredCredential]) + Send + Sync>;
+
 pub struct CredentialDeps {
-    pub load: Box<dyn Fn() -> Vec<StoredCredential> + Send + Sync>,
-    pub save: Box<dyn Fn(&[StoredCredential]) + Send + Sync>,
+    pub load: Load,
+    pub save: Save,
     pub can_encrypt: Box<dyn Fn() -> bool + Send + Sync>,
     pub encrypt: Box<dyn Fn(&str) -> String + Send + Sync>,
     pub decrypt: Box<dyn Fn(&str) -> String + Send + Sync>,
