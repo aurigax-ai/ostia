@@ -10,6 +10,7 @@ fn resume(id: &str) -> AgentResume {
         id: id.to_owned(),
         cwd: Some("/home/u/api".to_owned()),
         args: Vec::new(),
+        typed: None,
     }
 }
 

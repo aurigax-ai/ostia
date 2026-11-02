@@ -18,6 +18,7 @@ fn claude(id: &str, cwd: Option<&str>) -> AgentResume {
         id: id.to_owned(),
         cwd: cwd.map(str::to_owned),
         args: Vec::new(),
+        typed: None,
     }
 }
 

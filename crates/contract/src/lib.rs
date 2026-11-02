@@ -1,4 +1,5 @@
 pub mod act_then_confirm;
+pub mod agent_hooks;
 pub mod agent_issues;
 pub mod agent_launch;
 pub mod agent_plugins;

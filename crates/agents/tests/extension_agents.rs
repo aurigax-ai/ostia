@@ -21,6 +21,7 @@ fn held(agent: ResumableAgent, held: bool) -> HeldResume {
             id: "abc".to_owned(),
             cwd: None,
             args: Vec::new(),
+            typed: None,
         },
         held,
     }

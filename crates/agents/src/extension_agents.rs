@@ -3,8 +3,7 @@ use std::path::{Path, PathBuf};
 use ostia_base::clock::Clock;
 use ostia_base::js::{js_trim, utf16_len};
 use ostia_base::path_guard::expand_home;
-use ostia_contract::agent_launch::resume_flags;
-use ostia_contract::agent_resume::{AgentResume, ResumableAgent};
+use ostia_contract::agent_resume::{AgentResume, fork_command, resume_command};
 use ostia_contract::manager_settings::is_manager_agent_name;
 use ostia_contract::shell_quote::quote_arg;
 use ostia_diagnostics::renderer_reports::ReportLimiter;
@@ -76,43 +75,11 @@ pub struct HeldResume {
     pub held: bool,
 }
 
-fn can_fork(agent: ResumableAgent) -> bool {
-    agent != ResumableAgent::Agy
-}
-
-fn agent_command_line(resume: &AgentResume, words: &[&str]) -> String {
-    let mut parts = vec![format!("'{}'", resume.agent.name())];
-    parts.extend(words.iter().map(|word| (*word).to_owned()));
-    parts.extend(
-        resume_flags(resume.agent, &resume.args)
-            .iter()
-            .map(|arg| quote_arg(arg)),
-    );
-    parts.join(" ")
-}
-
-fn resume_command(resume: &AgentResume) -> String {
-    let id = resume.id.as_str();
-    match resume.agent {
-        ResumableAgent::Claude => agent_command_line(resume, &["--resume", id]),
-        ResumableAgent::Codex => agent_command_line(resume, &["resume", id]),
-        ResumableAgent::Agy => agent_command_line(resume, &["--conversation", id]),
-    }
-}
-
-fn fork_command(resume: &AgentResume) -> String {
-    let id = resume.id.as_str();
-    match resume.agent {
-        ResumableAgent::Claude => agent_command_line(resume, &["--resume", id, "--fork-session"]),
-        _ => agent_command_line(resume, &["fork", id]),
-    }
-}
-
 pub fn continue_command(found: &HeldResume, prompt: &str) -> String {
-    let base = if found.held && can_fork(found.resume.agent) {
-        fork_command(&found.resume)
-    } else {
-        resume_command(&found.resume)
-    };
+    let base = found
+        .held
+        .then(|| fork_command(&found.resume).ok())
+        .flatten()
+        .unwrap_or_else(|| resume_command(&found.resume));
     format!("{base} {}", quote_arg(prompt))
 }

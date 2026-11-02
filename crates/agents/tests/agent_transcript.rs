@@ -23,6 +23,7 @@ fn resume(agent: ResumableAgent, id: &str) -> AgentResume {
         id: id.to_owned(),
         cwd: None,
         args: Vec::new(),
+        typed: None,
     }
 }
 

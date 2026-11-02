@@ -98,6 +98,7 @@ fn claude_resume(id: &str) -> AgentResume {
         id: id.to_owned(),
         cwd: None,
         args: Vec::new(),
+        typed: None,
     }
 }
 
