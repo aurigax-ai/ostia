@@ -80,12 +80,36 @@ impl Tables {
             self.by_token.remove(&identity.token);
         }
     }
+
+    fn remove_pane(&mut self, pane_id: &PaneId) -> bool {
+        match self.by_pane.remove(pane_id) {
+            Some(external) => {
+                self.unindex(&external);
+                true
+            }
+            None => false,
+        }
+    }
+
+    fn pane_mut(&mut self, pane_id: &PaneId) -> Option<&mut PaneIdentity> {
+        let external = self.by_pane.get(pane_id)?;
+        self.by_external.get_mut(external)
+    }
+
+    fn panes(&self) -> impl Iterator<Item = &PaneIdentity> {
+        self.by_pane
+            .values()
+            .filter_map(|external| self.by_external.get(external))
+    }
 }
+
+pub type NameDrop = Arc<dyn Fn(&PaneId) + Send + Sync>;
 
 #[derive(Clone)]
 pub struct IdRegistry {
     salt: Arc<[u8]>,
     tables: Arc<Mutex<Tables>>,
+    name_drop: NameDrop,
 }
 
 #[allow(clippy::expect_used)]
@@ -115,9 +139,14 @@ fn new_token() -> String {
 
 impl IdRegistry {
     pub fn new(salt: &[u8]) -> Self {
+        Self::with_name_drop(salt, Arc::new(|_| {}))
+    }
+
+    pub fn with_name_drop(salt: &[u8], name_drop: NameDrop) -> Self {
         Self {
             salt: Arc::from(salt),
             tables: Arc::default(),
+            name_drop,
         }
     }
 
@@ -149,18 +178,155 @@ impl IdRegistry {
         identity
     }
 
+    pub fn adopt_pane(&self, input: PaneInput) -> PaneIdentity {
+        let mut dropped = Vec::new();
+        let identity = {
+            let mut tables = self.tables.lock();
+            if tables.remove_pane(&input.pane_id) {
+                dropped.push(input.pane_id.clone());
+            }
+            let external_id = stable_pane_external_id(&self.salt, &input.pane_id);
+            if let Some(taken) = tables
+                .by_external
+                .get(&external_id)
+                .map(|t| t.pane_id.clone())
+                && tables.remove_pane(&taken)
+            {
+                dropped.push(taken);
+            }
+            let identity = PaneIdentity {
+                kind: IdentityKind::Pane,
+                external_id,
+                token: new_token(),
+                window_id: input.window_id,
+                workspace_id: input.workspace_id,
+                pane_id: input.pane_id,
+                ext_id: None,
+                manager: false,
+            };
+            tables
+                .by_pane
+                .insert(identity.pane_id.clone(), identity.external_id.clone());
+            tables.index(identity.clone());
+            identity
+        };
+        self.drop_names(&dropped);
+        identity
+    }
+
     pub fn remove_pane(&self, pane_id: &PaneId) {
+        let removed = self.tables.lock().remove_pane(pane_id);
+        if removed {
+            (self.name_drop)(pane_id);
+        }
+    }
+
+    pub fn remove_window(&self, window_id: &WindowId) {
+        let mut dropped = Vec::new();
+        {
+            let mut tables = self.tables.lock();
+            let doomed: Vec<PaneId> = tables
+                .panes()
+                .filter(|identity| identity.window_id == *window_id)
+                .map(|identity| identity.pane_id.clone())
+                .collect();
+            for pane_id in doomed {
+                if tables.remove_pane(&pane_id) {
+                    dropped.push(pane_id);
+                }
+            }
+        }
+        self.drop_names(&dropped);
+    }
+
+    pub fn panes_owned_by(&self, pane_ids: &[PaneId], window_id: &WindowId) -> bool {
+        let tables = self.tables.lock();
+        pane_ids.iter().all(|pane_id| {
+            tables
+                .by_pane
+                .get(pane_id)
+                .and_then(|external| tables.by_external.get(external))
+                .is_none_or(|identity| identity.window_id == *window_id)
+        })
+    }
+
+    pub fn rehome_panes(&self, pane_ids: &[PaneId], window_id: &WindowId) -> Vec<PaneIdentity> {
         let mut tables = self.tables.lock();
-        if let Some(external) = tables.by_pane.remove(pane_id) {
-            tables.unindex(&external);
+        pane_ids
+            .iter()
+            .filter_map(|pane_id| {
+                let identity = tables.pane_mut(pane_id)?;
+                identity.window_id = window_id.clone();
+                Some(identity.clone())
+            })
+            .collect()
+    }
+
+    pub fn move_to_workspace(
+        &self,
+        pane_ids: &[PaneId],
+        workspace_id: &WorkspaceId,
+    ) -> Vec<PaneIdentity> {
+        let mut tables = self.tables.lock();
+        pane_ids
+            .iter()
+            .filter_map(|pane_id| {
+                let identity = tables.pane_mut(pane_id)?;
+                identity.workspace_id = workspace_id.clone();
+                Some(identity.clone())
+            })
+            .collect()
+    }
+
+    pub fn rehome_workspace(
+        &self,
+        source_id: &WorkspaceId,
+        target_id: &WorkspaceId,
+    ) -> Vec<PaneIdentity> {
+        let mut tables = self.tables.lock();
+        let members: Vec<PaneId> = tables
+            .panes()
+            .filter(|identity| identity.workspace_id == *source_id)
+            .map(|identity| identity.pane_id.clone())
+            .collect();
+        members
+            .iter()
+            .filter_map(|pane_id| {
+                let identity = tables.pane_mut(pane_id)?;
+                identity.workspace_id = target_id.clone();
+                Some(identity.clone())
+            })
+            .collect()
+    }
+
+    pub fn workspace_has_manager(&self, workspace_id: &WorkspaceId) -> bool {
+        self.tables
+            .lock()
+            .panes()
+            .any(|identity| identity.workspace_id == *workspace_id && identity.manager)
+    }
+
+    pub fn pane_identities(&self) -> Vec<PaneIdentity> {
+        self.tables.lock().panes().cloned().collect()
+    }
+
+    pub fn window_of_workspace(&self, workspace_id: &WorkspaceId) -> Option<WindowId> {
+        self.tables
+            .lock()
+            .panes()
+            .find(|identity| identity.workspace_id == *workspace_id)
+            .map(|identity| identity.window_id.clone())
+    }
+
+    fn drop_names(&self, pane_ids: &[PaneId]) {
+        for pane_id in pane_ids {
+            (self.name_drop)(pane_id);
         }
     }
 
     pub fn register_extension(&self, ext_id: &str) -> PaneIdentity {
+        self.remove_extension(ext_id, None);
         let mut tables = self.tables.lock();
-        if let Some(external) = tables.by_extension.remove(ext_id) {
-            tables.unindex(&external);
-        }
         let identity = PaneIdentity {
             kind: IdentityKind::Extension,
             external_id: ExternalId(uuid::Uuid::new_v4().to_string()),
@@ -176,6 +342,26 @@ impl IdRegistry {
             .insert(ext_id.to_owned(), identity.external_id.clone());
         tables.index(identity.clone());
         identity
+    }
+
+    pub fn remove_extension(&self, ext_id: &str, external_id: Option<&ExternalId>) {
+        let mut tables = self.tables.lock();
+        let Some(current) = tables.by_extension.get(ext_id) else {
+            return;
+        };
+        if external_id.is_some_and(|given| given != current) {
+            return;
+        }
+        let current = current.clone();
+        tables.by_extension.remove(ext_id);
+        tables.unindex(&current);
+    }
+
+    pub fn remove_script(&self, script_id: &str) {
+        let mut tables = self.tables.lock();
+        if let Some(external) = tables.by_script.remove(script_id) {
+            tables.unindex(&external);
+        }
     }
 
     pub fn register_script(&self, script_id: &str) -> PaneIdentity {
