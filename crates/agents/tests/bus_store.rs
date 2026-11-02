@@ -249,7 +249,7 @@ async fn moves_leased_mail_to_delivered_on_ack_once_only_for_the_receiver() {
         .store
         .lease_mail("b", MailVia::Prompt, all)
         .expect("a lease");
-    assert_eq!(ids(&lease.messages), [mail.id.clone()]);
+    assert_eq!(ids(&lease.messages), std::slice::from_ref(&mail.id));
     assert_eq!(
         rig.store.get_mail(&mail.id).unwrap().state,
         MailState::Leased
