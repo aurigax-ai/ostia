@@ -1,3 +1,4 @@
+pub mod keyboard;
 pub mod settings;
 pub mod sidebar;
 pub mod terminal;
