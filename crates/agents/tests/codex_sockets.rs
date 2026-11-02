@@ -59,7 +59,7 @@ fn kills_the_server_and_removes_its_files_when_the_pane_closes() {
     let sock = files(dir.path(), &child.id().to_string());
     let sockets = CodexSockets::new();
     sockets.register("pane-x", sock.clone());
-    sockets.forget("pane-x");
+    sockets.forget("pane-x").unwrap();
     assert_eq!(exit_signal(&mut child), Some(SIGTERM));
     assert!(!sock.exists());
     assert!(!Path::new(&format!("{}.pid", sock.display())).exists());
@@ -88,9 +88,9 @@ fn remembers_the_socket_of_an_external_id_until_it_is_forgotten() {
     assert_eq!(sockets.socket_of("pane-y"), None);
     sockets.register("pane-y", path.clone());
     assert_eq!(sockets.socket_of("pane-y"), Some(path));
-    sockets.forget("pane-y");
+    sockets.forget("pane-y").unwrap();
     assert_eq!(sockets.socket_of("pane-y"), None);
-    sockets.forget("pane-y");
+    sockets.forget("pane-y").unwrap();
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn reads_a_pid_that_has_a_trailing_newline_as_a_number_does() {
     let sock = files(dir.path(), &format!("{}\n", child.id()));
     let sockets = CodexSockets::new();
     sockets.register("pane-n", sock.clone());
-    sockets.forget("pane-n");
+    sockets.forget("pane-n").unwrap();
     assert_eq!(exit_signal(&mut child), Some(SIGTERM));
     assert!(!sock.exists());
 }
@@ -117,7 +117,7 @@ fn removes_the_files_and_does_not_fail_when_the_pid_file_is_missing_or_holds_no_
             fs::write(&pid_file, text).unwrap();
         }
         sockets.register("pane-z", sock.clone());
-        sockets.forget("pane-z");
+        sockets.forget("pane-z").unwrap();
         assert!(!sock.exists(), "pid file {pid_text:?}");
         assert!(!Path::new(&pid_file).exists(), "pid file {pid_text:?}");
     }

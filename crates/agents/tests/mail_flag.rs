@@ -51,7 +51,7 @@ fn leaves_a_pane_that_was_not_registered_alone_and_removes_the_file_when_the_pan
     flags.sync(&counts([("unknown", 3)]));
     assert_eq!(flag(&path).0, 0);
     assert!(!dir.path().join("unknown").exists());
-    flags.forget("b");
+    flags.forget("b").unwrap();
     assert!(!path.exists());
     flags.sync(&counts([("b", 1)]));
     assert!(!path.exists());
