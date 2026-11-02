@@ -21,17 +21,16 @@ struct Rig {
     requirements: Requirements,
     tool_path: ToolPath,
     counter: usize,
-    _scripts: ScriptsGuard,
+    _scripts: Option<ScriptsGuard>,
 }
 
-fn rig_with_path(path: &str) -> Rig {
+fn build_rig(path: &str, scripts: Option<ScriptsGuard>) -> Rig {
     let host = Host {
         env: BTreeMap::from([("PATH".to_owned(), path.to_owned())]),
         home: "/home/me".into(),
         cwd: "/".into(),
         platform: Platform::Linux,
     };
-    let scripts = ostia_testscript::lock();
     let tool_path = ToolPath::new(&host);
     Rig {
         root: tempdir().unwrap(),
@@ -43,7 +42,11 @@ fn rig_with_path(path: &str) -> Rig {
 }
 
 fn rig() -> Rig {
-    rig_with_path("")
+    build_rig("", Some(ostia_testscript::lock()))
+}
+
+fn rig_with_path(path: &str) -> Rig {
+    build_rig(path, None)
 }
 
 impl Rig {

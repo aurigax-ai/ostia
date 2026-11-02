@@ -1,4 +1,9 @@
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::await_holding_lock
+)]
 
 use std::collections::BTreeMap;
 
