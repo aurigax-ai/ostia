@@ -1,3 +1,8 @@
+pub mod attach_workspace;
+pub mod browser_fence;
+pub mod domain_requests;
+pub mod hook_links;
+pub mod host_panes;
 pub mod package_env;
 pub mod package_lookups;
 pub mod package_policy;
