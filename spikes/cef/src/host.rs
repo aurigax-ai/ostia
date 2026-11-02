@@ -200,7 +200,12 @@ pub fn initialize_cef(args: &cef::args::Args, root_cache: &str, ready: Rc<Cell<b
         windowless_rendering_enabled: true as _,
         external_message_pump: true as _,
         root_cache_path: root_cache.into(),
-        cache_path: root_cache.into(),
+        cache_path: match std::env::var("SPIKE_GLOBAL_CACHE").as_deref() {
+            Ok("child") => format!("{root_cache}/Default").as_str().into(),
+            Ok("none") => "".into(),
+            _ => root_cache.into(),
+        },
+        cookieable_schemes_list: "spike".into(),
         ..Default::default()
     };
     let mut app = build_app(ready);
@@ -234,8 +239,8 @@ pub const CONTEXT_ORDER: [ContextKind; 6] = [
     ContextKind::DiskWithHandler,
     ContextKind::DiskFresh,
     ContextKind::DiskProfileName,
-    ContextKind::Memory,
     ContextKind::Global,
+    ContextKind::Memory,
 ];
 
 pub fn open_page(
