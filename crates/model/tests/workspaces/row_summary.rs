@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use ostia_contract::attention::WorkspaceLiveState::{self, Done, Error, Idle, Waiting, Working};
+use ostia_model::ids::{IdMint, IdNamespace};
 use ostia_model::layout::tree::create_terminal_pane;
 use ostia_model::layout::types::{PaneNode, SurfaceKind};
 use ostia_model::workspaces::row_summary::{
@@ -9,7 +10,8 @@ use ostia_model::workspaces::row_summary::{
 };
 
 fn pane(id: &str, kind: SurfaceKind, hibernated: bool) -> PaneNode {
-    let mut pane = create_terminal_pane("t", Some("/x"));
+    let mut ids = IdMint::new(IdNamespace::new("test"));
+    let mut pane = create_terminal_pane(&mut ids, "t", Some("/x"));
     pane.id = id.to_string();
     pane.kind = kind;
     pane.hibernated = hibernated;
