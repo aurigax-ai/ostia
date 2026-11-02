@@ -1,2 +1,10 @@
 pub mod failure;
+pub mod mebibytes;
 pub mod pane_token;
+pub mod read_back;
+pub mod stdin_capture;
+pub mod stdin_stream;
+pub mod stdin_text;
+pub mod utf8_decoder;
+pub mod version;
+pub mod version_skew;
