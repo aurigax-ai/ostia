@@ -12,8 +12,11 @@ pub mod guest_key;
 pub mod guest_key_event;
 pub mod guest_link_clicks;
 pub mod guest_pointer;
+pub mod guest_popups;
+pub mod guest_remap;
 pub mod guest_tabs;
 pub mod native_menu_keys;
+pub mod signin_user_agent;
 
 use ostia_rpc::RpcError;
 use serde_json::Value;
