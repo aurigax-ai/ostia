@@ -161,13 +161,18 @@ pub trait Approvals: Send + Sync {
 pub type QuestionsSource = Box<dyn Fn() -> Option<Arc<dyn Questions>> + Send + Sync>;
 pub type ApprovalsSource = Box<dyn Fn() -> Option<Arc<dyn Approvals>> + Send + Sync>;
 
+pub type TextSource = Box<dyn Fn() -> ApprovalText + Send + Sync>;
+pub type IdentityLookup = Box<dyn Fn(&str) -> Option<PaneIdentity> + Send + Sync>;
+pub type AskCreated = Box<dyn Fn(&Ask) + Send + Sync>;
+pub type AskSettled = Box<dyn Fn(&AskResolved) + Send + Sync>;
+
 pub struct AskHubDeps {
-    pub text: Box<dyn Fn() -> ApprovalText + Send + Sync>,
+    pub text: TextSource,
     pub questions: QuestionsSource,
     pub approvals: ApprovalsSource,
-    pub identity: Box<dyn Fn(&str) -> Option<PaneIdentity> + Send + Sync>,
-    pub created: Box<dyn Fn(&Ask) + Send + Sync>,
-    pub resolved: Box<dyn Fn(&AskResolved) + Send + Sync>,
+    pub identity: IdentityLookup,
+    pub created: AskCreated,
+    pub resolved: AskSettled,
 }
 
 pub struct AskHub {
