@@ -437,7 +437,13 @@ pub fn verify_staged_sync(staged: &Path, policy: SignaturePolicy) -> bool {
         format!("-R={}", designated_requirement(policy)),
         staged.to_string_lossy().into_owned(),
     ];
-    run_bounded(Path::new("codesign"), &args, SWAP_VERIFY_TIMEOUT).is_some()
+    run_bounded(
+        Path::new("codesign"),
+        &args,
+        &Host::current().env,
+        SWAP_VERIFY_TIMEOUT,
+    )
+    .is_some()
 }
 
 pub type RenameFn<'a> = dyn Fn(&Path, &Path) -> io::Result<()> + 'a;
