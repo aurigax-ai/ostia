@@ -230,7 +230,7 @@ impl Element for TerminalElement {
                     .map(|ch| ch.len_utf8() as u8)
                     .collect::<Vec<u8>>(),
             );
-            node.set_word_lengths(vec![row.chars().count().min(255) as u8]);
+            node.set_word_starts(vec![0u8]);
             let id = builder.synthetic_node_id(index);
             builder.push_child(id, node);
         }
