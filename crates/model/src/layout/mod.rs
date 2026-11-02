@@ -9,3 +9,8 @@ pub mod tab_join;
 pub mod tab_moves;
 pub mod tree;
 pub mod types;
+
+pub use types::{
+    BrowserProfile, Direction, DropZone, LayoutNode, PaneNode, PanePlacement, SplitNode,
+    SurfaceKind, TabNode, TabsNode,
+};

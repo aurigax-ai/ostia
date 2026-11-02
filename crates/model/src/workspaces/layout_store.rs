@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::ids::{IdMint, IdNamespace};
 use crate::layout::collapse::settle_collapse;
-use crate::layout::pane_fields::{has_locked_pane, set_pane_cwd, set_pane_title};
+use crate::layout::pane_fields::{has_locked_pane, set_pane_cwd, set_pane_locked, set_pane_title};
 use crate::layout::panel_size::{equalize_sizes, set_sizes};
 use crate::layout::tab_focus::{focus_after_close, show_after_close};
 use crate::layout::tree::{
@@ -171,6 +171,10 @@ impl LayoutStore {
         });
         self.histories.note_opener(workspace_id, &created, pane_id);
         Some(created)
+    }
+
+    pub fn set_locked(&mut self, workspace_id: &str, pane_id: &str, locked: bool) -> bool {
+        self.change_root(workspace_id, |root| set_pane_locked(root, pane_id, locked))
     }
 
     pub fn is_locked(&self, workspace_id: &str, pane_id: Option<&str>) -> bool {
