@@ -70,6 +70,7 @@ pub mod view_parse;
 pub mod view_schema;
 pub mod viewer_selection;
 pub mod views;
+pub mod windows_api;
 pub mod workspace_groups;
 pub mod workspace_text;
 pub mod zoom;

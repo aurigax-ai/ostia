@@ -1,5 +1,10 @@
 pub mod actions;
 pub mod layout_store;
+pub mod row_summary;
 pub mod tab_history;
+pub mod tab_move_refusal_text;
+pub mod tab_workspace_move;
+pub mod window_workspaces;
 pub mod workspace_order;
+pub mod workspace_state;
 pub mod workspaces_store;

@@ -2,11 +2,11 @@ use gpui_kit::prelude::*;
 use gpui_kit::{App, Entity};
 use ostia_model::ids::IdNamespace;
 use ostia_model::layout::types::Direction;
+use ostia_model::stores::app::settings_model::NewWorkspacePlacement;
 use ostia_model::workspaces::actions::{
     close_workspace as close_workspace_in, new_tab_or_terminal, split_active_pane,
 };
 use ostia_model::workspaces::layout_store::LayoutStore;
-use ostia_model::workspaces::workspace_order::NewWorkspacePlacement;
 use ostia_model::workspaces::workspaces_store::{WorkspaceKind, WorkspacesStore};
 
 use super::store::{Store, change_both, change_reading};
