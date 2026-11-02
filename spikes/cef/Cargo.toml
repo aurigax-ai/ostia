@@ -10,3 +10,11 @@ publish = false
 cef = { version = "=156.3.0", default-features = false, features = ["sandbox", "resources"] }
 gpui-kit = "=0.8.1"
 image = { version = "0.25", default-features = false }
+
+[[bin]]
+name = "spike-cef"
+path = "src/main.rs"
+
+[[bin]]
+name = "cefonly"
+path = "src/bin/cefonly.rs"
