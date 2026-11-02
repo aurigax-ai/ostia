@@ -77,12 +77,19 @@ pub fn application_dirs(host: &Host) -> Vec<PathBuf> {
 }
 
 pub async fn read_desktop(host: &Host, file: &str) -> Option<String> {
-    for dir in application_dirs(host) {
-        if let Ok(bytes) = tokio::fs::read(node_path::join(&dir, file)).await {
-            return Some(String::from_utf8_lossy(&bytes).into_owned());
-        }
-    }
-    None
+    let paths: Vec<PathBuf> = application_dirs(host)
+        .iter()
+        .map(|dir| node_path::join(dir, file))
+        .collect();
+    tokio::task::spawn_blocking(move || {
+        paths
+            .iter()
+            .find_map(|path| std::fs::read(path).ok())
+            .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 async fn query_default(scheme: String) -> String {

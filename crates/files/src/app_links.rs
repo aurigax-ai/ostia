@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use futures_util::FutureExt;
 use futures_util::future::BoxFuture;
 use ostia_base::js::non_empty;
 use ostia_contract::app_link_settings::{
