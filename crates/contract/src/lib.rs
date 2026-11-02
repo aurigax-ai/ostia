@@ -46,6 +46,9 @@ pub mod turn_hook;
 pub mod utf16_prefix;
 pub mod viewer_selection;
 pub mod zoom;
+pub mod text_cut;
+pub mod workspace_groups;
+pub mod workspace_text;
 
 pub const TARGET_PANE_PARAM: &str = "targetPaneId";
 pub const SANDBOXED_REFUSAL: &str =
