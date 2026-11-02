@@ -6,5 +6,6 @@ pub mod terminal_links;
 pub mod ids;
 pub mod layout;
 pub mod panes;
+pub mod stores;
 pub mod terminal;
 pub mod workspaces;

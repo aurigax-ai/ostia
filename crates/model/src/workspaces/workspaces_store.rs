@@ -1,7 +1,8 @@
 use ostia_contract::attention::WorkspaceLiveState;
 
-use super::workspace_order::{NewWorkspacePlacement, Orderable, insert_index};
+use super::workspace_order::{Orderable, insert_index};
 use crate::ids::{IdMint, IdNamespace};
+use crate::stores::app::settings_model::NewWorkspacePlacement;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum WorkspaceKind {
@@ -23,12 +24,16 @@ pub struct Workspace {
 }
 
 impl Orderable for Workspace {
-    fn order_id(&self) -> &str {
+    fn id(&self) -> &str {
         &self.id
     }
 
-    fn is_pinned(&self) -> bool {
+    fn pinned(&self) -> bool {
         self.pinned
+    }
+
+    fn set_pinned_flag(&mut self, pinned: bool) {
+        self.pinned = pinned;
     }
 }
 
