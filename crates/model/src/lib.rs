@@ -1,3 +1,4 @@
+pub mod agents;
 pub mod attention;
 pub mod ids;
 pub mod keyboard;
