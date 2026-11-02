@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use ostia_ports::sidebar::{
     PaneRef, SidebarEntry, SidebarKind, WorkspaceProcesses, group_by_workspace, port_url,
@@ -42,6 +42,16 @@ fn login(user: Option<&str>, host: &str) -> SshLogin {
         user: user.map(str::to_owned),
         host: host.to_owned(),
     }
+}
+
+fn find<'a>(
+    groups: &'a [(String, WorkspaceProcesses)],
+    workspace_id: &str,
+) -> Option<&'a WorkspaceProcesses> {
+    groups
+        .iter()
+        .find(|(id, _)| id == workspace_id)
+        .map(|(_, group)| group)
 }
 
 fn processes(ports: Vec<ListeningPort>, ssh: &[&str]) -> WorkspaceProcesses {
@@ -93,7 +103,7 @@ fn merges_the_ports_and_ssh_hosts_of_every_terminal_in_a_workspace() {
         &trees,
     );
     assert_eq!(
-        groups.get("s1"),
+        find(&groups, "s1"),
         Some(&processes(
             vec![
                 named(3000, "node"),
@@ -103,7 +113,7 @@ fn merges_the_ports_and_ssh_hosts_of_every_terminal_in_a_workspace() {
             &["prod-1"],
         ))
     );
-    assert_eq!(groups.get("s2"), Some(&processes(vec![], &[])));
+    assert_eq!(find(&groups, "s2"), Some(&processes(vec![], &[])));
 }
 
 #[test]
@@ -118,7 +128,7 @@ fn leaves_out_a_workspace_whose_panes_have_no_pid_or_no_tree() {
         &trees,
     );
     assert_eq!(groups.len(), 1);
-    assert!(groups.contains_key("s3"));
+    assert_eq!(groups[0].0, "s3");
 }
 
 #[test]
@@ -136,7 +146,7 @@ fn lists_each_ssh_host_once_in_sorted_order() {
         ],
         &trees,
     );
-    assert_eq!(groups.get("s1").unwrap().ssh, vec!["alpha", "zeta"]);
+    assert_eq!(find(&groups, "s1").unwrap().ssh, vec!["alpha", "zeta"]);
 }
 
 #[test]
@@ -153,7 +163,7 @@ fn keeps_the_first_name_a_port_got_in_a_workspace_and_fills_a_missing_one() {
         &trees,
     );
     assert_eq!(
-        groups.get("s1").unwrap().ports,
+        find(&groups, "s1").unwrap().ports,
         vec![named(4000, "late"), named(4001, "first")]
     );
 }
@@ -174,10 +184,10 @@ fn builds_a_port_url_with_the_chosen_host() {
 
 #[test]
 fn makes_one_ssh_item_per_workspace_and_nothing_for_its_ports() {
-    let groups = BTreeMap::from([(
+    let groups = vec![(
         "s1".to_owned(),
         processes(vec![unnamed(3000)], &["box", "prod"]),
-    )]);
+    )];
     assert_eq!(
         sidebar_entries(&groups),
         vec![SidebarEntry {
@@ -193,18 +203,49 @@ fn makes_one_ssh_item_per_workspace_and_nothing_for_its_ports() {
 
 #[test]
 fn shows_nothing_for_a_workspace_with_no_ports_and_no_ssh() {
-    let groups = BTreeMap::from([("s1".to_owned(), processes(vec![], &[]))]);
+    let groups = vec![("s1".to_owned(), processes(vec![], &[]))];
     assert!(sidebar_entries(&groups).is_empty());
 }
 
 #[test]
 fn skips_a_workspace_without_ssh_and_keeps_the_others() {
-    let groups = BTreeMap::from([
+    let groups = vec![
         ("s1".to_owned(), processes(vec![unnamed(3000)], &[])),
         ("s2".to_owned(), processes(vec![], &["box"])),
         ("s3".to_owned(), processes(vec![], &["prod"])),
-    ]);
+    ];
     let entries = sidebar_entries(&groups);
     let ids: Vec<&str> = entries.iter().map(|e| e.workspace_id.as_str()).collect();
     assert_eq!(ids, vec!["s2", "s3"]);
+}
+
+#[test]
+fn keeps_the_order_the_workspaces_were_given_in_and_does_not_sort_them() {
+    let groups = vec![
+        ("s9".to_owned(), processes(vec![], &["nine"])),
+        ("s1".to_owned(), processes(vec![], &["one"])),
+        ("s5".to_owned(), processes(vec![], &["five"])),
+    ];
+    let entries = sidebar_entries(&groups);
+    let ids: Vec<&str> = entries.iter().map(|e| e.workspace_id.as_str()).collect();
+    assert_eq!(ids, vec!["s9", "s1", "s5"]);
+}
+
+#[test]
+fn groups_workspaces_in_the_order_their_panes_first_appear() {
+    let trees: HashMap<i32, TreeInfo> = HashMap::from([
+        (1, tree(vec![], None)),
+        (2, tree(vec![], None)),
+        (3, tree(vec![], None)),
+    ]);
+    let groups = group_by_workspace(
+        &[
+            terminal("a", "s9", Some(1)),
+            terminal("b", "s1", Some(2)),
+            terminal("c", "s9", Some(3)),
+        ],
+        &trees,
+    );
+    let ids: Vec<&str> = groups.iter().map(|(id, _)| id.as_str()).collect();
+    assert_eq!(ids, vec!["s9", "s1"]);
 }
