@@ -274,7 +274,11 @@ fn lets_a_protected_file_be_read_and_hidden_but_not_opened_for_writing() {
         check(&f, "denyWrite", "~/.claude/settings.json"),
         ok("~/.claude/settings.json")
     );
-    assert_eq!(check(&f, "allowWrite", "~/.claude"), Err("protected"));
+    assert_eq!(check(&f, "allowWrite", "~/.claude"), ok("~/.claude"));
+    assert_eq!(
+        check(&f, "allowWrite", "~/.claude/settings.json"),
+        Err("protected")
+    );
 }
 
 #[test]
