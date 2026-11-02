@@ -663,10 +663,13 @@ impl HistoryFeed {
     }
 }
 
+type RequestListener = Arc<dyn Fn(SpillRequest) + Send + Sync>;
+type EventListener = Arc<dyn Fn(SpillEvent) + Send + Sync>;
+
 #[derive(Default)]
 struct Link {
-    to_host: Mutex<Option<Arc<dyn Fn(SpillRequest) + Send + Sync>>>,
-    to_client: Mutex<Option<Arc<dyn Fn(SpillEvent) + Send + Sync>>>,
+    to_host: Mutex<Option<RequestListener>>,
+    to_client: Mutex<Option<EventListener>>,
 }
 
 struct HostSide(Weak<Link>);

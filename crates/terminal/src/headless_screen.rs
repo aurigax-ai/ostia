@@ -134,7 +134,7 @@ impl HeadlessScreen {
         if to < from {
             return Vec::new();
         }
-        let text = self.format_rows(from, to, Format::Vt);
+        let text = normalize_vt(&self.format_rows(from, to, Format::Vt));
         let printed: Vec<&str> = if text.is_empty() {
             Vec::new()
         } else {
@@ -167,4 +167,27 @@ impl HeadlessScreen {
         }
         lines
     }
+}
+
+const PALETTE_PREFIX: &str = "\x1b]4;";
+const STRING_TERMINATOR: &str = "\x1b\\";
+const RESET: &str = "\x1b[0m";
+
+fn normalize_vt(text: &str) -> String {
+    let mut rest = text;
+    while rest.starts_with(PALETTE_PREFIX) {
+        match rest.find(STRING_TERMINATOR) {
+            Some(end) => rest = &rest[end + STRING_TERMINATOR.len()..],
+            None => break,
+        }
+    }
+    let mut out = rest.to_string();
+    if out.ends_with(RESET) {
+        let row_start = out.rfind("\r\n").map_or(0, |at| at + 2);
+        let row = &out[row_start..out.len() - RESET.len()];
+        if !row.contains('\x1b') {
+            out.truncate(out.len() - RESET.len());
+        }
+    }
+    out
 }

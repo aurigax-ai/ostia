@@ -352,7 +352,7 @@ impl SpillTerminal {
             }
             if byte == LINE_FEED {
                 lines += 1;
-                if lines % LINES_PER_SLICE == 0 {
+                if lines.is_multiple_of(LINES_PER_SLICE) {
                     self.flush_to(data, &mut written, index + 1);
                 }
             }
@@ -377,10 +377,8 @@ impl SpillTerminal {
                     self.spill.on_alternate_screen_reset();
                 }
             }
-            ("", b'J') => {
-                if first_param(params) == 3.0 {
-                    self.spill.on_clear_scrollback(&self.screen);
-                }
+            ("", b'J') if first_param(params) == 3.0 => {
+                self.spill.on_clear_scrollback(&self.screen);
             }
             _ => {}
         }
