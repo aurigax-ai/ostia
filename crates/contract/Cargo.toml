@@ -8,13 +8,20 @@ publish.workspace = true
 
 [dependencies]
 chrono.workspace = true
+fixed_decimal.workspace = true
+icu_experimental.workspace = true
+icu_locale_core.workspace = true
 ostia-base.workspace = true
+parking_lot.workspace = true
 percent-encoding.workspace = true
 regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
 unicode-normalization.workspace = true
 url.workspace = true
+writeable.workspace = true
 
 [lints]
 workspace = true
