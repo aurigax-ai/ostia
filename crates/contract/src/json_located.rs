@@ -150,10 +150,8 @@ impl Parser {
                 return Err(fail("unterminated string", self.at));
             };
             if unit == QUOTE {
-                let closing = self.at;
                 self.at += 1;
-                return String::from_utf16(&out)
-                    .map_err(|_| fail("lone surrogate in string", closing));
+                return Ok(String::from_utf16_lossy(&out));
             }
             if unit < 0x20 {
                 return Err(fail("control character in string", self.at));

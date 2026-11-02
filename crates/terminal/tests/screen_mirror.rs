@@ -1,8 +1,15 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+mod history_support;
+
+use std::sync::Arc;
+
+use history_support::{HistoryOptions, make_history};
 use ostia_contract::osc7::CwdReport;
 use ostia_terminal::headless_screen::HeadlessScreen;
+use ostia_terminal::history_feed::{SpillClient, SpillPort};
 use ostia_terminal::screen_mirror::{HISTORY_LINES, ScreenMirror, hibernate_seam, restore_seam};
+use ostia_terminal::spill_host::{SpillEvent, SpillRequest};
 use regex::Regex;
 
 const WIDE: u16 = 127;
@@ -512,4 +519,31 @@ mod screen_mirror_cwd_report_cases {
         );
         mirror.dispose();
     }
+}
+
+struct QuietPort;
+
+impl SpillPort for QuietPort {
+    fn post_message(&self, _request: SpillRequest) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn on_message(&self, _listener: Arc<dyn Fn(SpillEvent) + Send + Sync>) {}
+}
+
+#[tokio::test]
+async fn walks_the_buffer_for_no_write_or_resize_while_a_history_feed_is_attached() {
+    let client = SpillClient::new(Arc::new(QuietPort));
+    let made = make_history(HistoryOptions::default());
+    let feed = client.open(&made.history, WIDE, 30, None);
+    let mut mirror = ScreenMirror::new(WIDE, 30, Some(feed)).unwrap();
+    for index in 0..200 {
+        mirror.write(&format!("line {index}\r\n"));
+    }
+    mirror.resize(100, 30);
+    mirror.restore("old history");
+    assert_eq!(mirror.history_walks(), 0);
+    assert!(mirror.serialize().contains("line 199"));
+    assert_eq!(mirror.history_walks(), 1);
+    mirror.dispose();
 }

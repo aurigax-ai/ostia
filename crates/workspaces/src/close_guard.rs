@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use futures_util::future::join_all;
 use ostia_contract::utf16_prefix::utf16_prefix;
+use ostia_contract::windows_api::{QuitAnswer, RunningGroup};
 use parking_lot::Mutex;
-use serde::Serialize;
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
 use tokio::time::{Sleep, sleep};
@@ -126,9 +126,14 @@ impl CloseGuard {
                     settle,
                 },
             );
-            let deadline = timeout.map(|limit| Box::pin(sleep(limit)));
-            win.send(channel, &[json!(request_id), payload]);
-            Some((request_id, answered, deadline))
+            if unresponsive(&*win) {
+                self.shared.pending.lock().remove(&request_id);
+                None
+            } else {
+                let deadline = timeout.map(|limit| Box::pin(sleep(limit)));
+                win.send(channel, &[json!(request_id), payload]);
+                Some((request_id, answered, deadline))
+            }
         };
         let shared = self.shared.clone();
         async move {
@@ -160,28 +165,6 @@ async fn wait_until(
             }
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum QuitAnswer {
-    Cancel,
-    Quit,
-    KeepShells,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RunningGroup {
-    pub workspace_id: String,
-    pub workspace: String,
-    pub commands: Vec<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub agents: Vec<String>,
-    pub files: Vec<String>,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    pub unanswered: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scratch_files: Option<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -232,7 +215,7 @@ pub fn parse_running_groups(raw: &Value) -> Vec<RunningGroup> {
             agents: strings(entry.get("agents")),
             files: strings(entry.get("files")),
             unanswered: false,
-            scratch_files: None,
+            scratch_files: 0,
         });
     }
     groups
@@ -247,7 +230,7 @@ pub fn with_scratch_files(
         let count = scratch_files(&group.workspace_id);
         let mut next = group.clone();
         if count > 0 {
-            next.scratch_files = Some(count);
+            next.scratch_files = count;
         }
         let loses = !next.commands.is_empty()
             || !next.agents.is_empty()
@@ -288,7 +271,7 @@ pub fn groups_from_ptys(
                 agents,
                 files: Vec::new(),
                 unanswered,
-                scratch_files: None,
+                scratch_files: 0,
             }
         })
         .collect()

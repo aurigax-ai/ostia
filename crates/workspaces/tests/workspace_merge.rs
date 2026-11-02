@@ -116,8 +116,12 @@ fn merges_in_main_over_workspace_merge_only_when_the_check_allows_it() {
     let recorder = Arc::clone(&merged);
     let service = WorkspaceMerge {
         checks,
-        merge: Arc::new(move |source, target| {
-            recorder.lock().push((source.to_owned(), target.to_owned()));
+        merge: Arc::new(move |source, target, recheck| {
+            let result = recheck();
+            if result == WorkspaceMergeResult::Allowed {
+                recorder.lock().push((source.to_owned(), target.to_owned()));
+            }
+            result
         }),
     };
 
@@ -222,12 +226,41 @@ fn does_not_merge_when_the_sandbox_or_the_manager_refuses() {
         let recorder = Arc::clone(&merged);
         let service = WorkspaceMerge {
             checks,
-            merge: Arc::new(move |source, target| {
-                recorder.lock().push((source.to_owned(), target.to_owned()));
+            merge: Arc::new(move |source, target, recheck| {
+                let result = recheck();
+                if result == WorkspaceMergeResult::Allowed {
+                    recorder.lock().push((source.to_owned(), target.to_owned()));
+                }
+                result
             }),
         };
         let result = merge_workspaces(&service, "7", &json!("a"), &json!("b"));
         assert!(matches!(result, WorkspaceMergeResult::Refused(_)));
     }
+    assert!(merged.lock().is_empty());
+}
+
+#[test]
+fn refuses_when_a_manager_appears_after_the_first_look() {
+    let (mut checks, _) = checks(Setup::default());
+    let marked = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = Arc::clone(&marked);
+    checks.has_manager =
+        Arc::new(move |id| id == "a" && flag.load(std::sync::atomic::Ordering::SeqCst));
+    let merged: Calls = Arc::new(Mutex::new(Vec::new()));
+    let recorder = Arc::clone(&merged);
+    let service = WorkspaceMerge {
+        checks,
+        merge: Arc::new(move |source, target, recheck| {
+            marked.store(true, std::sync::atomic::Ordering::SeqCst);
+            let result = recheck();
+            if result == WorkspaceMergeResult::Allowed {
+                recorder.lock().push((source.to_owned(), target.to_owned()));
+            }
+            result
+        }),
+    };
+    let result = merge_workspaces(&service, "7", &json!("a"), &json!("b"));
+    assert_eq!(serde_json::to_value(result).unwrap(), refused("manager"));
     assert!(merged.lock().is_empty());
 }

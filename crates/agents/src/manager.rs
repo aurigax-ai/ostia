@@ -290,15 +290,12 @@ impl ManagerService {
     }
 
     pub fn remember_resume(&self, resume: AgentResume) {
-        let agent = self
-            .inner
-            .state
-            .lock()
-            .current
-            .as_ref()
-            .map(|current| current.info.agent.clone());
-        if let Some(agent) = agent {
-            (self.inner.deps.save_resume)(Some(SavedManagerResume { agent, resume }));
+        let state = self.inner.state.lock();
+        if let Some(current) = state.current.as_ref() {
+            (self.inner.deps.save_resume)(Some(SavedManagerResume {
+                agent: current.info.agent.clone(),
+                resume,
+            }));
         }
     }
 
@@ -409,6 +406,10 @@ impl ManagerService {
         let serial = {
             let mut state = self.inner.state.lock();
             state.serial += 1;
+            state.current = Some(Current {
+                serial: state.serial,
+                info: info.clone(),
+            });
             state.serial
         };
         let weak: Weak<Inner> = Arc::downgrade(&self.inner);
@@ -428,16 +429,12 @@ impl ManagerService {
             }),
         });
         if !spawned {
+            self.inner.clear_current(serial);
             return Err(ManagerError::new(format!(
                 "spawn-failed: could not start {}",
                 first.as_deref().unwrap_or("undefined")
             )));
         }
-        let mut state = self.inner.state.lock();
-        state.current = Some(Current {
-            serial,
-            info: info.clone(),
-        });
         Ok(info)
     }
 
@@ -450,20 +447,28 @@ impl ManagerService {
 }
 
 impl Inner {
-    fn exited(&self, serial: u64) {
-        let stopping = {
-            let mut state = self.state.lock();
-            if state
-                .current
-                .as_ref()
-                .is_none_or(|current| current.serial != serial)
-            {
-                return;
-            }
+    fn clear_current(&self, serial: u64) {
+        let mut state = self.state.lock();
+        if state
+            .current
+            .as_ref()
+            .is_some_and(|current| current.serial == serial)
+        {
             state.current = None;
-            state.stopping
-        };
-        if !stopping {
+        }
+    }
+
+    fn exited(&self, serial: u64) {
+        let mut state = self.state.lock();
+        if state
+            .current
+            .as_ref()
+            .is_none_or(|current| current.serial != serial)
+        {
+            return;
+        }
+        state.current = None;
+        if !state.stopping {
             (self.deps.save_resume)(None);
         }
     }

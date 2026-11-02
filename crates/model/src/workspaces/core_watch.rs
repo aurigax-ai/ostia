@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
+use tokio::runtime::Handle;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CoreFeature {
@@ -41,6 +42,7 @@ impl WatchState {
 }
 
 struct Shared {
+    runtime: Handle,
     state: Mutex<WatchState>,
     delivery: Mutex<()>,
     sink: Box<Sink>,
@@ -58,12 +60,13 @@ pub struct CoreWatch {
 }
 
 impl CoreWatch {
-    pub fn new<F>(sink: F) -> Self
+    pub fn new<F>(runtime: Handle, sink: F) -> Self
     where
         F: Fn(CoreFeature, Vec<String>) + Send + Sync + 'static,
     {
         Self {
             shared: Arc::new(Shared {
+                runtime,
                 state: Mutex::new(WatchState::default()),
                 delivery: Mutex::new(()),
                 sink: Box::new(sink),
@@ -119,7 +122,7 @@ impl CoreWatch {
         };
         if newly_queued {
             let this = self.clone();
-            tokio::spawn(async move {
+            self.shared.runtime.spawn(async move {
                 this.flush(feature);
             });
         }

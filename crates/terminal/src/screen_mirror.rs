@@ -1,9 +1,10 @@
 use std::future::Future;
 use std::sync::Arc;
+use std::sync::mpsc::channel;
 
+use ostia_base::OwnerThread;
 use ostia_base::js::js_number;
 use ostia_contract::osc7::{CwdReport, parse_osc7};
-use parking_lot::Mutex;
 
 use crate::headless_screen::{HeadlessScreen, Marker};
 use crate::history_feed::HistoryFeed;
@@ -38,118 +39,39 @@ struct Serialized {
     text: String,
 }
 
-pub struct ScreenMirror {
+struct Core {
     prompt_start: Option<Marker>,
     untouched: Option<Untouched>,
     screen: HeadlessScreen,
     observer: Observer,
     prompt_start_col: usize,
-    disposed: bool,
-    target_cols: u16,
-    target_rows: u16,
     changes: u64,
     serialized: Option<Serialized>,
     reported_cwd: Option<CwdReport>,
     history_walks: usize,
-    feed: Option<HistoryFeed>,
-    feed_screen: Option<Arc<Mutex<String>>>,
-    block_seq_base: u64,
 }
 
-impl ScreenMirror {
-    pub fn new(cols: u16, rows: u16, feed: Option<HistoryFeed>) -> Result<Self, String> {
-        let target_cols = cols.max(1);
-        let target_rows = rows.max(1);
-        let screen = HeadlessScreen::new(target_cols, target_rows, MIRROR_SCROLLBACK)?;
-        let block_seq_base = feed.as_ref().map_or(0, HistoryFeed::seq_base);
-        let feed_screen = feed.as_ref().map(|feed| {
-            let latest = Arc::new(Mutex::new(String::new()));
-            let reader = Arc::clone(&latest);
-            feed.watch_screen(Arc::new(move || reader.lock().clone()));
-            latest
-        });
+impl Core {
+    fn new(cols: u16, rows: u16) -> Result<Self, String> {
         Ok(Self {
             prompt_start: None,
             untouched: None,
-            screen,
+            screen: HeadlessScreen::new(cols, rows, MIRROR_SCROLLBACK)?,
             observer: Observer::new(),
             prompt_start_col: 0,
-            disposed: false,
-            target_cols,
-            target_rows,
             changes: 0,
             serialized: None,
             reported_cwd: None,
             history_walks: 0,
-            feed,
-            feed_screen,
-            block_seq_base,
         })
     }
 
-    pub fn cwd_report(&self) -> Option<CwdReport> {
-        self.reported_cwd.clone()
-    }
-
-    pub fn revision(&self) -> u64 {
-        self.changes
-    }
-
-    pub fn history_walks(&self) -> usize {
-        self.history_walks
-    }
-
-    pub fn block_seq_base(&self) -> u64 {
-        self.block_seq_base
-    }
-
-    pub fn cols(&self) -> u16 {
-        self.screen.cols()
-    }
-
-    pub fn rows(&self) -> u16 {
-        self.screen.rows()
-    }
-
-    pub fn bracketed_paste(&self) -> bool {
-        !self.disposed && self.screen.bracketed_paste()
-    }
-
-    pub fn write(&mut self, data: &str) {
-        if self.disposed || data.is_empty() {
-            return;
-        }
-        self.parse(data.as_bytes());
-        if let Some(feed) = &self.feed {
-            feed.write(data);
-        }
-        self.publish();
-    }
-
-    pub fn resize(&mut self, cols: u16, rows: u16) {
-        if self.disposed || cols < 1 || rows < 1 {
-            return;
-        }
-        if cols == self.target_cols && rows == self.target_rows {
-            return;
-        }
-        self.target_cols = cols;
-        self.target_rows = rows;
-        if let Some(feed) = &self.feed {
-            feed.resize(cols, rows);
-        }
+    fn resize(&mut self, cols: u16, rows: u16) {
         self.screen.resize(cols, rows);
         self.changes += 1;
-        self.publish();
     }
 
-    pub fn restore(&mut self, history: &str) {
-        if self.disposed || history.is_empty() {
-            return;
-        }
-        if let Some(feed) = &self.feed {
-            feed.restore(history);
-        }
+    fn restore(&mut self, history: &str) {
         self.parse(format!("{history}\r\n").as_bytes());
         self.clear_untouched();
         if let Some(seam_end) = self.cursor_marker() {
@@ -159,44 +81,9 @@ impl ScreenMirror {
                 prompted: false,
             });
         }
-        self.publish();
     }
 
-    pub fn pending_block_end(
-        &self,
-        seq: u64,
-    ) -> impl Future<Output = Option<BlockEnd>> + Send + use<> {
-        let pending = if self.disposed {
-            None
-        } else {
-            self.feed.as_ref().map(|feed| feed.pending_end(seq))
-        };
-        async move {
-            match pending {
-                Some(pending) => pending.await,
-                None => None,
-            }
-        }
-    }
-
-    pub fn history_tail(&self) -> impl Future<Output = Vec<String>> + Send + use<> {
-        let tail = if self.disposed {
-            None
-        } else {
-            self.feed.as_ref().map(HistoryFeed::tail)
-        };
-        async move {
-            match tail {
-                Some(tail) => tail.await,
-                None => Vec::new(),
-            }
-        }
-    }
-
-    pub fn serialize(&mut self) -> String {
-        if self.disposed {
-            return String::new();
-        }
+    fn serialize(&mut self) -> String {
         if !self.screen.is_normal() {
             return self
                 .serialized
@@ -217,8 +104,8 @@ impl ScreenMirror {
         text
     }
 
-    pub fn screen_text(&self, max_lines: usize) -> String {
-        if self.disposed || max_lines < 1 {
+    fn screen_text(&self, max_lines: usize) -> String {
+        if max_lines < 1 {
             return String::new();
         }
         let mut end = self.last_row();
@@ -240,24 +127,9 @@ impl ScreenMirror {
         lines.join("\n")
     }
 
-    pub fn dispose(&mut self) {
-        if self.disposed {
-            return;
-        }
-        self.disposed = true;
-        if let Some(feed) = &self.feed {
-            drop(feed.close());
-        }
+    fn dispose(&mut self) {
         self.clear_prompt_start();
         self.clear_untouched();
-    }
-
-    fn publish(&mut self) {
-        let Some(latest) = self.feed_screen.clone() else {
-            return;
-        };
-        let text = self.serialize();
-        *latest.lock() = text;
     }
 
     fn parse(&mut self, data: &[u8]) {
@@ -418,5 +290,205 @@ impl ScreenMirror {
             (Ok(from), Ok(to)) => self.screen.serialize(from, to).join("\r\n"),
             _ => String::new(),
         }
+    }
+}
+
+type Slot = Result<Core, String>;
+type Job<R> = Box<dyn FnOnce(&mut Core) -> R + Send>;
+
+pub struct ScreenMirror {
+    owner: OwnerThread<Slot>,
+    feed: Option<HistoryFeed>,
+    disposed: bool,
+    target_cols: u16,
+    target_rows: u16,
+    block_seq_base: u64,
+}
+
+fn ask<R: Send + 'static>(owner: &OwnerThread<Slot>, job: Job<R>) -> Option<R> {
+    let (reply, answer) = channel();
+    owner
+        .post(move |slot| {
+            if let Ok(core) = slot {
+                let _ = reply.send(job(core));
+            }
+        })
+        .ok()?;
+    answer.recv().ok()
+}
+
+impl ScreenMirror {
+    pub fn new(cols: u16, rows: u16, feed: Option<HistoryFeed>) -> Result<Self, String> {
+        let target_cols = cols.max(1);
+        let target_rows = rows.max(1);
+        let (built, outcome) = channel();
+        let owner = OwnerThread::spawn("screen-mirror", move || {
+            let core = Core::new(target_cols, target_rows);
+            let _ = built.send(core.as_ref().err().cloned());
+            core
+        })
+        .map_err(|err| err.to_string())?;
+        match outcome.recv() {
+            Ok(None) => {}
+            Ok(Some(reason)) => return Err(reason),
+            Err(_) => return Err("screen mirror failed to start".to_owned()),
+        }
+        let block_seq_base = feed.as_ref().map_or(0, HistoryFeed::seq_base);
+        if let Some(feed) = &feed {
+            let reader = owner.clone();
+            feed.watch_screen(Arc::new(move || {
+                ask(&reader, Box::new(Core::serialize)).unwrap_or_default()
+            }));
+        }
+        Ok(Self {
+            owner,
+            feed,
+            disposed: false,
+            target_cols,
+            target_rows,
+            block_seq_base,
+        })
+    }
+
+    fn read<R: Send + 'static>(
+        &self,
+        job: impl FnOnce(&mut Core) -> R + Send + 'static,
+    ) -> Option<R> {
+        ask(&self.owner, Box::new(job))
+    }
+
+    fn send(&self, job: impl FnOnce(&mut Core) + Send + 'static) {
+        let _ = self.owner.post(move |slot| {
+            if let Ok(core) = slot {
+                job(core);
+            }
+        });
+    }
+
+    pub fn cwd_report(&self) -> Option<CwdReport> {
+        self.read(|core| core.reported_cwd.clone()).flatten()
+    }
+
+    pub fn revision(&self) -> u64 {
+        self.read(|core| core.changes).unwrap_or_default()
+    }
+
+    pub fn history_walks(&self) -> usize {
+        self.read(|core| core.history_walks).unwrap_or_default()
+    }
+
+    pub fn block_seq_base(&self) -> u64 {
+        self.block_seq_base
+    }
+
+    pub fn cols(&self) -> u16 {
+        self.read(|core| core.screen.cols())
+            .unwrap_or(self.target_cols)
+    }
+
+    pub fn rows(&self) -> u16 {
+        self.read(|core| core.screen.rows())
+            .unwrap_or(self.target_rows)
+    }
+
+    pub fn bracketed_paste(&self) -> bool {
+        !self.disposed
+            && self
+                .read(|core| core.screen.bracketed_paste())
+                .unwrap_or_default()
+    }
+
+    pub fn write(&mut self, data: &str) {
+        if self.disposed || data.is_empty() {
+            return;
+        }
+        let bytes = data.as_bytes().to_vec();
+        self.send(move |core| core.parse(&bytes));
+        if let Some(feed) = &self.feed {
+            feed.write(data);
+        }
+    }
+
+    pub fn resize(&mut self, cols: u16, rows: u16) {
+        if self.disposed || cols < 1 || rows < 1 {
+            return;
+        }
+        if cols == self.target_cols && rows == self.target_rows {
+            return;
+        }
+        self.target_cols = cols;
+        self.target_rows = rows;
+        if let Some(feed) = &self.feed {
+            feed.resize(cols, rows);
+        }
+        self.send(move |core| core.resize(cols, rows));
+    }
+
+    pub fn restore(&mut self, history: &str) {
+        if self.disposed || history.is_empty() {
+            return;
+        }
+        if let Some(feed) = &self.feed {
+            feed.restore(history);
+        }
+        let history = history.to_owned();
+        self.send(move |core| core.restore(&history));
+    }
+
+    pub fn pending_block_end(
+        &self,
+        seq: u64,
+    ) -> impl Future<Output = Option<BlockEnd>> + Send + use<> {
+        let pending = if self.disposed {
+            None
+        } else {
+            self.feed.as_ref().map(|feed| feed.pending_end(seq))
+        };
+        async move {
+            match pending {
+                Some(pending) => pending.await,
+                None => None,
+            }
+        }
+    }
+
+    pub fn history_tail(&self) -> impl Future<Output = Vec<String>> + Send + use<> {
+        let tail = if self.disposed {
+            None
+        } else {
+            self.feed.as_ref().map(HistoryFeed::tail)
+        };
+        async move {
+            match tail {
+                Some(tail) => tail.await,
+                None => Vec::new(),
+            }
+        }
+    }
+
+    pub fn serialize(&mut self) -> String {
+        if self.disposed {
+            return String::new();
+        }
+        self.read(Core::serialize).unwrap_or_default()
+    }
+
+    pub fn screen_text(&self, max_lines: usize) -> String {
+        if self.disposed {
+            return String::new();
+        }
+        self.read(move |core| core.screen_text(max_lines))
+            .unwrap_or_default()
+    }
+
+    pub fn dispose(&mut self) {
+        if self.disposed {
+            return;
+        }
+        self.disposed = true;
+        if let Some(feed) = &self.feed {
+            drop(feed.close());
+        }
+        self.send(Core::dispose);
     }
 }

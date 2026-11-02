@@ -252,6 +252,7 @@ fn listen() -> Scratch {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn connected_child(path: &std::path::Path) -> Option<Child> {
     Command::new("python3")
         .env_clear()
@@ -276,14 +277,25 @@ fn real_context(main_pid: i64) -> CallerContext {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn unavailable(what: &str) {
+    assert!(
+        std::env::var_os("CI").is_none(),
+        "{what} is missing on a CI runner"
+    );
+}
+
+#[cfg(target_os = "linux")]
 #[tokio::test]
 async fn mgr_c11_linux_only_proc_and_ss_judges_a_child_of_the_main_pid_as_inside_and_the_same_child_as_outside_for_another_main()
  {
     if list_unix_sockets().await.is_none() {
+        unavailable("ss");
         return;
     }
     let scratch = listen();
     let Some(mut child) = connected_child(&scratch.path) else {
+        unavailable("python3");
         return;
     };
     let (accepted, _) = scratch.listener.accept().unwrap();

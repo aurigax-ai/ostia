@@ -412,3 +412,39 @@ fn mgr_c41_mgr_c42_reveals_the_running_ostia_on_a_plain_second_launch_but_not_on
         "--hidden".to_owned()
     ]));
 }
+
+#[test]
+fn a_slow_badge_update_does_not_land_after_a_newer_one() {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let badges: Arc<Mutex<Vec<i64>>> = Arc::new(Mutex::new(Vec::new()));
+    let (entered, entered_rx) = mpsc::channel::<()>();
+    let entered = Mutex::new(entered);
+    let log = Arc::clone(&badges);
+    let tray = AppTray::new(TrayDeps {
+        icon_path: PathBuf::from("/icon.png"),
+        tooltip: "Ostia".to_owned(),
+        text: Arc::new(en),
+        windows: Arc::new(Vec::<Arc<dyn TrayWindow>>::new),
+        quit: Arc::new(|| {}),
+        set_badge_count: Arc::new(move |count| {
+            if count == 1 {
+                entered.lock().send(()).unwrap();
+                std::thread::sleep(Duration::from_millis(150));
+            }
+            log.lock().push(count);
+        }),
+        create_tray: Arc::new(|_: &Path, _: TraySpec| {
+            Box::new(FakeIcon(Arc::new(Mutex::new(IconState::default()))))
+        }),
+    });
+    let first = {
+        let tray = tray.clone();
+        std::thread::spawn(move || tray.set_unread(1))
+    };
+    entered_rx.recv().unwrap();
+    tray.set_unread(2);
+    first.join().unwrap();
+    assert_eq!(badges.lock().clone(), vec![1, 2]);
+}

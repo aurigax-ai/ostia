@@ -5367,6 +5367,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hmac 0.13.0",
+ "indexmap",
  "ostia-attention",
  "ostia-base",
  "ostia-contract",

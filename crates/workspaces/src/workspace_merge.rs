@@ -7,7 +7,9 @@ use serde_json::{Value, json};
 pub type OwnerWindowFn = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 pub type HasManagerFn = Arc<dyn Fn(&str) -> bool + Send + Sync>;
 pub type SandboxRefusalFn = Arc<dyn Fn(&str, &str) -> Option<SandboxMergeRefusal> + Send + Sync>;
-pub type MergeFn = Arc<dyn Fn(&str, &str) + Send + Sync>;
+pub type RecheckFn<'a> = &'a dyn Fn() -> WorkspaceMergeResult;
+pub type MergeFn =
+    Arc<dyn for<'a> Fn(&str, &str, RecheckFn<'a>) -> WorkspaceMergeResult + Send + Sync>;
 
 #[derive(Clone)]
 pub struct MergeChecks {
@@ -84,11 +86,9 @@ pub fn merge_workspaces(
     source_id: &Value,
     target_id: &Value,
 ) -> WorkspaceMergeResult {
-    let result = check_merge(&service.checks, window_id, source_id, target_id);
-    if result == WorkspaceMergeResult::Allowed
-        && let (Some(source), Some(target)) = (source_id.as_str(), target_id.as_str())
-    {
-        (service.merge)(source, target);
-    }
-    result
+    let (Some(source), Some(target)) = (source_id.as_str(), target_id.as_str()) else {
+        return WorkspaceMergeResult::Refused(WorkspaceMergeRefusal::NotOwned);
+    };
+    let recheck = || check_merge(&service.checks, window_id, source_id, target_id);
+    (service.merge)(source, target, &recheck)
 }

@@ -1,7 +1,7 @@
 use std::fs::DirBuilder;
 use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Once;
 
 use ostia_base::Error;
 use ostia_base::atomic_write::{AtomicWriteOptions, write_file_atomic};
@@ -63,14 +63,14 @@ fn into_io(err: Error) -> std::io::Error {
 }
 
 pub struct KeptPlumbing {
-    ready: AtomicBool,
+    ready: Once,
     options: KeptPlumbingOptions,
 }
 
 impl KeptPlumbing {
     pub fn new(options: KeptPlumbingOptions) -> Self {
         Self {
-            ready: AtomicBool::new(false),
+            ready: Once::new(),
             options,
         }
     }
@@ -82,16 +82,15 @@ impl KeptPlumbing {
     }
 
     pub fn ensure(&self) {
-        if self.ready.swap(true, Ordering::SeqCst) {
-            return;
-        }
-        let options = &self.options;
-        if let Err(err) =
-            write_kept_launchers(&options.launcher_dir, &options.exec_path, &options.app_path)
-        {
-            let code = err.raw_os_error().map(|_| errno_code(&err));
-            (options.warn)(code.as_deref());
-        }
-        (options.listen)();
+        self.ready.call_once(|| {
+            let options = &self.options;
+            if let Err(err) =
+                write_kept_launchers(&options.launcher_dir, &options.exec_path, &options.app_path)
+            {
+                let code = err.raw_os_error().map(|_| errno_code(&err));
+                (options.warn)(code.as_deref());
+            }
+            (options.listen)();
+        });
     }
 }

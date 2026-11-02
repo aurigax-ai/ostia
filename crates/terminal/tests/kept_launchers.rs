@@ -201,3 +201,38 @@ fn does_not_retry_the_write_after_a_failure() {
     assert_eq!(f.warned.lock().unwrap().len(), 1);
     assert_eq!(f.listened.load(Ordering::SeqCst), 1);
 }
+
+#[test]
+fn a_second_ensure_waits_until_the_first_has_written_and_listened() {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let f = fixture();
+    let exec = f.fake_exec("exec");
+    let paths = kept_launcher_paths(&f.launcher_dir);
+    let listened = Arc::clone(&f.listened);
+    let (started, started_rx) = mpsc::channel::<()>();
+    let started = Mutex::new(started);
+    let plumbing = Arc::new(KeptPlumbing::new(KeptPlumbingOptions {
+        launcher_dir: f.launcher_dir.clone(),
+        exec_path: exec,
+        app_path: f.app(),
+        listen: Box::new(move || {
+            started.lock().unwrap().send(()).unwrap();
+            std::thread::sleep(Duration::from_millis(200));
+            listened.fetch_add(1, Ordering::SeqCst);
+        }),
+        warn: Box::new(|_| {}),
+    }));
+    let first = {
+        let plumbing = Arc::clone(&plumbing);
+        std::thread::spawn(move || plumbing.ensure())
+    };
+    started_rx.recv().unwrap();
+    plumbing.ensure();
+    assert_eq!(f.listened.load(Ordering::SeqCst), 1);
+    assert!(paths.node.exists());
+    assert!(paths.cli.exists());
+    first.join().unwrap();
+    assert_eq!(f.listened.load(Ordering::SeqCst), 1);
+}

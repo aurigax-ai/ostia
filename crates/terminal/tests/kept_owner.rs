@@ -11,11 +11,17 @@ use tempfile::TempDir;
 
 #[test]
 fn names_this_process_and_the_time_it_started() {
+    let before = now_ms();
     let owner = current_owner();
+    let after = now_ms();
     assert_eq!(owner.pid, i64::from(std::process::id()));
-    let now = now_ms();
-    assert!(owner.started_at <= now);
-    assert!(now - owner.started_at < 600_000);
+    assert!(
+        owner.started_at >= before,
+        "{} < {before}",
+        owner.started_at
+    );
+    assert!(owner.started_at <= after, "{} > {after}", owner.started_at);
+    assert_eq!(current_owner(), owner);
 }
 
 #[test]

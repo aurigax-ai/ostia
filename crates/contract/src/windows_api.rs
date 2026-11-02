@@ -16,13 +16,17 @@ pub struct RunningGroup {
     pub workspace_id: String,
     pub workspace: String,
     pub commands: Vec<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub agents: Vec<String>,
     pub files: Vec<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub scratch_files: usize,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub unanswered: bool,
+}
+
+fn is_zero(count: &usize) -> bool {
+    *count == 0
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]

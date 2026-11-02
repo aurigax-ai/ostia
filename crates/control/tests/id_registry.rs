@@ -495,3 +495,28 @@ fn debug_output_hides_the_token() {
     let id = registry.register_pane(input("w", "s", "p-debug"));
     assert!(!format!("{id:?}").contains(&id.token));
 }
+
+#[test]
+fn lists_panes_and_finds_a_workspace_window_in_registration_order() {
+    let registry = registry();
+    let ids: Vec<String> = (0..40).map(|index| format!("p-order-{index}")).collect();
+    for (index, id) in ids.iter().enumerate() {
+        let window = if index == 0 { "w-first" } else { "w-later" };
+        registry.register_pane(input(window, "s-order", id));
+    }
+    let listed: Vec<String> = registry
+        .pane_identities()
+        .iter()
+        .map(|identity| identity.pane_id.to_string())
+        .collect();
+    assert_eq!(listed, ids);
+    assert_eq!(
+        registry.window_of_workspace(&WorkspaceId::new("s-order")),
+        Some(WindowId::new("w-first"))
+    );
+    registry.remove_pane(&pane("p-order-0"));
+    assert_eq!(
+        registry.window_of_workspace(&WorkspaceId::new("s-order")),
+        Some(WindowId::new("w-later"))
+    );
+}

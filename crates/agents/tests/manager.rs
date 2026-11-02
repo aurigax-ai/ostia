@@ -389,3 +389,77 @@ async fn fails_when_the_pane_cannot_be_marked() {
     assert!(error_of(rig.svc.open(req("pi", &[])).await).starts_with("spawn-failed"));
     assert_eq!(rig.svc.live(), None);
 }
+
+#[tokio::test]
+async fn an_agent_that_exits_before_spawn_returns_leaves_no_manager() {
+    let saved = Arc::new(Mutex::new(Some(SavedManagerResume {
+        agent: "claude".to_owned(),
+        resume: claude_resume("old"),
+    })));
+    let svc = ManagerService::new(ManagerDeps {
+        load_resume: Box::new(|| Value::Null),
+        save_resume: {
+            let saved = Arc::clone(&saved);
+            Box::new(move |value| *saved.lock().unwrap() = value)
+        },
+        agents: Box::new(presets),
+        create_pane: Box::new(|_| async { Some("p1".to_owned()) }.boxed()),
+        adopt: Box::new(|_| true),
+        spawn: Box::new(|request| {
+            (request.on_exit)();
+            true
+        }),
+    });
+    svc.open(req("claude", &[])).await.unwrap();
+    assert_eq!(svc.live(), None);
+    assert_eq!(*saved.lock().unwrap(), None);
+}
+
+#[tokio::test]
+async fn a_failed_spawn_leaves_no_manager() {
+    let svc = ManagerService::new(ManagerDeps {
+        load_resume: Box::new(|| Value::Null),
+        save_resume: Box::new(|_| {}),
+        agents: Box::new(presets),
+        create_pane: Box::new(|_| async { Some("p1".to_owned()) }.boxed()),
+        adopt: Box::new(|_| true),
+        spawn: Box::new(|_| false),
+    });
+    let message = error_of(svc.open(req("claude", &[])).await);
+    assert!(message.starts_with("spawn-failed"), "{message}");
+    assert_eq!(svc.live(), None);
+    assert!(!svc.is_manager_pane("p1"));
+}
+
+#[tokio::test]
+async fn the_manager_is_current_while_spawn_runs() {
+    let seen = Arc::new(Mutex::new(None));
+    let slot: Arc<Mutex<Option<ManagerService>>> = Arc::new(Mutex::new(None));
+    let svc = ManagerService::new(ManagerDeps {
+        load_resume: Box::new(|| Value::Null),
+        save_resume: Box::new(|_| {}),
+        agents: Box::new(presets),
+        create_pane: Box::new(|_| async { Some("p1".to_owned()) }.boxed()),
+        adopt: Box::new(|_| true),
+        spawn: {
+            let seen = Arc::clone(&seen);
+            let slot = Arc::clone(&slot);
+            Box::new(move |_| {
+                *seen.lock().unwrap() = slot.lock().unwrap().as_ref().unwrap().live();
+                true
+            })
+        },
+    });
+    *slot.lock().unwrap() = Some(svc.clone());
+    svc.open(req("claude", &[])).await.unwrap();
+    assert_eq!(seen.lock().unwrap().as_ref().unwrap().pane_id, "p1");
+}
+
+#[tokio::test]
+async fn remember_resume_after_the_exit_saves_nothing() {
+    let rig = service(Value::Null);
+    rig.svc.open(req("claude", &[])).await.unwrap();
+    rig.exit(0);
+    rig.svc.remember_resume(claude_resume("late"));
+    assert_eq!(*rig.saved.lock().unwrap(), None);
+}
