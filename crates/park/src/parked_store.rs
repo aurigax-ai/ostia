@@ -14,7 +14,7 @@ use serde::Serialize;
 use serde_json::{Number, Value, json};
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::model::{PARK_SUMMARY_MAX, PARKED_PER_WORKSPACE_MAX, single_line};
+use crate::park::{PARK_SUMMARY_MAX, PARKED_PER_WORKSPACE_MAX, single_line};
 
 const BASE32: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
 const TITLE_MAX: usize = 200;

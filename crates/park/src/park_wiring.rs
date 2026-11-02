@@ -7,7 +7,7 @@ use ostia_control::{Callers, ControlMethod, DuplicateMethod, MethodContext, Meth
 use ostia_rpc::RpcError;
 use serde_json::{Map, Value, json};
 
-use crate::store::{ParkedRecord, ParkedStore};
+use crate::parked_store::{ParkedRecord, ParkedStore};
 
 pub type FromActivity = Arc<dyn Fn(&MethodContext) -> bool + Send + Sync>;
 
