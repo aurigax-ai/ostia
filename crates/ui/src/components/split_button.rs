@@ -1,6 +1,5 @@
 use std::rc::Rc;
 
-use gpui_kit::Corner;
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenu};
 use gpui_kit::prelude::*;
 use gpui_kit::{
@@ -12,7 +11,7 @@ use super::button::{
     variant_colors,
 };
 use crate::icons::{IconName, IconSize, icon};
-use crate::tokens::{TextStep, UiText};
+use crate::tokens::UiText;
 
 type MenuBuilder = Rc<dyn Fn(PopupMenu, &mut Window, &mut Context<PopupMenu>) -> PopupMenu>;
 
@@ -97,7 +96,7 @@ impl RenderOnce for SplitButton {
             IconSize::Standard,
             colors.foreground,
         ))
-        .dropdown_menu_with_anchor(Corner::TopRight, move |popup, window, cx| {
+        .dropdown_menu_with_anchor(Anchor::TopRight, move |popup, window, cx| {
             menu(popup, window, cx)
         });
         div()

@@ -91,7 +91,7 @@ impl RenderOnce for ControlRow {
                     .flex_col()
                     .gap(px(TEXT_GAP))
                     .min_w_0()
-                    .flex_grow()
+                    .flex_grow(1.)
                     .flex_basis(px(LABEL_BASIS))
                     .child(label_line)
                     .when_some(self.desc, |text, desc| {

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use gpui_kit::component::Disableable as _;
-use gpui_kit::component::button::{ButtonRounded, ButtonVariants as _};
+use gpui_kit::component::button::ButtonRounded;
 use gpui_kit::prelude::*;
 use gpui_kit::{
     App, ClickEvent, ElementId, IntoElement, Pixels, RenderOnce, SharedString, Window, px,

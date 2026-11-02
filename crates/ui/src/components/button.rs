@@ -6,8 +6,8 @@ use gpui_kit::component::button::{
 };
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    AnyElement, App, ClickEvent, Corners, Edges, ElementId, Hsla, IntoElement, Pixels, RenderOnce,
-    SharedString, Window, div, px, transparent_black,
+    AnyElement, App, ClickEvent, ElementId, Hsla, IntoElement, Pixels, RenderOnce, SharedString,
+    Window, div, px, transparent_black,
 };
 
 use crate::icons::{IconName, IconSize, icon};
@@ -161,20 +161,16 @@ pub(crate) fn segment_corners(
     last: bool,
     radius: Pixels,
 ) -> KitButton {
+    let mut button = button.rounded(ButtonRounded::None);
+    if first {
+        button = button.rounded_tl(radius).rounded_bl(radius);
+    } else {
+        button = button.border_l_0();
+    }
+    if last {
+        button = button.rounded_tr(radius).rounded_br(radius);
+    }
     button
-        .rounded(ButtonRounded::Size(radius))
-        .border_corners(Corners {
-            top_left: first,
-            top_right: last,
-            bottom_left: first,
-            bottom_right: last,
-        })
-        .border_edges(Edges {
-            left: first,
-            top: true,
-            right: true,
-            bottom: true,
-        })
 }
 
 #[derive(IntoElement)]
