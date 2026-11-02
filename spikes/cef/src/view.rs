@@ -127,10 +127,28 @@ impl BrowserView {
         for index in 0..self.settings.pages {
             let geometry = new_geometry(width.max(640), height.max(480), 1.0);
             let slot: SharedSlot = Default::default();
-            let context_dir = format!("{}/ctx-{}", self.settings.profile_dir, index);
-            match open_page(&self.settings.url, &context_dir, geometry, slot) {
-                Some(page) => self.pages.push(page),
-                None => eprintln!("SPIKE page-{index}-create-failed"),
+            let variants = [(true, true), (false, true), (false, false), (true, false)];
+            let mut opened = None;
+            for (with_context, alloy) in variants {
+                let dir = format!("{}/ctx-{}", self.settings.profile_dir, index);
+                let page = open_page(
+                    &self.settings.url,
+                    with_context.then_some(dir.as_str()),
+                    alloy,
+                    geometry.clone(),
+                    slot.clone(),
+                );
+                eprintln!(
+                    "SPIKE variant context={with_context} alloy={alloy} ok={}",
+                    page.is_some()
+                );
+                if page.is_some() {
+                    opened = page;
+                    break;
+                }
+            }
+            if let Some(page) = opened {
+                self.pages.push(page);
             }
         }
         cx.notify();

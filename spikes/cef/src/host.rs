@@ -213,18 +213,24 @@ pub fn open_page(
 ) -> Option<Page> {
     let window_info = WindowInfo {
         windowless_rendering_enabled: true as _,
-        runtime_style: RuntimeStyle::ALLOY,
+        runtime_style: if alloy {
+            RuntimeStyle::ALLOY
+        } else {
+            RuntimeStyle::DEFAULT
+        },
         ..Default::default()
     };
     let browser_settings = BrowserSettings {
         windowless_frame_rate: 60,
         ..Default::default()
     };
-    let context_settings = RequestContextSettings {
-        cache_path: context_dir.into(),
-        ..Default::default()
-    };
-    let mut context = request_context_create_context(Some(&context_settings), None);
+    let mut context = context_dir.and_then(|dir| {
+        let context_settings = RequestContextSettings {
+            cache_path: dir.into(),
+            ..Default::default()
+        };
+        request_context_create_context(Some(&context_settings), None)
+    });
     eprintln!("SPIKE request-context-created={}", context.is_some());
     let mut client = SpikeClient::new(
         SpikeRenderHandler::new(RenderState {
