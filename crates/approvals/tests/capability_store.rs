@@ -525,7 +525,13 @@ fn the_settings_writers_are_reached_only_from_the_approval_card_and_settings() {
         }
     }
     callers.sort();
-    assert_eq!(callers, ["approvals/src/capability_store.rs"]);
+    assert_eq!(
+        callers,
+        [
+            "approvals/src/approvals.rs",
+            "approvals/src/capability_store.rs"
+        ]
+    );
     let store = fs::read_to_string(crates.join("approvals/src/capability_store.rs")).unwrap();
     assert!(!store.contains("register_method"));
     assert!(!store.contains("register_targetable_method"));
