@@ -79,7 +79,7 @@ fn keeps_the_constant_limits_names_and_defaults_of_the_ts_module() {
             strict_domains: false,
         }
     );
-    assert!(!DEFAULT_CONTROLS.all_workspaces);
+    assert_eq!(DEFAULT_CONTROLS.all_workspaces, bool::default());
     assert_eq!(DEFAULT_CONTROLS.browser, BrowserControl::Allowlist);
     assert_eq!(
         PACKAGE_DEFAULTS,
