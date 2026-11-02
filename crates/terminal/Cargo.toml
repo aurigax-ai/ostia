@@ -13,6 +13,7 @@ flate2.workspace = true
 hex.workspace = true
 libc.workspace = true
 libghostty-vt.workspace = true
+ostia-agents.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-sandbox.workspace = true

@@ -27,6 +27,16 @@ pub enum AgentHookEvent {
 }
 
 impl AgentHookEvent {
+    pub const ALL: [Self; 7] = [
+        Self::SessionStart,
+        Self::UserPromptSubmit,
+        Self::PreToolUse,
+        Self::PostToolUse,
+        Self::Stop,
+        Self::SessionEnd,
+        Self::Notification,
+    ];
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::SessionStart => "SessionStart",
