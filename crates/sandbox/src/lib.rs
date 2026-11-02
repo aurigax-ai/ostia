@@ -3,6 +3,7 @@ pub mod package_lookups;
 pub mod package_policy;
 pub mod package_requests;
 pub mod packages;
+pub mod visibility;
 
 use std::collections::HashSet;
 use std::sync::Arc;
