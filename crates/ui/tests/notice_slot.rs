@@ -8,8 +8,8 @@ use std::time::Duration;
 use gpui_kit::prelude::*;
 use gpui_kit::test::TestWindowExt as _;
 use gpui_kit::{
-    AnyWindowHandle, Context, Entity, IntoElement, Render, TestAppContext, Window, WindowOptions,
-    div,
+    AnyWindowHandle, Context, Entity, IntoElement, Render, TestAppContext, TestSupportExt as _,
+    Window, WindowOptions, div,
 };
 use ostia_ui::components::{NoticeBuilder, NoticeSlot};
 use ostia_ui::tokens::MOTION_BASE_EXIT;
