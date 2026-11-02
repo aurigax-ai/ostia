@@ -22,7 +22,7 @@ pub struct SocketHolder {
 
 pub type Owners = BTreeMap<u16, Option<String>>;
 
-fn split_fields(line: &str) -> Vec<&str> {
+pub(crate) fn split_fields(line: &str) -> Vec<&str> {
     js_trim(line)
         .split(is_js_space)
         .filter(|field| !field.is_empty())
