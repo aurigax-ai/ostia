@@ -5408,7 +5408,17 @@ dependencies = [
 name = "ostia-extensions"
 version = "0.0.0"
 dependencies = [
+ "ostia-base",
+ "ostia-contract",
  "ostia-control",
+ "parking_lot",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -5467,6 +5477,7 @@ dependencies = [
  "ostia-base",
  "ostia-contract",
  "parking_lot",
+ "regex",
  "serde",
  "serde_json",
  "tokio",
@@ -5598,6 +5609,7 @@ dependencies = [
  "libghostty-vt",
  "ostia-base",
  "ostia-contract",
+ "ostia-sandbox",
  "ostia-testkit",
  "parking_lot",
  "regex",
