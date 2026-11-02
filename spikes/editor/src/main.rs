@@ -13,9 +13,10 @@ struct SideBySide {
 impl Render for SideBySide {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let offset = self.left.read(cx).scroll_offset();
-        if self.right.read(cx).scroll_offset() != offset {
-            self.right
-                .update(cx, |state, cx| state.set_scroll_offset(offset, cx));
+        if let Some(right) = &self.right
+            && right.read(cx).scroll_offset() != offset
+        {
+            right.update(cx, |state, cx| state.set_scroll_offset(offset, cx));
         }
         div()
             .flex()
@@ -26,11 +27,10 @@ impl Render for SideBySide {
                     .h_full()
                     .child(Editor::new(&self.left).h_full()),
             )
-            .child(
-                div()
-                    .flex_1()
-                    .h_full()
-                    .child(Editor::new(&self.right).h_full()),
+            .children(
+                self.right
+                    .as_ref()
+                    .map(|right| div().flex_1().h_full().child(Editor::new(right).h_full())),
             )
     }
 }
