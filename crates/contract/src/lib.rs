@@ -5,6 +5,8 @@ pub mod archive_paths;
 pub mod capabilities;
 pub mod commands;
 pub mod extensions;
+pub mod file_browse;
+pub mod files_api;
 pub mod hidden_text;
 pub mod open_files;
 pub mod reach;
