@@ -22,6 +22,8 @@ pub mod file_links;
 pub mod finished_hibernate;
 pub mod git;
 pub mod global_hotkey;
+pub mod file_browse;
+pub mod files_api;
 pub mod hidden_text;
 pub mod hook_payload;
 pub mod incident;
