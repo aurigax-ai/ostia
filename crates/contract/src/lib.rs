@@ -1,7 +1,9 @@
 pub mod agent_launch;
 pub mod agent_resume;
 pub mod capabilities;
+pub mod commands;
 pub mod hidden_text;
+pub mod open_files;
 pub mod terminal_state;
 
 pub const TARGET_PANE_PARAM: &str = "targetPaneId";
