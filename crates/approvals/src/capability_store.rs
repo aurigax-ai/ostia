@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use ostia_base::ExternalId;
@@ -15,7 +15,7 @@ use crate::reach::{ReachMode, parse_reach_mode};
 
 const ALWAYS_ASK: [Capability; 2] = [Capability::Destructive, Capability::Credentials];
 
-fn read_settings(path: &std::path::Path) -> Option<Value> {
+fn read_settings(path: &Path) -> Option<Value> {
     load_json(path)
 }
 
@@ -104,6 +104,9 @@ impl State {
     }
 
     fn write_capabilities(&self, change: impl FnOnce(&mut Map<String, Value>)) -> bool {
+        if !self.settings_path.parent().is_some_and(Path::is_dir) {
+            return false;
+        }
         let mut settings = if self.settings_path.exists() {
             match load_json(&self.settings_path) {
                 Some(Value::Object(map)) => map,
