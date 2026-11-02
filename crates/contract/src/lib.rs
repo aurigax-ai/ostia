@@ -41,6 +41,7 @@ pub mod scrollback_history;
 pub mod scrollbar;
 pub mod shell_quote;
 pub mod terminal_replies;
+pub mod sync_kinds;
 pub mod terminal_state;
 pub mod turn_hook;
 pub mod utf16_prefix;
