@@ -20,6 +20,7 @@ export { scrollbackToSave } from './src/main/workspaces/savedScrollback'
 export { USAGE_TABLE } from './src/cli/common/usageTable'
 export * as bus from './src/main/agents/busStore'
 export { encodeViewerSelection } from './packages/extension-sdk/src/contract/viewerSelection'
+export { createHeadlessTerminal } from './src/shared/terminal/ghosttyHeadless'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -29,6 +30,7 @@ await build({
   platform: 'node',
   format: 'cjs',
   outfile: bundle,
+  loader: { '.wasm': 'binary' },
   logLevel: 'error',
 })
 const {
@@ -46,6 +48,7 @@ const {
   USAGE_TABLE,
   bus,
   encodeViewerSelection,
+  createHeadlessTerminal,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -396,4 +399,77 @@ writeFileSync(
   join(out, 'viewer-selection-body.json'),
   `${JSON.stringify({ meta: SELECTION_META, png: [...SELECTION_PNG], withPng: toHex(withPng), withoutPng: toHex(withoutPng) }, null, 2)}\n`,
 )
+const ESC = '\u001b'
+const numbered = (from, count) =>
+  Array.from({ length: count }, (_, i) => `out ${from + i}\r\n`).join('')
+const SERIALIZE_CASES = [
+  { name: 'default rows', cols: 80, rows: 24, input: 'one\r\ntwo\r\nthree\r\n', from: 0, to: 2 },
+  { name: 'default last row', cols: 80, rows: 24, input: 'one\r\ntwo', from: 0, to: 1 },
+  {
+    name: 'styled last row left open',
+    cols: 80,
+    rows: 24,
+    input: `plain\r\n${ESC}[31mred${ESC}[0m end${ESC}[44m tail`,
+    from: 0,
+    to: 1,
+  },
+  {
+    name: 'styled last row closed',
+    cols: 80,
+    rows: 24,
+    input: `plain\r\n${ESC}[1;32mbold green${ESC}[0m`,
+    from: 0,
+    to: 1,
+  },
+  {
+    name: 'styled middle rows',
+    cols: 80,
+    rows: 24,
+    input: `${ESC}[3mitalic${ESC}[0m\r\n${ESC}[38;2;10;20;30mrgb${ESC}[0m\r\nplain\r\n`,
+    from: 0,
+    to: 2,
+  },
+  { name: 'wide characters', cols: 80, rows: 24, input: '漢字 🙂 café\r\nx\r\n', from: 0, to: 1 },
+  {
+    name: 'coloured blank run',
+    cols: 20,
+    rows: 24,
+    input: `plain   \r\n${ESC}[44mfill${ESC}[K${ESC}[0m\r\nlast`,
+    from: 0,
+    to: 2,
+  },
+  {
+    name: 'soft wrap',
+    cols: 20,
+    rows: 24,
+    input: `${ESC}[31mred${ESC}[0m ${'w'.repeat(50)}\r\nend\r\n`,
+    from: 0,
+    to: 3,
+  },
+  { name: 'blank rows between lines', cols: 80, rows: 24, input: 'a\r\n\r\n\r\nb\r\n', from: 0, to: 3 },
+  {
+    name: 'alternate screen',
+    cols: 80,
+    rows: 24,
+    input: `main\r\n${ESC}[?1049hALT\r\nmore`,
+    from: 0,
+    to: 1,
+  },
+  {
+    name: 'scrollback rows',
+    cols: 10,
+    rows: 5,
+    input: numbered(0, 30),
+    from: 0,
+    to: 29,
+  },
+]
+const serializeFixtures = SERIALIZE_CASES.map((c) => {
+  const term = createHeadlessTerminal({ cols: c.cols, rows: c.rows, scrollback: 2000 })
+  term.write(c.input)
+  const lines = term.serialize({ from: c.from, to: c.to })
+  term.dispose()
+  return { ...c, lines }
+})
+writeFileSync(join(out, 'ghostty-serialize.json'), `${JSON.stringify(serializeFixtures, null, 2)}\n`)
 rmSync(work, { recursive: true, force: true })
