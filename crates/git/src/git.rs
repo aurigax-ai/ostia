@@ -42,10 +42,10 @@ pub enum ChangeArea {
 #[serde(rename_all = "camelCase")]
 pub struct FileChange {
     pub path: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub orig_path: Option<String>,
     pub area: ChangeArea,
     pub code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub orig_path: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]

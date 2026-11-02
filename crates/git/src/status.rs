@@ -78,7 +78,7 @@ pub fn parse_porcelain_v2(output: &str) -> RepoStatus {
             continue;
         }
         match record.chars().next() {
-            Some('#') => apply_header(&mut branch, record.get(2..).unwrap_or_default()),
+            Some('#') => apply_header(&mut branch, utf16_suffix(record, 2)),
             Some('1') => {
                 if let Some(f) = split_fields(record, 9) {
                     changes.extend(tracked(f[1], f[8], None));
@@ -102,7 +102,7 @@ pub fn parse_porcelain_v2(output: &str) -> RepoStatus {
                 }
             }
             Some('?') => changes.push(FileChange {
-                path: record.get(2..).unwrap_or_default().to_owned(),
+                path: utf16_suffix(record, 2).to_owned(),
                 orig_path: None,
                 area: ChangeArea::Untracked,
                 code: "?".to_owned(),
@@ -144,25 +144,37 @@ fn non_empty(text: Option<&str>) -> Option<&str> {
     text.filter(|value| !value.is_empty())
 }
 
+fn utf16_prefix(text: &str, units: usize) -> &str {
+    let mut count = 0;
+    for (index, ch) in text.char_indices() {
+        if count + ch.len_utf16() > units {
+            return &text[..index];
+        }
+        count += ch.len_utf16();
+    }
+    text
+}
+
+fn utf16_suffix(text: &str, skip: usize) -> &str {
+    let mut count = 0;
+    for (index, ch) in text.char_indices() {
+        if count >= skip {
+            return &text[index..];
+        }
+        count += ch.len_utf16();
+    }
+    ""
+}
+
 fn short_sha(oid: &str) -> &str {
-    oid.get(..7).unwrap_or(oid)
+    utf16_prefix(oid, 7)
 }
 
 fn clipped(name: &str, max: usize) -> String {
     if utf16_len(name) <= max {
         return name.to_owned();
     }
-    let mut units = 0;
-    let mut kept = String::new();
-    for ch in name.chars() {
-        let width = ch.len_utf16();
-        if units + width > max - 1 {
-            break;
-        }
-        units += width;
-        kept.push(ch);
-    }
-    format!("{kept}…")
+    format!("{}…", utf16_prefix(name, max - 1))
 }
 
 pub fn branch_label(branch: &BranchInfo) -> String {
