@@ -11,6 +11,7 @@ pub mod owner_thread;
 pub mod path_guard;
 pub mod private_tmp;
 pub mod process;
+pub mod procfs;
 pub mod random;
 pub mod regular_file;
 
