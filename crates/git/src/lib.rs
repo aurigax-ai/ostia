@@ -4,4 +4,5 @@ pub mod history;
 pub mod scope;
 pub mod status;
 pub mod text;
+pub mod view_state;
 pub mod workspace_cwds;
