@@ -453,6 +453,8 @@ dependencies = [
 name = "ostia-git"
 version = "0.0.0"
 dependencies = [
+ "ostia-base",
+ "regex",
  "serde",
 ]
 
@@ -490,6 +492,9 @@ dependencies = [
 name = "ostia-ports"
 version = "0.0.0"
 dependencies = [
+ "ostia-base",
+ "ostia-testkit",
+ "regex",
  "serde",
 ]
 
