@@ -16,6 +16,7 @@ globset.workspace = true
 icu_collator.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
+ostia-terminal.workspace = true
 ostia-workspaces.workspace = true
 parking_lot.workspace = true
 regex.workspace = true
