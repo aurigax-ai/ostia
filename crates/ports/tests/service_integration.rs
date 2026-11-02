@@ -99,7 +99,7 @@ async fn listening_ports_show_as_a_plug_in_the_top_bar_that_opens_the_browser_pa
 
     let exe = std::env::current_exe().unwrap();
     let process_name = exe.file_name().unwrap().to_string_lossy().into_owned();
-    let argument = format!("--secret={}", uuid::Uuid::new_v4());
+    let argument = format!("secret-{}", uuid::Uuid::new_v4());
     let mut shell = Command::new("sh")
         .arg("-c")
         .arg(format!(
