@@ -9,6 +9,7 @@ use parking_lot::Mutex;
 use tokio::sync::oneshot;
 
 type Ended = Arc<Mutex<Vec<(String, Vec<String>)>>>;
+type Cause = (&'static str, fn(&OpenWaits));
 
 fn request() -> WaitRequest {
     WaitRequest {
@@ -52,7 +53,7 @@ async fn ends_with_closed_only_when_the_last_waited_tab_is_closed() {
 
 #[tokio::test(start_paused = true)]
 async fn ends_with_gone_and_leaves_nothing_behind_when_the_cause_happens() {
-    let causes: [(&str, fn(&OpenWaits)); 6] = [
+    let causes: [Cause; 6] = [
         ("a waited tab moved out of reach", |w| w.pane_moved("a")),
         ("the caller’s pane moved", |w| w.pane_moved("term")),
         ("the workspace closed", |w| w.workspace_closed("w1")),
