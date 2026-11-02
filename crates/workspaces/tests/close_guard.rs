@@ -5,10 +5,10 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use ostia_contract::windows_api::{QuitAnswer, RunningGroup};
 use ostia_workspaces::close_guard::{
-    CloseGuard, PaneProcess, QuitAnswer, QuitCheck, RunningGroup, Window, WorkspaceName,
-    confirm_quit, freeze_all, groups_from_ptys, parse_quit_answer, parse_running_groups,
-    with_scratch_files,
+    CloseGuard, PaneProcess, QuitCheck, Window, WorkspaceName, confirm_quit, freeze_all,
+    groups_from_ptys, parse_quit_answer, parse_running_groups, with_scratch_files,
 };
 use serde_json::{Value, json};
 
@@ -191,7 +191,7 @@ fn group(
         commands: strings(commands),
         agents: strings(agents),
         files: strings(files),
-        scratch_files: None,
+        scratch_files: 0,
         unanswered: false,
     }
 }
@@ -832,7 +832,7 @@ mod scratch_files_in_a_group {
         let counts: BTreeMap<&str, usize> = BTreeMap::from([("w1", 2), ("w2", 0)]);
         let kept = with_scratch_files(&groups, |id| counts.get(id).copied().unwrap_or(0));
         let mut scratch = group("w1", "Scratch", &[], &[], &[]);
-        scratch.scratch_files = Some(2);
+        scratch.scratch_files = 2;
         assert_eq!(
             kept,
             vec![
@@ -860,4 +860,85 @@ async fn freezes_every_window_that_is_not_destroyed_and_sends_no_request_id() {
     assert_eq!(live.channels(), vec!["window:freeze".to_owned()]);
     assert!(live.sent.lock().unwrap()[0].1.is_empty());
     assert!(gone.channels().is_empty());
+}
+
+struct DiesAfterFirstCheck {
+    checks: AtomicUsize,
+    sent: AtomicUsize,
+}
+
+impl Window for DiesAfterFirstCheck {
+    fn id(&self) -> u64 {
+        9
+    }
+
+    fn is_destroyed(&self) -> bool {
+        self.checks.fetch_add(1, Ordering::SeqCst) >= 1
+    }
+
+    fn is_loading(&self) -> bool {
+        false
+    }
+
+    fn is_crashed(&self) -> bool {
+        false
+    }
+
+    fn is_minimized(&self) -> bool {
+        false
+    }
+
+    fn restore(&self) {}
+
+    fn focus(&self) {}
+
+    fn send(&self, _channel: &str, _args: &[Value]) {
+        self.sent.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+#[tokio::test]
+async fn a_window_that_dies_while_the_request_registers_settles_as_gone() {
+    let guard = CloseGuard::new();
+    let window = Arc::new(DiesAfterFirstCheck {
+        checks: AtomicUsize::new(0),
+        sent: AtomicUsize::new(0),
+    });
+    let reply = tokio::time::timeout(
+        Duration::from_secs(1),
+        guard.ask(
+            window.clone(),
+            "window:confirm-close",
+            json!({}),
+            json!("gone"),
+            None,
+            None,
+        ),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reply, json!("gone"));
+    assert_eq!(window.sent.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn groups_from_the_close_guard_are_the_contract_groups_and_serialize_like_the_ts_shape() {
+    fn contract_groups(groups: Vec<ostia_contract::windows_api::RunningGroup>) -> Vec<Value> {
+        groups
+            .iter()
+            .map(|group| serde_json::to_value(group).unwrap())
+            .collect()
+    }
+    let parsed = parse_running_groups(&json!([
+        {"workspaceId": "w1", "workspace": "api", "commands": ["sleep 1"], "files": []}
+    ]));
+    assert_eq!(
+        contract_groups(parsed),
+        vec![
+            json!({"workspaceId": "w1", "workspace": "api", "commands": ["sleep 1"], "files": []})
+        ]
+    );
+    let mut counted = group("w2", "scratch", &[], &[], &[]);
+    counted.scratch_files = 3;
+    assert_eq!(contract_groups(vec![counted])[0]["scratchFiles"], json!(3));
 }

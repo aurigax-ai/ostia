@@ -6,6 +6,7 @@ import { build } from 'esbuild'
 
 const root = process.cwd()
 const out = join(root, 'test/fixtures/rust')
+const contractData = join(root, 'crates/contract/data')
 const work = mkdtempSync(join(tmpdir(), 'rust-fixtures-'))
 
 const ENTRY = `
@@ -642,6 +643,8 @@ saveJson(join(out, 'install-replace-pending.json'), {
 saveJson(join(out, 'install-replace-swept.json'), null)
 saveJson(join(out, 'dict-en.json'), en)
 saveJson(join(out, 'dict-zh-hant.json'), zhHant)
+saveJson(join(contractData, 'dict_en.json'), en)
+saveJson(join(contractData, 'dict_zh_hant.json'), zhHant)
 saveJson(join(out, 'dict-en-merged.json'), mergeCatalog({}))
 saveJson(join(out, 'dict-zh-hant-merged.json'), mergeCatalog(zhHant))
 saveJson(join(out, 'release-check-dismissed.json'), { dismissedVersion: '0.3.0' })

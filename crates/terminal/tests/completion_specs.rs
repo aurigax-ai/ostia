@@ -177,3 +177,45 @@ fn accepts_names_with_dots_plus_and_dashes_and_a_length_of_64() {
         assert_eq!(description(name, &user).as_deref(), Some(name), "{name}");
     }
 }
+
+fn set_mtime(path: &std::path::Path, time: std::time::SystemTime) {
+    fs::OpenOptions::new()
+        .write(true)
+        .open(path)
+        .unwrap()
+        .set_modified(time)
+        .unwrap();
+}
+
+#[test]
+fn keeps_a_broken_file_cached_as_nothing_until_its_size_or_time_changes() {
+    let d = dirs();
+    let user = [d.user.clone()];
+    let file = d.user.join("tool.json");
+    let valid = spec("fixed");
+    fs::write(&file, format!("X{}", &valid[1..])).unwrap();
+    let stamp = fs::metadata(&file).unwrap().modified().unwrap();
+    assert_eq!(description("tool", &user), None);
+
+    fs::write(&file, &valid).unwrap();
+    set_mtime(&file, stamp);
+    assert_eq!(description("tool", &user), None);
+
+    set_mtime(&file, stamp + std::time::Duration::from_secs(5));
+    assert_eq!(description("tool", &user).as_deref(), Some("fixed"));
+}
+
+#[test]
+fn keeps_a_good_spec_cached_while_the_file_stats_the_same() {
+    let d = dirs();
+    let user = [d.user.clone()];
+    let file = d.user.join("tool.json");
+    let first = spec("alpha");
+    fs::write(&file, &first).unwrap();
+    let stamp = fs::metadata(&file).unwrap().modified().unwrap();
+    assert_eq!(description("tool", &user).as_deref(), Some("alpha"));
+
+    fs::write(&file, spec("omega")).unwrap();
+    set_mtime(&file, stamp);
+    assert_eq!(description("tool", &user).as_deref(), Some("alpha"));
+}

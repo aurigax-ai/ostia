@@ -43,6 +43,7 @@ gpui-kit = { version = "=0.8.1", default-features = false, features = ["componen
 getrandom = "0.4"
 globset = "0.4"
 hex = "0.4"
+indexmap = "2"
 hmac = "0.13"
 icu_collator = "2"
 icu_experimental = "0.7"

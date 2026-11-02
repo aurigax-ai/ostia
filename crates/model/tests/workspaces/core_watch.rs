@@ -4,13 +4,16 @@ use std::sync::Arc;
 
 use ostia_model::workspaces::core_watch::{CoreFeature, CoreWatch};
 use parking_lot::Mutex;
+use tokio::runtime::Handle;
 
 type Calls = Arc<Mutex<Vec<(CoreFeature, Vec<String>)>>>;
 
 fn watcher() -> (CoreWatch, Calls) {
     let calls: Calls = Arc::default();
     let sink = Arc::clone(&calls);
-    let watch = CoreWatch::new(move |feature, ids| sink.lock().push((feature, ids)));
+    let watch = CoreWatch::new(Handle::current(), move |feature, ids| {
+        sink.lock().push((feature, ids))
+    });
     (watch, calls)
 }
 
@@ -117,4 +120,39 @@ async fn forgets_every_watch_and_the_last_sent_set_on_reset() {
     let _again = watch.watch_workspace(CoreFeature::Git, "w1");
     settle().await;
     assert_eq!(calls.lock().len(), 2);
+}
+
+#[test]
+fn delivers_from_a_thread_that_has_no_runtime_and_releases_on_drop_there() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+    let calls: Calls = Arc::default();
+    let sink = Arc::clone(&calls);
+    let watch = CoreWatch::new(runtime.handle().clone(), move |feature, ids| {
+        sink.lock().push((feature, ids))
+    });
+    let held = watch.watch_workspace(CoreFeature::Git, "w1");
+    wait_for(&calls, 1);
+    drop(held);
+    wait_for(&calls, 2);
+    assert_eq!(
+        calls.lock().as_slice(),
+        [
+            (CoreFeature::Git, ids(&["w1"])),
+            (CoreFeature::Git, ids(&[]))
+        ]
+    );
+}
+
+fn wait_for(calls: &Calls, count: usize) {
+    for _ in 0..200 {
+        if calls.lock().len() >= count {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    panic!("no delivery");
 }

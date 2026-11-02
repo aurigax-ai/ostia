@@ -3,6 +3,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use hmac::{Hmac, KeyInit, Mac};
+use indexmap::IndexMap;
 use ostia_base::random::random_bytes;
 use ostia_base::{ExternalId, PaneId, WindowId, WorkspaceId};
 use parking_lot::Mutex;
@@ -62,7 +63,7 @@ pub struct PaneInput {
 struct Tables {
     by_external: HashMap<ExternalId, PaneIdentity>,
     by_token: HashMap<String, ExternalId>,
-    by_pane: HashMap<PaneId, ExternalId>,
+    by_pane: IndexMap<PaneId, ExternalId>,
     by_extension: HashMap<String, ExternalId>,
     by_script: HashMap<String, ExternalId>,
 }
@@ -82,7 +83,7 @@ impl Tables {
     }
 
     fn remove_pane(&mut self, pane_id: &PaneId) -> bool {
-        match self.by_pane.remove(pane_id) {
+        match self.by_pane.shift_remove(pane_id) {
             Some(external) => {
                 self.unindex(&external);
                 true

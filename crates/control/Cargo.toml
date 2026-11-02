@@ -14,6 +14,7 @@ ostia-rpc.workspace = true
 futures-util.workspace = true
 hex.workspace = true
 hmac.workspace = true
+indexmap.workspace = true
 parking_lot.workspace = true
 regex.workspace = true
 serde_json.workspace = true

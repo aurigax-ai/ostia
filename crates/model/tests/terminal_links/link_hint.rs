@@ -17,6 +17,7 @@ impl Fixture {
         let visible = Arc::new(AtomicBool::new(true));
         let published = Arc::new(Mutex::new(Vec::new()));
         let hint = LinkHint::new(
+            tokio::runtime::Handle::current(),
             Duration::from_millis(400),
             {
                 let visible = visible.clone();
@@ -108,4 +109,33 @@ async fn shows_nothing_when_the_link_cannot_be_measured() {
     fixture.hint.show(|| None);
     advance(400).await;
     assert_eq!(fixture.published(), Vec::<Option<String>>::new());
+}
+
+#[test]
+fn shows_from_a_thread_that_has_no_runtime() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+    let published = Arc::new(Mutex::new(Vec::new()));
+    let hint = LinkHint::new(
+        runtime.handle().clone(),
+        Duration::from_millis(20),
+        || true,
+        {
+            let published = published.clone();
+            move |hint: Option<String>| published.lock().unwrap().push(hint)
+        },
+    );
+    hint.show(|| Some("box".to_owned()));
+    for _ in 0..200 {
+        if !published.lock().unwrap().is_empty() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(*published.lock().unwrap(), [Some("box".to_owned())]);
+    hint.hide();
+    assert_eq!(published.lock().unwrap().len(), 2);
 }

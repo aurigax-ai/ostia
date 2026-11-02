@@ -177,15 +177,12 @@ impl AppTray {
 
     pub fn set_unread(&self, count: i64) {
         let labels = (self.shared.deps.text)();
-        {
-            let mut state = self.shared.state.lock();
-            if count == state.unread {
-                return;
-            }
-            state.unread = count;
-        }
-        (self.shared.deps.set_badge_count)(count);
         let mut state = self.shared.state.lock();
+        if count == state.unread {
+            return;
+        }
+        state.unread = count;
+        (self.shared.deps.set_badge_count)(count);
         if let Some(tray) = state.tray.as_mut() {
             tray.set_tooltip(&tray_tooltip(&self.shared.deps.tooltip, count, &labels));
         }
