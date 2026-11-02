@@ -114,8 +114,8 @@ fn reports_the_span_in_utf16_units_as_the_ts_scanner_does() {
 #[test]
 fn drops_a_zero_line_and_column_from_every_form() {
     assert_eq!(
-        paths("a/b.ts:0:0 x(0,0).c"),
-        [link("a/b.ts", None, None), link("x", None, None)]
+        paths("a/b.ts:0:0 x.ts(0,0)"),
+        [link("a/b.ts", None, None), link("x.ts", None, None)]
     );
     assert_eq!(
         paths("File \"/srv/a.py\", line 0"),
