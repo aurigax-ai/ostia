@@ -71,7 +71,7 @@ def shot(name):
 
 def run_shot(name):
     subprocess.run(
-        ["gst-launch-1.0", "pipewiresrc", f"path={node['id']}", "do-timestamp=true", "keepalive-time=100", "num-buffers=1", "!", "videoconvert", "!", "pngenc", "!", "filesink", f"location={out}/{name}.png"],
+        ["gst-launch-1.0", "pipewiresrc", f"path={node['id']}", "do-timestamp=true", "always-copy=true", "keepalive-time=100", "num-buffers=1", "!", "videoconvert", "!", "pngenc", "!", "filesink", f"location={out}/{name}.png"],
         timeout=15,
         stdout=open(f"{out}/gst-{name}.log", "w"),
         stderr=subprocess.STDOUT,
@@ -83,7 +83,7 @@ shot("wl-before")
 move(400, 300)
 time.sleep(0.5)
 for _ in range(3):
-    rd("NotifyPointerAxisDiscrete", (0, 1), "(ui)")
+    rd("NotifyPointerAxis", (0.0, 15.0, 0), "(ddu)")
     time.sleep(0.1)
 print("wheel sent", flush=True)
 time.sleep(1)

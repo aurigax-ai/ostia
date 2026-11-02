@@ -11,6 +11,8 @@ export SPIKE_CEF_SWITCHES=${SPIKE_CEF_SWITCHES:-ozone-platform=wayland}
 env -u DISPLAY -u WAYLAND_DISPLAY XDG_RUNTIME_DIR=$xdg dbus-run-session -- sh -c '
   pipewire >"$1/pipewire.log" 2>&1 &
   pw=$!
+  wireplumber >"$1/wireplumber.log" 2>&1 &
+  wp=$!
   mutter --headless --wayland --no-x11 --virtual-monitor 1280x800 --wayland-display=wl-spike >"$1/mutter.log" 2>&1 &
   comp=$!
   sleep 3
@@ -18,5 +20,5 @@ env -u DISPLAY -u WAYLAND_DISPLAY XDG_RUNTIME_DIR=$xdg dbus-run-session -- sh -c
   app=$!
   python3 -I "$2/scripts/wayland-drive.py" "$1" 12 >"$1/wldrive.log" 2>&1 || true
   wait "$app" || true
-  kill "$comp" "$pw" 2>/dev/null || true
+  kill "$comp" "$pw" "$wp" 2>/dev/null || true
 ' "$bin" "$out" "$here"
