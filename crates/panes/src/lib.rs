@@ -1,5 +1,10 @@
 pub mod wake_reason;
 pub mod worktree_share;
+mod hidden_text;
+pub mod pane_names;
+pub mod pane_waking;
+pub mod phone_agent;
+pub mod start_confirm;
 
 use serde::{Deserialize, Serialize};
 
