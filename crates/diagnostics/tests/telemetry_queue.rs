@@ -226,7 +226,7 @@ async fn sends_at_most_one_batch_of_twenty_in_a_request_and_keeps_the_rest() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn sends_the_rest_at_once_when_more_reports_wait_after_a_good_batch() {
+async fn sends_the_rest_when_the_pending_flush_timer_fires_after_a_good_batch() {
     let h = Harness::new(only(&[TelemetryCategory::Errors]));
     let t = h.create();
     for _ in 0..TELEMETRY_BATCH_MAX + 5 {
@@ -234,6 +234,10 @@ async fn sends_the_rest_at_once_when_more_reports_wait_after_a_good_batch() {
     }
     t.flush().await;
     tokio::time::sleep(Duration::from_millis(1)).await;
+    settle().await;
+    assert_eq!(h.sent_count(), 1);
+    assert_eq!(t.reports().queued.len(), 5);
+    tokio::time::advance(common::FAR).await;
     settle().await;
     assert_eq!(h.sent_count(), 2);
     assert!(t.reports().queued.is_empty());
