@@ -541,9 +541,20 @@ async fn walks_the_buffer_for_no_write_or_resize_while_a_history_feed_is_attache
         mirror.write(&format!("line {index}\r\n"));
     }
     mirror.resize(100, 30);
-    mirror.restore("old history");
     assert_eq!(mirror.history_walks(), 0);
     assert!(mirror.serialize().contains("line 199"));
     assert_eq!(mirror.history_walks(), 1);
+    mirror.dispose();
+}
+
+#[tokio::test]
+async fn walks_the_buffer_for_no_restore_while_a_history_feed_is_attached() {
+    let client = SpillClient::new(Arc::new(QuietPort));
+    let made = make_history(HistoryOptions::default());
+    let feed = client.open(&made.history, WIDE, 30, None);
+    let mut mirror = ScreenMirror::new(WIDE, 30, Some(feed)).unwrap();
+    mirror.restore("old history");
+    assert_eq!(mirror.history_walks(), 0);
+    assert_eq!(mirror.serialize(), "old history");
     mirror.dispose();
 }
