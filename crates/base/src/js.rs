@@ -58,3 +58,86 @@ pub fn parse_safe_int(text: &str) -> Option<i64> {
     }
     Some(if negative { -value } else { value })
 }
+
+fn radix_number(digits: &str, radix: u32) -> f64 {
+    if digits.is_empty() {
+        return f64::NAN;
+    }
+    let bits_per_digit = radix.trailing_zeros();
+    let mut kept: u128 = 0;
+    let mut dropped_bits: i32 = 0;
+    let mut sticky = false;
+    for ch in digits.chars() {
+        let Some(digit) = ch.to_digit(radix) else {
+            return f64::NAN;
+        };
+        for shift in (0..bits_per_digit).rev() {
+            let bit = (digit >> shift) & 1 == 1;
+            if kept >> 127 == 0 {
+                kept = (kept << 1) | u128::from(bit);
+            } else {
+                dropped_bits = dropped_bits.saturating_add(1);
+                sticky |= bit;
+            }
+        }
+    }
+    if sticky {
+        kept |= 1;
+    }
+    (kept as f64) * 2f64.powi(dropped_bits)
+}
+
+fn is_decimal_literal(text: &str) -> bool {
+    let bytes = text.strip_prefix(['+', '-']).unwrap_or(text).as_bytes();
+    let count = |from: usize| {
+        bytes[from..]
+            .iter()
+            .take_while(|byte| byte.is_ascii_digit())
+            .count()
+    };
+    let whole = count(0);
+    let mut at = whole;
+    let mut fraction = 0;
+    if bytes.get(at) == Some(&b'.') {
+        fraction = count(at + 1);
+        at += 1 + fraction;
+    }
+    if whole + fraction == 0 {
+        return false;
+    }
+    if matches!(bytes.get(at), Some(b'e' | b'E')) {
+        at += 1;
+        if matches!(bytes.get(at), Some(b'+' | b'-')) {
+            at += 1;
+        }
+        let exponent = count(at);
+        if exponent == 0 {
+            return false;
+        }
+        at += exponent;
+    }
+    at == bytes.len()
+}
+
+pub fn js_number(text: &str) -> f64 {
+    let text = js_trim(text);
+    if text.is_empty() {
+        return 0.0;
+    }
+    match text {
+        "Infinity" | "+Infinity" => return f64::INFINITY,
+        "-Infinity" => return f64::NEG_INFINITY,
+        _ => {}
+    }
+    let prefix = text.get(..2).unwrap_or("");
+    match prefix {
+        "0x" | "0X" => return radix_number(&text[2..], 16),
+        "0o" | "0O" => return radix_number(&text[2..], 8),
+        "0b" | "0B" => return radix_number(&text[2..], 2),
+        _ => {}
+    }
+    if !is_decimal_literal(text) {
+        return f64::NAN;
+    }
+    text.parse().unwrap_or(f64::NAN)
+}

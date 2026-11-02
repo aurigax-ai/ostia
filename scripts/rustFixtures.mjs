@@ -41,6 +41,109 @@ mkdirSync(out, { recursive: true })
 saveJson(join(out, 'json-store-pretty.json'), STORE_VALUE)
 await saveJsonAsync(join(out, 'json-store-compact.json'), STORE_VALUE)
 
+const NUMBER_TEXTS = [
+  '',
+  ' ',
+  '\t\n',
+  '12',
+  '12abc',
+  '1.5',
+  ' 1.5\n',
+  '0x10',
+  '0X1f',
+  '0o17',
+  '0O17',
+  '0b101',
+  '0B11',
+  '-0x10',
+  '+0x10',
+  '0x',
+  '0o8',
+  '0b2',
+  '0xg',
+  '1e3',
+  '1E3',
+  '1e-3',
+  '1e+3',
+  '1e',
+  '1e+',
+  'e5',
+  '.5',
+  '5.',
+  '5.e3',
+  '.e3',
+  '.',
+  '-.5',
+  '+.5',
+  '-',
+  '+',
+  '+5',
+  '-5',
+  '-0',
+  '0',
+  '00012',
+  '--5',
+  '+-5',
+  'Infinity',
+  '+Infinity',
+  '-Infinity',
+  'infinity',
+  'INFINITY',
+  'inf',
+  'nan',
+  'NaN',
+  '1_000',
+  '1,000',
+  '1 2',
+  '1.5.2',
+  '1d',
+  '1f',
+  '0x1p3',
+  '١٢',
+  ' 12﻿',
+  '\u008512',
+  '​12',
+  ' 1 ',
+  '9007199254740991',
+  '9007199254740992',
+  '9007199254740993',
+  '9007199254740995',
+  '18446744073709551616',
+  '123456789012345678901234567890',
+  '1e999',
+  '-1e999',
+  '1e-999',
+  '0.1',
+  '0.30000000000000004',
+  '1.7976931348623157e308',
+  '5e-324',
+  '2.2250738585072014e-308',
+  '0x1fffffffffffff',
+  '0x20000000000001',
+  '0x20000000000003',
+  '0x20000000000005',
+  '0x100000000000008000000000000000001',
+  '0xffffffffffffffffffffffffffffffffffffffff',
+  '0x000000000000000000000000000000000000000000000001',
+  `0x${'f'.repeat(300)}`,
+  `0b${'1'.repeat(60)}`,
+]
+
+function float64Hex(value) {
+  const buffer = Buffer.alloc(8)
+  buffer.writeDoubleBE(value)
+  return buffer.toString('hex')
+}
+
+writeFileSync(
+  join(out, 'js-number.json'),
+  `${JSON.stringify(
+    NUMBER_TEXTS.map((text) => ({ text, bits: float64Hex(Number(text)) })),
+    null,
+    1,
+  )}\n`,
+)
+
 const times = [1700000000123, 9, 1.5]
 const parked = join(work, 'parked-sessions.json')
 const store = new ParkedStore(parked, () => times.shift())

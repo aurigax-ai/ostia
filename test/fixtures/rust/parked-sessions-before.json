@@ -2,7 +2,7 @@
   "v": 1,
   "items": [
     {
-      "id": "ionkcwkmyn",
+      "id": "ekt4hpdnqv",
       "workspaceId": "w1",
       "resume": {
         "agent": "claude",
@@ -19,7 +19,7 @@
       "parkedAt": 1700000000123
     },
     {
-      "id": "vy2wyuddyh",
+      "id": "p22jz6cmxv",
       "workspaceId": "w1",
       "resume": {
         "agent": "codex",
@@ -29,7 +29,7 @@
       "parkedAt": 9
     },
     {
-      "id": "7n5amypg7f",
+      "id": "rdx3zt7fte",
       "workspaceId": "w2",
       "resume": {
         "agent": "agy",
