@@ -621,6 +621,7 @@ dependencies = [
  "ostia-testkit",
  "parking_lot",
  "regex",
+ "serde",
  "serde_json",
  "tempfile",
 ]

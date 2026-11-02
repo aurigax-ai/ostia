@@ -1,6 +1,8 @@
 use std::sync::LazyLock;
 
-use chrono::{DateTime, Datelike, Local, NaiveDate, TimeZone, Utc};
+use chrono::{
+    DateTime, Datelike, Local, NaiveDate, NaiveDateTime, Offset, TimeDelta, TimeZone, Utc,
+};
 use ostia_base::js::static_regex;
 use regex::Regex;
 use serde::Serialize;
@@ -56,15 +58,23 @@ fn iso_string(at: DateTime<Utc>) -> String {
     )
 }
 
+fn local_to_utc(local: NaiveDateTime) -> Option<DateTime<Utc>> {
+    if let Some(at) = Local.from_local_datetime(&local).earliest() {
+        return Some(at.with_timezone(&Utc));
+    }
+    let before = Local
+        .from_local_datetime(&(local - TimeDelta::days(1)))
+        .earliest()?;
+    let offset = i64::from(before.offset().fix().local_minus_utc());
+    Some(Utc.from_utc_datetime(&(local - TimeDelta::seconds(offset))))
+}
+
 fn after_years(now_ms: i64, years: i32) -> Option<DateTime<Utc>> {
     let naive = Local.timestamp_millis_opt(now_ms).single()?.naive_local();
     let year = naive.year().checked_add(years)?;
     let date = NaiveDate::from_ymd_opt(year, naive.month(), naive.day())
         .or_else(|| NaiveDate::from_ymd_opt(year, 3, 1))?;
-    let at = Local
-        .from_local_datetime(&date.and_time(naive.time()))
-        .earliest()?;
-    Some(at.with_timezone(&Utc))
+    local_to_utc(date.and_time(naive.time()))
 }
 
 fn end_of_day(year: i32, month: u32, day: u32) -> Option<DateTime<Utc>> {
@@ -72,8 +82,7 @@ fn end_of_day(year: i32, month: u32, day: u32) -> Option<DateTime<Utc>> {
         return None;
     }
     let end = NaiveDate::from_ymd_opt(year, month, day)?.and_hms_milli_opt(23, 59, 59, 999)?;
-    let at = Local.from_local_datetime(&end).earliest()?;
-    Some(at.with_timezone(&Utc))
+    local_to_utc(end)
 }
 
 pub fn token_expiry(raw: &str, now_ms: i64) -> Result<Option<String>, String> {

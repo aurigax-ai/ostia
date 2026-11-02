@@ -4,6 +4,7 @@ use ostia_base::host::Host;
 use ostia_base::process::parent_pid;
 use ostia_cli::common::failure::describe_failure;
 use ostia_cli::common::pane_token::pane_token;
+use ostia_cli::common::version::build_version_at;
 use ostia_cli::verbs::introspection::run_whoami;
 use ostia_control::discovery::{control_info_path, pane_control_socket};
 use ostia_rpc::{Client, ClientError};
@@ -50,12 +51,27 @@ async fn run(host: &Host, verb: &str) -> ExitCode {
     }
 }
 
+fn print_build_version() -> ExitCode {
+    let version = std::env::current_exe()
+        .ok()
+        .and_then(|exe| build_version_at(exe.parent()?));
+    match version {
+        Some(version) => {
+            println!("{version}");
+            ExitCode::SUCCESS
+        }
+        None => {
+            eprintln!("ostia: build-info.json is missing");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
     let verb = std::env::args().nth(1).unwrap_or_default();
     if verb == "--version" {
-        println!("{}", env!("CARGO_PKG_VERSION"));
-        return ExitCode::SUCCESS;
+        return print_build_version();
     }
     if verb != "whoami" {
         eprintln!("ostia: {verb} is not ported yet");

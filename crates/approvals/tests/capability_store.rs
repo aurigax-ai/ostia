@@ -3,10 +3,11 @@
 use std::fs;
 use std::path::PathBuf;
 
-use ostia_approvals::{CapabilityStore, ReachMode};
+use ostia_approvals::CapabilityStore;
 use ostia_base::ExternalId;
 use ostia_base::host::Host;
 use ostia_contract::capabilities::Capability;
+use ostia_contract::reach::ReachMode;
 use ostia_control::CapabilityStore as _;
 use ostia_testkit::temp_host;
 use serde_json::{Value, json};
@@ -420,4 +421,112 @@ fn a_failed_reach_write_keeps_the_cached_mode() {
     fs::write(settings_path(&host), "[]").unwrap();
     assert!(!store.set_reach_mode(&json!("group")));
     assert_eq!(store.load_reach_mode(), ReachMode::Workspace);
+}
+
+#[test]
+fn a_write_keeps_the_file_mode_it_found() {
+    use std::os::unix::fs::PermissionsExt;
+    let (_dir, host, store) = fresh();
+    write_settings(&host, &json!({}));
+    fs::set_permissions(settings_path(&host), fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(store.add_standing_grants(&[Capability::Browse]));
+    let mode = fs::metadata(settings_path(&host))
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o777, 0o600);
+}
+
+#[test]
+fn a_write_through_a_symlink_keeps_the_link_and_writes_its_target() {
+    use std::os::unix::fs::symlink;
+    let (dir, host, store) = fresh();
+    let target = dir.path().join("elsewhere.json");
+    fs::write(&target, "{}").unwrap();
+    symlink(&target, settings_path(&host)).unwrap();
+    assert!(store.add_standing_grants(&[Capability::Browse]));
+    assert!(
+        fs::symlink_metadata(settings_path(&host))
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+    let written: Value = serde_json::from_str(&fs::read_to_string(&target).unwrap()).unwrap();
+    assert_eq!(written["capabilities"]["grants"], json!(["browse"]));
+}
+
+#[test]
+fn a_write_into_a_missing_folder_fails() {
+    let (dir, host, store) = fresh();
+    fs::remove_dir_all(host.app_config_dir()).unwrap();
+    assert!(!store.add_standing_grants(&[Capability::Browse]));
+    assert!(!host.app_config_dir().exists());
+    drop(dir);
+}
+
+#[test]
+fn a_pane_opened_after_the_write_sees_the_standing_grant() {
+    let (_dir, host, store) = fresh();
+    write_settings(&host, &json!({"locale": "en"}));
+    store.init_caps(&id("pane-a"));
+    store.set_caps(&id("ext-a"), &[Capability::ReadBoard]);
+
+    assert!(store.add_standing_grants(&[Capability::SendOtherPane]));
+
+    assert_eq!(
+        read_settings(&host),
+        json!({"locale": "en", "capabilities": {"grants": ["send-other-pane"]}})
+    );
+    assert!(store.has_cap(&id("pane-a"), Capability::SendOtherPane));
+    store.init_caps(&id("pane-b"));
+    assert!(store.has_cap(&id("pane-b"), Capability::SendOtherPane));
+    assert!(!store.has_cap(&id("ext-a"), Capability::SendOtherPane));
+}
+
+fn rust_sources(dir: &std::path::Path, found: &mut Vec<PathBuf>) {
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            rust_sources(&path, found);
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
+            found.push(path);
+        }
+    }
+}
+
+#[test]
+fn the_settings_writers_are_reached_only_from_the_approval_card_and_settings() {
+    let crates = ostia_testkit::repo_root().join("crates");
+    let mut callers = Vec::new();
+    for member in fs::read_dir(&crates).unwrap() {
+        let src = member.unwrap().path().join("src");
+        if !src.is_dir() {
+            continue;
+        }
+        let mut files = Vec::new();
+        rust_sources(&src, &mut files);
+        for file in files {
+            let text = fs::read_to_string(&file).unwrap();
+            let reaches = [
+                "add_standing_grants",
+                "remove_standing_grant",
+                "set_reach_mode",
+            ]
+            .iter()
+            .any(|name| text.contains(name));
+            if reaches {
+                callers.push(
+                    file.strip_prefix(&crates)
+                        .unwrap()
+                        .to_string_lossy()
+                        .into_owned(),
+                );
+            }
+        }
+    }
+    callers.sort();
+    assert_eq!(callers, ["approvals/src/capability_store.rs"]);
+    let store = fs::read_to_string(crates.join("approvals/src/capability_store.rs")).unwrap();
+    assert!(!store.contains("register_method"));
+    assert!(!store.contains("register_targetable_method"));
 }

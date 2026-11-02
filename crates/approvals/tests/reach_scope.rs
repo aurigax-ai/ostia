@@ -346,3 +346,27 @@ fn forgets_a_workspace_and_lists_what_the_agent_placed() {
     p.forget("missing");
     assert_eq!(p.entries().len(), 1);
 }
+
+#[test]
+fn a_fifo_named_dot_git_does_not_block_the_project_key() {
+    use std::process::Command;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let t = Tree::new();
+    let dir = t.home.join("fifo-project");
+    fs::create_dir_all(&dir).unwrap();
+    let made = Command::new("mkfifo")
+        .arg(dir.join(".git"))
+        .status()
+        .unwrap();
+    assert!(made.success());
+    let (sender, receiver) = mpsc::channel();
+    let home = t.home.clone();
+    let work_dir = dir.to_str().unwrap().to_owned();
+    std::thread::spawn(move || {
+        let _ = sender.send(project_key(&work_dir, &home));
+    });
+    let key = receiver.recv_timeout(Duration::from_secs(10)).unwrap();
+    assert_eq!(key, Some(format!("dir:{}", dir.to_string_lossy())));
+}
