@@ -133,7 +133,7 @@ pub fn collect_history(
             });
         }
     }
-    all.sort_by(|a, b| b.at.cmp(&a.at));
+    all.sort_by_key(|entry| std::cmp::Reverse(entry.at));
     let mut seen: HashSet<String> = HashSet::new();
     all.retain(|entry| seen.insert(entry.command.clone()));
     all
