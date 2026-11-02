@@ -349,6 +349,7 @@ async fn lowercases_the_host_of_a_blocked_connection_before_it_asks_and_remember
 async fn names_the_origin_and_the_pane_of_each_kind_of_card() {
     let s = setup(true, &[]);
     let agent = s.request("ws", "agent.test");
+    tick().await;
     let blocked = s.requests.on_blocked(&ws("ws"), "net.test", None);
     tick().await;
     {
