@@ -473,3 +473,10 @@ const serializeFixtures = SERIALIZE_CASES.map((c) => {
 })
 writeFileSync(join(out, 'ghostty-serialize.json'), `${JSON.stringify(serializeFixtures, null, 2)}\n`)
 rmSync(work, { recursive: true, force: true })
+
+saveJson(join(out, 'install-replace-pending.json'), {
+  appDir: '/home/u/.local/share/ostia/app',
+  version: '0.6.0',
+})
+saveJson(join(out, 'install-replace-swept.json'), null)
+saveJson(join(out, 'release-check-dismissed.json'), { dismissedVersion: '0.3.0' })

@@ -36,6 +36,7 @@ pub mod hidden_text;
 pub mod hook_payload;
 pub mod incident;
 pub mod json_located;
+pub mod install_method;
 pub mod keep_shells;
 pub mod modifier_remap;
 pub mod onboard_playbook;

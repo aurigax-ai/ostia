@@ -167,17 +167,23 @@ pub async fn follow_allowed(request: &DownloadRequest) -> Result<DownloadRespons
 }
 
 impl DownloadResponse {
-    pub async fn read_capped(mut self, max_bytes: u64) -> Option<String> {
+    pub async fn read_capped(self, max_bytes: u64) -> Option<String> {
+        self.read_capped_or_error(max_bytes).await.ok().flatten()
+    }
+
+    pub async fn read_capped_or_error(
+        mut self,
+        max_bytes: u64,
+    ) -> Result<Option<String>, DownloadError> {
         let mut body: Vec<u8> = Vec::new();
         let mut size: u64 = 0;
         loop {
-            let chunk = self.response.chunk().await.ok()?;
-            let Some(chunk) = chunk else {
-                return Some(String::from_utf8_lossy(&body).into_owned());
+            let Some(chunk) = self.response.chunk().await? else {
+                return Ok(Some(String::from_utf8_lossy(&body).into_owned()));
             };
             size += chunk.len() as u64;
             if size > max_bytes {
-                return None;
+                return Ok(None);
             }
             body.extend_from_slice(&chunk);
         }
