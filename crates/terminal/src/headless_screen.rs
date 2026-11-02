@@ -193,23 +193,11 @@ fn normalize_vt(text: &str) -> String {
         }
     }
     let mut out = rest.to_string();
-    let mut restored = false;
     while let Some(start) = trailing_pen(&out) {
         out.truncate(start);
-        restored = true;
-    }
-    if restored {
-        if out.ends_with(RESET) {
-            out.truncate(out.len() - RESET.len());
-        }
-        return out;
     }
     if out.ends_with(RESET) {
-        let row_start = out.rfind("\r\n").map_or(0, |at| at + 2);
-        let row = &out[row_start..out.len() - RESET.len()];
-        if !row.contains('\x1b') {
-            out.truncate(out.len() - RESET.len());
-        }
+        out.truncate(out.len() - RESET.len());
     }
     out
 }
