@@ -419,11 +419,11 @@ pub fn verify_staged_sync(staged: &Path, policy: SignaturePolicy) -> bool {
     run_bounded(Path::new("codesign"), &args, SWAP_VERIFY_TIMEOUT).is_some()
 }
 
-pub type RenameFn = dyn Fn(&Path, &Path) -> io::Result<()>;
+pub type RenameFn<'a> = dyn Fn(&Path, &Path) -> io::Result<()> + 'a;
 
 pub struct SwapDeps<'a> {
     pub verify: &'a dyn Fn(&Path) -> bool,
-    pub rename: Option<&'a RenameFn>,
+    pub rename: Option<&'a RenameFn<'a>>,
 }
 
 fn is_folder(path: &Path) -> Option<bool> {
@@ -434,7 +434,7 @@ fn is_folder(path: &Path) -> Option<bool> {
 
 pub fn swap_staged_bundle(bundle: &Path, deps: SwapDeps<'_>) -> SwapResult {
     let default_rename = |from: &Path, to: &Path| fs::rename(from, to);
-    let rename: &RenameFn = match deps.rename {
+    let rename: &RenameFn<'_> = match deps.rename {
         Some(rename) => rename,
         None => &default_rename,
     };
