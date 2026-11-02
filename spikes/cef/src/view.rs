@@ -1,5 +1,5 @@
 use crate::frame::SharedSlot;
-use crate::host::{Page, new_geometry, open_page};
+use crate::host::{CONTEXT_ORDER, DevtoolsCounters, Page, new_geometry, open_page};
 use crate::input;
 use cef::{ImplBrowser, ImplBrowserHost};
 use gpui_kit::component::button::*;
@@ -14,6 +14,9 @@ pub struct Settings {
     pub lazy_ms: u64,
     pub run_secs: u64,
     pub profile_dir: String,
+    pub scheme_root: String,
+    pub devtools: bool,
+    pub fake_drop: Option<String>,
 }
 
 impl Settings {
@@ -29,6 +32,9 @@ impl Settings {
             pages: number("SPIKE_PAGES", 1) as usize,
             lazy_ms: number("SPIKE_LAZY_MS", 0),
             run_secs: number("SPIKE_RUN_SECS", 0),
+            scheme_root: std::env::var("SPIKE_SCHEME_ROOT").unwrap_or_default(),
+            devtools: std::env::var("SPIKE_DEVTOOLS").is_ok(),
+            fake_drop: std::env::var("SPIKE_FAKE_DROP").ok(),
             profile_dir: std::env::var("SPIKE_PROFILE")
                 .unwrap_or_else(|_| "/tmp/spike-cef-profile".into()),
         }
@@ -49,6 +55,9 @@ pub struct BrowserView {
     init_tick: Option<u64>,
     ready: std::rc::Rc<std::cell::Cell<bool>>,
     created: bool,
+    created_tick: u64,
+    devtools_counters: DevtoolsCounters,
+    last_mouse: (i32, i32),
     ticks: u64,
 }
 
@@ -72,6 +81,11 @@ impl BrowserView {
             init_tick: None,
             ready: Default::default(),
             created: false,
+            created_tick: 0,
+            devtools_counters: DevtoolsCounters {
+                paused: Default::default(),
+            },
+            last_mouse: (200, 200),
             ticks: 0,
         };
         cx.spawn(async move |this, cx| {
@@ -127,23 +141,20 @@ impl BrowserView {
         for index in 0..self.settings.pages {
             let geometry = new_geometry(width.max(640), height.max(480), 1.0);
             let slot: SharedSlot = Default::default();
-            let variants = [(Some(true), true), (Some(false), true), (None, true)];
             let mut opened = None;
-            for (with_context, alloy) in variants {
+            for kind in CONTEXT_ORDER {
                 std::fs::create_dir_all(format!("{}/ctx-{}", self.settings.profile_dir, index))
                     .ok();
                 let dir = format!("{}/ctx-{}", self.settings.profile_dir, index);
                 let page = open_page(
                     &self.settings.url,
-                    with_context.map(|on_disk| if on_disk { dir.as_str() } else { "" }),
-                    alloy,
+                    kind,
+                    &dir,
+                    &self.settings.scheme_root,
                     geometry.clone(),
                     slot.clone(),
                 );
-                eprintln!(
-                    "SPIKE variant context={with_context:?} alloy={alloy} ok={}",
-                    page.is_some()
-                );
+                eprintln!("SPIKE variant kind={kind:?} ok={}", page.is_some());
                 if page.is_some() {
                     opened = page;
                     break;
@@ -168,9 +179,11 @@ impl BrowserView {
         self.ticks = ticks;
         if self.init_tick.is_some() && self.ready.get() && !self.created {
             self.created = true;
+            self.created_tick = ticks;
             eprintln!("SPIKE context-ready tick={}", ticks);
             self.create_pages(cx);
         }
+        self.run_scenarios(ticks);
         let Some(page) = self.pages.get(self.active) else {
             return;
         };
@@ -192,6 +205,29 @@ impl BrowserView {
                 title
             );
             self.last_logged_frames = frames;
+        }
+    }
+
+    fn run_scenarios(&mut self, ticks: u64) {
+        if !self.created || self.pages.is_empty() {
+            return;
+        }
+        let since = ticks - self.created_tick;
+        if self.settings.devtools && since == 100 {
+            let counters = self.devtools_counters.clone();
+            self.pages[0].attach_devtools(counters);
+        }
+        if self.settings.devtools && since == 125 {
+            self.pages[0].run_devtools();
+        }
+        if self.settings.devtools && since == 400 {
+            eprintln!(
+                "SPIKE devtools fetch-paused={}",
+                self.devtools_counters.paused.get()
+            );
+        }
+        if let (Some(path), true) = (self.settings.fake_drop.clone(), since == 250) {
+            self.pages[0].drop_files(&[path], 300, 200);
         }
     }
 
@@ -315,8 +351,11 @@ impl Render for BrowserView {
             .overflow_hidden()
             .bg(rgb(0xffffff))
             .on_mouse_move(cx.listener(|view, event: &MouseMoveEvent, _, _| {
+                let (lx, ly) = view.local(event.position);
+                view.last_mouse = (lx as i32, ly as i32);
                 if let Some(browser) = view.active_browser() {
                     let (x, y) = view.local(event.position);
+                    view.last_mouse = (x as i32, y as i32);
                     let flags = input::modifier_flags(event.modifiers, event.pressed_button);
                     input::send_move(browser, &input::mouse_event(x, y, flags), false);
                 }
@@ -352,8 +391,16 @@ impl Render for BrowserView {
                     input::send_key_up(browser, &event.keystroke);
                 }
             }))
-            .on_drop(cx.listener(|_, paths: &ExternalPaths, _, _| {
+            .on_drop(cx.listener(|view, paths: &ExternalPaths, _, _| {
                 eprintln!("SPIKE gpui-drop paths={:?}", paths.paths());
+                let files: Vec<String> = paths
+                    .paths()
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect();
+                if let Some(page) = view.pages.get(view.active) {
+                    page.drop_files(&files, view.last_mouse.0, view.last_mouse.1);
+                }
             }))
             .children(image.map(|image| img(image).size_full().object_fit(ObjectFit::Fill)))
             .children(menu);

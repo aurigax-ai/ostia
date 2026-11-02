@@ -42,6 +42,18 @@ def pss_kb(pid):
     return 0
 
 
+def kind(pid):
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as handle:
+            parts = handle.read().split(b"\0")
+    except OSError:
+        return "?"
+    for part in parts:
+        if part.startswith(b"--type="):
+            return part[7:].decode()
+    return "main"
+
+
 def seccomp(pid):
     try:
         with open(f"/proc/{pid}/status") as handle:
@@ -56,7 +68,7 @@ def seccomp(pid):
 previous = {}
 last = time.time()
 with open(path, "w") as out:
-    out.write("t,procs,cpu_pct,rss_mb,pss_mb,seccomp_modes\n")
+    out.write("t,procs,cpu_pct,rss_mb,pss_mb,seccomp_modes,cpu_by_kind\n")
     start = last
     while True:
         time.sleep(1)
@@ -71,13 +83,17 @@ with open(path, "w") as out:
         rss = 0
         pss = 0
         modes = []
+        by_kind = {}
         for pid, (_, cpu, rss_pages, data) in tree.items():
-            used += cpu - previous.get(pid, cpu)
+            delta = cpu - previous.get(pid, cpu)
+            used += delta
+            by_kind[kind(pid)] = by_kind.get(kind(pid), 0) + delta
             previous[pid] = cpu
             rss += rss_pages * page
             pss += pss_kb(pid) * 1024
             modes.append(seccomp(pid))
-        cpu_pct = 100.0 * used / ticks / (now - last)
+        elapsed = now - last
+        cpu_pct = 100.0 * used / ticks / elapsed
         last = now
-        out.write(f"{now - start:.0f},{len(tree)},{cpu_pct:.1f},{rss / 1048576:.0f},{pss / 1048576:.0f},{''.join(modes)}\n")
+        out.write(f"{now - start:.0f},{len(tree)},{cpu_pct:.1f},{rss / 1048576:.0f},{pss / 1048576:.0f},{''.join(modes)},{';'.join(f'{k}={100.0 * v / ticks / elapsed:.0f}' for k, v in sorted(by_kind.items()))}\n")
         out.flush()
