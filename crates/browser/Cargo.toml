@@ -11,5 +11,9 @@ ostia-base.workspace = true
 ostia-rpc.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+parking_lot.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
 [lints]
 workspace = true
