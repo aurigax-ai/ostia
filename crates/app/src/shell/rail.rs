@@ -1,7 +1,7 @@
 use gpui_kit::prelude::*;
 use gpui_kit::{AnyElement, App, Context, ElementId, IntoElement, SharedString, div, px};
 use ostia_contract::attention::WorkspaceLiveState;
-use ostia_model::workspaces::workspaces_store::workspace_title;
+use ostia_model::workspaces::workspace_title::workspace_title;
 use ostia_ui::components::{IconButton, IconName, RowButton, StateBadge, WorkspaceState, hint};
 use ostia_ui::icons::{IconSize, icon};
 use ostia_ui::theme::UiTheme;
@@ -190,14 +190,18 @@ pub(super) fn render(root: &ShellRoot, cx: &mut Context<ShellRoot>) -> impl Into
     }
     let store = root.stores.workspaces.read(cx).state();
     let selected = store.active_workspace_id();
-    rows.extend(store.workspaces().iter().map(|workspace| Row {
-        id: ElementId::Name(format!("rail-workspace-{}", workspace.id).into()),
-        title: workspace_title(workspace).to_owned().into(),
-        location: Some(workspace.work_dir.clone().into()),
-        kind: IconName::TerminalWindow,
-        state: badge_state(workspace.state),
-        target: RowTarget::Workspace(workspace.id.clone()),
-        active: view == ActiveView::Workspace && selected == Some(workspace.id.as_str()),
+    rows.extend(store.workspaces().iter().map(|workspace| {
+        Row {
+            id: ElementId::Name(format!("rail-workspace-{}", workspace.id).into()),
+            title: workspace_title(&workspace.name, workspace.custom_name.as_deref())
+                .to_owned()
+                .into(),
+            location: Some(workspace.work_dir.clone().into()),
+            kind: IconName::TerminalWindow,
+            state: badge_state(workspace.state),
+            target: RowTarget::Workspace(workspace.id.clone()),
+            active: view == ActiveView::Workspace && selected == Some(workspace.id.as_str()),
+        }
     }));
     let rendered: Vec<AnyElement> = rows
         .into_iter()
