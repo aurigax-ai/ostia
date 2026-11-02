@@ -12,3 +12,8 @@ parking_lot.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+futures-util.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["macros", "rt", "test-util", "time"] }
