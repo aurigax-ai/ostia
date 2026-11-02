@@ -10,6 +10,7 @@ const work = mkdtempSync(join(tmpdir(), 'rust-fixtures-'))
 
 const ENTRY = `
 export { ParkedStore } from './src/main/park/parkedStore'
+export { SandboxStore } from './src/main/sandbox/store'
 export { ViewStateStore } from './src/main/git/viewState'
 export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
 export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
@@ -44,6 +45,7 @@ await build({
 })
 const {
   ParkedStore,
+  SandboxStore,
   saveJson,
   saveJsonAsync,
   ostiaLauncherScript,
@@ -260,6 +262,23 @@ launches.set('beta', true)
 writeFileSync(join(out, 'extension-launches-before.json'), readFileSync(launchesFile))
 launches.set('activity', false)
 writeFileSync(join(out, 'extension-launches-after.json'), readFileSync(launchesFile))
+const sandboxFile = join(work, 'sandboxes.json')
+const sandboxes = new SandboxStore(sandboxFile)
+sandboxes.set('w1', {
+  enabled: true,
+  allowRead: ['~/notes'],
+  allowWrite: ['~/builds'],
+  domains: ['example.com'],
+  deniedDomains: ['ads.example.com'],
+  controls: { browser: 'unrestricted' },
+  switches: { gitConfig: true },
+  ports: 'deny',
+})
+sandboxes.set('w2', { enabled: false, allowRead: [], domains: [], controls: {} })
+sandboxes.set('w3', { enabled: true, allowRead: [], domains: ['é.example.com'], controls: {} })
+writeFileSync(join(out, 'sandboxes-before.json'), readFileSync(sandboxFile))
+new SandboxStore(sandboxFile).remove('w3')
+writeFileSync(join(out, 'sandboxes-after.json'), readFileSync(sandboxFile))
 writeFileSync(join(out, 'pane-launcher.sh'), ostiaLauncherScript())
 writeFileSync(join(out, 'pane-banner-error.txt'), errorBanner('Sandbox unavailable'))
 writeFileSync(
