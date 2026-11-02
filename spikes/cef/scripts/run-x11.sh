@@ -10,7 +10,7 @@ mkdir -p "$out"
 SPIKE_URL=${SPIKE_URL:-file://$here/fixtures/page.html} \
 SPIKE_PAGES=$pages SPIKE_RUN_SECS=$secs SPIKE_LAZY_MS=$lazy \
 SPIKE_CEF_SWITCHES=${SPIKE_CEF_SWITCHES:-disable-gpu,ozone-platform=x11} \
-xvfb-run -a -s "-screen 0 1280x800x24" sh -c '
+env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE xvfb-run -a -s "-screen 0 1280x800x24" sh -c '
   "$0" 2>"$1/stderr-$2p.log" &
   app=$!
   python3 -I "$3/scripts/sample.py" "$app" "$1/sample-$2p.csv" &
