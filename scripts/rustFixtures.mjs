@@ -16,6 +16,7 @@ export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
 export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/paneBanner'
 export { en, zhHant } from './src/shared/app/dict'
 export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
+export { USAGE_TABLE } from './src/cli/common/usageTable'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -38,6 +39,7 @@ const {
   zhHant,
   parseSnapshot,
   ViewStateStore,
+  USAGE_TABLE,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -316,4 +318,5 @@ writeFileSync(join(out, 'git-view-state-before.json'), readFileSync(viewFile))
 view.setChosen('/r/b', null)
 view.setChosen('/r/a', ['refs/heads/next'])
 writeFileSync(join(out, 'git-view-state-after.json'), readFileSync(viewFile))
+writeFileSync(join(out, 'cli-usage-table.json'), `${JSON.stringify(USAGE_TABLE, null, 1)}\n`)
 rmSync(work, { recursive: true, force: true })
