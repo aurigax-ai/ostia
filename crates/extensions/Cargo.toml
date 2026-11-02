@@ -9,5 +9,10 @@ publish.workspace = true
 [dependencies]
 ostia-control.workspace = true
 
+[dev-dependencies]
+ostia-contract.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+
 [lints]
 workspace = true
