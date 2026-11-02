@@ -22,5 +22,6 @@ tokio.workspace = true
 url.workspace = true
 
 [dev-dependencies]
+base64 = { workspace = true }
 futures-util = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }
