@@ -9,6 +9,7 @@ pub mod open_files;
 pub mod reach;
 pub mod sandbox;
 pub mod script_tokens;
+pub mod sync_kinds;
 pub mod terminal_state;
 
 pub const TARGET_PANE_PARAM: &str = "targetPaneId";
