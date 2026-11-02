@@ -18,7 +18,9 @@ fn repo_with(files: &[(&str, &str)]) -> (Sandbox, PathBuf) {
     let repo = sandbox.path("repo");
     init_repo(&repo);
     for (name, text) in files {
-        write(repo.join(name), text);
+        let file = repo.join(name);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        write(&file, text);
     }
     commit_all(&repo, "first");
     (sandbox, repo)
