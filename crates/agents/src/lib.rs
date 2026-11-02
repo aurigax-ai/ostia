@@ -14,6 +14,7 @@ pub mod skill_directive;
 pub mod stream_codex;
 pub mod stream_pi;
 pub mod stream_source;
+pub mod transcript_files;
 
 use serde::{Deserialize, Serialize};
 
