@@ -42,7 +42,7 @@ fn skips_lines_that_are_empty_or_have_no_separator_or_too_few_fields() {
         "",
         "garbage",
         "1 0 8:1 / /mnt/x rw",
-        "1 0 8:1 / rw - ext4 /dev/sda1",
+        "1 0 8:1 / - ext4 /dev/sda1",
         "1 0 8:1 / /mnt/x rw - ",
         "1 0 8:1 / /mnt/x rw - ext4",
         " - ext4 /dev/sda1",
