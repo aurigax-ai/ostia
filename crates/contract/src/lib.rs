@@ -15,6 +15,7 @@ pub mod command_line;
 pub mod commands;
 pub mod discrete_gpu;
 pub mod diff_title;
+pub mod extension_suggestions;
 pub mod extensions;
 pub mod finished_hibernate;
 pub mod global_hotkey;
