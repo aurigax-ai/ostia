@@ -19,6 +19,9 @@ use parking_lot::Mutex;
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
+type Seen = (ErrorSource, String, String, Option<String>);
+type Finished = (WindowId, HashSet<PaneId>);
+
 const WINDOW: &str = "7";
 
 #[derive(Default)]
@@ -67,7 +70,7 @@ impl AppLog for Recorder {
 
 #[derive(Default)]
 struct Reports {
-    seen: Mutex<Vec<(ErrorSource, String, String, Option<String>)>>,
+    seen: Mutex<Vec<Seen>>,
 }
 
 impl ErrorTelemetry for Reports {
@@ -110,7 +113,7 @@ struct FakePty {
 struct Setup {
     calls: Arc<Mutex<Vec<String>>>,
     started: Arc<Mutex<Vec<(WindowId, RecoveryReason)>>>,
-    finished: Arc<Mutex<Vec<(WindowId, HashSet<PaneId>)>>>,
+    finished: Arc<Mutex<Vec<Finished>>>,
     ptys: Arc<Mutex<HashMap<PaneId, FakePty>>>,
     book: Arc<Mutex<RecoveryBook>>,
     diagnostics: Diagnostics,
@@ -474,7 +477,7 @@ async fn creates_the_log_folder_and_answers_whether_the_system_opened_it() {
     let opened = setup_with("", logs.clone(), false, false);
     assert!(opened.diagnostics.open_log_folder().await.unwrap());
     assert!(logs.is_dir());
-    assert_eq!(*opened.opened.lock(), [logs.clone()]);
+    assert_eq!(*opened.opened.lock(), std::slice::from_ref(&logs));
     let refused = setup_with("no handler", logs, false, false);
     assert!(!refused.diagnostics.open_log_folder().await.unwrap());
 }

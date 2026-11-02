@@ -15,7 +15,7 @@ use ostia_diagnostics::telemetry::{Telemetry, TelemetryDeps};
 use ostia_diagnostics::telemetry_queue::{PostRequest, PostTransport};
 use ostia_diagnostics::telemetry_usage::SessionFacts;
 use parking_lot::Mutex;
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 use tempfile::TempDir;
 
 pub const FAR: Duration = Duration::from_secs(3600);
@@ -153,7 +153,7 @@ impl Harness {
             self.file.clone(),
             Some(endpoint()),
             Arc::new(context),
-            Arc::new(move || settings.lock().clone()),
+            Arc::new(move || *settings.lock()),
             Arc::new(facts),
         );
         deps.transport = Arc::new(FakeTransport {

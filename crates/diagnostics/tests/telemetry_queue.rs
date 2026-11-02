@@ -23,8 +23,9 @@ fn queued(uuid: &str) -> Value {
 }
 
 type Lines = Arc<Mutex<Vec<(String, Value)>>>;
+type Sink = Arc<dyn Fn(&str, &LogFields) + Send + Sync>;
 
-fn recorded() -> (Lines, Arc<dyn Fn(&str, &LogFields) + Send + Sync>) {
+fn recorded() -> (Lines, Sink) {
     let lines: Lines = Arc::new(Mutex::new(Vec::new()));
     let sink = lines.clone();
     (
@@ -52,6 +53,7 @@ fn keeps_a_valid_install_id_and_makes_a_new_one_for_a_bad_id() {
         parse_stored(&json!({"installId": INSTALL_ID})).install_id,
         INSTALL_ID
     );
+    let uuid_shape = Regex::new("^[0-9a-f-]{36}$").unwrap();
     for raw in [
         json!({"installId": "short"}),
         json!({"installId": 7}),
@@ -60,10 +62,7 @@ fn keeps_a_valid_install_id_and_makes_a_new_one_for_a_bad_id() {
         json!("text"),
     ] {
         let id = parse_stored(&raw).install_id;
-        assert!(
-            Regex::new("^[0-9a-f-]{36}$").unwrap().is_match(&id),
-            "{raw}"
-        );
+        assert!(uuid_shape.is_match(&id), "{raw}");
         assert_ne!(id, INSTALL_ID);
     }
 }
