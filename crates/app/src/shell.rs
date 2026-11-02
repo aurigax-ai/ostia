@@ -9,7 +9,6 @@ mod top_bar;
 mod window_controls;
 mod work_area;
 
-use gpui_kit::component::window_border;
 use gpui_kit::prelude::*;
 use gpui_kit::{
     App, Bounds, Context, Entity, KeyBinding, Render, Window, WindowBounds, WindowDecorations,
@@ -22,6 +21,7 @@ pub use root::{OpenSettings, ShellRoot, ToggleCommandPalette, ToggleRail};
 const WINDOW_WIDTH: f32 = 1280.;
 const WINDOW_HEIGHT: f32 = 800.;
 const WINDOW_INSET: f32 = 80.;
+const CLIENT_SHADOW: f32 = if cfg!(target_os = "linux") { 20. } else { 0. };
 const WINDOW_TITLE: &str = "Ostia";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -64,16 +64,6 @@ pub fn bind_shell_keys(cx: &mut App) {
     ]);
 }
 
-struct ShellWindow {
-    root: Entity<ShellRoot>,
-}
-
-impl Render for ShellWindow {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        window_border().shadow_size(px(0.)).child(self.root.clone())
-    }
-}
-
 pub fn open_shell_window(
     options: ShellOptions,
     cx: &mut App,
@@ -84,7 +74,10 @@ pub fn open_shell_window(
     let window_options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(Bounds::new(
             point(px(WINDOW_INSET), px(WINDOW_INSET)),
-            size(px(WINDOW_WIDTH), px(WINDOW_HEIGHT)),
+            size(
+                px(WINDOW_WIDTH + CLIENT_SHADOW * 2.),
+                px(WINDOW_HEIGHT + CLIENT_SHADOW * 2.),
+            ),
         ))),
         titlebar: Some(gpui_kit::TitlebarOptions {
             title: Some(WINDOW_TITLE.into()),
@@ -99,7 +92,7 @@ pub fn open_shell_window(
     gpui_kit::open_window(window_options, cx, |window, cx| {
         let root = cx.new(|cx| ShellRoot::new(options, window, cx));
         built = Some(root.clone());
-        cx.new(|_| ShellWindow { root })
+        root
     })?;
     built.ok_or_else(|| anyhow::anyhow!("window did not build"))
 }

@@ -46,10 +46,11 @@ impl RenderOnce for Input {
         let input = KitInput::new(&self.state)
             .aria_label(self.label)
             .disabled(self.disabled)
-            .with_size(Size::Size(CONTROL_H))
+            .with_size(Size::Small)
             .rounded(RADIUS_MD)
             .ui_text(TextStep::Base, cx)
             .when_some(self.width, |input, width| input.w(width));
+        let input = Styled::h(input, CONTROL_H);
         if self.code { input.font_code() } else { input }
     }
 }
