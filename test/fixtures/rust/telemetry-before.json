@@ -1,0 +1,51 @@
+{
+  "installId": "0f8fad5b-d9cb-469f-a165-70867728950e",
+  "asked": false,
+  "answeredAt": null,
+  "seen": [],
+  "queue": [
+    {
+      "report": {
+        "uuid": "e1",
+        "event": "$exception",
+        "distinct_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+        "timestamp": "2026-10-18T10:00:00.000Z",
+        "properties": {
+          "app_version": "1.0.0",
+          "electron_version": "33",
+          "os_name": "linux",
+          "os_version": "6",
+          "arch": "x64",
+          "locale": "en",
+          "channel": "source",
+          "$process_person_profile": false,
+          "source": "main-exception",
+          "$exception_list": [
+            {
+              "type": "TypeError",
+              "value": "boom in <path>",
+              "mechanism": {
+                "handled": true
+              },
+              "stacktrace": {
+                "type": "raw",
+                "frames": [
+                  {
+                    "platform": "node",
+                    "in_app": true,
+                    "function": "f",
+                    "filename": "x.js",
+                    "lineno": 1,
+                    "colno": 2
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "attempts": 0
+    }
+  ],
+  "sent": []
+}

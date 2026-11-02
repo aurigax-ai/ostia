@@ -21,9 +21,12 @@ export { USAGE_TABLE } from './src/cli/common/usageTable'
 export * as bus from './src/main/agents/busStore'
 export { encodeViewerSelection } from './packages/extension-sdk/src/contract/viewerSelection'
 export { createHeadlessTerminal } from './src/shared/terminal/ghosttyHeadless'
+export { createTelemetry } from './src/main/diagnostics/telemetry'
 `
 
 const bundle = join(work, 'bundle.cjs')
+const electronStub = join(work, 'electron-stub.cjs')
+writeFileSync(electronStub, 'module.exports = {}\n')
 await build({
   stdin: { contents: ENTRY, resolveDir: root, loader: 'ts' },
   bundle: true,
@@ -31,6 +34,7 @@ await build({
   format: 'cjs',
   outfile: bundle,
   loader: { '.wasm': 'binary' },
+  alias: { electron: electronStub },
   logLevel: 'error',
 })
 const {
@@ -49,6 +53,7 @@ const {
   bus,
   encodeViewerSelection,
   createHeadlessTerminal,
+  createTelemetry,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -472,6 +477,38 @@ const serializeFixtures = SERIALIZE_CASES.map((c) => {
   return { ...c, lines }
 })
 writeFileSync(join(out, 'ghostty-serialize.json'), `${JSON.stringify(serializeFixtures, null, 2)}\n`)
+const TELEMETRY_INSTALL_ID = '0f8fad5b-d9cb-469f-a165-70867728950e'
+const TELEMETRY_FIXED_MS = Date.parse('2026-10-18T10:00:00.000Z')
+const telemetryFile = join(work, 'telemetry.json')
+writeFileSync(telemetryFile, JSON.stringify({ installId: TELEMETRY_INSTALL_ID }))
+let telemetryEvents = 0
+const telemetry = createTelemetry({
+  file: telemetryFile,
+  endpoint: null,
+  context: () => ({
+    app_version: '1.0.0',
+    electron_version: '33',
+    os_name: 'linux',
+    os_version: '6',
+    arch: 'x64',
+    locale: 'en',
+    channel: 'source',
+  }),
+  settings: () => ({ errors: true, usage: false, features: false, terminal: false, extensions: false, agents: false }),
+  session: () => ({ windows: '1', workspaces: '1', restore: 'ok', inEffect: {}, installedExtensions: [], enabledExtensions: [] }),
+  now: () => TELEMETRY_FIXED_MS,
+  newId: () => `e${++telemetryEvents}`,
+})
+telemetry.error({
+  source: 'main-exception',
+  name: 'TypeError',
+  message: 'boom in /home/ann/x.js',
+  stack: 'TypeError: boom\n    at f (/home/ann/x.js:1:2)',
+})
+writeFileSync(join(out, 'telemetry-before.json'), readFileSync(telemetryFile))
+telemetry.consented()
+writeFileSync(join(out, 'telemetry-after.json'), readFileSync(telemetryFile))
+await telemetry.shutdown()
 rmSync(work, { recursive: true, force: true })
 
 saveJson(join(out, 'install-replace-pending.json'), {
