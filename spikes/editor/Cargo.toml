@@ -1,0 +1,17 @@
+[package]
+name = "spike-editor"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+gpui-kit = { version = "=0.8.1", features = [
+  "tree-sitter",
+  "tree-sitter-typescript",
+  "tree-sitter-rust",
+  "tree-sitter-python",
+  "tree-sitter-bash",
+] }
+similar = "2.7"
+
+[workspace]
