@@ -69,6 +69,7 @@ fn chord(ctrl: bool, shift: bool, alt: bool, meta: bool, key: &str) -> Option<St
         alt,
         meta,
         key: key.to_owned(),
+        terminal: false,
     })
 }
 

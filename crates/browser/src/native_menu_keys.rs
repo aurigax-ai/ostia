@@ -1,4 +1,4 @@
-use crate::chord_spec::{ChordSpec, parse_chord, spec_from_event};
+use ostia_contract::chord_spec::{ChordSpec, parse_chord, spec_from_event};
 
 pub use crate::guest_key::GuestKeyInput;
 
