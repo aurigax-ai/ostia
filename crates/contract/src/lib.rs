@@ -35,6 +35,7 @@ pub mod incident;
 pub mod keep_shells;
 pub mod modifier_remap;
 pub mod onboard_playbook;
+pub mod json_located;
 pub mod open_files;
 pub mod osc7;
 pub mod pick;
@@ -54,6 +55,7 @@ pub mod scrollbar;
 pub mod shell_quote;
 pub mod sync_kinds;
 pub mod terminal_replies;
+pub mod string_enum;
 pub mod terminal_state;
 pub mod text_cut;
 pub mod turn_hook;
@@ -62,6 +64,11 @@ pub mod viewer_selection;
 pub mod workspace_groups;
 pub mod workspace_text;
 pub mod zoom;
+pub mod view_bindings;
+pub mod view_checker;
+pub mod view_parse;
+pub mod view_schema;
+pub mod views;
 
 pub const TARGET_PANE_PARAM: &str = "targetPaneId";
 pub const SANDBOXED_REFUSAL: &str =
