@@ -112,7 +112,7 @@ impl Render for ShellRoot {
             .text_color(t.fg)
             .font_family(FONT_UI)
             .ui_text(TextStep::Base, cx)
-            .child(top_bar::render(self.rail_collapsed, cx))
+            .child(top_bar::render(cx))
             .child(
                 div()
                     .flex()

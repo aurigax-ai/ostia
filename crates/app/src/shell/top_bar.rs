@@ -13,7 +13,7 @@ const CENTER_MIN_W: f32 = 160.;
 const CENTER_H: f32 = 24.;
 const MAC_TRAFFIC_LIGHTS: f32 = 80.;
 
-pub(super) fn render(collapsed: bool, cx: &mut Context<ShellRoot>) -> impl IntoElement + use<> {
+pub(super) fn render(cx: &mut Context<ShellRoot>) -> impl IntoElement + use<> {
     let t = *cx.tokens();
     let root = cx.entity().downgrade();
     let toggle = cx.listener(|this, _, _, cx| this.toggle_rail(cx));
@@ -48,7 +48,6 @@ pub(super) fn render(collapsed: bool, cx: &mut Context<ShellRoot>) -> impl IntoE
                     div().on_mouse_down(MouseButton::Left, stop).child(
                         IconButton::new("toggle-rail", IconName::SidebarSimple, "Toggle sidebar")
                             .size(IconButtonSize::Bar)
-                            .pressed(!collapsed)
                             .on_click(toggle),
                     ),
                 ),

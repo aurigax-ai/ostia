@@ -1,4 +1,5 @@
 use gpui_kit::component::input::{Input as KitInput, InputState};
+use gpui_kit::component::{Sizable as _, Size};
 use gpui_kit::prelude::*;
 use gpui_kit::{App, Entity, IntoElement, Pixels, RenderOnce, SharedString, Window, px};
 
@@ -45,7 +46,7 @@ impl RenderOnce for Input {
         let input = KitInput::new(&self.state)
             .aria_label(self.label)
             .disabled(self.disabled)
-            .h(CONTROL_H)
+            .with_size(Size::Size(CONTROL_H))
             .rounded(RADIUS_MD)
             .ui_text(TextStep::Base, cx)
             .when_some(self.width, |input, width| input.w(width));

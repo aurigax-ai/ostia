@@ -103,7 +103,6 @@ fn build_command(state: &Entity<CommandState>, groups: &Rc<Vec<PaletteGroup>>) -
         })
         .placeholder("Search or run a command")
         .max_h(px(LIST_MAX_H))
-        .bordered(false)
         .on_confirm(move |path: IndexPath, window, cx| {
             let run = confirm_groups
                 .get(path.section)

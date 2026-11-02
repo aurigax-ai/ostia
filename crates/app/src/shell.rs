@@ -70,7 +70,7 @@ struct ShellWindow {
 
 impl Render for ShellWindow {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        window_border().child(self.root.clone())
+        window_border().shadow_size(px(0.)).child(self.root.clone())
     }
 }
 

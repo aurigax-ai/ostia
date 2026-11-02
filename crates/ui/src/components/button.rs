@@ -138,14 +138,16 @@ pub(crate) fn variant_colors(variant: ButtonVariant, pressed: bool, cx: &App) ->
 }
 
 pub(crate) fn kit_button(id: ElementId, colors: &VariantColors, cx: &App) -> KitButton {
-    KitButton::new(id).custom(
-        ButtonCustomVariant::new(cx)
-            .color(colors.background)
-            .hover(colors.hover)
-            .active(colors.hover)
-            .foreground(colors.foreground)
-            .shadow(false),
-    )
+    KitButton::new(id)
+        .custom(
+            ButtonCustomVariant::new(cx)
+                .color(colors.background)
+                .hover(colors.hover)
+                .active(colors.hover)
+                .foreground(colors.foreground)
+                .shadow(false),
+        )
+        .bg(colors.background)
 }
 
 pub(crate) fn bordered_if(button: KitButton, border: Option<Hsla>) -> KitButton {

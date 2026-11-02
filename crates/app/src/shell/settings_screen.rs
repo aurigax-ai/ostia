@@ -16,7 +16,7 @@ use ostia_ui::tokens::{
     SETTINGS_CONTENT_MAX_W, SETTINGS_NAV_W, SPACE_1, SPACE_2, SPACE_5, SPACE_8, TextStep, UiText,
 };
 
-const NAV_ROW_H: f32 = 30.;
+const NAV_ROW_H: f32 = 32.;
 const NAV_GROUP_GAP: f32 = 12.;
 const WIDE_INPUT: f32 = 224.;
 const NUMBER_INPUT: f32 = 96.;
