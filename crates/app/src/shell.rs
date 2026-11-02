@@ -12,8 +12,8 @@ mod work_area;
 use gpui_kit::component::window_border;
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    App, AppContext as _, Bounds, Context, Entity, KeyBinding, Render, Window, WindowBounds,
-    WindowDecorations, WindowOptions, point, px, size,
+    App, Bounds, Context, Entity, KeyBinding, Render, Window, WindowBounds, WindowDecorations,
+    WindowOptions, point, px, size,
 };
 
 pub use fixtures::{FixtureWorkspace, fixture_workspaces};
@@ -94,7 +94,7 @@ pub fn open_shell_window(
         built = Some(root.clone());
         cx.new(|_| ShellWindow { root })
     })?;
-    built.ok_or_else(|| gpui_kit::anyhow!("window did not build"))
+    built.ok_or_else(|| anyhow::anyhow!("window did not build"))
 }
 
 pub fn run_window(options: ShellOptions) {

@@ -7,8 +7,8 @@ use futures::StreamExt as _;
 use futures::channel::mpsc::unbounded;
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
-    MouseButton, Render, Window, div, px, rgb,
+    Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, MouseButton, Render,
+    Window, div, px, rgb,
 };
 use ostia_ui::theme::UiTheme;
 
@@ -105,8 +105,8 @@ impl TerminalView {
                 while let Some(first) = receiver.next().await {
                     let mut batch = vec![first];
                     while batch.len() < BATCH_LIMIT {
-                        match receiver.try_next() {
-                            Ok(Some(event)) => batch.push(event),
+                        match receiver.try_recv() {
+                            Ok(event) => batch.push(event),
                             _ => break,
                         }
                     }

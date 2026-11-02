@@ -13,13 +13,13 @@ const GAP: f32 = 12.;
 const HOVER: f32 = 0.18;
 const ACTIVE: f32 = 0.26;
 
-fn control(
+fn control<F: Fn(&mut Window, &mut App) + 'static>(
     id: &'static str,
     label: &'static str,
     name: IconName,
-    action: impl Fn(&mut Window, &mut App) + 'static,
+    action: F,
     cx: &App,
-) -> impl IntoElement + use<> {
+) -> impl IntoElement + use<F> {
     let t = *cx.tokens();
     div()
         .id(id)

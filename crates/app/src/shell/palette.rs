@@ -4,7 +4,7 @@ use std::rc::Rc;
 use gpui_kit::component::IndexPath;
 use gpui_kit::component::command::{Command, CommandGroup, CommandItem, CommandState};
 use gpui_kit::prelude::*;
-use gpui_kit::{App, AppContext as _, Entity, SharedString, WeakEntity, Window, div, px};
+use gpui_kit::{App, Entity, SharedString, WeakEntity, Window, div, px};
 use ostia_ui::components::{PaletteRow, close_dialog, open_dialog};
 use ostia_ui::theme::{UiTheme, set_theme, themes};
 use ostia_ui::tokens::{PALETTE_W, RADIUS_LG, TextStep, UiText};
@@ -122,7 +122,7 @@ pub(super) fn open(root: WeakEntity<ShellRoot>, window: &mut Window, cx: &mut Ap
     let focused = Cell::new(false);
     open_dialog(window, cx, move |dialog, window, cx| {
         if !focused.replace(true) {
-            state.read(cx).focus(window, cx);
+            state.update(cx, |state, cx| state.focus(window, cx));
         }
         let top = window.viewport_size().height * TOP_FRACTION;
         let state = state.clone();

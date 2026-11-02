@@ -7,7 +7,7 @@ use ostia_ui::components::{
     Badge, BadgeVariant, Button, ButtonSize, ButtonVariant, ControlRow, EmptyBlock, EmptyState,
     IconButton, IconName, Input, ListRow, Notice, NoticeTone, PromptCard, PromptTone, Segmented,
     SegmentedOption, SelectEvent, SelectField, SelectFieldState, SelectOption, SettingsGroup,
-    SettingsPage, SplitButton, Switch, TextLink, ToggleRow, close_dialog, menu_item, open_dialog,
+    SettingsPage, SplitButton, TextLink, ToggleRow, close_dialog, menu_item, open_dialog,
     select_state,
 };
 use ostia_ui::icons::{IconSize, icon};
