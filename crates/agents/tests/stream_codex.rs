@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use futures_util::FutureExt;
 use futures_util::future::BoxFuture;
-use ostia_agents::agent_stream::{StreamEnd, StreamEvent};
+use ostia_contract::agent_stream::{StreamEnd, StreamEvent};
 use ostia_agents::stream_codex::{
     CodexConnect, CodexNotice, CodexRequestError, CodexRpc, CodexSource, CodexSourceDeps,
     codex_source,

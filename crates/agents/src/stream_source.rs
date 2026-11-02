@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use futures_util::future::BoxFuture;
 
-use crate::agent_stream::StreamEvent;
+use ostia_contract::agent_stream::StreamEvent;
 
 pub type Emit = Arc<dyn Fn(Vec<StreamEvent>) + Send + Sync>;
 

@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Number;
 
 use crate::turn_hook::TurnStepKind;
@@ -6,7 +6,7 @@ use crate::turn_hook::TurnStepKind;
 pub const STREAM_TURNS_MAX: usize = 50;
 pub const STREAM_TURNS_DEFAULT: usize = 5;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PlanStatus {
     Pending,
@@ -14,13 +14,13 @@ pub enum PlanStatus {
     Done,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlanItem {
     pub text: String,
     pub status: PlanStatus,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum EditChange {
     Add,
@@ -28,7 +28,7 @@ pub enum EditChange {
     Delete,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TurnEnd {
     Done,
@@ -36,7 +36,7 @@ pub enum TurnEnd {
     Failed,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum StreamEnd {
     PaneClosed,
@@ -47,7 +47,7 @@ pub enum StreamEnd {
     TooLarge,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all_fields = "camelCase")]
 pub enum StreamEvent {
     #[serde(rename = "turn.started")]
@@ -59,7 +59,7 @@ pub enum StreamEvent {
         turn: String,
         id: String,
         text: String,
-        #[serde(skip_serializing_if = "is_false")]
+        #[serde(default, skip_serializing_if = "is_false")]
         append: bool,
     },
     #[serde(rename = "text")]
@@ -67,7 +67,7 @@ pub enum StreamEvent {
         turn: String,
         id: String,
         text: String,
-        #[serde(skip_serializing_if = "is_false")]
+        #[serde(default, skip_serializing_if = "is_false")]
         append: bool,
     },
     #[serde(rename = "tool")]
@@ -76,11 +76,11 @@ pub enum StreamEvent {
         id: String,
         kind: TurnStepKind,
         name: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         target: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         input: Option<String>,
-        #[serde(skip_serializing_if = "is_false")]
+        #[serde(default, skip_serializing_if = "is_false")]
         append: bool,
     },
     #[serde(rename = "tool.result")]
@@ -88,11 +88,11 @@ pub enum StreamEvent {
         turn: String,
         id: String,
         output: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         exit_code: Option<Number>,
-        #[serde(skip_serializing_if = "is_false")]
+        #[serde(default, skip_serializing_if = "is_false")]
         is_error: bool,
-        #[serde(skip_serializing_if = "is_false")]
+        #[serde(default, skip_serializing_if = "is_false")]
         append: bool,
     },
     #[serde(rename = "edit")]
@@ -102,7 +102,7 @@ pub enum StreamEvent {
         path: String,
         change: EditChange,
         diff: String,
-        #[serde(skip_serializing_if = "is_false")]
+        #[serde(default, skip_serializing_if = "is_false")]
         append: bool,
     },
     #[serde(rename = "plan")]
@@ -110,7 +110,7 @@ pub enum StreamEvent {
         turn: String,
         id: String,
         items: Vec<PlanItem>,
-        #[serde(skip_serializing_if = "is_false")]
+        #[serde(default, skip_serializing_if = "is_false")]
         append: bool,
     },
     #[serde(rename = "session")]

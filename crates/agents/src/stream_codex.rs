@@ -10,9 +10,9 @@ use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 use tokio::time::Sleep;
 
-use crate::agent_stream::{StreamEnd, StreamEvent, last_turns};
 use crate::codex_stream::{codex_notification, codex_turn};
 use crate::stream_source::{Backfill, Emit, StreamSource, StreamSourceError};
+use ostia_contract::agent_stream::{StreamEnd, StreamEvent, last_turns};
 
 const RESUBSCRIBE_MS: u64 = 1000;
 const RESUBSCRIBE_MAX: usize = 300;

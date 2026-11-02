@@ -3,8 +3,8 @@ use std::sync::Arc;
 use futures_util::future::{BoxFuture, FutureExt};
 use parking_lot::Mutex;
 
-use crate::agent_stream::StreamEvent;
 use crate::stream_source::{Backfill, Emit, StreamSource, StreamSourceError};
+use ostia_contract::agent_stream::StreamEvent;
 
 pub type PiListener = Arc<dyn Fn(Vec<StreamEvent>) + Send + Sync>;
 
