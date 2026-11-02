@@ -106,8 +106,8 @@ fn entries_from(web: &Value, key: &str) -> Result<Vec<StorageEntry>, String> {
 }
 
 pub async fn read_storage<G: StorageGuest>(guest: &G) -> Result<BrowserStorageSnapshot, String> {
-    let (cookies, web) =
-        tokio::try_join!(list_cookies(guest, &json!({})), read_web_storage(guest))?;
+    let filter = json!({});
+    let (cookies, web) = tokio::try_join!(list_cookies(guest, &filter), read_web_storage(guest))?;
     Ok(BrowserStorageSnapshot {
         origin: web
             .get("origin")
