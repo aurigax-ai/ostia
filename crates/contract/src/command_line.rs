@@ -4,9 +4,9 @@ pub fn decode_command_line(encoded: &str) -> String {
     while let Some(ch) = rest.chars().next() {
         if ch == '\\' {
             let after = &rest[1..];
-            if after.starts_with('\\') {
+            if let Some(tail) = after.strip_prefix('\\') {
                 out.push('\\');
-                rest = &after[1..];
+                rest = tail;
                 continue;
             }
             if let Some(byte) = hex_escape(after) {
