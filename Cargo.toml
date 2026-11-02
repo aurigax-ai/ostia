@@ -24,6 +24,7 @@ ostia-park = { path = "crates/park" }
 ostia-rpc = { path = "crates/rpc" }
 ostia-testkit = { path = "crates/testkit" }
 
+base64 = "0.22"
 bytes = "1"
 futures-util = "0.3"
 getrandom = "0.4"
