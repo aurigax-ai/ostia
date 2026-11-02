@@ -5,7 +5,9 @@ use std::rc::Rc;
 
 use ostia_model::terminal::pty_ack::{PTY_ACK_CHARS, PtyAcker};
 
-fn recording() -> (PtyAcker<impl FnMut(i64)>, Rc<RefCell<Vec<i64>>>) {
+type Acks = Rc<RefCell<Vec<i64>>>;
+
+fn recording() -> (PtyAcker<impl FnMut(i64)>, Acks) {
     let acks = Rc::new(RefCell::new(Vec::new()));
     let sink = Rc::clone(&acks);
     (
