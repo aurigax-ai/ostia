@@ -278,6 +278,10 @@ pub type LatestFuture = Pin<Box<dyn Future<Output = LatestRelease> + Send>>;
 pub type AvailabilityFuture = Pin<Box<dyn Future<Output = Option<ReplaceAvailability>> + Send>>;
 pub type CheckFuture = Shared<Pin<Box<dyn Future<Output = ReleaseCheckResult> + Send>>>;
 
+pub type ChangeFn = dyn Fn(Option<&ReleaseInfo>) + Send + Sync;
+pub type CheckLogFn = dyn Fn(ReleaseCheckTrigger, &str, Option<&str>) + Send + Sync;
+pub type InfoLogFn = dyn Fn(&str, Value) + Send + Sync;
+
 pub struct ReleaseCheckerDeps {
     pub current_version: String,
     pub fetch_latest: Box<dyn Fn(UpdateChannel) -> LatestFuture + Send + Sync>,
@@ -286,8 +290,8 @@ pub struct ReleaseCheckerDeps {
     pub channel: Box<dyn Fn() -> UpdateChannel + Send + Sync>,
     pub load_dismissed: Box<dyn Fn() -> Option<String> + Send + Sync>,
     pub save_dismissed: Box<dyn Fn(&str) + Send + Sync>,
-    pub on_change: Box<dyn Fn(Option<&ReleaseInfo>) + Send + Sync>,
-    pub log: Option<Box<dyn Fn(ReleaseCheckTrigger, &str, Option<&str>) + Send + Sync>>,
+    pub on_change: Box<ChangeFn>,
+    pub log: Option<Box<CheckLogFn>>,
 }
 
 struct CheckerState {
@@ -545,7 +549,7 @@ pub fn load_dismissed(path: &Path) -> Option<String> {
 pub struct ReleaseServiceDeps {
     pub open_external: Box<dyn Fn(&str) -> bool + Send + Sync>,
     pub read_settings: Box<dyn Fn() -> Value + Send + Sync>,
-    pub log_info: Box<dyn Fn(&str, Value) + Send + Sync>,
+    pub log_info: Box<InfoLogFn>,
     pub log_warn: Box<dyn Fn(&str) + Send + Sync>,
     pub version: String,
     pub method: Box<dyn Fn() -> InstallMethod + Send + Sync>,
