@@ -153,7 +153,7 @@ pub fn skill_frontmatter(text: &str) -> Option<SkillFrontmatter> {
         let Some(captures) = FIELD_LINE.captures(line) else {
             return refuse(at, key_problem(line));
         };
-        let key: &str = &captures[1];
+        let key = captures.get(1).map_or("", |name| name.as_str());
         let raw = captures.get(2).map_or("", |value| value.as_str());
         if !SKILL_KEYS.contains(&key) {
             return refuse(
