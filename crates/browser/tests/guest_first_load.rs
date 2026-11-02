@@ -11,6 +11,8 @@ use tokio::sync::oneshot;
 
 const PAGE: &str = "https://example.com/restored";
 
+type Deferred = Arc<Mutex<Vec<Box<dyn FnOnce() + Send>>>>;
+
 #[derive(Default)]
 struct FakeGuest {
     destroyed: Mutex<bool>,
@@ -38,7 +40,7 @@ struct Setup {
     guest: Arc<FakeGuest>,
     hold: FirstLoadHold,
     ready: Option<oneshot::Sender<Result<(), String>>>,
-    deferred: Arc<Mutex<Vec<Box<dyn FnOnce() + Send>>>>,
+    deferred: Deferred,
 }
 
 impl Setup {
@@ -89,7 +91,7 @@ impl Setup {
 fn setup(referrers: &'static [(&'static str, &'static str)]) -> Setup {
     let (tx, rx) = oneshot::channel::<Result<(), String>>();
     let guest = Arc::new(FakeGuest::default());
-    let deferred: Arc<Mutex<Vec<Box<dyn FnOnce() + Send>>>> = Arc::new(Mutex::new(Vec::new()));
+    let deferred: Deferred = Arc::new(Mutex::new(Vec::new()));
     let hold = hold_first_load(
         guest.clone(),
         async move { rx.await.unwrap_or(Ok(())) },
