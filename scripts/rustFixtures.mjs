@@ -10,6 +10,7 @@ const work = mkdtempSync(join(tmpdir(), 'rust-fixtures-'))
 
 const ENTRY = `
 export { ParkedStore } from './src/main/park/parkedStore'
+export { ViewStateStore } from './src/main/git/viewState'
 export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
 `
 
@@ -22,7 +23,7 @@ await build({
   outfile: bundle,
   logLevel: 'error',
 })
-const { ParkedStore, saveJson, saveJsonAsync } = createRequire(import.meta.url)(bundle)
+const { ParkedStore, ViewStateStore, saveJson, saveJsonAsync } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
   v: 1,
@@ -159,4 +160,14 @@ store.park({ workspaceId: 'w2', resume: { agent: 'agy', id: 's3' }, title: 'thir
 writeFileSync(join(out, 'parked-sessions-before.json'), readFileSync(parked))
 store.remove(gone.record.id)
 writeFileSync(join(out, 'parked-sessions-after.json'), readFileSync(parked))
+
+const viewFile = join(work, 'git', 'view.json')
+const view = new ViewStateStore(viewFile)
+view.setChosen('/r/a', ['refs/heads/main', 'refs/remotes/origin/dev'])
+view.setChosen('/r/b', ['refs/heads/é'])
+view.setChosen('/r/c', ['refs/heads/x'])
+writeFileSync(join(out, 'git-view-state-before.json'), readFileSync(viewFile))
+view.setChosen('/r/b', null)
+view.setChosen('/r/a', ['refs/heads/next'])
+writeFileSync(join(out, 'git-view-state-after.json'), readFileSync(viewFile))
 rmSync(work, { recursive: true, force: true })
