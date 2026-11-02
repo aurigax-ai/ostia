@@ -1,0 +1,5 @@
+{
+  "name": "ostia",
+  "version": "0.5.13",
+  "description": "ostia integration: the ostia CLI skill plus hooks for the agent's resume token and attention state."
+}

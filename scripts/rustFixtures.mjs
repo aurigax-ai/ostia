@@ -27,7 +27,23 @@ export { ViewStore } from './src/main/workspaces/viewHost'
 export { OpenFileGrants } from './src/main/files/openFileGrants'
 export { ExtensionStore } from './src/main/extensions/extensionStore'
 export { ExtensionLaunches } from './src/main/extensions/extensionLaunches'
+export * as claudeIntegration from './src/main/terminal/claudeIntegration'
+export * as agyIntegration from './src/main/terminal/agyIntegration'
 `
+
+const rawPlugin = {
+  name: 'raw',
+  setup(b) {
+    b.onResolve({ filter: /\?raw$/ }, (args) => ({
+      path: new URL(args.path.replace(/\?raw$/, ''), `file://${args.resolveDir}/`).pathname,
+      namespace: 'raw',
+    }))
+    b.onLoad({ filter: /.*/, namespace: 'raw' }, (args) => ({
+      contents: `export default ${JSON.stringify(readFileSync(args.path, 'utf8'))}`,
+      loader: 'js',
+    }))
+  },
+}
 
 const bundle = join(work, 'bundle.cjs')
 const electronStub = join(work, 'electron-stub.cjs')
@@ -40,6 +56,7 @@ await build({
   outfile: bundle,
   loader: { '.wasm': 'binary' },
   alias: { electron: electronStub },
+  plugins: [rawPlugin],
   logLevel: 'error',
 })
 const {
@@ -66,6 +83,8 @@ const {
   OpenFileGrants,
   ExtensionStore,
   ExtensionLaunches,
+  claudeIntegration,
+  agyIntegration,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -261,6 +280,18 @@ writeFileSync(join(out, 'extension-launches-before.json'), readFileSync(launches
 launches.set('activity', false)
 writeFileSync(join(out, 'extension-launches-after.json'), readFileSync(launchesFile))
 writeFileSync(join(out, 'pane-launcher.sh'), ostiaLauncherScript())
+const claudeFixtureHooks = [
+  { extId: 'acme.notes', event: 'Stop', command: 'check' },
+  { extId: 'acme.notes', event: 'Notification', command: 'ping' },
+  { extId: 'acme.lint', event: 'PreToolUse', command: 'lint' },
+]
+saveJson(join(out, 'claude-hook-settings.json'), claudeIntegration.claudeHookSettings())
+saveJson(join(out, 'claude-hook-settings-extensions.json'), claudeIntegration.claudeHookSettings(claudeFixtureHooks))
+writeFileSync(join(out, 'claude-wrapper.sh'), claudeIntegration.claudeWrapper())
+saveJson(join(out, 'claude-plugin-manifest.json'), claudeIntegration.CLAUDE_PLUGIN_MANIFEST)
+saveJson(join(out, 'claude-fold-manifest.json'), claudeIntegration.CLAUDE_FOLD_MANIFEST)
+writeFileSync(join(out, 'agy-hooks.json'), agyIntegration.agyHooksJson())
+writeFileSync(join(out, 'agy-plugin-digest.txt'), agyIntegration.agyPluginDigest())
 writeFileSync(join(out, 'pane-banner-error.txt'), errorBanner('Sandbox unavailable'))
 writeFileSync(
   join(out, 'pane-banner-integration-en.txt'),

@@ -1,0 +1,156 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" resume-token claude - >/dev/null 2>&1 || true"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" bus hook SessionStart 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" state working >/dev/null 2>&1 || true"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" bus hook UserPromptSubmit 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && { input=$(cat); printf '%s' \"$input\" | ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" turn-hook UserPromptSubmit >/dev/null 2>&1 & } || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion|ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" claude-hook PreToolUse >/dev/null 2>&1 || true"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" agent-hook acme.lint lint claude PreToolUse 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "AskUserQuestion|ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" claude-hook PostToolUse >/dev/null 2>&1 || true"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && { input=$(cat); printf '%s' \"$input\" | ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" turn-hook PostToolUse >/dev/null 2>&1 & } || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" claude-hook Stop >/dev/null 2>&1 || true"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && { input=$(cat); printf '%s' \"$input\" | ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" turn-hook Stop >/dev/null 2>&1 & } || true"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" agent-hook acme.notes check claude Stop 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" claude-hook Notification >/dev/null 2>&1 || true"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" agent-hook acme.notes ping claude Notification 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" claude-hook PermissionDenied >/dev/null 2>&1 || true"
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" claude-hook StopFailure >/dev/null 2>&1 || true"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" claude-hook SubagentStart >/dev/null 2>&1 || true"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" claude-hook SubagentStop >/dev/null 2>&1 || true"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${OSTIA_SOCKET}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" permission-hook claude 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

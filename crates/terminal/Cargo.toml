@@ -31,6 +31,7 @@ tracing.workspace = true
 workspace = true
 
 [dev-dependencies]
+ostia-agents.workspace = true
 ostia-testkit.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
