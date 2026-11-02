@@ -21,6 +21,7 @@ pub mod closing_line;
 pub mod codex_attention;
 pub mod command_line;
 pub mod commands;
+pub mod dict;
 pub mod diff_title;
 pub mod discrete_gpu;
 pub mod extension_api;
