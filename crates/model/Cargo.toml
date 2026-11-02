@@ -10,5 +10,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-serde = { workspace = true }
-serde_json = { workspace = true }
+ostia-base.workspace = true
+ostia-contract.workspace = true
+ostia-workspaces.workspace = true
+url.workspace = true
