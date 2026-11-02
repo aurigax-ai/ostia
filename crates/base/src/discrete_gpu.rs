@@ -1,12 +1,15 @@
 use std::collections::BTreeMap;
-use std::io::{self, Read};
-use std::process::{Command, Stdio};
+use std::io;
+use std::path::Path;
+use std::process::Stdio;
 use std::sync::LazyLock;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use regex::Regex;
 use serde_json::{Map, Value, json};
+use tokio::io::AsyncReadExt;
 
+use crate::bounded_run::{MAX_OUTPUT, run_bounded};
 use crate::js::{static_regex, utf16_len};
 
 pub type Env = BTreeMap<String, String>;
@@ -114,58 +117,41 @@ pub fn discrete_gpu(gpus: Option<&[SwitcherooGpu]>) -> Option<&SwitcherooGpu> {
     gpus?.iter().find(|gpu| gpu.discrete && !gpu.is_default)
 }
 
-pub fn read_switcheroo_gpus() -> Option<Vec<SwitcherooGpu>> {
-    let mut child = Command::new("busctl")
-        .args(SWITCHEROO_ARGS)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
-    let mut stdout = child.stdout.take()?;
-    let reader = std::thread::spawn(move || {
-        let mut text = String::new();
-        stdout.read_to_string(&mut text).map(|_| text)
-    });
-    let deadline = Instant::now() + SWITCHEROO_TIMEOUT;
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break Some(status),
-            Ok(None) if Instant::now() < deadline => {
-                std::thread::sleep(Duration::from_millis(5));
-            }
-            _ => {
-                let _ = child.kill();
-                let _ = child.wait();
-                break None;
-            }
-        }
-    };
-    let text = reader.join().ok()?.ok()?;
-    if status?.success() {
-        parse_switcheroo_gpus(&text)
-    } else {
-        None
-    }
+pub fn read_switcheroo_gpus(env: &Env) -> Option<Vec<SwitcherooGpu>> {
+    let args = SWITCHEROO_ARGS.map(str::to_owned);
+    let text = run_bounded(Path::new("busctl"), &args, env, SWITCHEROO_TIMEOUT)?;
+    parse_switcheroo_gpus(&text)
 }
 
-pub async fn query_switcheroo_gpus() -> Option<Vec<SwitcherooGpu>> {
-    let child = tokio::process::Command::new("busctl")
+pub async fn query_switcheroo_gpus(env: &Env) -> Option<Vec<SwitcherooGpu>> {
+    let mut child = tokio::process::Command::new("busctl")
         .args(SWITCHEROO_ARGS)
+        .env_clear()
+        .envs(env)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .kill_on_drop(true)
         .spawn()
         .ok()?;
-    let output = tokio::time::timeout(SWITCHEROO_TIMEOUT, child.wait_with_output())
+    let stdout = child.stdout.take()?;
+    let read = async {
+        let mut bytes = Vec::new();
+        stdout
+            .take(u64::try_from(MAX_OUTPUT + 1).unwrap_or(u64::MAX))
+            .read_to_end(&mut bytes)
+            .await
+            .ok()?;
+        let status = child.wait().await.ok()?;
+        Some((status, bytes))
+    };
+    let (status, bytes) = tokio::time::timeout(SWITCHEROO_TIMEOUT, read)
         .await
-        .ok()?
-        .ok()?;
-    if !output.status.success() {
+        .ok()??;
+    if !status.success() || bytes.len() > MAX_OUTPUT {
         return None;
     }
-    parse_switcheroo_gpus(&String::from_utf8_lossy(&output.stdout))
+    parse_switcheroo_gpus(&String::from_utf8_lossy(&bytes))
 }
 
 pub fn gpu_relaunch_env(env: &Env, gpu: &SwitcherooGpu) -> Option<Env> {

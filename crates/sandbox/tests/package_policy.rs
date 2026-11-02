@@ -8,6 +8,10 @@ use ostia_sandbox::package_policy::{
 };
 use ostia_sandbox::packages::{Ecosystem, PackageRef, parse_package_download};
 
+fn parsed(url: &str) -> Option<PackageRef> {
+    parse_package_download(url).unwrap()
+}
+
 const NOW: i64 = 1_790_769_600_000;
 const HOUR: i64 = 3_600_000;
 const DAY: i64 = 24 * HOUR;
@@ -94,7 +98,7 @@ fn reads_ecosystem_name_and_version_from_registry_download_urls() {
             name: name.to_owned(),
             version: version.to_owned(),
         });
-        assert_eq!(parse_package_download(url), expected, "{url}");
+        assert_eq!(parsed(url), expected, "{url}");
     }
 }
 
@@ -330,4 +334,32 @@ async fn allows_a_version_published_exactly_one_cooldown_ago() {
         decide_package(&pkg(), &policy(), &inside, NOW).await,
         blocked(PackageBlockReason::Cooldown)
     );
+}
+
+#[tokio::test]
+async fn sbx_c80_lets_an_old_clean_package_download_through_on_the_terminated_tls_port() {
+    let package = parsed("https://registry.npmjs.org:41873/left-pad/-/left-pad-1.3.0.tgz").unwrap();
+    assert_eq!(package.name, "left-pad");
+    let denying = PackagePolicy {
+        deny_list: vec!["npm:is-number".to_owned()],
+        ..policy()
+    };
+    let decision = decide_package(&package, &denying, &lookups(), NOW).await;
+    assert_eq!(decision, PackageDecision::Allow);
+}
+
+#[tokio::test]
+async fn refuses_a_deny_listed_package_with_the_reason_and_reports_it() {
+    let package =
+        parsed("https://registry.npmjs.org:41873/is-number/-/is-number-7.0.0.tgz").unwrap();
+    let denying = PackagePolicy {
+        deny_list: vec!["npm:is-number".to_owned()],
+        ..policy()
+    };
+    let decision = decide_package(&package, &denying, &lookups(), NOW).await;
+    let PackageDecision::Block(reason) = decision else {
+        panic!("expected a block, got {decision:?}");
+    };
+    assert_eq!(reason, PackageBlockReason::DenyList);
+    assert_eq!(reason.as_str(), "deny-list");
 }

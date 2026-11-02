@@ -182,3 +182,16 @@ fn shortens_a_long_name_and_a_long_link_target_with_an_ellipsis() {
     );
     assert_eq!(tree.dirs.get("").unwrap()[0].link.as_deref(), Some("0123…"));
 }
+
+#[test]
+fn numbers_twenty_thousand_identical_names_without_rescanning_the_siblings_each_time() {
+    let same: Vec<RawEntry> = (0..BROWSE_LIMITS.entries).map(|i| raw("x", i)).collect();
+    let started = std::time::Instant::now();
+    let tree = build_tree(&same, &BROWSE_LIMITS, false);
+    assert!(started.elapsed() < std::time::Duration::from_secs(5));
+    let names = tree.dirs.get("").unwrap();
+    assert_eq!(names.len(), BROWSE_LIMITS.entries);
+    assert_eq!(names[0].name, "x");
+    assert_eq!(names[1].name, "x (2)");
+    assert_eq!(names[BROWSE_LIMITS.entries - 1].name, "x (20000)");
+}

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use futures_util::FutureExt;
-use ostia_sandbox::package_lookups::{CachedLookups, FetchJson, FetchRequest};
+use ostia_sandbox::package_lookups::{CachedLookups, FetchJson, FetchRequest, FetchResponse};
 use ostia_sandbox::package_policy::{MalwareCheck, PackageLookups};
 use ostia_sandbox::packages::{Ecosystem, PackageRef};
 use parking_lot::Mutex;
@@ -18,7 +18,17 @@ fn pkg(ecosystem: Ecosystem, name: &str, version: &str) -> PackageRef {
     }
 }
 
+fn ok(body: Value) -> Result<FetchResponse, String> {
+    Ok(FetchResponse { status: 200, body })
+}
+
 fn recording(answer: Result<Value, String>) -> (FetchJson, Arc<Mutex<Vec<FetchRequest>>>) {
+    recording_response(answer.map(|body| FetchResponse { status: 200, body }))
+}
+
+fn recording_response(
+    answer: Result<FetchResponse, String>,
+) -> (FetchJson, Arc<Mutex<Vec<FetchRequest>>>) {
     let seen = Arc::new(Mutex::new(Vec::new()));
     let log = seen.clone();
     let fetch: FetchJson = Arc::new(move |request| {
@@ -214,7 +224,7 @@ async fn remembers_a_clean_or_malicious_answer_and_a_publish_time_for_each_versi
         } else {
             json!({"time": {"1.0.0": "2026-09-30T12:00:00.000Z"}})
         };
-        async move { Ok(body) }.boxed()
+        async move { ok(body) }.boxed()
     });
     let lookups = CachedLookups::new(fetch);
     let package = pkg(Ecosystem::Npm, "left-pad", "1.0.0");
@@ -248,4 +258,39 @@ async fn asks_again_after_an_unavailable_osv_answer_or_a_missing_publish_time() 
     lookups.published_at(&package).await;
     lookups.published_at(&package).await;
     assert_eq!(calls.load(Ordering::SeqCst), 4);
+}
+
+#[tokio::test]
+async fn never_reports_clean_for_an_osv_error_status_that_carries_a_json_body() {
+    for status in [301, 400, 429, 500, 503] {
+        let (fetch, _seen) = recording_response(Ok(FetchResponse {
+            status,
+            body: json!({"vulns": []}),
+        }));
+        let check = CachedLookups::new(fetch)
+            .malware(&pkg(Ecosystem::Npm, "left-pad", "1.3.0"))
+            .await;
+        assert_eq!(check, MalwareCheck::Unavailable, "{status}");
+    }
+}
+
+#[tokio::test]
+async fn gives_no_publish_time_for_a_registry_error_status_that_carries_a_json_body() {
+    let (fetch, _seen) = recording_response(Ok(FetchResponse {
+        status: 500,
+        body: json!({"time": {"1.0.0": "2020-01-01T00:00:00.000Z"}}),
+    }));
+    let published = CachedLookups::new(fetch)
+        .published_at(&pkg(Ecosystem::Npm, "left-pad", "1.0.0"))
+        .await;
+    assert_eq!(published, None);
+}
+
+#[tokio::test]
+async fn reads_a_date_only_publish_time_as_midnight_utc() {
+    let (fetch, _seen) = recording(Ok(json!({"Time": "2026-11-01"})));
+    let published = CachedLookups::new(fetch)
+        .published_at(&pkg(Ecosystem::Go, "golang.org/x/net", "v0.20.0"))
+        .await;
+    assert_eq!(published, Some(1_793_491_200_000));
 }

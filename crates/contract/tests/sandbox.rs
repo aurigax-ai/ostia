@@ -90,12 +90,51 @@ fn keeps_the_constant_limits_names_and_defaults_of_the_ts_module() {
             allow_only: None,
         }
     );
-    assert_eq!(DEFAULT_ALLOW_READ.len(), 22);
-    assert_eq!(DEFAULT_ALLOW_READ[0], "~/.zshrc");
-    assert_eq!(DEFAULT_ALLOW_READ[21], "~/.config/starship.toml");
-    assert_eq!(DEFAULT_ALLOWED_DOMAINS.len(), 13);
-    assert_eq!(DEFAULT_ALLOWED_DOMAINS[0], "api.anthropic.com");
-    assert_eq!(DEFAULT_ALLOWED_DOMAINS[12], "sum.golang.org");
+    assert_eq!(
+        DEFAULT_ALLOW_READ,
+        [
+            "~/.zshrc",
+            "~/.zshenv",
+            "~/.zprofile",
+            "~/.bashrc",
+            "~/.bash_profile",
+            "~/.profile",
+            "~/.p10k.zsh",
+            "~/.oh-my-zsh",
+            "~/.cargo",
+            "~/.rustup",
+            "~/.local/bin",
+            "~/.local/share/claude",
+            "~/.local/share/uv/tools",
+            "~/.local/share/uv/python",
+            "~/.local/share/pipx",
+            "~/.nvm",
+            "~/.dircolors",
+            "~/.config/vivid",
+            "~/.config/bat",
+            "~/.config/eza",
+            "~/.config/lsd",
+            "~/.config/starship.toml",
+        ]
+    );
+    assert_eq!(
+        DEFAULT_ALLOWED_DOMAINS,
+        [
+            "api.anthropic.com",
+            "api.openai.com",
+            "chatgpt.com",
+            "github.com",
+            "*.github.com",
+            "registry.npmjs.org",
+            "pypi.org",
+            "files.pythonhosted.org",
+            "crates.io",
+            "static.crates.io",
+            "index.crates.io",
+            "proxy.golang.org",
+            "sum.golang.org",
+        ]
+    );
 }
 
 #[test]

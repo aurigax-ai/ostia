@@ -70,6 +70,17 @@ fn is_line_terminator(ch: char) -> bool {
     matches!(ch, '\n' | '\r' | '\u{2028}' | '\u{2029}')
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MalformedDownloadPath;
+
+impl std::fmt::Display for MalformedDownloadPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("the registry URL path has a bad percent escape")
+    }
+}
+
+impl std::error::Error for MalformedDownloadPath {}
+
 fn decode_uri_component(text: &str) -> Option<String> {
     let bytes = text.as_bytes();
     let mut index = 0;
@@ -165,15 +176,17 @@ fn go_download(path: &str) -> Option<PackageRef> {
     })
 }
 
-pub fn parse_package_download(raw: &str) -> Option<PackageRef> {
-    let url = Url::parse(raw).ok()?;
-    let path = decode_uri_component(url.path())?;
-    match url.host_str()? {
-        "registry.npmjs.org" => npm_download(&path),
-        "files.pythonhosted.org" => pypi_download(&path),
-        "static.crates.io" => static_crate_download(&path),
-        "crates.io" => crates_api_download(&path),
-        "proxy.golang.org" => go_download(&path),
+pub fn parse_package_download(raw: &str) -> Result<Option<PackageRef>, MalformedDownloadPath> {
+    let Ok(url) = Url::parse(raw) else {
+        return Ok(None);
+    };
+    let path = decode_uri_component(url.path()).ok_or(MalformedDownloadPath)?;
+    Ok(match url.host_str() {
+        Some("registry.npmjs.org") => npm_download(&path),
+        Some("files.pythonhosted.org") => pypi_download(&path),
+        Some("static.crates.io") => static_crate_download(&path),
+        Some("crates.io") => crates_api_download(&path),
+        Some("proxy.golang.org") => go_download(&path),
         _ => None,
-    }
+    })
 }

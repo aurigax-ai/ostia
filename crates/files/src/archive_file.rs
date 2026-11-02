@@ -37,10 +37,15 @@ pub enum EntryRead {
     },
 }
 
-#[derive(Debug)]
 pub struct OpenedFile {
     pub file: File,
     pub stat: Metadata,
+}
+
+impl std::fmt::Debug for OpenedFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OpenedFile").finish_non_exhaustive()
+    }
 }
 
 pub fn open_regular(path: &Path) -> Option<OpenedFile> {

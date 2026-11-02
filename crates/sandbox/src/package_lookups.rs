@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::DateTime;
+use chrono::{DateTime, NaiveDate, NaiveTime};
 use futures_util::FutureExt;
 use futures_util::future::{BoxFuture, Shared};
 use parking_lot::Mutex;
@@ -32,8 +32,14 @@ pub struct FetchRequest {
     pub headers: Vec<(String, String)>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct FetchResponse {
+    pub status: u16,
+    pub body: Value,
+}
+
 pub type FetchJson =
-    Arc<dyn Fn(FetchRequest) -> BoxFuture<'static, Result<Value, String>> + Send + Sync>;
+    Arc<dyn Fn(FetchRequest) -> BoxFuture<'static, Result<FetchResponse, String>> + Send + Sync>;
 
 type Memo<T> = Arc<Mutex<HashMap<String, Shared<BoxFuture<'static, T>>>>>;
 
@@ -85,9 +91,19 @@ fn get_request(url: String) -> FetchRequest {
 }
 
 async fn get_json(fetch: &FetchJson, request: FetchRequest) -> Result<Value, String> {
-    match tokio::time::timeout(Duration::from_millis(LOOKUP_TIMEOUT_MS), fetch(request)).await {
-        Ok(answer) => answer,
-        Err(_) => Err("timeout".to_owned()),
+    let response = match tokio::time::timeout(
+        Duration::from_millis(LOOKUP_TIMEOUT_MS),
+        fetch(request),
+    )
+    .await
+    {
+        Ok(answer) => answer?,
+        Err(_) => return Err("timeout".to_owned()),
+    };
+    if (200..300).contains(&response.status) {
+        Ok(response.body)
+    } else {
+        Err(format!("status {}", response.status))
     }
 }
 
@@ -136,10 +152,12 @@ async fn osv_malware(fetch: &FetchJson, pkg: &PackageRef) -> MalwareCheck {
 }
 
 fn millis_of(value: Option<&Value>) -> Option<i64> {
-    let text = value?.as_str().filter(|text| !text.is_empty())?;
-    DateTime::parse_from_rfc3339(text)
-        .ok()
-        .map(|at| at.timestamp_millis())
+    let text = value?.as_str()?.trim();
+    if let Ok(at) = DateTime::parse_from_rfc3339(text) {
+        return Some(at.timestamp_millis());
+    }
+    let day = NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?;
+    Some(day.and_time(NaiveTime::MIN).and_utc().timestamp_millis())
 }
 
 fn published_in(pkg: &PackageRef, body: &Value) -> Option<i64> {

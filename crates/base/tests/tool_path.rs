@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -220,6 +221,10 @@ fn takes_the_path_from_the_environment_of_the_host_when_none_is_given() {
     );
 }
 
+fn path_env() -> BTreeMap<String, String> {
+    BTreeMap::from([("PATH".to_owned(), std::env::var("PATH").unwrap())])
+}
+
 fn run_args(script: &str) -> Vec<String> {
     vec!["-c".to_owned(), script.to_owned()]
 }
@@ -235,6 +240,7 @@ async fn runs_the_login_shell_in_a_session_of_its_own_so_it_can_never_take_the_l
     let out = run_login_shell(
         "/bin/sh",
         &run_args(&format!("echo $$ $(ps -o {key}= -p $$)")),
+        &path_env(),
         Duration::from_secs(5),
     )
     .await;
@@ -261,6 +267,7 @@ async fn kills_the_whole_probe_children_included_when_the_time_limit_passes() {
     let out = run_login_shell(
         "/bin/sh",
         &run_args("sleep 30 & echo $!; wait"),
+        &path_env(),
         Duration::from_millis(300),
     )
     .await;
@@ -280,9 +287,74 @@ async fn answers_nothing_when_the_shell_cannot_start() {
         run_login_shell(
             "/nonexistent/shell",
             &run_args("true"),
+            &path_env(),
             Duration::from_secs(1)
         )
         .await,
         ""
     );
+}
+
+#[tokio::test]
+async fn gives_the_login_shell_only_the_environment_it_is_passed() {
+    let given = BTreeMap::from([("KEPT".to_owned(), "1".to_owned())]);
+    let out = run_login_shell(
+        "/bin/sh",
+        &run_args("/usr/bin/env"),
+        &given,
+        Duration::from_secs(5),
+    )
+    .await;
+    let mut seen: Vec<&str> = out
+        .lines()
+        .filter(|line| {
+            !["PWD=", "OLDPWD=", "SHLVL=", "_="]
+                .iter()
+                .any(|shell| line.starts_with(shell))
+        })
+        .collect();
+    seen.sort_unstable();
+    assert_eq!(seen, ["DISABLE_AUTO_UPDATE=true", "KEPT=1"]);
+}
+
+#[tokio::test]
+async fn starts_the_login_shell_when_called_and_not_when_first_polled() {
+    let dir = tempfile::tempdir().unwrap();
+    let marker = dir.path().join("started");
+    let script = format!("touch '{}'; sleep 1", marker.display());
+    let running = run_login_shell(
+        "/bin/sh",
+        &run_args(&script),
+        &path_env(),
+        Duration::from_secs(5),
+    );
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while !marker.exists() && Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert!(marker.exists());
+    running.await;
+}
+
+#[tokio::test]
+async fn the_default_login_path_run_passes_the_host_environment_and_nothing_else() {
+    let dir = tempfile::tempdir().unwrap();
+    let shell = dir.path().join("shell");
+    std::fs::write(&shell, "#!/bin/sh\nprintf '%s' \"__OSTIA_LOGIN_PATH__$ONLY_THIS|${HOME-unset}__OSTIA_LOGIN_PATH__\"\n").unwrap();
+    std::fs::set_permissions(&shell, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+    let host = Host {
+        env: BTreeMap::from([("ONLY_THIS".to_owned(), "1".to_owned())]),
+        home: "/home/me".into(),
+        cwd: "/".into(),
+        platform: Platform::Linux,
+    };
+    let tool_path = ToolPath::new(&host);
+    let result = tool_path
+        .resolve_login_path(LoginPathOptions {
+            shell: Some(shell.to_string_lossy().into_owned()),
+            ..LoginPathOptions::default()
+        })
+        .await;
+    assert_eq!(result.path.as_deref(), Some("1|unset"));
+    assert_eq!(tool_path.child_env(), &host.env);
 }

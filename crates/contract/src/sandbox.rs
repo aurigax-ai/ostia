@@ -195,18 +195,18 @@ pub fn default_sandbox_globals() -> SandboxGlobals {
 pub struct WorkspaceSandbox {
     pub enabled: bool,
     pub allow_read: Vec<String>,
+    pub domains: Vec<String>,
+    pub controls: Map<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allow_write: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deny_read: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deny_write: Option<Vec<String>>,
-    pub domains: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub denied_domains: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allow_sockets: Option<Vec<String>>,
-    pub controls: Map<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub switches: Option<Map<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]

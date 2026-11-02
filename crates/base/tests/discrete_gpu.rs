@@ -4,8 +4,9 @@ use std::collections::BTreeMap;
 
 use ostia_base::discrete_gpu::{
     GPU_RESTORE_ENV, GpuStartPlan, SwitcherooGpu, default_gpu_render_node, discrete_gpu,
-    gpu_relaunch_env, gpu_start_plan, parse_gpu_environment, parse_switcheroo_gpus, render_node_of,
-    restore_gpu_launch_env, several_render_nodes, without_gpu_launch_env,
+    gpu_relaunch_env, gpu_start_plan, parse_gpu_environment, parse_switcheroo_gpus,
+    query_switcheroo_gpus, read_switcheroo_gpus, render_node_of, restore_gpu_launch_env,
+    several_render_nodes, without_gpu_launch_env,
 };
 use serde_json::{Value, json};
 
@@ -370,4 +371,32 @@ fn puts_the_process_environment_back_before_a_restart() {
     );
     restore_gpu_launch_env(&mut launched);
     assert_eq!(launched, env(&[("PATH", "/bin")]));
+}
+
+fn fake_busctl_env() -> (tempfile::TempDir, Env) {
+    let dir = tempfile::tempdir().unwrap();
+    let script = dir.path().join("busctl");
+    std::fs::write(
+        &script,
+        "#!/bin/sh\nif [ -n \"${HOME+x}\" ] || [ -n \"${DRI_PRIME+x}\" ] || [ \"$MARKER\" != yes ]; then exit 1; fi\necho '{\"type\":\"aa{sv}\",\"data\":[]}'\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+    let env = Env::from([
+        ("PATH".to_owned(), dir.path().to_string_lossy().into_owned()),
+        ("MARKER".to_owned(), "yes".to_owned()),
+    ]);
+    (dir, env)
+}
+
+#[test]
+fn reads_the_gpus_with_a_child_that_sees_only_the_passed_environment() {
+    let (_dir, env) = fake_busctl_env();
+    assert_eq!(read_switcheroo_gpus(&env), Some(Vec::new()));
+}
+
+#[tokio::test]
+async fn queries_the_gpus_with_a_child_that_sees_only_the_passed_environment() {
+    let (_dir, env) = fake_busctl_env();
+    assert_eq!(query_switcheroo_gpus(&env).await, Some(Vec::new()));
 }

@@ -1,8 +1,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use ostia_sandbox::packages::{
-    Ecosystem, PackageRef, REGISTRY_HOSTS, package_key, package_version_key, parse_package_download,
+    Ecosystem, MalformedDownloadPath, PackageRef, REGISTRY_HOSTS, package_key, package_version_key,
+    parse_package_download,
 };
+
+fn parsed(url: &str) -> Option<PackageRef> {
+    parse_package_download(url).unwrap()
+}
 
 fn pkg(ecosystem: Ecosystem, name: &str, version: &str) -> PackageRef {
     PackageRef {
@@ -56,11 +61,11 @@ fn lists_the_registry_hosts() {
 #[test]
 fn reads_the_crates_io_api_download_url() {
     assert_eq!(
-        parse_package_download("https://crates.io/api/v1/crates/serde/1.0.200/download"),
+        parsed("https://crates.io/api/v1/crates/serde/1.0.200/download"),
         Some(pkg(Ecosystem::CratesIo, "serde", "1.0.200"))
     );
     assert_eq!(
-        parse_package_download("https://crates.io/api/v1/crates/serde/download"),
+        parsed("https://crates.io/api/v1/crates/serde/download"),
         None
     );
 }
@@ -87,7 +92,7 @@ fn reads_a_python_wheel_and_an_sdist_with_every_archive_type() {
         ("https://files.pythonhosted.org/packages/a/b/", None),
     ];
     for (url, expected) in cases {
-        assert_eq!(parse_package_download(url), expected, "{url}");
+        assert_eq!(parsed(url), expected, "{url}");
     }
 }
 
@@ -99,14 +104,14 @@ fn refuses_an_npm_tarball_whose_file_name_does_not_start_with_the_package_name()
         "https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.zip",
     ];
     for url in cases {
-        assert_eq!(parse_package_download(url), None, "{url}");
+        assert_eq!(parsed(url), None, "{url}");
     }
 }
 
 #[test]
 fn refuses_a_crate_file_whose_name_differs_from_its_folder() {
     assert_eq!(
-        parse_package_download("https://static.crates.io/crates/serde/other-1.0.200.crate"),
+        parsed("https://static.crates.io/crates/serde/other-1.0.200.crate"),
         None
     );
 }
@@ -114,17 +119,35 @@ fn refuses_a_crate_file_whose_name_differs_from_its_folder() {
 #[test]
 fn reads_a_go_module_path_with_escaped_capitals() {
     assert_eq!(
-        parse_package_download("https://proxy.golang.org/golang.org/x/net/@v/v0.20.0.zip"),
+        parsed("https://proxy.golang.org/golang.org/x/net/@v/v0.20.0.zip"),
         Some(pkg(Ecosystem::Go, "golang.org/x/net", "v0.20.0"))
     );
     assert_eq!(
-        parse_package_download("https://proxy.golang.org/golang.org/x/net/@v/v0.20.0.info"),
+        parsed("https://proxy.golang.org/golang.org/x/net/@v/v0.20.0.info"),
         None
     );
 }
 
 #[test]
 fn returns_nothing_for_text_that_is_not_a_url() {
-    assert_eq!(parse_package_download("not a url"), None);
-    assert_eq!(parse_package_download(""), None);
+    assert_eq!(parsed("not a url"), None);
+    assert_eq!(parsed(""), None);
+}
+
+#[test]
+fn refuses_a_registry_url_with_a_bad_percent_escape_instead_of_passing_it() {
+    let cases = [
+        "https://registry.npmjs.org/evil/-/evil-1.0.0.tgz%ff",
+        "https://registry.npmjs.org/evil/-/evil-1.0.0.tgz%zz",
+        "https://registry.npmjs.org/evil/-/evil-1.0.0.tgz%4",
+        "https://files.pythonhosted.org/packages/evil-1.0.zip%",
+        "https://example.com/anything%ff",
+    ];
+    for url in cases {
+        assert_eq!(
+            parse_package_download(url),
+            Err(MalformedDownloadPath),
+            "{url}"
+        );
+    }
 }

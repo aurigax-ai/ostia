@@ -715,3 +715,21 @@ async fn handles_only_archive_paths_and_confines_only_those_inside_a_confined_ar
     assert_eq!(env.archives.confine("archive:broken"), None);
     assert_eq!(env.archives.confine("/home/u/a.zip"), None);
 }
+
+#[test]
+fn debug_output_of_a_browse_target_and_an_opened_file_never_shows_the_real_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("secret-name.zip");
+    fs::write(&path, b"data").unwrap();
+    let target = BrowseTarget {
+        ext_id: "zip".to_owned(),
+        kind: "zip".to_owned(),
+        file: Arc::new(fs::File::open(&path).unwrap()),
+        size: 4,
+    };
+    let opened = ostia_files::archive_file::open_regular(&path).unwrap();
+    for shown in [format!("{target:?}"), format!("{opened:?}")] {
+        assert!(!shown.contains("secret-name"), "{shown}");
+        assert!(!shown.contains(dir.path().to_str().unwrap()), "{shown}");
+    }
+}

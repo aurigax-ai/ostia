@@ -1,17 +1,15 @@
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
-use std::io::Read;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
+use crate::bounded_run::run_bounded;
 use crate::host::Platform;
 use crate::js::js_number;
 use crate::procfs::parse_proc_stat;
 
 const TOOL_TIMEOUT: Duration = Duration::from_millis(3000);
-const TOOL_MAX_OUTPUT: usize = 64 * 1024;
-const TOOL_POLL: Duration = Duration::from_millis(10);
 const DELETED_SUFFIX: &[u8] = b" (deleted)";
 
 fn folder_of(path: &[u8]) -> Option<PathBuf> {
@@ -64,50 +62,16 @@ where
     folder_of(&line.as_bytes()[1..])
 }
 
-fn tool_output(bin: &str, args: &[String]) -> String {
-    let Ok(mut child) = Command::new(bin)
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-    else {
-        return String::new();
-    };
-    let Some(stdout) = child.stdout.take() else {
-        return String::new();
-    };
-    let reader = std::thread::spawn(move || {
-        let mut collected = Vec::new();
-        let _ = stdout
-            .take(u64::try_from(TOOL_MAX_OUTPUT + 1).unwrap_or(u64::MAX))
-            .read_to_end(&mut collected);
-        collected
-    });
-    let deadline = Instant::now() + TOOL_TIMEOUT;
-    let success = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status.success(),
-            Ok(None) if Instant::now() < deadline => std::thread::sleep(TOOL_POLL),
-            _ => {
-                let _ = child.kill();
-                let _ = child.wait();
-                break false;
-            }
-        }
-    };
-    let collected = reader.join().unwrap_or_default();
-    if success && collected.len() <= TOOL_MAX_OUTPUT {
-        String::from_utf8_lossy(&collected).into_owned()
-    } else {
-        String::new()
-    }
+fn tool_output(bin: &str, args: &[String], env: &BTreeMap<String, String>) -> String {
+    run_bounded(Path::new(bin), args, env, TOOL_TIMEOUT).unwrap_or_default()
 }
 
-pub async fn foreground_cwd(shell_pid: i32) -> Option<PathBuf> {
+pub async fn foreground_cwd(shell_pid: i32, env: BTreeMap<String, String>) -> Option<PathBuf> {
     tokio::task::spawn_blocking(move || match Platform::current() {
         Platform::Linux => linux_foreground_cwd(shell_pid, Path::new("/proc")),
-        Platform::Darwin => darwin_foreground_cwd(shell_pid, tool_output),
+        Platform::Darwin => {
+            darwin_foreground_cwd(shell_pid, |bin, args| tool_output(bin, args, &env))
+        }
     })
     .await
     .ok()

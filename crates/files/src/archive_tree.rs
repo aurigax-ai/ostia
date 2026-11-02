@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
 use ostia_base::js::static_regex;
@@ -108,6 +108,8 @@ pub fn build_tree(raw: &[RawEntry], limits: &BrowseLimits, cut: bool) -> Archive
         };
         ensure_dir(&mut dirs, folder);
     }
+    let mut taken: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut next_suffix: HashMap<(String, String), usize> = HashMap::new();
     for (entry, parts) in &placed {
         let Some((base, parents)) = parts.split_last() else {
             continue;
@@ -117,12 +119,25 @@ pub fn build_tree(raw: &[RawEntry], limits: &BrowseLimits, cut: bool) -> Archive
         }
         let parent = joined(parents);
         let siblings = dirs.entry(parent.clone()).or_default();
+        let taken_here = taken.entry(parent.clone()).or_insert_with(|| {
+            siblings
+                .iter()
+                .map(|sibling| sibling.name.clone())
+                .collect()
+        });
         let mut name = base.clone();
-        let mut n = 2;
-        while siblings.iter().any(|sibling| sibling.name == name) {
-            name = format!("{base} ({n})");
-            n += 1;
+        if taken_here.contains(&name) {
+            let next = next_suffix
+                .entry((parent.clone(), base.clone()))
+                .or_insert(2);
+            name = format!("{base} ({next})");
+            while taken_here.contains(&name) {
+                *next += 1;
+                name = format!("{base} ({next})");
+            }
+            *next += 1;
         }
+        taken_here.insert(name.clone());
         let path = if parent.is_empty() {
             name.clone()
         } else {

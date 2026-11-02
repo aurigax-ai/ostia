@@ -152,3 +152,91 @@ fn resolves_globals_written_before_these_settings_existed() {
     assert!(resolved.allow_write.is_empty());
     assert!(resolved.allow_sockets.is_empty());
 }
+
+fn packages_sandbox(packages: Value) -> Value {
+    json!({
+        "enabled": true,
+        "allowRead": [],
+        "domains": [],
+        "controls": {},
+        "packages": packages,
+    })
+}
+
+#[test]
+fn reads_a_cooldown_given_as_an_array_the_way_number_of_the_array_reads_it() {
+    let refused = [
+        json!([true]),
+        json!([false]),
+        json!([1, 2]),
+        json!([{}]),
+        json!(["x"]),
+    ];
+    for cooldown in refused {
+        let parsed =
+            parse_workspace_sandbox(&packages_sandbox(json!({"cooldownDays": cooldown.clone()})));
+        assert!(parsed.is_none(), "{cooldown}");
+    }
+    let accepted = [
+        (json!([3]), 3),
+        (json!(["3"]), 3),
+        (json!([[3]]), 3),
+        (json!([]), 0),
+        (json!([null]), 0),
+    ];
+    for (cooldown, days) in accepted {
+        let parsed =
+            parse_workspace_sandbox(&packages_sandbox(json!({"cooldownDays": cooldown.clone()})))
+                .unwrap();
+        assert_eq!(
+            parsed.packages.unwrap()["cooldownDays"],
+            json!(days),
+            "{cooldown}"
+        );
+    }
+}
+
+#[test]
+fn writes_a_workspace_sandbox_with_its_keys_in_the_order_the_ts_parser_builds_them() {
+    let parsed = parse_workspace_sandbox(&json!({
+        "enabled": true,
+        "allowRead": ["~/a"],
+        "allowWrite": ["~/b"],
+        "denyRead": ["~/c"],
+        "denyWrite": ["~/d"],
+        "domains": ["example.com"],
+        "deniedDomains": ["bad.example.com"],
+        "allowSockets": ["/s"],
+        "controls": {"allWorkspaces": true},
+        "switches": {"gitConfig": false},
+        "ports": "ask",
+        "secrets": [{"id": "s1", "mode": "env", "name": "TOKEN"}],
+        "packages": {"malware": true},
+    }))
+    .unwrap();
+    let written = serde_json::to_value(&parsed).unwrap();
+    let keys: Vec<&str> = written
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        keys,
+        [
+            "enabled",
+            "allowRead",
+            "domains",
+            "controls",
+            "allowWrite",
+            "denyRead",
+            "denyWrite",
+            "deniedDomains",
+            "allowSockets",
+            "switches",
+            "ports",
+            "secrets",
+            "packages",
+        ]
+    );
+}

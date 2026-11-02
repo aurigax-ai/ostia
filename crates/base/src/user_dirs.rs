@@ -217,9 +217,14 @@ fn copy_recursive(from: &Path, to: &Path) -> io::Result<()> {
         }
         fs::set_permissions(to, meta.permissions())?;
         copy_timestamps(&meta, to)
-    } else {
+    } else if meta.is_file() {
         fs::copy(from, to)?;
         copy_timestamps(&meta, to)
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "not a regular file, folder or link",
+        ))
     }
 }
 
@@ -303,17 +308,17 @@ fn move_into(
     Ok(())
 }
 
-pub fn preview_old_dir(dir_move: &DirMove) -> MoveResult {
+pub fn preview_old_dir(dir_move: &DirMove) -> Result<MoveResult> {
     let mut result = MoveResult::default();
-    let _ = move_into(
+    move_into(
         &dir_move.from,
         &dir_move.to,
         "",
         dir_move,
         &mut result,
         None,
-    );
-    result
+    )?;
+    Ok(result)
 }
 
 pub fn move_old_dir(dir_move: &DirMove, hooks: MoveHooks) -> Result<MoveResult> {

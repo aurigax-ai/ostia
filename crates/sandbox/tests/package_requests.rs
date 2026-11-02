@@ -5,9 +5,10 @@ use std::time::Duration;
 
 use futures_util::FutureExt;
 use ostia_base::WorkspaceId;
+use ostia_contract::approvals::{ApprovalAnswer, ApprovalOutcome};
 use ostia_sandbox::package_policy::PackageBlockReason;
 use ostia_sandbox::package_requests::{
-    PackageAsk, PackageAskKind, PackageOutcome, PackageRequests, PackageRequestsDeps,
+    PackageAsk, PackageAskKind, PackageRequests, PackageRequestsDeps,
 };
 use ostia_sandbox::packages::{Ecosystem, PackageRef};
 use parking_lot::Mutex;
@@ -31,7 +32,7 @@ fn ws(id: &str) -> WorkspaceId {
     WorkspaceId::new(id)
 }
 
-fn setup(outcome: PackageOutcome) -> Setup {
+fn setup(outcome: ApprovalOutcome) -> Setup {
     let asks = Arc::new(Mutex::new(Vec::new()));
     let stored = Arc::new(Mutex::new(Vec::new()));
     let session = Arc::new(Mutex::new(Vec::new()));
@@ -66,7 +67,7 @@ async fn advance(ms: u64) {
 
 #[tokio::test(start_paused = true)]
 async fn sbx_c84_stores_an_allow_in_this_workspace_so_the_retry_and_later_installs_pass() {
-    let s = setup(PackageOutcome::Workspace);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Workspace));
     s.requests
         .blocked(&ws("ws"), pkg("fresh"), PackageBlockReason::Cooldown);
     advance(150).await;
@@ -80,7 +81,7 @@ async fn sbx_c84_stores_an_allow_in_this_workspace_so_the_retry_and_later_instal
 
 #[tokio::test(start_paused = true)]
 async fn sbx_c85_warns_about_malware_and_never_stores_a_lasting_allowance_for_it() {
-    let s = setup(PackageOutcome::Workspace);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Workspace));
     s.requests
         .blocked(&ws("ws"), pkg("evil"), PackageBlockReason::Malware);
     advance(150).await;
@@ -91,7 +92,7 @@ async fn sbx_c85_warns_about_malware_and_never_stores_a_lasting_allowance_for_it
 
 #[tokio::test(start_paused = true)]
 async fn sbx_c86_groups_many_downloads_blocked_at_once_into_one_card_listing_them() {
-    let s = setup(PackageOutcome::Deny);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Deny));
     for i in 0..30 {
         s.requests.blocked(
             &ws("ws"),
@@ -108,7 +109,7 @@ async fn sbx_c86_groups_many_downloads_blocked_at_once_into_one_card_listing_the
 
 #[tokio::test(start_paused = true)]
 async fn waits_for_the_batch_time_before_it_asks() {
-    let s = setup(PackageOutcome::Deny);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Deny));
     s.requests
         .blocked(&ws("ws"), pkg("fresh"), PackageBlockReason::Cooldown);
     advance(99).await;
@@ -119,7 +120,7 @@ async fn waits_for_the_batch_time_before_it_asks() {
 
 #[tokio::test(start_paused = true)]
 async fn lists_one_item_for_a_version_blocked_twice_in_a_batch() {
-    let s = setup(PackageOutcome::Deny);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Deny));
     s.requests
         .blocked(&ws("ws"), pkg("fresh"), PackageBlockReason::Cooldown);
     s.requests
@@ -132,7 +133,7 @@ async fn lists_one_item_for_a_version_blocked_twice_in_a_batch() {
 
 #[tokio::test(start_paused = true)]
 async fn asks_malware_first_and_on_its_own_card_apart_from_the_other_blocks() {
-    let s = setup(PackageOutcome::Deny);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Deny));
     s.requests
         .blocked(&ws("ws"), pkg("slow"), PackageBlockReason::Cooldown);
     s.requests
@@ -153,7 +154,7 @@ async fn asks_malware_first_and_on_its_own_card_apart_from_the_other_blocks() {
 
 #[tokio::test(start_paused = true)]
 async fn allows_until_restart_for_a_session_answer_but_not_for_malware() {
-    let s = setup(PackageOutcome::Session);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Session));
     s.requests
         .blocked(&ws("ws"), pkg("fresh"), PackageBlockReason::Cooldown);
     s.requests
@@ -165,7 +166,7 @@ async fn allows_until_restart_for_a_session_answer_but_not_for_malware() {
 
 #[tokio::test(start_paused = true)]
 async fn allows_until_restart_for_a_once_answer_also_for_malware() {
-    let s = setup(PackageOutcome::Once);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Once));
     s.requests
         .blocked(&ws("ws"), pkg("fresh"), PackageBlockReason::Cooldown);
     s.requests
@@ -183,10 +184,10 @@ async fn allows_until_restart_for_a_once_answer_also_for_malware() {
 #[tokio::test(start_paused = true)]
 async fn stores_nothing_for_a_deny_a_timeout_an_auto_or_an_always_answer() {
     let answers = [
-        PackageOutcome::Deny,
-        PackageOutcome::Timeout,
-        PackageOutcome::Auto,
-        PackageOutcome::Always,
+        ApprovalOutcome::Answer(ApprovalAnswer::Deny),
+        ApprovalOutcome::Timeout,
+        ApprovalOutcome::Auto,
+        ApprovalOutcome::Answer(ApprovalAnswer::Always),
     ];
     for outcome in answers {
         let s = setup(outcome);
@@ -201,7 +202,7 @@ async fn stores_nothing_for_a_deny_a_timeout_an_auto_or_an_always_answer() {
 
 #[tokio::test(start_paused = true)]
 async fn does_not_ask_again_for_a_version_the_human_denied() {
-    let s = setup(PackageOutcome::Deny);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Deny));
     s.requests
         .blocked(&ws("ws"), pkg("fresh"), PackageBlockReason::Cooldown);
     advance(150).await;
@@ -213,7 +214,7 @@ async fn does_not_ask_again_for_a_version_the_human_denied() {
 
 #[tokio::test(start_paused = true)]
 async fn keeps_the_batches_and_the_asked_versions_of_each_workspace_apart() {
-    let s = setup(PackageOutcome::Deny);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Deny));
     s.requests
         .blocked(&ws("a"), pkg("fresh"), PackageBlockReason::Cooldown);
     s.requests
@@ -228,7 +229,7 @@ async fn keeps_the_batches_and_the_asked_versions_of_each_workspace_apart() {
 
 #[tokio::test(start_paused = true)]
 async fn forgets_a_workspace_so_its_pending_batch_is_dropped_and_it_can_ask_again() {
-    let s = setup(PackageOutcome::Deny);
+    let s = setup(ApprovalOutcome::Answer(ApprovalAnswer::Deny));
     s.requests
         .blocked(&ws("ws"), pkg("fresh"), PackageBlockReason::Cooldown);
     advance(50).await;

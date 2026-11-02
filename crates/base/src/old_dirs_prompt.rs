@@ -4,6 +4,7 @@ use std::sync::{Arc, LazyLock};
 
 use regex::Regex;
 
+use crate::error::{Error, Result};
 use crate::js::static_regex;
 use crate::user_dirs::{
     DirMove, MoveHooks, MoveResult, OLD_PRODUCT_NAME, move_old_dir, old_app_running,
@@ -155,6 +156,19 @@ fn detail(text: &OldDirsText, moves: &[DirMove], previews: &[MoveResult]) -> Str
     lines.join("\n")
 }
 
+fn failed_options(text: &OldDirsText, err: &Error) -> AskOptions {
+    AskOptions {
+        kind: DialogKind::Error,
+        title: text.failed_title.clone(),
+        message: text.failed_title.clone(),
+        detail: text.failed.replacen("{error}", &err.to_string(), 1),
+        buttons: vec![text.ok.clone()],
+        default_id: None,
+        cancel_id: None,
+        no_link: false,
+    }
+}
+
 pub async fn offer_old_dirs_move(deps: &OldDirsDeps) -> OldDirsOutcome {
     if deps.moves.is_empty() {
         return OldDirsOutcome::None;
@@ -174,7 +188,14 @@ pub async fn offer_old_dirs_move(deps: &OldDirsDeps) -> OldDirsOutcome {
         .await;
         return OldDirsOutcome::Running;
     }
-    let previews: Vec<MoveResult> = deps.moves.iter().map(preview_old_dir).collect();
+    let previews: Result<Vec<MoveResult>> = deps.moves.iter().map(preview_old_dir).collect();
+    let previews = match previews {
+        Ok(previews) => previews,
+        Err(err) => {
+            (deps.ask)(failed_options(&text, &err)).await;
+            return OldDirsOutcome::Failed;
+        }
+    };
     let answer = (deps.ask)(AskOptions {
         kind: DialogKind::Question,
         title: text.title.clone(),
@@ -202,17 +223,7 @@ pub async fn offer_old_dirs_move(deps: &OldDirsDeps) -> OldDirsOutcome {
                 }
             }
             Err(err) => {
-                (deps.ask)(AskOptions {
-                    kind: DialogKind::Error,
-                    title: text.failed_title.clone(),
-                    message: text.failed_title.clone(),
-                    detail: text.failed.replacen("{error}", &err.to_string(), 1),
-                    buttons: vec![text.ok.clone()],
-                    default_id: None,
-                    cancel_id: None,
-                    no_link: false,
-                })
-                .await;
+                (deps.ask)(failed_options(&text, &err)).await;
                 return OldDirsOutcome::Failed;
             }
         }

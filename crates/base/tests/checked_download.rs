@@ -475,3 +475,33 @@ async fn does_not_write_a_file_when_the_policy_refuses_the_url() {
     assert_eq!(reason(&error), Some(DownloadFailure::HostNotAllowed));
     assert!(!file.exists());
 }
+
+const PROXY_CHILD: &str = "OSTIA_TEST_PROXY_CHILD";
+const PROXY_TEST: &str = "ignores_the_proxy_variables_of_the_environment";
+
+#[tokio::test]
+async fn ignores_the_proxy_variables_of_the_environment() {
+    if std::env::var_os(PROXY_CHILD).is_none() {
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", PROXY_TEST, "--test-threads=1"])
+            .env(PROXY_CHILD, "1")
+            .env("HTTP_PROXY", "http://127.0.0.1:9")
+            .env("http_proxy", "http://127.0.0.1:9")
+            .env("ALL_PROXY", "http://127.0.0.1:9")
+            .env("all_proxy", "http://127.0.0.1:9")
+            .env_remove("NO_PROXY")
+            .env_remove("no_proxy")
+            .status()
+            .unwrap();
+        assert!(status.success());
+        return;
+    }
+    let server = serve(|_, _| ok(b"direct")).await;
+    let response = follow_allowed(&request(
+        &format!("{}/a", server.base),
+        local_only(server.port),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(response.read_capped(100).await.as_deref(), Some("direct"));
+}

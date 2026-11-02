@@ -226,3 +226,18 @@ fn fills_the_old_and_new_product_names_into_every_line() {
     assert!(!text.message.contains('{'));
     assert!(!old_dirs_text("zh-TW").running.contains('{'));
 }
+
+#[tokio::test]
+async fn fails_with_an_error_dialog_and_never_asks_to_move_when_the_preview_cannot_be_read() {
+    let f = fixture();
+    fs::remove_dir_all(&f.from).unwrap();
+    let (asked, ask) = answering(&[0]);
+    assert_eq!(
+        offer_old_dirs_move(&deps(&f.moves, ask, "en")).await,
+        OldDirsOutcome::Failed
+    );
+    let asked = asked.lock().unwrap();
+    assert_eq!(asked.len(), 1);
+    assert_eq!(asked[0].kind, DialogKind::Error);
+    assert!(!f.to.exists());
+}

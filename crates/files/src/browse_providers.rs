@@ -14,12 +14,22 @@ pub struct BrowseKind {
     pub kind: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct BrowseTarget {
     pub ext_id: String,
     pub kind: String,
     pub file: Arc<File>,
     pub size: u64,
+}
+
+impl std::fmt::Debug for BrowseTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BrowseTarget")
+            .field("ext_id", &self.ext_id)
+            .field("kind", &self.kind)
+            .field("size", &self.size)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

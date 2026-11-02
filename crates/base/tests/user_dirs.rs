@@ -215,7 +215,7 @@ fn keeps_what_ostia_already_has_and_deletes_the_old_copy_of_it() {
     write(&to.join("settings.json"), "new");
 
     assert_eq!(
-        preview_old_dir(&mv(&from, &to)),
+        preview_old_dir(&mv(&from, &to)).unwrap(),
         result(&["views"], &["settings.json"])
     );
     assert_eq!(read(&from.join("settings.json")), "old");
@@ -385,4 +385,38 @@ fn offers_to_move_a_project_pine_folder_to_ostia_only_where_one_holds_something(
             drop: Vec::new(),
         }]
     );
+}
+
+#[test]
+fn refuses_to_copy_a_fifo_across_filesystems_and_keeps_it_in_the_old_folder() {
+    let (_guard, home) = home();
+    let from = home.join(".local/share/pine");
+    let to = home.join(".local/share/ostia");
+    write(&from.join("a.json"), "a");
+    let fifo = from.join("pipe");
+    rustix::fs::mknodat(
+        rustix::fs::CWD,
+        &fifo,
+        rustix::fs::FileType::Fifo,
+        rustix::fs::Mode::from_raw_mode(0o600),
+        0,
+    )
+    .unwrap();
+    let across = |_: &Path, _: &Path| Err(io::Error::from_raw_os_error(libc::EXDEV));
+    let outcome = move_old_dir(
+        &mv(&from, &to),
+        MoveHooks {
+            rename: Some(Box::new(across)),
+        },
+    );
+    assert!(outcome.is_err());
+    assert!(fifo.exists());
+}
+
+#[test]
+fn fails_the_preview_when_the_old_folder_cannot_be_read() {
+    let (_guard, home) = home();
+    let from = home.join(".local/share/missing");
+    let to = home.join(".local/share/ostia");
+    assert!(preview_old_dir(&mv(&from, &to)).is_err());
 }

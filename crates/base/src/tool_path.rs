@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -128,9 +128,19 @@ fn kill_group(pid: Option<u32>) {
     }
 }
 
-fn spawn_detached(shell: &str, args: &[String]) -> std::io::Result<tokio::process::Child> {
+const SETSID_PATHS: [&str; 2] = ["/usr/bin/setsid", "/bin/setsid"];
+
+fn spawn_detached(
+    shell: &str,
+    args: &[String],
+    env: &BTreeMap<String, String>,
+) -> std::io::Result<tokio::process::Child> {
     let mut command = if cfg!(target_os = "linux") {
-        let mut command = Command::new("setsid");
+        let setsid = SETSID_PATHS
+            .iter()
+            .find(|path| Path::new(path).is_file())
+            .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))?;
+        let mut command = Command::new(setsid);
         command.arg(shell);
         command
     } else {
@@ -140,6 +150,8 @@ fn spawn_detached(shell: &str, args: &[String]) -> std::io::Result<tokio::proces
     };
     command
         .args(args)
+        .env_clear()
+        .envs(env)
         .env("DISABLE_AUTO_UPDATE", "true")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -147,35 +159,44 @@ fn spawn_detached(shell: &str, args: &[String]) -> std::io::Result<tokio::proces
         .spawn()
 }
 
-pub async fn run_login_shell(shell: &str, args: &[String], timeout: Duration) -> String {
-    let Ok(mut child) = spawn_detached(shell, args) else {
-        return String::new();
-    };
-    let pid = child.id();
-    let Some(mut stdout) = child.stdout.take() else {
-        kill_group(pid);
-        return String::new();
-    };
-    let mut output = Vec::new();
-    {
-        let read = stdout.read_to_end(&mut output);
-        tokio::pin!(read);
-        let timed_out = tokio::select! {
-            _ = &mut read => false,
-            () = tokio::time::sleep(timeout) => true,
+pub fn run_login_shell(
+    shell: &str,
+    args: &[String],
+    env: &BTreeMap<String, String>,
+    timeout: Duration,
+) -> impl Future<Output = String> + Send + use<> {
+    let spawned = spawn_detached(shell, args, env);
+    async move {
+        let Ok(mut child) = spawned else {
+            return String::new();
         };
-        if timed_out {
+        let pid = child.id();
+        let Some(mut stdout) = child.stdout.take() else {
             kill_group(pid);
-            let _ = read.await;
+            return String::new();
+        };
+        let mut output = Vec::new();
+        {
+            let read = stdout.read_to_end(&mut output);
+            tokio::pin!(read);
+            let timed_out = tokio::select! {
+                _ = &mut read => false,
+                () = tokio::time::sleep(timeout) => true,
+            };
+            if timed_out {
+                kill_group(pid);
+                let _ = read.await;
+            }
         }
+        let _ = child.wait().await;
+        String::from_utf8_lossy(&output).into_owned()
     }
-    let _ = child.wait().await;
-    String::from_utf8_lossy(&output).into_owned()
 }
 
-fn default_runner() -> ShellRunner {
-    Arc::new(|shell, args, timeout| {
-        Box::pin(async move { Ok(run_login_shell(&shell, &args, timeout).await) })
+fn default_runner(env: BTreeMap<String, String>) -> ShellRunner {
+    Arc::new(move |shell, args, timeout| {
+        let running = run_login_shell(&shell, &args, &env, timeout);
+        Box::pin(async move { Ok(running.await) })
     })
 }
 
@@ -199,6 +220,10 @@ impl ToolPath {
         }
     }
 
+    pub fn child_env(&self) -> &BTreeMap<String, String> {
+        &self.host.env
+    }
+
     pub fn tool_path(&self, env: &ToolPathEnv) -> String {
         let platform = env.platform.unwrap_or(self.host.platform);
         let home = env.home.as_deref().unwrap_or(&self.host.home);
@@ -220,7 +245,9 @@ impl ToolPath {
         options: LoginPathOptions,
     ) -> impl Future<Output = LoginPathResult> + Send + use<> {
         let shell = options.shell.unwrap_or_else(|| login_shell(&self.host));
-        let run = options.run.unwrap_or_else(default_runner);
+        let run = options
+            .run
+            .unwrap_or_else(|| default_runner(self.host.env.clone()));
         let timeout = options
             .timeout
             .unwrap_or(Duration::from_millis(LOGIN_PATH_TIMEOUT_MS));

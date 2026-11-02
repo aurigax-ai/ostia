@@ -119,7 +119,10 @@ pub async fn follow_allowed(request: &DownloadRequest) -> Result<DownloadRespons
             hostname(&url),
         ));
     }
-    let client = Client::builder().redirect(Policy::none()).build()?;
+    let client = Client::builder()
+        .no_proxy()
+        .redirect(Policy::none())
+        .build()?;
     let mut hop = 0;
     loop {
         let response = client

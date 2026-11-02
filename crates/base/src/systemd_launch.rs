@@ -117,5 +117,5 @@ pub fn launch_through_systemd(
         unit,
         wait_for_pid,
     });
-    plan.is_some_and(|plan| run_bounded(&plan.file, &plan.args, START_TIMEOUT).is_some())
+    plan.is_some_and(|plan| run_bounded(&plan.file, &plan.args, &host.env, START_TIMEOUT).is_some())
 }

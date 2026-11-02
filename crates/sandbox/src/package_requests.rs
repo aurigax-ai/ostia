@@ -4,22 +4,12 @@ use std::time::Duration;
 
 use futures_util::future::BoxFuture;
 use ostia_base::WorkspaceId;
+use ostia_contract::approvals::{ApprovalAnswer, ApprovalOutcome};
 use parking_lot::Mutex;
 use tokio::task::JoinHandle;
 
 use crate::package_policy::PackageBlockReason;
 use crate::packages::{PackageRef, package_version_key};
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PackageOutcome {
-    Once,
-    Session,
-    Always,
-    Workspace,
-    Deny,
-    Auto,
-    Timeout,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PackageAskKind {
@@ -40,7 +30,7 @@ pub struct PackageAsk {
     pub packages: Vec<BlockedPackage>,
 }
 
-pub type AskPackages = Arc<dyn Fn(PackageAsk) -> BoxFuture<'static, PackageOutcome> + Send + Sync>;
+pub type AskPackages = Arc<dyn Fn(PackageAsk) -> BoxFuture<'static, ApprovalOutcome> + Send + Sync>;
 
 pub type AllowPackage = Arc<dyn Fn(&WorkspaceId, &str) + Send + Sync>;
 
@@ -179,7 +169,10 @@ impl PackageRequests {
             .iter()
             .map(|item| package_version_key(&item.ref_))
             .collect();
-        if matches!(outcome, PackageOutcome::Deny | PackageOutcome::Timeout) {
+        if matches!(
+            outcome,
+            ApprovalOutcome::Answer(ApprovalAnswer::Deny) | ApprovalOutcome::Timeout
+        ) {
             let mut state = self.inner.state.lock();
             if let Some(asked) = state.asked.get_mut(workspace_id) {
                 asked.extend(keys.iter().cloned());
@@ -187,11 +180,13 @@ impl PackageRequests {
         }
         for key in &keys {
             match outcome {
-                PackageOutcome::Workspace if !malware => {
+                ApprovalOutcome::Answer(ApprovalAnswer::Workspace) if !malware => {
                     (self.inner.deps.allow_workspace)(workspace_id, key);
                 }
-                PackageOutcome::Once => (self.inner.deps.allow_until_restart)(workspace_id, key),
-                PackageOutcome::Session if !malware => {
+                ApprovalOutcome::Answer(ApprovalAnswer::Once) => {
+                    (self.inner.deps.allow_until_restart)(workspace_id, key);
+                }
+                ApprovalOutcome::Answer(ApprovalAnswer::Session) if !malware => {
                     (self.inner.deps.allow_until_restart)(workspace_id, key);
                 }
                 _ => {}
