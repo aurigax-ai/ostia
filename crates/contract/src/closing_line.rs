@@ -1,6 +1,6 @@
 use ostia_base::js::js_trim;
 
-use crate::agent_stop::{HookAgent, parse_agent_stop};
+use crate::agent_stop::parse_agent_stop;
 use crate::question_text::{clip_to, one_line, plain_block};
 
 pub const STATUS_MESSAGE_MAX: usize = 280;
@@ -13,6 +13,6 @@ pub fn closing_line(text: &str) -> Option<String> {
 }
 
 pub fn closing_from_stop(raw: &str) -> Option<String> {
-    let stop = parse_agent_stop(HookAgent::Claude, raw)?;
+    let stop = parse_agent_stop("claude", raw)?;
     closing_line(&stop.message?)
 }

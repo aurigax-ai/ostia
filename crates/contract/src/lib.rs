@@ -8,6 +8,7 @@ pub mod agent_skills;
 pub mod agent_stop;
 pub mod agent_stream;
 pub mod agent_work;
+pub mod app_env;
 pub mod app_link_settings;
 pub mod app_menu;
 pub mod approvals;

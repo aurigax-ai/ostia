@@ -1,4 +1,4 @@
-use ostia_contract::agent_plugins::{AgentHookEvent, HookAgent, hook_agents_for};
+use ostia_contract::agent_plugins::hook_agents_for;
 use ostia_contract::agent_skills::ExtensionAgentHook;
 use serde_json::{Value, json};
 
@@ -21,35 +21,28 @@ pub fn turn_hook_command(event: &str) -> String {
     )
 }
 
-pub fn bus_hook_command(event: AgentHookEvent) -> String {
+pub fn bus_hook_command(event: &str) -> String {
     format!(
         "{IN_PANE} && {CLI_RUN} bus hook {} 2>/dev/null || true",
-        event.as_str()
+        event
     )
 }
 
-pub fn permission_hook_command(agent: HookAgent) -> String {
+pub fn permission_hook_command(agent: &str) -> String {
     format!(
         "{IN_PANE} && {CLI_RUN} permission-hook {} 2>/dev/null || true",
-        agent.as_str()
+        agent
     )
 }
 
-pub fn extension_hook_command(hook: &ExtensionAgentHook, agent: HookAgent) -> String {
+pub fn extension_hook_command(hook: &ExtensionAgentHook, agent: &str) -> String {
     format!(
         "{IN_PANE} && {CLI_RUN} agent-hook {} {} {} {} 2>/dev/null || true",
-        hook.ext_id,
-        hook.command,
-        agent.as_str(),
-        hook.event.as_str()
+        hook.ext_id, hook.command, agent, hook.event
     )
 }
 
-pub fn hooks_for(
-    hooks: &[ExtensionAgentHook],
-    agent: HookAgent,
-    event: AgentHookEvent,
-) -> Vec<String> {
+pub fn hooks_for(hooks: &[ExtensionAgentHook], agent: &str, event: &str) -> Vec<String> {
     hooks
         .iter()
         .filter(|hook| hook.event == event && hook_agents_for(event).contains(&agent))
