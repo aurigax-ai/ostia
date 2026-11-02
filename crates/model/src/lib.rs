@@ -9,4 +9,5 @@ pub mod sidebar;
 pub mod stores;
 pub mod terminal;
 pub mod terminal_links;
+pub mod theme;
 pub mod workspaces;
