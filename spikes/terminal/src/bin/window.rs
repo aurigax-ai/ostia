@@ -223,7 +223,7 @@ fn main() -> Result<()> {
                                 _ => break,
                             }
                         }
-                        let alive = this.update(cx, |grid, cx| {
+                        let alive = this.update(cx, |grid: &mut Grid, cx| {
                             for event in batch {
                                 grid.apply(event);
                             }
@@ -243,7 +243,7 @@ fn main() -> Result<()> {
                     let mut last_at = started;
                     loop {
                         cx.background_executor().timer(Duration::from_secs(10)).await;
-                        let report = this.update(cx, |grid, _| {
+                        let report = this.update(cx, |grid: &mut Grid, _| {
                             let own = sample_self();
                             let now = Instant::now();
                             let wall = (now - last_at).as_secs_f64();
@@ -274,7 +274,7 @@ fn main() -> Result<()> {
                             cx.background_executor()
                                 .timer(Duration::from_millis(100))
                                 .await;
-                            let sent = this.update(cx, |grid, cx| {
+                            let sent = this.update(cx, |grid: &mut Grid, cx| {
                                 let active = grid.active;
                                 grid.send(active, b"x");
                                 cx.notify();
@@ -292,7 +292,7 @@ fn main() -> Result<()> {
                     cx.background_executor()
                         .timer(Duration::from_secs(seconds))
                         .await;
-                    let _ = this.update(cx, |grid, cx| {
+                    let _ = this.update(cx, |grid: &mut Grid, cx| {
                         let mut latencies = grid.stats.borrow().latencies_us.clone();
                         latencies.sort_unstable();
                         println!(
