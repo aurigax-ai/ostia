@@ -1,0 +1,16 @@
+[
+  {
+    "id": "ws-1",
+    "tmpDir": "/t/4242/769446044a",
+    "pluginsDir": "/t/4242/769446044a-plugins",
+    "pluginsData": "/t/4242/769446044a/plugin-data",
+    "sshAgentSocket": "/t/4242/769446044a/a.sock"
+  },
+  {
+    "id": "é workspace",
+    "tmpDir": "/t/4242/5042a6ec0f",
+    "pluginsDir": "/t/4242/5042a6ec0f-plugins",
+    "pluginsData": "/t/4242/5042a6ec0f/plugin-data",
+    "sshAgentSocket": "/t/4242/5042a6ec0f/a.sock"
+  }
+]

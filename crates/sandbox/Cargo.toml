@@ -25,6 +25,7 @@ workspace = true
 
 [dev-dependencies]
 futures-util.workspace = true
+ostia-testkit.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
-tokio = { workspace = true, features = ["macros", "rt", "test-util", "time"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "test-util", "time"] }
