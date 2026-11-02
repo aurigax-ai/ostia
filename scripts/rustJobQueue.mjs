@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 
 const root = process.cwd()
 const output = process.argv[2]
@@ -129,6 +129,7 @@ function emptyFolder(folder) {
 const folders = new Map()
 const prereqFolders = new Map()
 const fileEntries = new Map()
+const testFiles = []
 
 function record(file, table, isJob) {
   const folder = folderOf(file)
@@ -138,15 +139,21 @@ function record(file, table, isJob) {
   const lines = text.split('\n').length - 1
   if (isTest(file)) {
     entry.tests += lines
+    if (isJob) testFiles.push({ file, lines })
     return
   }
   entry.source += lines
   entry.files += 1
   if (isJob) {
-    const imports = importsOf(file, text).filter(
-      ({ typeOnly, target }) => !typeOnly && !isTest(target),
-    )
-    fileEntries.set(file, { lines, imports: imports.map(({ target }) => target) })
+    const found = importsOf(file, text).filter(({ target }) => !isTest(target))
+    fileEntries.set(file, {
+      lines,
+      imports: found.filter(({ typeOnly }) => !typeOnly).map(({ target }) => target),
+      typeImports: found.filter(({ typeOnly }) => typeOnly).map(({ target }) => target),
+      flags: CONTENT_FLAGS.filter(([pattern]) => pattern.test(text)).map(([, flag]) => flag),
+      electron: /from 'electron'/.test(text),
+      tests: [],
+    })
   }
   for (const [pattern, flag] of CONTENT_FLAGS) if (pattern.test(text)) entry.flags.add(flag)
   if (/from 'electron'/.test(text)) entry.electron = true
@@ -243,51 +250,135 @@ const prereqRows = stronglyConnected(prereqFolders.keys(), (node) =>
 
 const cycles = groups.filter((group) => group.length > 1)
 
-function fileDepths() {
+const JOB_MAX_LINES = 500
+const JOB_MAX_FILES = 5
+
+const stemOf = (file) => basename(file).replace(/\..*$/, '')
+
+function attachTests() {
+  const orphans = []
+  for (const test of testFiles) {
+    const stem = stemOf(test.file)
+    const candidates = [...fileEntries.keys()]
+      .filter((file) => folderOf(file) === folderOf(test.file) && stem.startsWith(stemOf(file)))
+      .sort((a, b) => stemOf(b).length - stemOf(a).length)
+    if (candidates.length > 0) fileEntries.get(candidates[0]).tests.push(test)
+    else orphans.push(test)
+  }
+  return orphans
+}
+
+const orphanTests = attachTests()
+
+function depthsInside(members) {
   const depths = new Map()
   const visiting = new Set()
+  const loops = new Set()
   const depthOf = (file) => {
     if (depths.has(file)) return depths.get(file)
-    if (visiting.has(file)) return 0
+    if (visiting.has(file)) {
+      loops.add(file)
+      return 0
+    }
     visiting.add(file)
     let depth = 0
-    for (const target of fileEntries.get(file)?.imports ?? []) {
-      if (fileEntries.has(target)) depth = Math.max(depth, depthOf(target) + 1)
+    for (const target of fileEntries.get(file).imports) {
+      if (members.has(target)) depth = Math.max(depth, depthOf(target) + 1)
     }
     visiting.delete(file)
     depths.set(file, depth)
     return depth
   }
-  for (const file of fileEntries.keys()) depthOf(file)
-  return depths
+  for (const file of members) depthOf(file)
+  return { depths, loops }
 }
 
-const depths = fileDepths()
+function splitByLimits(files) {
+  const batches = []
+  let batch = []
+  let size = 0
+  for (const file of files) {
+    const lines = fileEntries.get(file).lines
+    if (batch.length > 0 && (batch.length >= JOB_MAX_FILES || size + lines > JOB_MAX_LINES)) {
+      batches.push(batch)
+      batch = []
+      size = 0
+    }
+    batch.push(file)
+    size += lines
+  }
+  if (batch.length > 0) batches.push(batch)
+  return batches
+}
 
-function cycleSection(group) {
-  const members = new Set(group)
-  const files = [...fileEntries.keys()]
-    .filter((file) => members.has(folderOf(file)))
-    .sort((a, b) => depths.get(a) - depths.get(b) || a.localeCompare(b))
-  const crossing = (file) =>
-    fileEntries.get(file).imports.filter((target) => {
-      const other = folderOf(target)
-      return other !== folderOf(file) && members.has(other)
-    })
+function jobsOf(group, cycleId) {
+  const folderSet = new Set(group)
+  const members = new Set([...fileEntries.keys()].filter((file) => folderSet.has(folderOf(file))))
+  const { depths, loops } = depthsInside(members)
+  const buckets = new Map()
+  for (const file of members) {
+    const key = `${String(depths.get(file)).padStart(3, '0')} ${folderOf(file)}`
+    buckets.set(key, [...(buckets.get(key) ?? []), file])
+  }
+  const jobs = []
+  const jobOfFile = new Map()
+  for (const key of [...buckets.keys()].sort()) {
+    for (const files of splitByLimits(buckets.get(key).sort())) {
+      const id = `${cycleId}-J${String(jobs.length + 1).padStart(3, '0')}`
+      jobs.push({ id, depth: depths.get(files[0]), folder: folderOf(files[0]), files })
+      for (const file of files) jobOfFile.set(file, id)
+    }
+  }
+  return { jobs, jobOfFile, members, loops }
+}
+
+function jobRow(job, jobOfFile, members) {
+  const entries = job.files.map((file) => fileEntries.get(file))
+  const needs = new Set()
+  const outside = new Set()
+  const types = new Set()
+  for (const entry of entries) {
+    for (const target of entry.imports) {
+      if (jobOfFile.has(target)) {
+        if (jobOfFile.get(target) !== job.id) needs.add(jobOfFile.get(target))
+      } else if (fileEntries.has(target)) outside.add(folderOf(target))
+    }
+    for (const target of entry.typeImports) {
+      if (members.has(target) && folderOf(target) !== job.folder) types.add(folderOf(target))
+    }
+  }
+  const flags = new Set(entries.flatMap((entry) => entry.flags))
+  for (const [pattern, flag] of FOLDER_FLAGS) if (pattern.test(job.folder)) flags.add(flag)
+  const names = job.files.map((file, at) => `\`${basename(file)}\` ${entries[at].lines}`)
+  const tests = entries.flatMap((entry) => entry.tests)
+  const testNames = tests.map((test) => `\`${basename(test.file)}\` ${test.lines}`)
+  const total = (pick) => entries.reduce((sumOf, entry) => sumOf + pick(entry), 0)
+  const list = (values) => [...values].sort().join(' ') || '-'
+  return `| ${job.id} | ${job.depth} | \`${job.folder}\` | ${crateOf(job.folder)} | ${names.join(' ')} | ${testNames.join(' ') || '-'} | ${total((entry) => entry.lines)} | ${tests.reduce((sumOf, test) => sumOf + test.lines, 0)} | ${list(flags)} | ${entries.some((entry) => entry.electron) ? 'yes' : '-'} | ${list(needs)} | ${list(outside)} | ${list(types)} |`
+}
+
+function cycleSection({ group, cycleId }) {
+  const { jobs, jobOfFile, members, loops } = jobsOf(group, cycleId)
+  const inCycle = (test) => group.includes(folderOf(test.file))
+  const orphans = orphanTests.filter(inCycle)
   return [
     '',
-    `## Files of the cycle that has ${group.length} folders`,
+    `## Jobs of cycle ${cycleId}: ${group.length} folders, ${jobs.length} jobs`,
     '',
-    'The file graph has no runtime cycle (`no-cycles` in `.dependency-cruiser.json`), so this cycle exists only at folder level. Files of the same depth can run in parallel once all lower depths are merged. Imports lists the imports that cross a folder inside the cycle.',
+    `Each job is the files of one folder at one depth, at most ${JOB_MAX_FILES} files and ${JOB_MAX_LINES} source lines, unless one file alone is bigger. Depth counts value imports inside this cycle. Jobs of the same depth can run in parallel. A job can start when every job in Needs is merged, and every folder in Earlier is merged. Types lists folders of this cycle that the job imports with \`import type\`: if the type is not there yet, the job adds it to \`ostia-contract\`.`,
+    `Import loops between files in this cycle: ${loops.size}.${loops.size > 0 ? ` Files: ${[...loops].sort().join(' ')}. Order among them is not exact.` : ''}`,
+    `Test files with no matching source file: ${orphans.map((test) => `\`${test.file}\``).join(' ') || 'none'}. Give each to the job that owns what it tests.`,
     '',
-    '| Depth | File | Lines | Imports |',
-    '|---|---|---|---|',
-    ...files.map(
-      (file) =>
-        `| ${depths.get(file)} | \`${file}\` | ${fileEntries.get(file).lines} | ${crossing(file).join(' ') || '-'} |`,
-    ),
+    '| Job | Depth | Folder | Crate | Files and lines | Tests and lines | Source | Test lines | Security | Electron | Needs | Earlier | Types |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+    ...jobs.map((job) => jobRow(job, jobOfFile, members)),
   ]
 }
+
+const cycleEntries = groups.flatMap((group, index) =>
+  group.length > 1 ? [{ group, cycleId: `C${index + 1}` }] : [],
+)
+
 const sum = (pick) => [...folders.values()].reduce((total, entry) => total + pick(entry), 0)
 const text = [
   '# Rust port job queue',
@@ -296,7 +387,7 @@ const text = [
   `Value-import cycles between folders: ${cycles.length}. Largest: ${Math.max(0, ...cycles.map((g) => g.length))} folders.`,
   '',
   'Order is leaf first by value imports. A row can start when every earlier step that it names in Depends on is merged.',
-  'Rows with the same cycle id depend on each other. Port them together, or break the cycle with a seam in the crate that comes first.',
+  'Rows with a cycle id depend on each other at folder level, so they have no folder job. Use the job table of that cycle, further down. It gives per-file or small-group jobs in file-graph order.',
   'Type deps are `import type` only. They do not set the order. If the type is not there yet, the job adds it to `ostia-contract`.',
   'Security flags come from the folder name and from the source text. A flagged job gets one focused review.',
   'Electron means the folder imports `electron`, so the port needs a seam in place of the Electron API.',
@@ -312,7 +403,7 @@ const text = [
   '| Folder | Source | Tests | Used by | Security |',
   '|---|---|---|---|---|',
   ...prereqRows,
-  ...cycles.flatMap(cycleSection),
+  ...cycleEntries.flatMap(cycleSection),
   '',
 ].join('\n')
 
