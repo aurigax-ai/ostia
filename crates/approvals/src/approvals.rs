@@ -36,14 +36,16 @@ pub struct ApprovalAsk {
 pub type OpenedListener = Box<dyn Fn(&ApprovalRequest) + Send + Sync>;
 pub type SettledListener = Box<dyn Fn(&str, ApprovalOutcome) + Send + Sync>;
 pub type PublishFn = Box<dyn Fn(&str, &ApprovalState) -> bool + Send + Sync>;
+pub type GrantFn = Box<dyn Fn(&ExternalId, Capability) + Send + Sync>;
+pub type AlwaysFn = Box<dyn Fn(&[Capability]) -> bool + Send + Sync>;
 pub type RevealFn = Box<dyn Fn(&str) + Send + Sync>;
 
 pub struct ApprovalDeps {
     pub mode: Box<dyn Fn() -> ApprovalMode + Send + Sync>,
     pub publish: PublishFn,
-    pub grant: Box<dyn Fn(&ExternalId, Capability) + Send + Sync>,
-    pub revoke: Box<dyn Fn(&ExternalId, Capability) + Send + Sync>,
-    pub always: Box<dyn Fn(&[Capability]) -> bool + Send + Sync>,
+    pub grant: GrantFn,
+    pub revoke: GrantFn,
+    pub always: AlwaysFn,
     pub now: Clock,
     pub timeout_ms: u64,
     pub reveal: RevealFn,
