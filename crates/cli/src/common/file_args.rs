@@ -6,11 +6,13 @@ use ostia_base::node_path::{join, resolve};
 use ostia_contract::open_files::{FileTarget, OpenFileError};
 use regex::Regex;
 
+type PathPredicate = Box<dyn Fn(&Path) -> bool>;
+
 pub struct FileProbe {
     pub cwd: PathBuf,
     pub home: PathBuf,
-    pub is_file: Box<dyn Fn(&Path) -> bool>,
-    pub is_dir: Option<Box<dyn Fn(&Path) -> bool>>,
+    pub is_file: PathPredicate,
+    pub is_dir: Option<PathPredicate>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
