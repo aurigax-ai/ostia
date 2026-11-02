@@ -5238,12 +5238,14 @@ dependencies = [
  "ostia-base",
  "ostia-contract",
  "ostia-control",
+ "ostia-model",
  "ostia-park",
  "ostia-sandbox",
  "ostia-terminal",
  "ostia-ui",
  "portable-pty",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -5480,11 +5482,13 @@ dependencies = [
  "futures-util",
  "ostia-base",
  "ostia-contract",
+ "ostia-workspaces",
  "parking_lot",
  "regex",
  "serde",
  "serde_json",
  "tokio",
+ "url",
 ]
 
 [[package]]

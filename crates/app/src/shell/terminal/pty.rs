@@ -2,9 +2,8 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use anyhow::Result;
+use ostia_base::path_guard::expand_home;
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
-
-pub const SHELL_START_LABEL: &str = "~";
 
 pub struct Pty {
     master: Box<dyn MasterPty + Send>,
@@ -12,12 +11,22 @@ pub struct Pty {
     child: Box<dyn Child + Send + Sync>,
 }
 
-fn start_folder() -> Option<PathBuf> {
-    std::env::var_os("HOME").map(PathBuf::from)
+fn start_folder(cwd: Option<&str>) -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    match (cwd, home) {
+        (Some(cwd), Some(home)) => Some(expand_home(cwd, &home)),
+        (Some(cwd), None) => Some(PathBuf::from(cwd)),
+        (None, home) => home,
+    }
 }
 
 impl Pty {
-    pub fn spawn(cols: u16, rows: u16, argv: &[String]) -> Result<(Self, Box<dyn Read + Send>)> {
+    pub fn spawn(
+        cols: u16,
+        rows: u16,
+        argv: &[String],
+        cwd: Option<&str>,
+    ) -> Result<(Self, Box<dyn Read + Send>)> {
         let pair = native_pty_system().openpty(PtySize {
             rows,
             cols,
@@ -33,7 +42,7 @@ impl Pty {
             None => CommandBuilder::new_default_prog(),
         };
         command.env("TERM", "xterm-256color");
-        if let Some(folder) = start_folder() {
+        if let Some(folder) = start_folder(cwd) {
             command.cwd(folder);
         }
         let child = pair.slave.spawn_command(command)?;

@@ -1,4 +1,7 @@
+use ostia_app::shell::bridge::Bridge;
 use ostia_app::shell::{Screen, ShellOptions, Terminals, run_window};
+use ostia_base::host::Host;
+use ostia_model::ids::IdNamespace;
 use tracing_subscriber::EnvFilter;
 
 fn value_of(args: &[String], flag: &str) -> Option<String> {
@@ -18,5 +21,7 @@ fn main() {
         screen: Screen::parse(value_of(&args, "--screen").as_deref()),
         theme: value_of(&args, "--theme"),
         terminals: Terminals::DefaultShell,
+        namespace: IdNamespace::default(),
+        bridge: Bridge::for_host(&Host::current()),
     });
 }

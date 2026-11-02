@@ -1,29 +1,36 @@
 use gpui_kit::prelude::*;
 use gpui_kit::{Context, Entity, FocusHandle, Render, Window, div};
-use ostia_ui::components::{EmptyState, IconName};
-use ostia_ui::icons::{IconSize, icon, sync_icon_weight};
+use ostia_model::layout::types::Direction;
+use ostia_ui::icons::sync_icon_weight;
 use ostia_ui::theme::UiTheme;
 use ostia_ui::tokens::{FONT_UI, TextStep, UiText};
 
-use super::fixtures::fixture_workspaces;
 use super::settings_screen::SettingsScreen;
+use super::window_stores::WindowStores;
 use super::work_area::WorkArea;
 use super::{Screen, ShellOptions, palette, rail, top_bar};
 
 gpui_kit::actions!(
     ostia_shell,
-    [ToggleCommandPalette, OpenSettings, ToggleRail]
+    [
+        ToggleCommandPalette,
+        OpenSettings,
+        ToggleRail,
+        NewWorkspace,
+        NewTerminal,
+        SplitRight,
+    ]
 );
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ActiveView {
-    LiveWorkspace,
-    Fixture(usize),
+    Workspace,
     Settings,
 }
 
 pub struct ShellRoot {
     pub(super) view: ActiveView,
+    pub(super) stores: WindowStores,
     pub(super) rail_collapsed: bool,
     pub(super) work: Entity<WorkArea>,
     pub(super) settings: Entity<SettingsScreen>,
@@ -32,12 +39,24 @@ pub struct ShellRoot {
 
 impl ShellRoot {
     pub fn new(options: ShellOptions, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let work = cx.new(|cx| WorkArea::new(&options.terminals, window, cx));
-        let settings = cx.new(|cx| SettingsScreen::new(window, cx));
         let focus = cx.focus_handle();
+        window.focus(&focus, cx);
+        let stores = WindowStores::new(&options.namespace, cx);
+        stores.new_workspace(cx);
+        let work = cx.new(|cx| {
+            WorkArea::new(
+                stores.clone(),
+                options.bridge.clone(),
+                options.terminals.clone(),
+                focus.clone(),
+                window,
+                cx,
+            )
+        });
+        let settings = cx.new(|cx| SettingsScreen::new(window, cx));
         let view = match options.screen {
             Screen::Settings => ActiveView::Settings,
-            Screen::Main | Screen::Palette => ActiveView::LiveWorkspace,
+            Screen::Main | Screen::Palette => ActiveView::Workspace,
         };
         if options.screen == Screen::Palette {
             let root = cx.entity().downgrade();
@@ -45,6 +64,7 @@ impl ShellRoot {
         }
         Self {
             view,
+            stores,
             rail_collapsed: false,
             work,
             settings,
@@ -54,6 +74,14 @@ impl ShellRoot {
 
     pub fn active_view(&self) -> ActiveView {
         self.view
+    }
+
+    pub fn stores(&self) -> &WindowStores {
+        &self.stores
+    }
+
+    pub fn work_area(&self) -> &Entity<WorkArea> {
+        &self.work
     }
 
     pub fn rail_collapsed(&self) -> bool {
@@ -70,21 +98,14 @@ impl ShellRoot {
         cx.notify();
     }
 
-    fn render_work(&mut self, cx: &mut Context<Self>) -> gpui_kit::AnyElement {
-        let muted = cx.tokens().fg;
+    pub(super) fn show_workspace(&mut self, cx: &mut Context<Self>) {
+        self.select_view(ActiveView::Workspace, cx);
+    }
+
+    fn render_work(&self) -> gpui_kit::AnyElement {
         match self.view {
-            ActiveView::LiveWorkspace => self.work.clone().into_any_element(),
+            ActiveView::Workspace => self.work.clone().into_any_element(),
             ActiveView::Settings => self.settings.clone().into_any_element(),
-            ActiveView::Fixture(index) => {
-                let title = fixture_workspaces()
-                    .get(index)
-                    .map_or("Fixture", |fixture| fixture.title);
-                EmptyState::surface()
-                    .icon(icon(IconName::TerminalWindow, IconSize::Standard, muted))
-                    .title(title)
-                    .desc("This workspace is a fixture. The workspaces core is not ported.")
-                    .into_any_element()
-            }
         }
     }
 }
@@ -93,7 +114,7 @@ impl Render for ShellRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         sync_icon_weight(window.scale_factor());
         let t = *cx.tokens();
-        let work = self.render_work(cx);
+        let work = self.render_work();
         div()
             .id("shell-root")
             .track_focus(&self.focus)
@@ -101,6 +122,18 @@ impl Render for ShellRoot {
             .on_action(cx.listener(|this, _: &ToggleRail, _, cx| this.toggle_rail(cx)))
             .on_action(cx.listener(|this, _: &OpenSettings, _, cx| {
                 this.select_view(ActiveView::Settings, cx);
+            }))
+            .on_action(cx.listener(|this, _: &NewWorkspace, _, cx| {
+                this.stores.new_workspace(cx);
+                this.show_workspace(cx);
+            }))
+            .on_action(cx.listener(|this, _: &NewTerminal, _, cx| {
+                this.stores.new_terminal(cx);
+                this.show_workspace(cx);
+            }))
+            .on_action(cx.listener(|this, _: &SplitRight, _, cx| {
+                this.stores.split_active(Direction::Horizontal, cx);
+                this.show_workspace(cx);
             }))
             .on_action(cx.listener(|_, _: &ToggleCommandPalette, window, cx| {
                 palette::open(cx.entity().downgrade(), window, cx);
