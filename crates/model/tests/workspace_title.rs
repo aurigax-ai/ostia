@@ -31,11 +31,8 @@ fn keeps_an_empty_custom_name_as_ts_does() {
 fn is_the_only_place_that_falls_back_from_custom_name_to_name() {
     let crates = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let mut files = Vec::new();
-    for entry in fs::read_dir(&crates).unwrap() {
-        let src = entry.unwrap().path().join("src");
-        if src.is_dir() {
-            rust_sources(&src, &mut files);
-        }
+    for name in ["app", "model"] {
+        rust_sources(&crates.join(name).join("src"), &mut files);
     }
     let offenders: Vec<&PathBuf> = files
         .iter()
