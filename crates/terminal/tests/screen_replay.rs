@@ -59,7 +59,7 @@ fn turns_each_key_mode_on_only_for_its_own_flag() {
         (10, "\x1b[?2004h"),
     ];
     for (index, set) in table {
-        let mut fields = vec!["0"; 11];
+        let mut fields = ["0"; 11];
         fields[3] = "1";
         fields[index] = "1";
         let replay = screen_replay(&fields.join(" "), &[""], None);

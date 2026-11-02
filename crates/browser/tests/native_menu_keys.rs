@@ -11,7 +11,6 @@ fn input(key: &str, code: &str, alt: bool, meta: bool) -> GuestKeyInput {
         shift: false,
         alt,
         meta,
-        ..GuestKeyInput::default()
     }
 }
 
