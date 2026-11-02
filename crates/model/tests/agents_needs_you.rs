@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 
+use ostia_approvals::approval_answers::ApprovalKind;
 use ostia_approvals::asks::{ApprovalRequest, QuestionRequest};
-use ostia_contract::approvals::ApprovalKind;
 use ostia_contract::capabilities::Capability;
 use ostia_model::agents::needs_you::{
     CONTEXT_FOLD_CHARS, NeedsYouItem, PaneWhere, WHERE_PATH_CHARS, WhereWorkspace, is_long_context,
