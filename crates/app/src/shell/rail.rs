@@ -1,11 +1,12 @@
 use gpui_kit::prelude::*;
 use gpui_kit::{AnyElement, App, Context, ElementId, IntoElement, SharedString, div, px};
-use ostia_ui::components::{IconName, RowButton, StateBadge, WorkspaceState, hint};
+use ostia_contract::attention::WorkspaceLiveState;
+use ostia_model::workspaces::workspaces_store::workspace_title;
+use ostia_ui::components::{IconButton, IconName, RowButton, StateBadge, WorkspaceState, hint};
 use ostia_ui::icons::{IconSize, icon};
 use ostia_ui::theme::UiTheme;
 use ostia_ui::tokens::{RAIL_W, RAIL_W_COLLAPSED, SPACE_2, TextStep, UiText};
 
-use super::fixtures::fixture_workspaces;
 use super::root::{ActiveView, ShellRoot};
 
 const LEAD_W: f32 = 16.;
@@ -14,6 +15,8 @@ const ROW_INSET: f32 = 6.;
 const COLLAPSED_ROW: f32 = 32.;
 const BADGE_OFFSET: f32 = -5.;
 const BADGE_RING: f32 = 2.;
+const CLOSE_INSET: f32 = 4.;
+const CLOSE_WORKSPACE: &str = "Close workspace";
 
 struct Row {
     id: ElementId,
@@ -21,7 +24,24 @@ struct Row {
     location: Option<SharedString>,
     kind: IconName,
     state: WorkspaceState,
-    view: ActiveView,
+    target: RowTarget,
+    active: bool,
+}
+
+#[derive(Clone)]
+enum RowTarget {
+    Settings,
+    Workspace(String),
+}
+
+fn badge_state(state: WorkspaceLiveState) -> WorkspaceState {
+    match state {
+        WorkspaceLiveState::Idle => WorkspaceState::Idle,
+        WorkspaceLiveState::Working => WorkspaceState::Working,
+        WorkspaceLiveState::Waiting => WorkspaceState::Waiting,
+        WorkspaceLiveState::Done => WorkspaceState::Done,
+        WorkspaceLiveState::Error => WorkspaceState::Error,
+    }
 }
 
 fn lead(row: &Row, active: bool, cx: &App) -> impl IntoElement + use<> {
@@ -50,9 +70,42 @@ fn lead(row: &Row, active: bool, cx: &App) -> impl IntoElement + use<> {
         })
 }
 
-fn render_row(row: Row, collapsed: bool, active: bool, cx: &mut Context<ShellRoot>) -> AnyElement {
-    let view = row.view;
-    let select = cx.listener(move |this, _, _, cx| this.select_view(view, cx));
+fn render_close(row: &Row, cx: &mut Context<ShellRoot>) -> Option<AnyElement> {
+    let RowTarget::Workspace(id) = &row.target else {
+        return None;
+    };
+    let target = id.clone();
+    let close = cx.listener(move |this, _, _, cx| {
+        cx.stop_propagation();
+        this.stores.close_workspace(&target, cx);
+    });
+    Some(
+        div()
+            .absolute()
+            .top(px(CLOSE_INSET))
+            .right(px(CLOSE_INSET))
+            .child(
+                IconButton::new(
+                    ElementId::Name(format!("rail-close-{id}").into()),
+                    IconName::X,
+                    CLOSE_WORKSPACE,
+                )
+                .on_click(close),
+            )
+            .into_any_element(),
+    )
+}
+
+fn render_row(row: Row, collapsed: bool, cx: &mut Context<ShellRoot>) -> AnyElement {
+    let active = row.active;
+    let target = row.target.clone();
+    let select = cx.listener(move |this, _, _, cx| match &target {
+        RowTarget::Settings => this.select_view(ActiveView::Settings, cx),
+        RowTarget::Workspace(id) => {
+            this.stores.select_workspace(id, cx);
+            this.show_workspace(cx);
+        }
+    });
     let t = *cx.tokens();
     let lead = lead(&row, active, cx);
     let button = RowButton::new(row.id.clone(), row.title.clone())
@@ -75,43 +128,47 @@ fn render_row(row: Row, collapsed: bool, active: bool, cx: &mut Context<ShellRoo
             )
             .into_any_element();
     }
-    button
-        .child(
-            div()
-                .flex()
-                .flex_1()
-                .min_w_0()
-                .items_start()
-                .gap(SPACE_2)
-                .py(px(ROW_INSET))
-                .pl(SPACE_2)
-                .pr(px(ROW_GAP * 2.))
-                .child(div().flex().h(px(20.)).items_center().child(lead))
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .flex_1()
-                        .min_w_0()
-                        .gap(px(ROW_GAP))
-                        .child(
+    let close = active.then(|| render_close(&row, cx)).flatten();
+    let row_body = button.child(
+        div()
+            .flex()
+            .flex_1()
+            .min_w_0()
+            .items_start()
+            .gap(SPACE_2)
+            .py(px(ROW_INSET))
+            .pl(SPACE_2)
+            .pr(px(ROW_GAP * 2.))
+            .child(div().flex().h(px(20.)).items_center().child(lead))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_w_0()
+                    .gap(px(ROW_GAP))
+                    .child(
+                        div()
+                            .truncate()
+                            .ui_text(TextStep::Base, cx)
+                            .child(row.title),
+                    )
+                    .when_some(row.location, |body, location| {
+                        body.child(
                             div()
                                 .truncate()
-                                .ui_text(TextStep::Base, cx)
-                                .child(row.title),
+                                .font_code()
+                                .text_color(t.fg_muted)
+                                .ui_text(TextStep::Xs, cx)
+                                .child(location),
                         )
-                        .when_some(row.location, |body, location| {
-                            body.child(
-                                div()
-                                    .truncate()
-                                    .font_code()
-                                    .text_color(t.fg_muted)
-                                    .ui_text(TextStep::Xs, cx)
-                                    .child(location),
-                            )
-                        }),
-                ),
-        )
+                    }),
+            ),
+    );
+    div()
+        .relative()
+        .child(row_body)
+        .children(close)
         .into_any_element()
 }
 
@@ -127,33 +184,24 @@ pub(super) fn render(root: &ShellRoot, cx: &mut Context<ShellRoot>) -> impl Into
             location: None,
             kind: IconName::GearSix,
             state: WorkspaceState::Idle,
-            view: ActiveView::Settings,
+            target: RowTarget::Settings,
+            active: true,
         });
     }
-    rows.push(Row {
-        id: "rail-live".into(),
-        title: "Live shells".into(),
-        location: Some(super::terminal::pty::SHELL_START_LABEL.into()),
+    let store = root.stores.workspaces.read(cx).state();
+    let selected = store.active_workspace_id();
+    rows.extend(store.workspaces().iter().map(|workspace| Row {
+        id: ElementId::Name(format!("rail-workspace-{}", workspace.id).into()),
+        title: workspace_title(workspace).to_owned().into(),
+        location: Some(workspace.work_dir.clone().into()),
         kind: IconName::TerminalWindow,
-        state: WorkspaceState::Idle,
-        view: ActiveView::LiveWorkspace,
-    });
-    for (index, fixture) in fixture_workspaces().iter().enumerate() {
-        rows.push(Row {
-            id: ElementId::NamedInteger("rail-fixture".into(), index as u64),
-            title: fixture.title.into(),
-            location: Some(fixture.folder.into()),
-            kind: IconName::TerminalWindow,
-            state: fixture.state,
-            view: ActiveView::Fixture(index),
-        });
-    }
+        state: badge_state(workspace.state),
+        target: RowTarget::Workspace(workspace.id.clone()),
+        active: view == ActiveView::Workspace && selected == Some(workspace.id.as_str()),
+    }));
     let rendered: Vec<AnyElement> = rows
         .into_iter()
-        .map(|row| {
-            let active = row.view == view;
-            render_row(row, collapsed, active, cx)
-        })
+        .map(|row| render_row(row, collapsed, cx))
         .collect();
     div()
         .flex()

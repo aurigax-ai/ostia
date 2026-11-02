@@ -5,16 +5,82 @@ use gpui_kit::component::IndexPath;
 use gpui_kit::component::command::{Command, CommandGroup, CommandItem, CommandState};
 use gpui_kit::prelude::*;
 use gpui_kit::{App, Entity, SharedString, WeakEntity, Window, div, px};
+use ostia_model::layout::types::Direction;
 use ostia_ui::components::{PaletteRow, close_dialog, open_dialog};
 use ostia_ui::theme::{UiTheme, set_theme, themes};
 use ostia_ui::tokens::{PALETTE_W, RADIUS_LG, TextStep, UiText};
 
 use super::root::{ActiveView, ShellRoot};
+use super::window_stores::WindowStores;
 
 const LIST_MAX_H: f32 = 432.;
 const TOP_FRACTION: f32 = 0.12;
 
 type Run = Rc<dyn Fn(&mut Window, &mut App)>;
+type StoreAction = fn(&WindowStores, &mut App);
+
+const WORKSPACE_COMMANDS: &[(&str, &str, Option<&str>, StoreAction)] = &[
+    (
+        "New Workspace",
+        "workspace.new",
+        Some("Ctrl+Shift+N"),
+        WindowStores::new_workspace,
+    ),
+    (
+        "Close Workspace",
+        "workspace.close",
+        None,
+        WindowStores::close_active_workspace,
+    ),
+    (
+        "New Terminal",
+        "pane.newTerminal",
+        Some("Ctrl+Shift+T"),
+        WindowStores::new_terminal,
+    ),
+    (
+        "Split Pane Right",
+        "pane.splitRight",
+        Some("Ctrl+Alt+\\"),
+        |stores, cx| stores.split_active(Direction::Horizontal, cx),
+    ),
+    ("Split Pane Down", "pane.splitDown", None, |stores, cx| {
+        stores.split_active(Direction::Vertical, cx)
+    }),
+    (
+        "Close Pane",
+        "pane.close",
+        None,
+        WindowStores::close_active_pane,
+    ),
+];
+
+fn workspace_group(root: &WeakEntity<ShellRoot>) -> PaletteGroup {
+    let commands = WORKSPACE_COMMANDS
+        .iter()
+        .map(|(title, id, keys, action)| {
+            let action = *action;
+            let target = root.clone();
+            let run: Run = Rc::new(move |_, cx| {
+                let _ = target.update(cx, |root, cx| {
+                    let stores = root.stores.clone();
+                    action(&stores, cx);
+                    root.show_workspace(cx);
+                });
+            });
+            PaletteCommand {
+                title: (*title).into(),
+                id: (*id).into(),
+                keys: *keys,
+                run,
+            }
+        })
+        .collect();
+    PaletteGroup {
+        heading: "Workspace",
+        commands,
+    }
+}
 
 struct PaletteCommand {
     title: SharedString,
@@ -29,6 +95,7 @@ struct PaletteGroup {
 }
 
 fn groups(root: WeakEntity<ShellRoot>) -> Vec<PaletteGroup> {
+    let workspace = workspace_group(&root);
     let rail_root = root.clone();
     let settings_root = root;
     let toggle_rail: Run = Rc::new(move |_, cx| {
@@ -38,6 +105,7 @@ fn groups(root: WeakEntity<ShellRoot>) -> Vec<PaletteGroup> {
         let _ = settings_root.update(cx, |root, cx| root.select_view(ActiveView::Settings, cx));
     });
     vec![
+        workspace,
         PaletteGroup {
             heading: "View",
             commands: vec![

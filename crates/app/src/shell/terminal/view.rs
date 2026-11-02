@@ -78,8 +78,12 @@ fn key_bytes(event: &KeyDownEvent) -> Option<Vec<u8>> {
 }
 
 impl TerminalView {
-    pub fn spawn<V: 'static>(argv: &[String], cx: &mut Context<V>) -> Result<Entity<Self>> {
-        let (pty, mut reader) = Pty::spawn(INITIAL_COLS, INITIAL_ROWS, argv)?;
+    pub fn spawn<V: 'static>(
+        argv: &[String],
+        cwd: Option<&str>,
+        cx: &mut Context<V>,
+    ) -> Result<Entity<Self>> {
+        let (pty, mut reader) = Pty::spawn(INITIAL_COLS, INITIAL_ROWS, argv, cwd)?;
         let mut screen = Screen::new(INITIAL_COLS, INITIAL_ROWS, SCROLLBACK_LINES)?;
         let scheme = cx.ui_theme().scheme;
         screen.apply_scheme(scheme)?;

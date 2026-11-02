@@ -1,22 +1,30 @@
-mod fixtures;
+pub mod bridge;
 mod palette;
 mod pane;
 mod rail;
 mod root;
 mod settings_screen;
+pub mod store;
+mod tab_strip;
 pub mod terminal;
 mod top_bar;
 mod window_controls;
+pub mod window_stores;
 mod work_area;
 
+use bridge::Bridge;
 use gpui_kit::prelude::*;
 use gpui_kit::{
     App, Bounds, Entity, KeyBinding, WindowBounds, WindowDecorations, WindowOptions, point, px,
     size,
 };
+use ostia_model::ids::IdNamespace;
 
-pub use fixtures::{FixtureWorkspace, fixture_workspaces};
-pub use root::{OpenSettings, ShellRoot, ToggleCommandPalette, ToggleRail};
+pub use root::{
+    ActiveView, NewTerminal, NewWorkspace, OpenSettings, ShellRoot, SplitRight,
+    ToggleCommandPalette, ToggleRail,
+};
+pub use work_area::WorkArea;
 
 const WINDOW_WIDTH: f32 = 1280.;
 const WINDOW_HEIGHT: f32 = 800.;
@@ -49,11 +57,13 @@ pub enum Terminals {
     Off,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone)]
 pub struct ShellOptions {
     pub screen: Screen,
     pub theme: Option<String>,
     pub terminals: Terminals,
+    pub namespace: IdNamespace,
+    pub bridge: Bridge,
 }
 
 pub fn bind_shell_keys(cx: &mut App) {
@@ -61,6 +71,9 @@ pub fn bind_shell_keys(cx: &mut App) {
         KeyBinding::new("ctrl-shift-p", ToggleCommandPalette, None),
         KeyBinding::new("ctrl-,", OpenSettings, None),
         KeyBinding::new("ctrl-shift-b", ToggleRail, None),
+        KeyBinding::new("ctrl-shift-n", NewWorkspace, None),
+        KeyBinding::new("ctrl-shift-t", NewTerminal, None),
+        KeyBinding::new("ctrl-alt-\\", SplitRight, None),
     ]);
 }
 
