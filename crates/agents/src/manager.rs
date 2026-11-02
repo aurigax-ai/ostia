@@ -1,22 +1,18 @@
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
-use std::sync::{Arc, LazyLock, Weak};
+use std::sync::{Arc, Weak};
 
 use futures_util::future::BoxFuture;
-use ostia_base::js::{js_number, js_number_text, static_regex, utf16_len};
+use ostia_base::js::{js_number, js_number_text, utf16_len};
 use ostia_contract::PRODUCT_DISPLAY_NAME;
 use ostia_contract::agent_resume::{AgentResume, parse_agent_resume};
+use ostia_contract::manager_settings::{
+    MANAGER_MAX_ARG_LENGTH, MANAGER_MAX_ARGS, PI_MANAGER_AGENT, is_manager_agent_name,
+};
 use parking_lot::Mutex;
-use regex::Regex;
 use serde_json::{Map, Value};
 
 const MAX_PATH_LENGTH: usize = 32 * 1024;
-const MANAGER_MAX_ARGS: usize = 64;
-const MANAGER_MAX_ARG_LENGTH: usize = 4096;
-const PI_MANAGER_AGENT: &str = "pi";
-
-static MANAGER_AGENT_NAME: LazyLock<Regex> =
-    LazyLock::new(|| static_regex(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"));
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ManagerError(String);
@@ -96,7 +92,7 @@ fn parse_saved_resume(raw: &Value) -> Option<SavedManagerResume> {
     let record = raw.as_object()?;
     let resume = parse_agent_resume(record.get("resume").unwrap_or(&Value::Null))?;
     let agent = record.get("agent")?.as_str()?;
-    if !MANAGER_AGENT_NAME.is_match(agent) {
+    if !is_manager_agent_name(agent) {
         return None;
     }
     Some(SavedManagerResume {
@@ -115,7 +111,7 @@ pub fn parse_open_request(raw: &Value) -> Result<ManagerOpenRequest, ManagerErro
     let agent = record
         .get("agent")
         .and_then(Value::as_str)
-        .filter(|agent| MANAGER_AGENT_NAME.is_match(agent))
+        .filter(|agent| is_manager_agent_name(agent))
         .ok_or_else(|| bad_request("agent"))?;
     let args = match record.get("args") {
         None | Some(Value::Null) => Vec::new(),
