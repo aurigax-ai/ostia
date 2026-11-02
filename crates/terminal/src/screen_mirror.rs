@@ -420,3 +420,31 @@ impl ScreenMirror {
         }
     }
 }
+
+#[cfg(test)]
+mod probe {
+    use crate::headless_screen::HeadlessScreen;
+
+    #[test]
+    fn probe_resize_reflow() {
+        let mut screen = HeadlessScreen::new(80, 10, 2500).unwrap();
+        screen.write_raw(b"\x1b[70GX\r\n");
+        screen.resize(40, 10);
+        let mut report = format!(
+            "total={} cursor=({},{})\n",
+            screen.total_rows(),
+            screen.cursor_x(),
+            screen.cursor_y()
+        );
+        for y in 0..4 {
+            report.push_str(&format!(
+                "row {y}: text={:?} blank={} cont={}\n",
+                screen.row_text(y),
+                screen.row_is_blank(y),
+                screen.row_is_continuation(y)
+            ));
+        }
+        report.push_str(&format!("last={} ser={:?}\n", screen.last_content_row(), screen.serialize(0, 1)));
+        panic!("{report}");
+    }
+}
