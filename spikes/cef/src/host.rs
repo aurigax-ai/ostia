@@ -196,6 +196,7 @@ pub fn open_page(
 ) -> Option<Page> {
     let window_info = WindowInfo {
         windowless_rendering_enabled: true as _,
+        runtime_style: RuntimeStyle::ALLOY,
         ..Default::default()
     };
     let browser_settings = BrowserSettings {
@@ -207,6 +208,7 @@ pub fn open_page(
         ..Default::default()
     };
     let mut context = request_context_create_context(Some(&context_settings), None);
+    eprintln!("SPIKE request-context-created={}", context.is_some());
     let mut client = SpikeClient::new(
         SpikeRenderHandler::new(RenderState {
             slot: slot.clone(),
