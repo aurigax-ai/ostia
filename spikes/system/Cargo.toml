@@ -11,7 +11,7 @@ aes = "0.8"
 anyhow = "1"
 arboard = { version = "3.6", features = ["wayland-data-control"] }
 base64 = "0.22"
-cbc = "0.1"
+cbc = { version = "0.1", features = ["alloc"] }
 global-hotkey = "0.8"
 keyring = "4.2"
 keyring-core = "1"
