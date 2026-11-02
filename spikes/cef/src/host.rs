@@ -207,7 +207,8 @@ pub struct Page {
 
 pub fn open_page(
     url: &str,
-    context_dir: &str,
+    context_dir: Option<&str>,
+    alloy: bool,
     geometry: SharedGeometry,
     slot: SharedSlot,
 ) -> Option<Page> {
