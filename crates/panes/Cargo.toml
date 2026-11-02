@@ -11,3 +11,11 @@ serde.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+futures-util.workspace = true
+ostia-base.workspace = true
+parking_lot.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+tokio-util.workspace = true
