@@ -61,7 +61,7 @@ fn refuses_a_prompt_that_starts_with_a_subcommand_in_any_letter_case() {
         "ultrareview",
     ] {
         let upper = word.to_uppercase();
-        let mixed = format!("{}{}", &word[..1].to_uppercase(), &word[1..]);
+        let mixed = format!("{}{}", word[..1].to_uppercase(), &word[1..]);
         for lead in [word, upper.as_str(), mixed.as_str()] {
             assert_eq!(claude(&format!("{lead} the thing")), None, "{lead}");
             assert_eq!(codex(&format!("{lead} the thing")), None, "{lead}");
