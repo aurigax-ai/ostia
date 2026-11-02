@@ -3,7 +3,5 @@ pub mod reach;
 pub mod reach_scope;
 pub mod script_token_requests;
 
-use std::collections::{HashMap, HashSet};
-
 pub use capability_store::CapabilityStore;
 pub use reach::ReachMode;

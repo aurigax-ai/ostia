@@ -1,13 +1,13 @@
-pub mod pty_size;
-pub mod screen_replay;
-pub mod screen_title_filter;
-pub mod tmux_command;
-pub mod tmux_conf;
 pub mod pane_banner;
 pub mod pane_launcher;
 pub mod pty_flow;
 pub mod pty_reaper;
 pub mod pty_ring_buffer;
+pub mod pty_size;
+pub mod screen_replay;
+pub mod screen_title_filter;
+pub mod tmux_command;
+pub mod tmux_conf;
 pub mod tmux_pane;
 
 use std::collections::HashMap;
