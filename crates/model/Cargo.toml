@@ -11,6 +11,8 @@ workspace = true
 
 [dependencies]
 futures-util.workspace = true
+globset.workspace = true
+icu_collator.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-workspaces.workspace = true
