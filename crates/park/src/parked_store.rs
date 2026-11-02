@@ -52,7 +52,10 @@ pub struct ParkInput {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ParkResult {
-    Parked { record: ParkedRecord, updated: bool },
+    Parked {
+        record: Box<ParkedRecord>,
+        updated: bool,
+    },
     TooMany,
     Invalid,
 }
@@ -210,7 +213,7 @@ impl ParkedStore {
         drop(items);
         self.changed.emit(record.workspace_id.clone());
         Ok(ParkResult::Parked {
-            record,
+            record: Box::new(record),
             updated: known.is_some(),
         })
     }

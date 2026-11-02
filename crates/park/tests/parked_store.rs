@@ -38,7 +38,7 @@ fn fixed(now: i64) -> Clock {
 
 fn parked(result: ParkResult) -> (ParkedRecord, bool) {
     match result {
-        ParkResult::Parked { record, updated } => (record, updated),
+        ParkResult::Parked { record, updated } => (*record, updated),
         other => panic!("expected a parked record, got {other:?}"),
     }
 }
