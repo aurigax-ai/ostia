@@ -15,7 +15,7 @@ struct Fake {
 }
 
 fn encrypted(plain: &str) -> String {
-    format!("enc:{plain}")
+    format!("enc:{}", plain.chars().rev().collect::<String>())
 }
 
 fn fake(can_encrypt: bool) -> Fake {
@@ -36,7 +36,11 @@ fn fake(can_encrypt: bool) -> Fake {
         }),
         can_encrypt: Box::new(move || can_encrypt),
         encrypt: Box::new(|plain: &str| encrypted(plain)),
-        decrypt: Box::new(|secret: &str| secret.strip_prefix("enc:").map(str::to_owned)),
+        decrypt: Box::new(|secret: &str| {
+            secret
+                .strip_prefix("enc:")
+                .map(|hidden| hidden.chars().rev().collect::<String>())
+        }),
     };
     Fake {
         data,
