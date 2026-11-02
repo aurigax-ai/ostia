@@ -32,3 +32,11 @@ fn serializes_the_same_text_as_the_wasm_headless_terminal() {
         assert_eq!(got, expected, "{name}");
     }
 }
+
+#[test]
+fn serializes_a_wrapped_line_whose_first_row_is_blank_with_its_leading_blanks() {
+    let mut screen = HeadlessScreen::new(80, 10, 2000).unwrap();
+    screen.write_raw(b"\x1b[70GX\r\n");
+    screen.resize(40, 10);
+    assert_eq!(screen.serialize(0, 1), vec![format!("{}X", " ".repeat(69))]);
+}
