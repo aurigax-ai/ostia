@@ -304,34 +304,30 @@ fn override_flag(map: &Map<String, Value>, key: &str, base: bool) -> bool {
     map.get(key).and_then(Value::as_bool).unwrap_or(base)
 }
 
+pub fn merge_controls(base: SandboxControls, over: &Map<String, Value>) -> SandboxControls {
+    SandboxControls {
+        all_workspaces: override_flag(over, "allWorkspaces", base.all_workspaces),
+        browser: over
+            .get("browser")
+            .and_then(Value::as_str)
+            .and_then(BrowserControl::parse)
+            .unwrap_or(base.browser),
+    }
+}
+
+pub fn merge_switches(base: SandboxSwitches, over: &Map<String, Value>) -> SandboxSwitches {
+    SandboxSwitches {
+        unix_sockets: override_flag(over, "unixSockets", base.unix_sockets),
+        git_config: override_flag(over, "gitConfig", base.git_config),
+        strict_domains: override_flag(over, "strictDomains", base.strict_domains),
+    }
+}
+
 pub fn resolve_sandbox(
     globals: &SandboxGlobals,
     workspace: &WorkspaceSandbox,
     session_domains: &[String],
 ) -> ResolvedSandbox {
-    let controls = SandboxControls {
-        all_workspaces: override_flag(
-            &workspace.controls,
-            "allWorkspaces",
-            globals.controls.all_workspaces,
-        ),
-        browser: workspace
-            .controls
-            .get("browser")
-            .and_then(Value::as_str)
-            .and_then(BrowserControl::parse)
-            .unwrap_or(globals.controls.browser),
-    };
-    let own_switches = workspace.switches.clone().unwrap_or_default();
-    let switches = SandboxSwitches {
-        unix_sockets: override_flag(&own_switches, "unixSockets", globals.switches.unix_sockets),
-        git_config: override_flag(&own_switches, "gitConfig", globals.switches.git_config),
-        strict_domains: override_flag(
-            &own_switches,
-            "strictDomains",
-            globals.switches.strict_domains,
-        ),
-    };
     ResolvedSandbox {
         allow_read: union(&globals.allow_read, &workspace.allow_read),
         allow_write: union(
@@ -352,8 +348,11 @@ pub fn resolve_sandbox(
             &globals.allow_sockets,
             listed(workspace.allow_sockets.as_deref()),
         ),
-        controls,
-        switches,
+        controls: merge_controls(globals.controls, &workspace.controls),
+        switches: merge_switches(
+            globals.switches,
+            workspace.switches.as_ref().unwrap_or(&Map::new()),
+        ),
         ports_policy: workspace
             .ports
             .as_deref()

@@ -8,6 +8,7 @@ pub mod hidden_text;
 pub mod open_files;
 pub mod reach;
 pub mod sandbox;
+pub mod sandbox_parse;
 pub mod sandbox_presets;
 pub mod script_tokens;
 pub mod terminal_state;
