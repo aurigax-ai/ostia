@@ -113,9 +113,10 @@ async fn keeps_the_main_event_loop_responsive_while_a_slow_scan_runs() {
 #[tokio::test]
 async fn answers_queued_scans_in_order() {
     let redactor = Redactor::new(|| Value::Null, real_worker());
+    let middle = format!("x {}", FAKE.npm);
     let (first, second, third) = tokio::join!(
         redactor.redact("a"),
-        redactor.redact(&format!("x {}", FAKE.npm)),
+        redactor.redact(&middle),
         redactor.redact("b"),
     );
     let counts = [

@@ -140,8 +140,8 @@ pub static FAKE: LazyLock<Fake> = LazyLock::new(|| Fake {
     .concat(),
     private_key: [
         join(&["-----BEGIN RSA ", "PRIVATE KEY-----"]),
-        "MIIEpAIBAAKCAQEA04up8hoqzS1+APIB0RhjXyObwHQnOzhAk5Bd7mhkSbPkyhP1",
-        "iGq7ybRXrXn0jc5cJ4ZxG2zB4tQ9mM8LbK8Y7Wr1q1Wd8u3n0d2tZ2v8H8a1M0Zk",
+        "MIIEpAIBAAKCAQEA04up8hoqzS1+APIB0RhjXyObwHQnOzhAk5Bd7mhkSbPkyhP1".to_owned(),
+        "iGq7ybRXrXn0jc5cJ4ZxG2zB4tQ9mM8LbK8Y7Wr1q1Wd8u3n0d2tZ2v8H8a1M0Zk".to_owned(),
         join(&["-----END RSA ", "PRIVATE KEY-----"]),
     ]
     .join("\n"),
