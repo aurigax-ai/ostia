@@ -15,6 +15,7 @@ export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
 export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
 export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/paneBanner'
 export { en, zhHant } from './src/shared/app/dict'
+export { keepShellsNotice, tmuxMissing } from './src/main/tmux/keepShellsBanner'
 export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
 export { scrollbackToSave } from './src/main/workspaces/savedScrollback'
 export { USAGE_TABLE } from './src/cli/common/usageTable'
@@ -44,6 +45,8 @@ const {
   ostiaLauncherScript,
   errorBanner,
   integrationNotLoadedNotice,
+  keepShellsNotice,
+  tmuxMissing,
   en,
   zhHant,
   parseSnapshot,
@@ -236,6 +239,21 @@ writeFileSync(
 writeFileSync(
   join(out, 'pane-banner-integration-zh-hant.txt'),
   integrationNotLoadedNotice(zhHant.native.paneBanner, 'EACCES'),
+)
+writeFileSync(
+  join(out, 'keep-shells-notice-en.txt'),
+  keepShellsNotice(en.native.paneBanner, tmuxMissing(en.native.paneBanner)),
+)
+writeFileSync(
+  join(out, 'keep-shells-notice-zh-hant.txt'),
+  keepShellsNotice(zhHant.native.paneBanner, tmuxMissing(zhHant.native.paneBanner)),
+)
+writeFileSync(
+  join(out, 'keep-shells-notice-multiline.txt'),
+  keepShellsNotice(
+    en.native.paneBanner,
+    'tmux could not start its server: line one\n\x1b]0;x\x07two  \x7f three',
+  ),
 )
 
 const SNAPSHOT_BEFORE = {
