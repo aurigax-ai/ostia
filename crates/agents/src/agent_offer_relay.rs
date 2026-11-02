@@ -15,10 +15,14 @@ pub const AGENT_OFFER_CHANNEL: &str = "extensions:agent-offer";
 pub const AGENT_OFFER_WITHDRAWN_CHANNEL: &str = "extensions:agent-offer-withdrawn";
 pub const AGENT_OFFER_RESULT_CHANNEL: &str = "extensions:agent-offer-result";
 
+type WindowOf = Box<dyn Fn(&WorkspaceId) -> Option<WindowId> + Send + Sync>;
+type SendToWindow = Box<dyn Fn(&WindowId, &str, Value) -> bool + Send + Sync>;
+type ExternalIdOf = Box<dyn Fn(&PaneId) -> Option<String> + Send + Sync>;
+
 pub struct AgentOfferRelayDeps {
-    pub window_of: Box<dyn Fn(&WorkspaceId) -> Option<WindowId> + Send + Sync>,
-    pub send: Box<dyn Fn(&WindowId, &str, Value) -> bool + Send + Sync>,
-    pub external_id_of: Box<dyn Fn(&PaneId) -> Option<String> + Send + Sync>,
+    pub window_of: WindowOf,
+    pub send: SendToWindow,
+    pub external_id_of: ExternalIdOf,
     pub timeout: Option<Duration>,
 }
 

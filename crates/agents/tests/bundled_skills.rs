@@ -213,11 +213,11 @@ fn is_word(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
 }
 
-fn matches_with_clean_start(
+fn matches_with_clean_start<'t>(
     pattern: &str,
-    text: &str,
+    text: &'t str,
     start_is_blocked: impl Fn(char) -> bool,
-) -> Vec<regex::Captures<'_>> {
+) -> Vec<regex::Captures<'t>> {
     let re = Regex::new(pattern).unwrap();
     let mut found = Vec::new();
     let mut from = 0;
