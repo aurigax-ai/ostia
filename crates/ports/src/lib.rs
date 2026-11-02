@@ -2,10 +2,13 @@ pub mod chips;
 pub mod darwin;
 pub mod procfs;
 pub mod scan;
+pub mod service;
 pub mod sidebar;
 pub mod ssh;
 
 use serde::{Deserialize, Serialize};
+
+pub use ostia_contract::boards_ports::PortHost;
 
 use crate::ssh::SshLogin;
 
@@ -20,11 +23,4 @@ pub struct ListeningPort {
 pub struct TreeInfo {
     pub ports: Vec<ListeningPort>,
     pub ssh: Option<SshLogin>,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum PortHost {
-    #[default]
-    Localhost,
-    Loopback,
 }

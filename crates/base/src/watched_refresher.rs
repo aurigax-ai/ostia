@@ -144,6 +144,10 @@ impl<S: RefreshSource> WatchedRefresher<S> {
         self.inner.halt();
     }
 
+    pub fn apply(&self) {
+        self.inner.apply();
+    }
+
     pub fn refresh(&self) -> impl Future<Output = ()> + Send + use<S> {
         let inner = Arc::clone(&self.inner);
         let read = inner.begin_refresh();
