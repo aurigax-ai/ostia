@@ -5384,6 +5384,7 @@ dependencies = [
  "ostia-rpc",
  "parking_lot",
  "regex",
+ "serde",
  "serde_json",
  "sha2 0.11.1",
  "tempfile",
@@ -5436,6 +5437,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ostia-fd"
+version = "0.0.0"
+
+[[package]]
 name = "ostia-files"
 version = "0.0.0"
 dependencies = [
@@ -5444,6 +5449,7 @@ dependencies = [
  "libc",
  "ostia-base",
  "ostia-contract",
+ "ostia-fd",
  "parking_lot",
  "regex",
  "rustix",
@@ -5585,16 +5591,22 @@ version = "0.0.0"
 dependencies = [
  "chrono",
  "futures-util",
+ "hex",
  "ostia-base",
  "ostia-contract",
+ "ostia-testkit",
  "parking_lot",
  "percent-encoding",
  "regex",
  "rustix",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
+ "tokio-util",
+ "tracing",
  "url",
 ]
 
