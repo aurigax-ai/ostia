@@ -1,0 +1,112 @@
+use std::sync::LazyLock;
+
+use chrono::{DateTime, Datelike, Local, NaiveDate, TimeZone, Utc};
+use ostia_base::js::static_regex;
+use regex::Regex;
+use serde::Serialize;
+
+use crate::capabilities::Capability;
+
+pub const SCRIPT_CAPABILITIES: [Capability; 8] = [
+    Capability::ReadBoard,
+    Capability::ReadOtherPane,
+    Capability::TypeOtherPane,
+    Capability::AllWorkspaces,
+    Capability::Process,
+    Capability::SendOtherPane,
+    Capability::KillPane,
+    Capability::Notify,
+];
+
+pub const DEFAULT_TOKEN_EXPIRY: &str = "90d";
+pub const NEVER_EXPIRES: &str = "never";
+
+const DAY_MS: i64 = 86_400_000;
+
+static RELATIVE: LazyLock<Regex> = LazyLock::new(|| static_regex(r"^([1-9][0-9]{0,3})([dy])$"));
+static DATE: LazyLock<Regex> =
+    LazyLock::new(|| static_regex(r"^([0-9]{4})-([0-9]{2})-([0-9]{2})$"));
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ScriptTokenScope {
+    All,
+    Limited {
+        groups: Vec<String>,
+        workspaces: Vec<String>,
+        #[serde(rename = "ownWorkspaces")]
+        own_workspaces: bool,
+    },
+}
+
+fn unreadable(raw: &str) -> String {
+    format!("expires: {raw} (use 7d, 30d, 90d, 1y, YYYY-MM-DD or never)")
+}
+
+fn iso_string(at: DateTime<Utc>) -> String {
+    let year = at.year();
+    if (0..=9999).contains(&year) {
+        return at.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+    }
+    let sign = if year < 0 { '-' } else { '+' };
+    format!(
+        "{sign}{:06}-{}",
+        year.abs(),
+        at.format("%m-%dT%H:%M:%S%.3fZ")
+    )
+}
+
+fn after_years(now_ms: i64, years: i32) -> Option<DateTime<Utc>> {
+    let naive = Local.timestamp_millis_opt(now_ms).single()?.naive_local();
+    let year = naive.year().checked_add(years)?;
+    let date = NaiveDate::from_ymd_opt(year, naive.month(), naive.day())
+        .or_else(|| NaiveDate::from_ymd_opt(year, 3, 1))?;
+    let at = Local
+        .from_local_datetime(&date.and_time(naive.time()))
+        .earliest()?;
+    Some(at.with_timezone(&Utc))
+}
+
+fn end_of_day(year: i32, month: u32, day: u32) -> Option<DateTime<Utc>> {
+    if year < 100 {
+        return None;
+    }
+    let end = NaiveDate::from_ymd_opt(year, month, day)?.and_hms_milli_opt(23, 59, 59, 999)?;
+    let at = Local.from_local_datetime(&end).earliest()?;
+    Some(at.with_timezone(&Utc))
+}
+
+pub fn token_expiry(raw: &str, now_ms: i64) -> Result<Option<String>, String> {
+    if raw == NEVER_EXPIRES {
+        return Ok(None);
+    }
+    if let Some(relative) = RELATIVE.captures(raw) {
+        let count: i64 = relative[1].parse().map_err(|_| unreadable(raw))?;
+        let at = if &relative[2] == "d" {
+            DateTime::<Utc>::from_timestamp_millis(now_ms + count * DAY_MS)
+        } else {
+            i32::try_from(count)
+                .ok()
+                .and_then(|years| after_years(now_ms, years))
+        };
+        return at
+            .map(|at| Some(iso_string(at)))
+            .ok_or_else(|| unreadable(raw));
+    }
+    if let Some(date) = DATE.captures(raw) {
+        let parts = (
+            date[1].parse::<i32>(),
+            date[2].parse::<u32>(),
+            date[3].parse::<u32>(),
+        );
+        if let (Ok(year), Ok(month), Ok(day)) = parts
+            && let Some(at) = end_of_day(year, month, day)
+        {
+            if at.timestamp_millis() <= now_ms {
+                return Err(format!("expires: {raw} is in the past"));
+            }
+            return Ok(Some(iso_string(at)));
+        }
+    }
+    Err(unreadable(raw))
+}

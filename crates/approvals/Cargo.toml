@@ -11,12 +11,15 @@ ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-control.workspace = true
 serde_json.workspace = true
+ostia-rpc.workspace = true
 parking_lot.workspace = true
+regex.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true
 
 [dev-dependencies]
 ostia-testkit.workspace = true
-serde_json.workspace = true
-tempfile.workspace = true
