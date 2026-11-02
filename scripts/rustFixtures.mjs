@@ -17,6 +17,7 @@ export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/pan
 export { en, zhHant } from './src/shared/app/dict'
 export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
 export { USAGE_TABLE } from './src/cli/common/usageTable'
+export * as bus from './src/main/agents/busStore'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -40,6 +41,7 @@ const {
   parseSnapshot,
   ViewStateStore,
   USAGE_TABLE,
+  bus,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -319,4 +321,42 @@ view.setChosen('/r/b', null)
 view.setChosen('/r/a', ['refs/heads/next'])
 writeFileSync(join(out, 'git-view-state-after.json'), readFileSync(viewFile))
 writeFileSync(join(out, 'cli-usage-table.json'), `${JSON.stringify(USAGE_TABLE, null, 1)}\n`)
+
+const BUS_FIXED_MS = Date.parse('2026-10-18T10:00:00.000Z')
+const RealDate = Date
+globalThis.Date = class extends RealDate {
+  constructor(...args) {
+    super(...(args.length > 0 ? args : [BUS_FIXED_MS]))
+  }
+
+  static now() {
+    return BUS_FIXED_MS
+  }
+}
+const busFile = join(work, 'bus.json')
+bus.setBusPath(busFile)
+bus.enqueue({ id: 'm1', from: 'a', to: 'b', text: 'build é green\nsecond line' })
+bus.enqueue({
+  id: 'm2',
+  from: 'a',
+  to: 'c',
+  text: 'do the task',
+  task: true,
+  wakes: true,
+  route: 'remote:h',
+  origin: 'remote:h',
+})
+bus.enqueue({ id: 'm3', from: 'a', to: 'd', text: 'read me' })
+const handed = bus.leaseMail('d', 'read', () => true)
+bus.ackMail('d', handed.lease)
+bus.enqueue({ id: 'm4', from: 'a', to: 'e', text: 'lost' })
+bus.failPaneMail('e')
+bus.watchPane('boss', 'w1', ['done', 'command'])
+bus.claimWake('ext-1', BUS_FIXED_MS, 3, 60_000)
+await bus.flushBus()
+writeFileSync(join(out, 'bus-before.json'), readFileSync(busFile))
+bus.dismissFailed('e')
+await bus.flushBus()
+writeFileSync(join(out, 'bus-after.json'), readFileSync(busFile))
+globalThis.Date = RealDate
 rmSync(work, { recursive: true, force: true })
