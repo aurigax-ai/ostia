@@ -109,8 +109,8 @@ fn counts_a_mark_only_when_the_whole_mark_lies_before_the_end() {
 fn counts_positions_in_utf_16_units_as_js_strings_do() {
     let mut rb = PtyRingBuffer::new(1000);
     rb.push("a😀b");
-    assert_eq!(rb.end(), 5);
-    assert_eq!(rb.since(3), slice("b", 5, false, 0));
+    assert_eq!(rb.end(), 4);
+    assert_eq!(rb.since(3), slice("b", 4, false, 0));
 }
 
 #[test]
