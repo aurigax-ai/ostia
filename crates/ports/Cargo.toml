@@ -17,3 +17,5 @@ workspace = true
 
 [dev-dependencies]
 ostia-testkit.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
