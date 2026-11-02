@@ -21,7 +21,7 @@ async fn reports_the_error_code_of_a_run_folder_it_cannot_create_instead_of_disk
         root: root.path().to_path_buf(),
         setting: Arc::new(|| ScrollbackHistory::Unlimited),
         start_spill: Arc::new(|| SpillClient::spawn().unwrap()),
-        free_bytes: Some(Arc::new(|_| u64::MAX)),
+        free_bytes: Some(Arc::new(|_| Ok(u64::MAX))),
         on_failed: Some(Arc::new(move |pane, reason| {
             recorded.lock().push((pane.to_string(), reason.to_string()));
         })),

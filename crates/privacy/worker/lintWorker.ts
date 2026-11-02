@@ -64,12 +64,14 @@ let pending: Promise<void> = Promise.resolve()
 
 createInterface({ input: process.stdin }).on('line', (line) => {
   pending = pending.then(async () => {
-    const request = JSON.parse(line) as Request
+    let id: number | null = null
     let body: Record<string, unknown>
     try {
+      const request = JSON.parse(line) as Request
+      id = request.id
       body = await reply(request)
     } catch (error) {
-      body = { id: request.id, error: error instanceof Error ? error.message : 'scan failed' }
+      body = { id, error: error instanceof Error ? error.message : 'scan failed' }
     }
     process.stdout.write(`${JSON.stringify(body)}\n`)
   })

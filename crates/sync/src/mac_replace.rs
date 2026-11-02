@@ -17,6 +17,7 @@ use ostia_contract::install_method::{ReplaceAvailability, ReplaceBlock, ReplaceF
 use ostia_contract::releases::{ReleaseInfo, dmg_asset_name};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::Command;
+use tokio::sync::Notify;
 use tokio::time::Instant;
 
 use crate::install_cleanup::{remove_tree_force, remove_tree_force_sync};
@@ -31,6 +32,7 @@ const MAC_TEAM_ID: &str = "4ZNCN9338G";
 const MAC_BUNDLE_ID: &str = "ai.aurigax.ostia";
 const DMG_APP: &str = "Ostia.app";
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+pub const COMMAND_OUTPUT_MAX: usize = 1024 * 1024;
 const SWAP_VERIFY_TIMEOUT: Duration = Duration::from_secs(60);
 const NOTARIZED_LINE: &str = "source=Notarized Developer ID";
 
@@ -101,17 +103,29 @@ pub struct CommandResult {
 pub type CommandFuture = Pin<Box<dyn Future<Output = CommandResult> + Send>>;
 pub type RunCommand = Arc<dyn Fn(String, Vec<String>) -> CommandFuture + Send + Sync>;
 
-async fn drain<R: AsyncRead + Unpin + Send + 'static>(stream: Option<R>) -> Vec<u8> {
+async fn drain<R: AsyncRead + Unpin + Send + 'static>(
+    stream: Option<R>,
+    overflow: Arc<Notify>,
+) -> (Vec<u8>, bool) {
     let mut bytes = Vec::new();
-    if let Some(mut stream) = stream {
-        let _ = stream.read_to_end(&mut bytes).await;
+    let Some(stream) = stream else {
+        return (bytes, false);
+    };
+    let mut limited = stream.take(COMMAND_OUTPUT_MAX as u64 + 1);
+    let _ = limited.read_to_end(&mut bytes).await;
+    let exceeded = bytes.len() > COMMAND_OUTPUT_MAX;
+    if exceeded {
+        bytes.truncate(COMMAND_OUTPUT_MAX);
+        overflow.notify_one();
     }
-    bytes
+    (bytes, exceeded)
 }
 
 pub async fn run_command(command: &str, args: &[String]) -> CommandResult {
     let spawned = Command::new(command)
         .args(args)
+        .env_clear()
+        .envs(Host::current().child_env())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -123,18 +137,24 @@ pub async fn run_command(command: &str, args: &[String]) -> CommandResult {
             output: String::new(),
         };
     };
-    let stdout = tokio::spawn(drain(child.stdout.take()));
-    let stderr = tokio::spawn(drain(child.stderr.take()));
-    let status = match tokio::time::timeout(COMMAND_TIMEOUT, child.wait()).await {
-        Ok(status) => status.ok(),
-        Err(_) => {
-            let _ = child.kill().await;
-            None
+    let overflow = Arc::new(Notify::new());
+    let stdout = tokio::spawn(drain(child.stdout.take(), Arc::clone(&overflow)));
+    let stderr = tokio::spawn(drain(child.stderr.take(), Arc::clone(&overflow)));
+    let waited = tokio::time::timeout(COMMAND_TIMEOUT, async {
+        tokio::select! {
+            status = child.wait() => status.ok(),
+            () = overflow.notified() => None,
         }
-    };
-    let stdout = stdout.await.unwrap_or_default();
-    let stderr = stderr.await.unwrap_or_default();
+    })
+    .await;
+    let status = waited.unwrap_or(None);
+    if status.is_none() {
+        let _ = child.kill().await;
+    }
+    let (stdout, stdout_exceeded) = stdout.await.unwrap_or_default();
+    let (stderr, stderr_exceeded) = stderr.await.unwrap_or_default();
     let code = match status {
+        _ if stdout_exceeded || stderr_exceeded => 1,
         Some(status) if status.success() => 0,
         Some(status) => status.code().unwrap_or(1),
         None => 1,
@@ -440,7 +460,7 @@ pub fn verify_staged_sync(staged: &Path, policy: SignaturePolicy) -> bool {
     run_bounded(
         Path::new("codesign"),
         &args,
-        &Host::current().env,
+        &Host::current().child_env(),
         SWAP_VERIFY_TIMEOUT,
     )
     .is_some()

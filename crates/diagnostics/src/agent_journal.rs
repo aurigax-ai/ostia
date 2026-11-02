@@ -5,12 +5,11 @@ use ostia_contract::agent_issues::{
     WAKE_NOT_READY, budget_breach, verb_code,
 };
 use regex::Regex;
-use serde_json::Value;
 use std::sync::LazyLock;
 
 use ostia_base::js::static_regex;
 
-use crate::app_log::{AppLog, LogFields};
+use crate::app_log::{AppLog, LogFields, LogValue};
 use crate::incident_timeline::IncidentTimeline;
 
 pub const AGENT_JOURNAL_FILE_NAME: &str = "agent-journal.log";
@@ -93,20 +92,20 @@ impl AgentJournal {
             "other"
         };
         let mut fields = LogFields::new();
-        fields.insert("method".to_owned(), Value::from(method));
-        fields.insert("caller".to_owned(), Value::from(call.caller.as_str()));
-        fields.insert("outcome".to_owned(), Value::from(outcome));
+        fields.insert("method".to_owned(), LogValue::from(method));
+        fields.insert("caller".to_owned(), LogValue::from(call.caller.as_str()));
+        fields.insert("outcome".to_owned(), LogValue::from(outcome));
         if let Some(code) = &code {
-            fields.insert("code".to_owned(), Value::from(code.as_str()));
+            fields.insert("code".to_owned(), LogValue::from(code.as_str()));
         }
-        fields.insert("ms".to_owned(), Value::from(js_round(call.ms)));
-        fields.insert("bytes".to_owned(), Value::from(call.bytes));
+        fields.insert("ms".to_owned(), LogValue::from(js_round(call.ms)));
+        fields.insert("bytes".to_owned(), LogValue::from(call.bytes));
         if let Some(over) = over {
             let name = match over {
                 BudgetBreach::Ms => "ms",
                 BudgetBreach::Bytes => "bytes",
             };
-            fields.insert("over".to_owned(), Value::from(name));
+            fields.insert("over".to_owned(), LogValue::from(name));
         }
         if over.is_some() || outcome != "ok" {
             let event = if over.is_some() && outcome == "ok" {
@@ -122,8 +121,8 @@ impl AgentJournal {
 
     pub fn mail(&self, code: &str, age_ms: f64, to: Option<&str>) {
         let mut fields = LogFields::new();
-        fields.insert("code".to_owned(), Value::from(code));
-        fields.insert("age".to_owned(), Value::from(js_round(age_ms)));
+        fields.insert("code".to_owned(), LogValue::from(code));
+        fields.insert("age".to_owned(), LogValue::from(js_round(age_ms)));
         self.log.warn("mail-failed", &fields);
         if let (Some(to), Some(incidents)) = (to.filter(|to| !to.is_empty()), &self.incidents) {
             incidents.mail(to, &verb_code(code), age_ms);
@@ -132,8 +131,8 @@ impl AgentJournal {
 
     pub fn lease_timeout(&self, age_ms: f64, to: Option<&str>) {
         let mut fields = LogFields::new();
-        fields.insert("code".to_owned(), Value::from(MAIL_LEASE_TIMEOUT));
-        fields.insert("age".to_owned(), Value::from(js_round(age_ms)));
+        fields.insert("code".to_owned(), LogValue::from(MAIL_LEASE_TIMEOUT));
+        fields.insert("age".to_owned(), LogValue::from(js_round(age_ms)));
         self.log.warn("mail-lease", &fields);
         if let (Some(to), Some(incidents)) = (to.filter(|to| !to.is_empty()), &self.incidents) {
             incidents.mail(to, MAIL_LEASE_TIMEOUT, age_ms);
@@ -154,8 +153,8 @@ impl AgentJournal {
 
     pub fn wake_not_ready(&self, ms: f64, pane_ids: &[String]) {
         let mut fields = LogFields::new();
-        fields.insert("code".to_owned(), Value::from(WAKE_NOT_READY));
-        fields.insert("ms".to_owned(), Value::from(js_round(ms)));
+        fields.insert("code".to_owned(), LogValue::from(WAKE_NOT_READY));
+        fields.insert("ms".to_owned(), LogValue::from(js_round(ms)));
         self.log.warn("wake", &fields);
         if let Some(incidents) = &self.incidents {
             for pane_id in pane_ids {

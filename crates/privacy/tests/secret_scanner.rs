@@ -243,3 +243,13 @@ fn detects_a_secret_with_the_node_the_scan_runs_on() {
     let reported: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(reported, json!(["@secretlint/secretlint-rule-github"]));
 }
+
+#[test]
+fn prints_no_matched_text_in_the_debug_output_of_a_message() {
+    let message = ostia_privacy::secret_scanner::LintMessage {
+        rule_id: "rule".to_owned(),
+        range: (0, 7),
+        data: serde_json::json!({"found": "hunter2"}),
+    };
+    assert!(!format!("{message:?}").contains("hunter2"));
+}

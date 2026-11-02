@@ -13,7 +13,9 @@ use tokio::time::Instant;
 
 use crate::pane_history::PaneHistory;
 use crate::pty_flow::FlowMarks;
-use crate::spill_host::{BlockEnd, SpillEvent, SpillHostPort, SpillRequest, serve_spill};
+use crate::spill_host::{
+    BlockEnd, OpenTerminal, SpillEvent, SpillHostPort, SpillRequest, serve_spill, serve_spill_with,
+};
 
 pub const SPILL_BACKLOG: FlowMarks = FlowMarks {
     high: 12 * 1024 * 1024,
@@ -398,6 +400,17 @@ impl ClientInner {
                 }
             }
             SpillEvent::Parsed { session, chars } => self.parsed(session, chars),
+            SpillEvent::Failed { session, reason } => {
+                let mut effects = Vec::new();
+                {
+                    let mut state = self.state.lock();
+                    if let Some(found) = state.sessions.get(&session) {
+                        effects.push(Effect::Fail(found.history.clone(), reason));
+                    }
+                    self.settle(&mut state, session, &mut effects);
+                }
+                run(effects);
+            }
             SpillEvent::Closed { session, seq_end } => {
                 let history = self.history_of(session);
                 if let Some(history) = history {
@@ -494,6 +507,12 @@ impl SpillClient {
     pub fn spawn() -> io::Result<Self> {
         let link = Arc::new(Link::default());
         serve_spill(Arc::new(HostSide(Arc::downgrade(&link))))?;
+        Ok(Self::new(Arc::new(ClientSide(link))))
+    }
+
+    pub fn spawn_with(open: OpenTerminal) -> io::Result<Self> {
+        let link = Arc::new(Link::default());
+        serve_spill_with(Arc::new(HostSide(Arc::downgrade(&link))), open)?;
         Ok(Self::new(Arc::new(ClientSide(link))))
     }
 

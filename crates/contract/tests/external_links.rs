@@ -293,7 +293,7 @@ fn trims_a_long_run_of_closing_brackets_and_punctuation_in_linear_time() {
 #[test]
 fn ignores_web_file_blocked_and_empty_links_and_schemes_inside_a_word() {
     assert!(
-        urls("https://a.b/zed://x file:///tmp/a javascript://x ostia-preview://s obsidian:// _zed://x")
+        urls("https://a.b/zed://x file:///tmp/a javascript://x ostia-preview://s obsidian:// _zed://x -zed://a .zed://a +zed://a")
             .is_empty()
     );
 }

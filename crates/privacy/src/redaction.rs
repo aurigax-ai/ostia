@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
+use std::time::Instant;
 
 use ostia_base::js::utf16_len;
 use ostia_contract::redaction::{
@@ -52,15 +53,20 @@ impl<S: SecretScan> Redactor<S> {
             return Ok(unchanged(text));
         }
         let mut spans = self.scan.scan(text).await?;
+        let budget = self.scan.deadline(utf16_len(text));
+        let until = Instant::now() + budget;
         let owned = text.to_owned();
         let patterns = patterns.to_vec();
         let local = tokio::task::spawn_blocking(move || {
-            let mut found = extra_spans(&owned);
-            found.extend(custom_spans(&owned, &compile_patterns(&patterns)));
-            found
-        })
-        .await
-        .map_err(|_| ScanError::failed())?;
+            let mut found = extra_spans(&owned, until)?;
+            found.extend(custom_spans(&owned, &compile_patterns(&patterns), until)?);
+            Some(found)
+        });
+        let local = tokio::time::timeout(budget, local)
+            .await
+            .map_err(|_| ScanError::TimedOut)?
+            .map_err(|_| ScanError::failed())?
+            .ok_or(ScanError::TimedOut)?;
         spans.extend(local);
         Ok(apply_redactions(text, &spans))
     }

@@ -220,8 +220,8 @@ impl ToolPath {
         }
     }
 
-    pub fn child_env(&self) -> &BTreeMap<String, String> {
-        &self.host.env
+    pub fn child_env(&self) -> BTreeMap<String, String> {
+        self.host.child_env()
     }
 
     pub fn tool_path(&self, env: &ToolPathEnv) -> String {
@@ -247,7 +247,7 @@ impl ToolPath {
         let shell = options.shell.unwrap_or_else(|| login_shell(&self.host));
         let run = options
             .run
-            .unwrap_or_else(|| default_runner(self.host.env.clone()));
+            .unwrap_or_else(|| default_runner(self.host.child_env()));
         let timeout = options
             .timeout
             .unwrap_or(Duration::from_millis(LOGIN_PATH_TIMEOUT_MS));

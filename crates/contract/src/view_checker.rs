@@ -22,7 +22,7 @@ const VIEW_PROBLEMS_MAX: usize = 50;
 
 static COMMAND_ID: LazyLock<Regex> =
     LazyLock::new(|| static_regex(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"));
-static HTTP_PREFIX: LazyLock<Regex> = LazyLock::new(|| static_regex(r"(?i)^https?://"));
+static HTTP_PREFIX: LazyLock<Regex> = LazyLock::new(|| static_regex(r"^[Hh][Tt][Tt][Pp][Ss]?://"));
 
 pub struct Checker {
     pub problems: Vec<ViewProblem>,

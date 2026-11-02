@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
 
@@ -47,7 +49,7 @@ pub enum StreamEnd {
     TooLarge,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all_fields = "camelCase")]
 pub enum StreamEvent {
     #[serde(rename = "turn.started")]
@@ -123,6 +125,101 @@ pub enum StreamEvent {
     Live,
     #[serde(rename = "ended")]
     Ended { reason: StreamEnd },
+}
+
+impl fmt::Debug for StreamEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TurnStarted { turn } => {
+                f.debug_struct("TurnStarted").field("turn", turn).finish()
+            }
+            Self::TurnEnded { turn, status } => f
+                .debug_struct("TurnEnded")
+                .field("turn", turn)
+                .field("status", status)
+                .finish(),
+            Self::Prompt {
+                turn, id, append, ..
+            } => f
+                .debug_struct("Prompt")
+                .field("turn", turn)
+                .field("id", id)
+                .field("append", append)
+                .finish_non_exhaustive(),
+            Self::Text {
+                turn, id, append, ..
+            } => f
+                .debug_struct("Text")
+                .field("turn", turn)
+                .field("id", id)
+                .field("append", append)
+                .finish_non_exhaustive(),
+            Self::Tool {
+                turn,
+                id,
+                kind,
+                append,
+                ..
+            } => f
+                .debug_struct("Tool")
+                .field("turn", turn)
+                .field("id", id)
+                .field("kind", kind)
+                .field("append", append)
+                .finish_non_exhaustive(),
+            Self::ToolResult {
+                turn,
+                id,
+                exit_code,
+                is_error,
+                append,
+                ..
+            } => f
+                .debug_struct("ToolResult")
+                .field("turn", turn)
+                .field("id", id)
+                .field("exit_code", exit_code)
+                .field("is_error", is_error)
+                .field("append", append)
+                .finish_non_exhaustive(),
+            Self::Edit {
+                turn,
+                id,
+                change,
+                append,
+                ..
+            } => f
+                .debug_struct("Edit")
+                .field("turn", turn)
+                .field("id", id)
+                .field("change", change)
+                .field("append", append)
+                .finish_non_exhaustive(),
+            Self::Plan {
+                turn, id, append, ..
+            } => f
+                .debug_struct("Plan")
+                .field("turn", turn)
+                .field("id", id)
+                .field("append", append)
+                .finish_non_exhaustive(),
+            Self::Session { session } => {
+                f.debug_struct("Session").field("session", session).finish()
+            }
+            Self::Ask { ask_id, kind } => f
+                .debug_struct("Ask")
+                .field("ask_id", ask_id)
+                .field("kind", kind)
+                .finish(),
+            Self::AskResolved { ask_id, outcome } => f
+                .debug_struct("AskResolved")
+                .field("ask_id", ask_id)
+                .field("outcome", outcome)
+                .finish(),
+            Self::Live => f.write_str("Live"),
+            Self::Ended { reason } => f.debug_struct("Ended").field("reason", reason).finish(),
+        }
+    }
 }
 
 fn is_false(value: &bool) -> bool {

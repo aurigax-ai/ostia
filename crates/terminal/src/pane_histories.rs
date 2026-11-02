@@ -78,7 +78,7 @@ fn pane_folder(pane_id: &str) -> String {
 
 type Setting = Arc<dyn Fn() -> ScrollbackHistory + Send + Sync>;
 type StartSpill = Arc<dyn Fn() -> SpillClient + Send + Sync>;
-type FreeBytes = Arc<dyn Fn(&Path) -> u64 + Send + Sync>;
+type FreeBytes = Arc<dyn Fn(&Path) -> Result<u64, String> + Send + Sync>;
 type OnFailed = Arc<dyn Fn(&str, &str) + Send + Sync>;
 
 #[derive(Clone)]
@@ -91,8 +91,10 @@ pub struct PaneHistoriesDeps {
     pub segment_bytes: Option<u64>,
 }
 
-fn statfs_free(dir: &Path) -> u64 {
-    rustix::fs::statvfs(dir).map_or(0, |stats| stats.f_bavail.saturating_mul(stats.f_frsize))
+fn statfs_free(dir: &Path) -> Result<u64, String> {
+    rustix::fs::statvfs(dir)
+        .map(|stats| stats.f_bavail.saturating_mul(stats.f_frsize))
+        .map_err(|errno| errno_code(&errno.into()))
 }
 
 struct Inner {
@@ -320,8 +322,13 @@ impl Inner {
             .clone()
             .unwrap_or_else(|| Arc::new(statfs_free));
         loop {
-            if free_bytes(&self.run_dir) >= FREE_SPACE_FLOOR {
-                return true;
+            match free_bytes(&self.run_dir) {
+                Ok(free) if free >= FREE_SPACE_FLOOR => return true,
+                Ok(_) => {}
+                Err(code) => {
+                    asking.fail(&code);
+                    return false;
+                }
             }
             let mut candidates: Vec<PaneHistory> = self
                 .panes

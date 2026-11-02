@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fmt;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -8,7 +10,7 @@ pub use crate::history_spill::BlockEnd;
 use crate::history_spill::SpillSink;
 use crate::spill_terminal::SpillTerminal;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum SpillRequest {
     Open {
         session: u64,
@@ -50,7 +52,7 @@ pub enum SpillRequest {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum SpillEvent {
     Append {
         session: u64,
@@ -85,11 +87,153 @@ pub enum SpillEvent {
         session: u64,
         seq_end: u64,
     },
+    Failed {
+        session: u64,
+        reason: String,
+    },
     Reply {
         id: u64,
         tail: Option<Vec<String>>,
         pending_end: Option<Option<BlockEnd>>,
     },
+}
+
+impl fmt::Debug for SpillRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Open {
+                session,
+                cols,
+                rows,
+                end,
+                seq_offset,
+            } => f
+                .debug_struct("Open")
+                .field("session", session)
+                .field("cols", cols)
+                .field("rows", rows)
+                .field("end", end)
+                .field("seq_offset", seq_offset)
+                .finish(),
+            Self::Write {
+                session,
+                data,
+                chars,
+            } => f
+                .debug_struct("Write")
+                .field("session", session)
+                .field("bytes", &data.len())
+                .field("chars", chars)
+                .finish(),
+            Self::Resync { session, screen } => f
+                .debug_struct("Resync")
+                .field("session", session)
+                .field("bytes", &screen.len())
+                .finish(),
+            Self::Restore {
+                session,
+                history,
+                hold,
+            } => f
+                .debug_struct("Restore")
+                .field("session", session)
+                .field("bytes", &history.len())
+                .field("hold", hold)
+                .finish(),
+            Self::Resize {
+                session,
+                cols,
+                rows,
+            } => f
+                .debug_struct("Resize")
+                .field("session", session)
+                .field("cols", cols)
+                .field("rows", rows)
+                .finish(),
+            Self::Tail { session, id } => f
+                .debug_struct("Tail")
+                .field("session", session)
+                .field("id", id)
+                .finish(),
+            Self::PendingEnd { session, seq, id } => f
+                .debug_struct("PendingEnd")
+                .field("session", session)
+                .field("seq", seq)
+                .field("id", id)
+                .finish(),
+            Self::Close { session } => f.debug_struct("Close").field("session", session).finish(),
+        }
+    }
+}
+
+impl fmt::Debug for SpillEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Append {
+                session,
+                text,
+                count,
+            } => f
+                .debug_struct("Append")
+                .field("session", session)
+                .field("bytes", &text.len())
+                .field("count", count)
+                .finish(),
+            Self::BlockStarted {
+                session,
+                seq,
+                start,
+                ..
+            } => f
+                .debug_struct("BlockStarted")
+                .field("session", session)
+                .field("seq", seq)
+                .field("start", start)
+                .finish_non_exhaustive(),
+            Self::BlockEnded {
+                session,
+                seq,
+                end,
+                end_col,
+                exit_code,
+                ..
+            } => f
+                .debug_struct("BlockEnded")
+                .field("session", session)
+                .field("seq", seq)
+                .field("end", end)
+                .field("end_col", end_col)
+                .field("exit_code", exit_code)
+                .finish_non_exhaustive(),
+            Self::Wipe { session } => f.debug_struct("Wipe").field("session", session).finish(),
+            Self::Flush { session } => f.debug_struct("Flush").field("session", session).finish(),
+            Self::Parsed { session, chars } => f
+                .debug_struct("Parsed")
+                .field("session", session)
+                .field("chars", chars)
+                .finish(),
+            Self::Closed { session, seq_end } => f
+                .debug_struct("Closed")
+                .field("session", session)
+                .field("seq_end", seq_end)
+                .finish(),
+            Self::Failed { session, reason } => f
+                .debug_struct("Failed")
+                .field("session", session)
+                .field("reason", reason)
+                .finish(),
+            Self::Reply {
+                id,
+                tail,
+                pending_end,
+            } => f
+                .debug_struct("Reply")
+                .field("id", id)
+                .field("tail", &tail.as_ref().map(Vec::len))
+                .field("pending_end", pending_end)
+                .finish(),
+        }
+    }
 }
 
 pub trait SpillHostPort: Send + Sync {
@@ -155,12 +299,132 @@ impl SpillSink for PostingSink {
     }
 }
 
-#[derive(Default)]
+pub trait HostedTerminal {
+    fn write(&mut self, data: &[u8]);
+    fn resync(&mut self, screen: &str);
+    fn restore(&mut self, history: &str, hold: bool);
+    fn resize(&mut self, cols: u16, rows: u16);
+    fn tail(&self) -> Vec<String>;
+    fn pending_end(&self, seq: u64) -> Option<BlockEnd>;
+    fn close(&mut self) -> u64;
+}
+
+impl HostedTerminal for SpillTerminal {
+    fn write(&mut self, data: &[u8]) {
+        SpillTerminal::write(self, data);
+    }
+
+    fn resync(&mut self, screen: &str) {
+        SpillTerminal::resync(self, screen);
+    }
+
+    fn restore(&mut self, history: &str, hold: bool) {
+        SpillTerminal::restore(self, history, hold);
+    }
+
+    fn resize(&mut self, cols: u16, rows: u16) {
+        SpillTerminal::resize(self, cols, rows);
+    }
+
+    fn tail(&self) -> Vec<String> {
+        SpillTerminal::tail(self)
+    }
+
+    fn pending_end(&self, seq: u64) -> Option<BlockEnd> {
+        SpillTerminal::pending_end(self, seq)
+    }
+
+    fn close(&mut self) -> u64 {
+        SpillTerminal::close(self)
+    }
+}
+
+pub type OpenTerminal = Box<
+    dyn Fn(u16, u16, Arc<dyn SpillSink>, u64) -> Result<Box<dyn HostedTerminal>, String>
+        + Send
+        + Sync,
+>;
+
+fn open_spill_terminal(
+    cols: u16,
+    rows: u16,
+    sink: Arc<dyn SpillSink>,
+    seq_offset: u64,
+) -> Result<Box<dyn HostedTerminal>, String> {
+    let terminal = SpillTerminal::new(cols, rows, sink, seq_offset)?;
+    Ok(Box::new(terminal))
+}
+
 struct Sessions {
-    terminals: HashMap<u64, SpillTerminal>,
+    terminals: HashMap<u64, Box<dyn HostedTerminal>>,
+    open: OpenTerminal,
+}
+
+const PANICKED: &str = "spill terminal panicked";
+
+enum Recovery {
+    Session(u64),
+    Write(u64),
+    Tail(u64, u64),
+    PendingEnd(u64, u64),
+}
+
+impl Recovery {
+    fn of(request: &SpillRequest) -> Self {
+        match request {
+            SpillRequest::Write { session, .. } => Self::Write(*session),
+            SpillRequest::Tail { session, id } => Self::Tail(*session, *id),
+            SpillRequest::PendingEnd { session, id, .. } => Self::PendingEnd(*session, *id),
+            SpillRequest::Open { session, .. }
+            | SpillRequest::Resync { session, .. }
+            | SpillRequest::Restore { session, .. }
+            | SpillRequest::Resize { session, .. }
+            | SpillRequest::Close { session } => Self::Session(*session),
+        }
+    }
+
+    fn session(&self) -> u64 {
+        match self {
+            Self::Session(session)
+            | Self::Write(session)
+            | Self::Tail(session, _)
+            | Self::PendingEnd(session, _) => *session,
+        }
+    }
+}
+
+fn recover(sessions: &mut Sessions, port: &Arc<dyn SpillHostPort>, recovery: &Recovery) {
+    let session = recovery.session();
+    if let Some(terminal) = sessions.terminals.remove(&session) {
+        let _ = catch_unwind(AssertUnwindSafe(move || drop(terminal)));
+    }
+    port.post_message(SpillEvent::Failed {
+        session,
+        reason: PANICKED.to_owned(),
+    });
+    match recovery {
+        Recovery::Tail(_, id) => port.post_message(SpillEvent::Reply {
+            id: *id,
+            tail: Some(Vec::new()),
+            pending_end: None,
+        }),
+        Recovery::PendingEnd(_, id) => port.post_message(SpillEvent::Reply {
+            id: *id,
+            tail: None,
+            pending_end: Some(None),
+        }),
+        Recovery::Session(_) | Recovery::Write(_) => {}
+    }
 }
 
 fn handle(sessions: &mut Sessions, port: &Arc<dyn SpillHostPort>, request: SpillRequest) {
+    let recovery = Recovery::of(&request);
+    if catch_unwind(AssertUnwindSafe(|| dispatch(sessions, port, request))).is_err() {
+        recover(sessions, port, &recovery);
+    }
+}
+
+fn dispatch(sessions: &mut Sessions, port: &Arc<dyn SpillHostPort>, request: SpillRequest) {
     match request {
         SpillRequest::Open {
             session,
@@ -174,12 +438,13 @@ fn handle(sessions: &mut Sessions, port: &Arc<dyn SpillHostPort>, request: Spill
                 session,
                 end: AtomicU64::new(end),
             });
-            match SpillTerminal::new(cols, rows, sink, seq_offset) {
+            match (sessions.open)(cols, rows, sink, seq_offset) {
                 Ok(terminal) => {
                     sessions.terminals.insert(session, terminal);
                 }
-                Err(err) => {
-                    tracing::error!(error = %err, "spill terminal failed to start");
+                Err(reason) => {
+                    tracing::error!(error = %reason, "spill terminal failed to start");
+                    port.post_message(SpillEvent::Failed { session, reason });
                 }
             }
         }
@@ -220,7 +485,7 @@ fn handle(sessions: &mut Sessions, port: &Arc<dyn SpillHostPort>, request: Spill
             let tail = sessions
                 .terminals
                 .get(&session)
-                .map(SpillTerminal::tail)
+                .map(|terminal| terminal.tail())
                 .unwrap_or_default();
             port.post_message(SpillEvent::Reply {
                 id,
@@ -250,7 +515,14 @@ fn handle(sessions: &mut Sessions, port: &Arc<dyn SpillHostPort>, request: Spill
 }
 
 pub fn serve_spill(port: Arc<dyn SpillHostPort>) -> std::io::Result<()> {
-    let owner = OwnerThread::spawn("spill-host", Sessions::default)?;
+    serve_spill_with(port, Box::new(open_spill_terminal))
+}
+
+pub fn serve_spill_with(port: Arc<dyn SpillHostPort>, open: OpenTerminal) -> std::io::Result<()> {
+    let owner = OwnerThread::spawn("spill-host", move || Sessions {
+        terminals: HashMap::new(),
+        open,
+    })?;
     let reply_port = port.clone();
     port.on_message(Arc::new(move |request| {
         let reply_port = reply_port.clone();

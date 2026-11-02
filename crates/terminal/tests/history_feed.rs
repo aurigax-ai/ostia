@@ -15,7 +15,7 @@ use ostia_terminal::history_feed::{
 use ostia_terminal::history_spill::{GAP_LINE, SPILL_BATCH, SpillSink};
 use ostia_terminal::pane_histories::{PaneHistories, PaneHistoriesDeps};
 use ostia_terminal::scrollback_history::ScrollbackHistory;
-use ostia_terminal::spill_host::{SpillEvent, SpillRequest};
+use ostia_terminal::spill_host::{BlockEnd, HostedTerminal, SpillEvent, SpillRequest};
 use ostia_terminal::spill_terminal::{SPILL_SCROLLBACK, SpillTerminal};
 use parking_lot::Mutex;
 
@@ -53,6 +53,7 @@ struct CountingPressure {
     can_pause: bool,
     held: AtomicUsize,
     released: AtomicUsize,
+    closed: AtomicUsize,
 }
 
 impl CountingPressure {
@@ -61,6 +62,7 @@ impl CountingPressure {
             can_pause,
             held: AtomicUsize::new(0),
             released: AtomicUsize::new(0),
+            closed: AtomicUsize::new(0),
         })
     }
 }
@@ -78,7 +80,35 @@ impl SpillPressure for CountingPressure {
         self.released.fetch_add(chars, Ordering::SeqCst);
     }
 
-    fn close(&self) {}
+    fn close(&self) {
+        self.closed.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+struct PanickingTerminal;
+
+impl HostedTerminal for PanickingTerminal {
+    fn write(&mut self, _data: &[u8]) {
+        panic!("write failed");
+    }
+
+    fn resync(&mut self, _screen: &str) {}
+
+    fn restore(&mut self, _history: &str, _hold: bool) {}
+
+    fn resize(&mut self, _cols: u16, _rows: u16) {}
+
+    fn tail(&self) -> Vec<String> {
+        Vec::new()
+    }
+
+    fn pending_end(&self, _seq: u64) -> Option<BlockEnd> {
+        None
+    }
+
+    fn close(&mut self) -> u64 {
+        0
+    }
 }
 
 struct LinesSink {
@@ -419,4 +449,43 @@ async fn decides_a_restart_continues_the_history_only_after_the_old_session_clos
         .collect();
     assert_eq!(outputs, numbered_lines(0, 2 * batch() + 30));
     histories.remove_all().await.unwrap();
+}
+
+async fn until_failed(made: &history_support::Harness) {
+    for _ in 0..500 {
+        if !made.failures.lock().is_empty() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+#[tokio::test]
+async fn fails_the_history_and_frees_the_pty_when_the_terminal_panics_on_a_write() {
+    let client =
+        SpillClient::spawn_with(Box::new(|_, _, _, _| Ok(Box::new(PanickingTerminal)))).unwrap();
+    let made = make_history(HistoryOptions::default());
+    let pressure = CountingPressure::new(true);
+    let feed = client.open(&made.history, 80, 24, Some(pressure.clone()));
+    feed.write("some output\r\n");
+    until_failed(&made).await;
+    assert_eq!(
+        *made.failures.lock(),
+        vec!["spill terminal panicked".to_string()]
+    );
+    assert!(!made.history.live());
+    assert_eq!(pressure.closed.load(Ordering::SeqCst), 1);
+    assert!(client.alive());
+}
+
+#[tokio::test]
+async fn fails_the_history_when_the_terminal_cannot_start() {
+    let client =
+        SpillClient::spawn_with(Box::new(|_, _, _, _| Err("no terminal".to_owned()))).unwrap();
+    let made = make_history(HistoryOptions::default());
+    let pressure = CountingPressure::new(true);
+    let _feed = client.open(&made.history, 80, 24, Some(pressure.clone()));
+    until_failed(&made).await;
+    assert_eq!(*made.failures.lock(), vec!["no terminal".to_string()]);
+    assert_eq!(pressure.closed.load(Ordering::SeqCst), 1);
 }

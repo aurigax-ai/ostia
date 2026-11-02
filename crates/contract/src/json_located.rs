@@ -240,7 +240,7 @@ impl Parser {
             let number = text
                 .parse::<f64>()
                 .ok()
-                .and_then(Number::from_f64)
+                .and_then(json_number)
                 .ok_or_else(|| fail("number out of range", self.at))?;
             self.at = end;
             return Ok(Value::Number(number));
@@ -333,6 +333,16 @@ impl Parser {
             line,
             column: failure.at - line_start + 1,
         }
+    }
+}
+
+const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+
+fn json_number(value: f64) -> Option<Number> {
+    if value.fract() == 0.0 && value.abs() <= MAX_SAFE_INTEGER {
+        Some(Number::from(value as i64))
+    } else {
+        Number::from_f64(value)
     }
 }
 

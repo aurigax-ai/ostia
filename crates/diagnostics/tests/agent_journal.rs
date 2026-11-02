@@ -75,10 +75,7 @@ impl JournalIncidents for Incidents {
 }
 
 fn fields(value: Value) -> LogFields {
-    match value {
-        Value::Object(map) => map,
-        other => panic!("expected an object, got {other}"),
-    }
+    LogFields::try_from(value).unwrap()
 }
 
 fn call(method: &str, caller: AgentCaller, ms: f64, bytes: u64, code: Option<&str>) -> AgentCall {

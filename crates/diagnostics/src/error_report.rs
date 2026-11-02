@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use serde_json::Value;
 
-use crate::app_log::{AppLog, LogFields};
+use crate::app_log::{AppLog, LogFields, LogValue};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Thrown {
@@ -59,10 +58,10 @@ impl ErrorSink {
         match sink {
             Some(log) => {
                 let mut fields = LogFields::new();
-                fields.insert("scope".to_owned(), Value::from(scope));
-                fields.insert("name".to_owned(), Value::from(name.as_str()));
+                fields.insert("scope".to_owned(), LogValue::from(scope));
+                fields.insert("name".to_owned(), LogValue::from(name.as_str()));
                 if let Some(code) = code {
-                    fields.insert("code".to_owned(), Value::from(code.as_str()));
+                    fields.insert("code".to_owned(), LogValue::from(code.as_str()));
                 }
                 log.warn("unexpected-error", &fields);
             }

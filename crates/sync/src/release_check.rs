@@ -246,7 +246,11 @@ pub async fn fetch_latest_release(options: FetchLatestOptions) -> LatestRelease 
         options.channel,
         options.beta_asset.unwrap_or(dmg_asset_name),
     );
-    let Ok(client) = Client::builder().redirect(Policy::none()).build() else {
+    let Ok(client) = Client::builder()
+        .no_proxy()
+        .redirect(Policy::none())
+        .build()
+    else {
         return LatestRelease::Error(ReleaseCheckError::Offline);
     };
     let pages = if matches!(query, Query::Latest) {

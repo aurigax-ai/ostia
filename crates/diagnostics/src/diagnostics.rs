@@ -9,7 +9,7 @@ use ostia_base::error::io_error;
 use ostia_base::{PaneId, WindowId};
 use serde_json::Value;
 
-use crate::app_log::{AppLog, LogFields};
+use crate::app_log::{AppLog, LogFields, LogValue};
 use crate::privacy_telemetry::{ErrorInput, ErrorSource, platform_name};
 use crate::renderer_reports::{
     REPORT_WINDOW_MS, REPORTS_PER_WINDOW, RendererErrorKind, ReportLimiter, normalize_pane_ids,
@@ -96,11 +96,12 @@ pub struct WindowWatch {
     loaded: AtomicBool,
 }
 
-fn fields(pairs: Vec<(&str, Value)>) -> LogFields {
-    pairs
-        .into_iter()
-        .map(|(key, value)| (key.to_owned(), value))
-        .collect()
+fn fields(pairs: Vec<(&str, LogValue)>) -> LogFields {
+    let mut out = LogFields::new();
+    for (key, value) in pairs {
+        out.insert(key, value);
+    }
+    out
 }
 
 fn source_of(kind: RendererErrorKind) -> ErrorSource {
@@ -121,9 +122,9 @@ fn base_name(source_id: &str) -> &str {
 }
 
 fn error_fields(error: &MainError) -> LogFields {
-    let mut out = fields(vec![("message", Value::from(error.message.as_str()))]);
+    let mut out = fields(vec![("message", LogValue::from(error.message.as_str()))]);
     if let Some(stack) = &error.stack {
-        out.insert("stack".to_owned(), Value::from(stack.as_str()));
+        out.insert("stack".to_owned(), LogValue::from(stack.as_str()));
     }
     out
 }
@@ -135,8 +136,8 @@ impl Inner {
             self.deps.log.warn(
                 "renderer-reports-suppressed",
                 &fields(vec![
-                    ("window", Value::from(window.as_str())),
-                    ("suppressed", Value::from(take.suppressed)),
+                    ("window", LogValue::from(window.as_str())),
+                    ("suppressed", LogValue::from(take.suppressed)),
                 ]),
             );
         }
@@ -161,9 +162,9 @@ impl Diagnostics {
         deps.log.info(
             "app-start",
             &fields(vec![
-                ("version", Value::from(deps.version.as_str())),
-                ("platform", Value::from(platform_name())),
-                ("packaged", Value::from(deps.packaged)),
+                ("version", LogValue::from(deps.version.as_str())),
+                ("platform", LogValue::from(platform_name())),
+                ("packaged", LogValue::from(deps.packaged)),
             ]),
         );
         let reports = ReportLimiter::new(REPORTS_PER_WINDOW, REPORT_WINDOW_MS, deps.now.clone());
@@ -193,15 +194,15 @@ impl Diagnostics {
 
     pub fn child_process_gone(&self, gone: &ChildProcessGone) {
         let mut out = fields(vec![
-            ("type", Value::from(gone.kind.as_str())),
-            ("reason", Value::from(gone.reason.as_str())),
-            ("exitCode", Value::from(gone.exit_code)),
+            ("type", LogValue::from(gone.kind.as_str())),
+            ("reason", LogValue::from(gone.reason.as_str())),
+            ("exitCode", LogValue::from(gone.exit_code)),
         ]);
         if let Some(name) = &gone.name {
-            out.insert("name".to_owned(), Value::from(name.as_str()));
+            out.insert("name".to_owned(), LogValue::from(name.as_str()));
         }
         if let Some(service) = &gone.service_name {
-            out.insert("service".to_owned(), Value::from(service.as_str()));
+            out.insert("service".to_owned(), LogValue::from(service.as_str()));
         }
         self.inner.deps.log.warn("child-process-gone", &out);
     }
@@ -213,9 +214,9 @@ impl Diagnostics {
         self.inner.deps.log.warn(
             "guest-process-gone",
             &fields(vec![
-                ("type", Value::from(kind)),
-                ("reason", Value::from(reason)),
-                ("exitCode", Value::from(exit_code)),
+                ("type", LogValue::from(kind)),
+                ("reason", LogValue::from(reason)),
+                ("exitCode", LogValue::from(exit_code)),
             ]),
         );
     }
@@ -232,15 +233,15 @@ impl Diagnostics {
             return;
         }
         let mut out = fields(vec![
-            ("window", Value::from(window.as_str())),
-            ("kind", Value::from(report.kind.as_str())),
-            ("message", Value::from(report.message.as_str())),
+            ("window", LogValue::from(window.as_str())),
+            ("kind", LogValue::from(report.kind.as_str())),
+            ("message", LogValue::from(report.message.as_str())),
         ]);
         if let Some(stack) = &report.stack {
-            out.insert("stack".to_owned(), Value::from(stack.as_str()));
+            out.insert("stack".to_owned(), LogValue::from(stack.as_str()));
         }
         if let Some(source) = &report.source {
-            out.insert("source".to_owned(), Value::from(source.as_str()));
+            out.insert("source".to_owned(), LogValue::from(source.as_str()));
         }
         deps.log.error("renderer-error", &out);
         deps.telemetry.error(ErrorInput {
@@ -272,7 +273,10 @@ impl Diagnostics {
         }
         self.inner.deps.log.info(
             "devtools-toggled",
-            &fields(vec![("window", Value::from(contents.window_id().as_str()))]),
+            &fields(vec![(
+                "window",
+                LogValue::from(contents.window_id().as_str()),
+            )]),
         );
         contents.toggle_devtools();
     }
@@ -297,8 +301,8 @@ impl Diagnostics {
 }
 
 impl WindowWatch {
-    fn window_field(&self) -> (&'static str, Value) {
-        ("window", Value::from(self.window.as_str()))
+    fn window_field(&self) -> (&'static str, LogValue) {
+        ("window", LogValue::from(self.window.as_str()))
     }
 
     pub fn did_finish_load(&self) {
@@ -321,9 +325,9 @@ impl WindowWatch {
             "did-fail-load",
             &fields(vec![
                 self.window_field(),
-                ("code", Value::from(code)),
-                ("description", Value::from(description)),
-                ("mainFrame", Value::from(main_frame)),
+                ("code", LogValue::from(code)),
+                ("description", LogValue::from(description)),
+                ("mainFrame", LogValue::from(main_frame)),
             ]),
         );
     }
@@ -340,8 +344,8 @@ impl WindowWatch {
             "render-process-gone",
             &fields(vec![
                 self.window_field(),
-                ("reason", Value::from(reason)),
-                ("exitCode", Value::from(exit_code)),
+                ("reason", LogValue::from(reason)),
+                ("exitCode", LogValue::from(exit_code)),
             ]),
         );
         if reason == "clean-exit" || window_destroyed {
@@ -360,7 +364,7 @@ impl WindowWatch {
                 "renderer-reload-skipped",
                 &fields(vec![
                     self.window_field(),
-                    ("reason", Value::from("crash-loop")),
+                    ("reason", LogValue::from("crash-loop")),
                 ]),
             );
             return;
@@ -380,11 +384,14 @@ impl WindowWatch {
         {
             return;
         }
-        let mut out = fields(vec![self.window_field(), ("message", Value::from(message))]);
+        let mut out = fields(vec![
+            self.window_field(),
+            ("message", LogValue::from(message)),
+        ]);
         if !source_id.is_empty() {
             out.insert(
                 "source".to_owned(),
-                Value::from(format!("{}:{line}", base_name(source_id))),
+                LogValue::from(format!("{}:{line}", base_name(source_id))),
             );
         }
         self.inner.deps.log.error("renderer-console-error", &out);

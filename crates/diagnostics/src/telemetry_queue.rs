@@ -207,6 +207,7 @@ impl PostTransport for HttpTransport {
 
 pub fn http_transport() -> Arc<dyn PostTransport> {
     let client = reqwest::Client::builder()
+        .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .timeout(REQUEST_TIMEOUT)
         .build()
@@ -417,7 +418,7 @@ impl QueueInner {
                 .is_some_and(|id| ids.contains(id))
         };
         let mut fields = LogFields::new();
-        fields.insert("reports".to_owned(), Value::from(batch.len()));
+        fields.insert("reports", batch.len());
         let unsaved;
         {
             let mut state = self.state.lock();

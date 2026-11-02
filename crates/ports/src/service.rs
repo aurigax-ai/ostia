@@ -129,10 +129,15 @@ impl Shared {
             .collect();
         let mut pane_chips = Vec::new();
         for chip in pane_chip_values(panes, &scanned.trees) {
-            let Some(pane_id) = (self.deps.renderer_pane_id)(&chip.pane_id) else {
+            let Some(pane_id) =
+                (self.deps.renderer_pane_id)(&chip.pane_id).filter(|id| !id.is_empty())
+            else {
                 continue;
             };
-            let Some(workspace_id) = workspace_of.get(chip.pane_id.as_str()) else {
+            let Some(workspace_id) = workspace_of
+                .get(chip.pane_id.as_str())
+                .filter(|id| !id.is_empty())
+            else {
                 continue;
             };
             let mut item = extension_item();

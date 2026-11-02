@@ -2,9 +2,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use futures_util::future::BoxFuture;
-use serde_json::Value;
 
-use crate::app_log::{AppLog, LogFields};
+use crate::app_log::{AppLog, LogFields, LogValue};
 
 #[derive(Debug, Clone, Default)]
 pub struct GpuDevice {
@@ -41,7 +40,7 @@ fn hex(id: Option<u32>) -> String {
 }
 
 pub fn gpu_facts(status: &GpuFeatureStatus, info: &GpuInfo) -> LogFields {
-    let text = |value: &Option<String>| Value::from(value.as_deref().unwrap_or(""));
+    let text = |value: &Option<String>| LogValue::from(value.as_deref().unwrap_or(""));
     let devices = info
         .gpu_device
         .iter()
@@ -58,7 +57,7 @@ pub fn gpu_facts(status: &GpuFeatureStatus, info: &GpuInfo) -> LogFields {
     let mut facts = LogFields::new();
     facts.insert("glRenderer".to_owned(), text(&info.gl_renderer));
     facts.insert("glVersion".to_owned(), text(&info.gl_version));
-    facts.insert("devices".to_owned(), Value::from(devices));
+    facts.insert("devices".to_owned(), LogValue::from(devices));
     facts.insert("webgl".to_owned(), text(&status.webgl));
     facts.insert("webgl2".to_owned(), text(&status.webgl2));
     facts.insert("gpuCompositing".to_owned(), text(&status.gpu_compositing));
@@ -101,7 +100,7 @@ impl GpuReport {
             }
             Err(message) => {
                 let mut fields = LogFields::new();
-                fields.insert("error".to_owned(), Value::from(message));
+                fields.insert("error".to_owned(), LogValue::from(message));
                 self.log.warn(event, &fields);
             }
         }

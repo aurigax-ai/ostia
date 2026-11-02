@@ -7,7 +7,10 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::Duration;
 
 use history_support::{mark, numbered};
-use ostia_terminal::spill_host::{SpillEvent, SpillHostPort, SpillRequest, serve_spill};
+use ostia_terminal::spill_host::{
+    BlockEnd, HostedTerminal, OpenTerminal, SpillEvent, SpillHostPort, SpillRequest, serve_spill,
+    serve_spill_with,
+};
 use parking_lot::Mutex;
 
 type RequestListener = Arc<dyn Fn(SpillRequest) + Send + Sync>;
@@ -32,14 +35,48 @@ struct Host {
     events: Receiver<SpillEvent>,
 }
 
-fn host() -> Host {
+fn host_serving(serve: impl FnOnce(Arc<HostPort>)) -> Host {
     let (tx, events) = channel();
     let port = Arc::new(HostPort {
         events: Mutex::new(tx),
         listener: Mutex::new(None),
     });
-    serve_spill(port.clone()).unwrap();
+    serve(port.clone());
     Host { port, events }
+}
+
+fn host() -> Host {
+    host_serving(|port| serve_spill(port).unwrap())
+}
+
+fn host_with(open: OpenTerminal) -> Host {
+    host_serving(|port| serve_spill_with(port, open).unwrap())
+}
+
+struct Panicking;
+
+impl HostedTerminal for Panicking {
+    fn write(&mut self, _data: &[u8]) {
+        panic!("write failed");
+    }
+
+    fn resync(&mut self, _screen: &str) {}
+
+    fn restore(&mut self, _history: &str, _hold: bool) {}
+
+    fn resize(&mut self, _cols: u16, _rows: u16) {}
+
+    fn tail(&self) -> Vec<String> {
+        panic!("tail failed");
+    }
+
+    fn pending_end(&self, _seq: u64) -> Option<BlockEnd> {
+        panic!("pending end failed");
+    }
+
+    fn close(&mut self) -> u64 {
+        0
+    }
 }
 
 impl Host {
@@ -150,4 +187,102 @@ fn reports_what_it_parsed_then_the_block_count_when_a_session_closes() {
             seq_end: 1
         }
     );
+}
+
+#[test]
+fn fails_the_session_when_its_terminal_cannot_start() {
+    let host = host_with(Box::new(|_, _, _, _| Err("no terminal".to_owned())));
+    host.send(open(4));
+    assert_eq!(
+        host.next(),
+        SpillEvent::Failed {
+            session: 4,
+            reason: "no terminal".to_owned()
+        }
+    );
+}
+
+#[test]
+fn fails_the_session_and_keeps_serving_when_a_write_panics() {
+    let host = host_with(Box::new(|_, _, _, _| Ok(Box::new(Panicking))));
+    host.send(open(1));
+    host.send(SpillRequest::Write {
+        session: 1,
+        data: b"x".to_vec(),
+        chars: 1,
+    });
+    assert_eq!(
+        host.next(),
+        SpillEvent::Failed {
+            session: 1,
+            reason: "spill terminal panicked".to_owned()
+        }
+    );
+    host.send(SpillRequest::Write {
+        session: 1,
+        data: b"y".to_vec(),
+        chars: 1,
+    });
+    assert_eq!(
+        host.next(),
+        SpillEvent::Parsed {
+            session: 1,
+            chars: 1
+        }
+    );
+}
+
+#[test]
+fn answers_a_tail_that_panics_with_nothing_after_failing_the_session() {
+    let host = host_with(Box::new(|_, _, _, _| Ok(Box::new(Panicking))));
+    host.send(open(2));
+    host.send(SpillRequest::Tail { session: 2, id: 5 });
+    assert!(matches!(host.next(), SpillEvent::Failed { session: 2, .. }));
+    assert_eq!(
+        host.next(),
+        SpillEvent::Reply {
+            id: 5,
+            tail: Some(Vec::new()),
+            pending_end: None
+        }
+    );
+}
+
+#[test]
+fn prints_no_terminal_text_in_its_debug_output() {
+    let write = SpillRequest::Write {
+        session: 1,
+        data: b"hunter2".to_vec(),
+        chars: 7,
+    };
+    let append = SpillEvent::Append {
+        session: 1,
+        text: "hunter2".to_owned(),
+        count: 1,
+    };
+    let reply = SpillEvent::Reply {
+        id: 1,
+        tail: Some(vec!["hunter2".to_owned()]),
+        pending_end: None,
+    };
+    let started = SpillEvent::BlockStarted {
+        session: 1,
+        seq: 1,
+        start: 0,
+        command: Some("hunter2".to_owned()),
+    };
+    let restore = SpillRequest::Restore {
+        session: 1,
+        history: "hunter2".to_owned(),
+        hold: false,
+    };
+    for shown in [
+        format!("{write:?}"),
+        format!("{append:?}"),
+        format!("{reply:?}"),
+        format!("{started:?}"),
+        format!("{restore:?}"),
+    ] {
+        assert!(!shown.contains("hunter2"), "{shown}");
+    }
 }

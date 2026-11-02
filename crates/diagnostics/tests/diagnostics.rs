@@ -33,7 +33,7 @@ impl Recorder {
     fn push(&self, level: &str, event: &str, fields: &LogFields) {
         self.lines
             .lock()
-            .push((level.into(), event.into(), Value::Object(fields.clone())));
+            .push((level.into(), event.into(), fields.to_json()));
     }
 
     fn at(&self, level: &str) -> Vec<(String, Value)> {

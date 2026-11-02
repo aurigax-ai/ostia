@@ -15,7 +15,70 @@ const LOG_MAX_BYTES: u64 = 1024 * 1024;
 const LOG_KEEP_FILES: usize = 3;
 const REDACTED: &str = "[redacted]";
 
-pub type LogFields = Map<String, Value>;
+#[derive(Clone, Debug, PartialEq)]
+pub struct LogValue(Value);
+
+macro_rules! log_value_from {
+    ($($kind:ty),*) => {
+        $(impl From<$kind> for LogValue {
+            fn from(value: $kind) -> Self {
+                Self(Value::from(value))
+            }
+        })*
+    };
+}
+
+log_value_from!(bool, i32, i64, u32, u64, usize, f64, &str, String);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("log field values must be text, numbers, booleans or null")]
+pub struct NotScalar;
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LogFields(Map<String, Value>);
+
+impl LogFields {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn insert(&mut self, key: impl Into<String>, value: impl Into<LogValue>) {
+        self.0.insert(key.into(), value.into().0);
+    }
+
+    pub fn iter(&self) -> serde_json::map::Iter<'_> {
+        self.0.iter()
+    }
+
+    pub fn to_json(&self) -> Value {
+        Value::Object(self.0.clone())
+    }
+}
+
+impl TryFrom<Value> for LogFields {
+    type Error = NotScalar;
+
+    fn try_from(value: Value) -> Result<Self, NotScalar> {
+        let Value::Object(map) = value else {
+            return Err(NotScalar);
+        };
+        if map
+            .values()
+            .any(|field| matches!(field, Value::Array(_) | Value::Object(_)))
+        {
+            return Err(NotScalar);
+        }
+        Ok(Self(map))
+    }
+}
+
+impl std::ops::Index<&str> for LogFields {
+    type Output = Value;
+
+    fn index(&self, key: &str) -> &Value {
+        &self.0[key]
+    }
+}
 
 pub trait AppLog: Send + Sync {
     fn info(&self, event: &str, fields: &LogFields);
@@ -116,7 +179,7 @@ fn render_value(value: &Value) -> String {
 
 pub fn format_entry(event: &str, fields: &LogFields) -> String {
     let mut parts = vec![event.to_owned()];
-    for (key, value) in fields {
+    for (key, value) in fields.iter() {
         if value.is_null() {
             continue;
         }

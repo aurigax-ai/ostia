@@ -1,7 +1,4 @@
 use std::fmt;
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -9,6 +6,8 @@ use reqwest::header::{CONTENT_LENGTH, LOCATION};
 use reqwest::redirect::Policy;
 use reqwest::{Client, Response, StatusCode, Url};
 use sha2::{Digest, Sha256};
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 
 use crate::js::js_number;
 
@@ -209,7 +208,7 @@ pub async fn download_checked(
     } else {
         options.create(true).truncate(true);
     }
-    let mut file = options.open(&target.file)?;
+    let mut file = options.open(&target.file).await?;
     let mut hash = Sha256::new();
     let mut received: u64 = 0;
     while let Some(chunk) = response.chunk().await? {
@@ -219,8 +218,8 @@ pub async fn download_checked(
         }
         hash.update(&chunk);
         (target.on_progress)(received, total);
-        file.write_all(&chunk)?;
+        file.write_all(&chunk).await?;
     }
-    file.flush()?;
+    file.flush().await?;
     Ok(hex::encode(hash.finalize()))
 }

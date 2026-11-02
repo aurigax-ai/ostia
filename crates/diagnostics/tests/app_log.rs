@@ -13,10 +13,7 @@ use serde_json::{Value, json};
 use tempfile::TempDir;
 
 fn fields(value: Value) -> LogFields {
-    match value {
-        Value::Object(map) => map,
-        other => panic!("expected an object, got {other}"),
-    }
+    LogFields::try_from(value).unwrap()
 }
 
 fn names_in(dir: &TempDir) -> Vec<String> {
@@ -153,4 +150,12 @@ fn rotates_at_the_size_cap_and_keeps_three_files_at_most() {
     assert!(fs::metadata(&file).unwrap().len() < 2048 + 200);
     assert!(fs::read_to_string(&file).unwrap().contains("pane=p-199"));
     assert!(!rotated_name(&file, 3).exists());
+}
+
+#[test]
+fn accepts_only_scalar_field_values() {
+    assert!(LogFields::try_from(json!({"a": "x", "b": 1, "c": true, "d": null})).is_ok());
+    assert!(LogFields::try_from(json!({"a": ["token=abcdef123456"]})).is_err());
+    assert!(LogFields::try_from(json!({"a": {"b": 1}})).is_err());
+    assert!(LogFields::try_from(json!(["a"])).is_err());
 }

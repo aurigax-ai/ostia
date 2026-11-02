@@ -54,7 +54,12 @@ pub struct IncidentReportOut {
     pub redacted: usize,
 }
 
-pub type Redact = Arc<dyn Fn(&str) -> BoxFuture<'static, Redacted> + Send + Sync>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("redaction failed")]
+pub struct RedactFailed;
+
+pub type Redact =
+    Arc<dyn Fn(&str) -> BoxFuture<'static, Result<Redacted, RedactFailed>> + Send + Sync>;
 pub type ExternalOf = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 pub type AgentOf = Arc<dyn Fn(&str) -> BoxFuture<'static, Option<String>> + Send + Sync>;
 pub type SettingsOf = Arc<dyn Fn(&str) -> Map<String, Value> + Send + Sync>;
@@ -140,6 +145,7 @@ impl IncidentActions {
             (self.deps.redact)(&said.expected),
         )
         .await;
+        let (happened, expected) = (happened.ok()?, expected.ok()?);
         let totals = self.deps.incidents.totals();
         let settings = (self.deps.settings)(&agent);
         let facts = IncidentFacts {

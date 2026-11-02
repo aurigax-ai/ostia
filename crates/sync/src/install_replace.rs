@@ -3,6 +3,7 @@ use std::fs::File;
 use std::future::Future;
 use std::io;
 use std::os::unix::fs::PermissionsExt;
+use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::Stdio;
@@ -10,7 +11,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
+use futures_util::FutureExt;
 use ostia_base::PRODUCT_NAME;
 use ostia_base::checked_download::{
     DownloadError, DownloadFailure, DownloadRequest, DownloadTarget, download_checked,
@@ -304,7 +306,7 @@ fn kind_of(entry_type: tar::EntryType) -> ArchiveEntryKind {
 fn scan_archive(file: &Path) -> Result<(), ReplaceError> {
     let bad = || ReplaceError::new(ReplaceFailure::BadArchive);
     let file = File::open(file).map_err(|_| bad())?;
-    let mut archive = tar::Archive::new(GzDecoder::new(file));
+    let mut archive = tar::Archive::new(MultiGzDecoder::new(file));
     for entry in archive.entries().map_err(|_| bad())? {
         let entry = entry.map_err(|_| bad())?;
         let path = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
@@ -432,6 +434,8 @@ pub async fn run_tar(args: Vec<String>) -> Result<(), ReplaceError> {
     let mut command = Command::new("tar");
     command
         .args(&args)
+        .env_clear()
+        .envs(Host::current().child_env())
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -659,7 +663,7 @@ impl InstallReplacer {
         }
         (shared.deps.on_state)(&ReplaceState::Downloading);
         let version = release.version.clone();
-        let replace = (shared.deps.replace)(ReplaceJob {
+        let job = ReplaceJob {
             app_dir: app_dir.clone(),
             release,
             timeout: UPDATE_DOWNLOAD_TIMEOUT,
@@ -671,10 +675,14 @@ impl InstallReplacer {
                 let shared = Arc::clone(shared);
                 move || shared.set(ReplaceState::Installing)
             }),
-        });
+        };
         let shared = Arc::clone(shared);
         tokio::spawn(async move {
-            match replace.await {
+            let outcome = AssertUnwindSafe(async { (shared.deps.replace)(job).await })
+                .catch_unwind()
+                .await
+                .unwrap_or_else(|_| Err(ReplaceError::new(ReplaceFailure::ExtractFailed)));
+            match outcome {
                 Ok(()) => {
                     (shared.deps.on_replaced)(&PendingSweep {
                         app_dir,

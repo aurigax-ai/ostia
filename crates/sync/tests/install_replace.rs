@@ -16,9 +16,10 @@ use ostia_contract::install_method::{
 use ostia_contract::releases::{ReleaseInfo, tarball_asset_name};
 use ostia_sync::install_replace::{
     ArchiveEntry, ArchiveEntryKind, InstallReplacer, InstallReplacerDeps, PendingSweep,
-    ReplaceError, ReplaceInstallOptions, RunTar, TarballReplace, allowed_hop, can_replace_install,
-    check_archive, checksum_for, entry_problem, release_asset_url, release_download_base,
-    replace_install, run_tar, swap_install, sweep_old_install, tarball_replace,
+    ReplaceError, ReplaceFuture, ReplaceInstallOptions, ReplaceJob, RunTar, TarballReplace,
+    allowed_hop, can_replace_install, check_archive, checksum_for, entry_problem,
+    release_asset_url, release_download_base, replace_install, run_tar, swap_install,
+    sweep_old_install, tarball_replace,
 };
 use support::{FakeHttp, Reply, eventually, is_root, linux_host, names, sha256_hex, tar_gz, write};
 use tempfile::TempDir;
@@ -295,6 +296,47 @@ async fn refuses_an_archive_on_disk_that_holds_a_symlink_pointing_outside() {
         symlink("../../outside", top.join("escape")).unwrap();
     });
     let file = root.path().join("bad.tar.gz");
+    fs::write(&file, data).unwrap();
+    assert_eq!(
+        check_archive(&file).await.unwrap_err().reason(),
+        ReplaceFailure::BadArchive
+    );
+}
+
+fn gzip_member(bytes: &[u8]) -> Vec<u8> {
+    use std::io::Write;
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(bytes).unwrap();
+    encoder.finish().unwrap()
+}
+
+#[tokio::test]
+async fn refuses_a_symlink_that_hides_in_a_second_gzip_member() {
+    let mut builder = tar::Builder::new(Vec::new());
+    let mut folder = tar::Header::new_gnu();
+    folder.set_entry_type(tar::EntryType::Directory);
+    folder.set_mode(0o755);
+    folder.set_size(0);
+    builder
+        .append_data(&mut folder, "top/", std::io::empty())
+        .unwrap();
+    let mut file_header = tar::Header::new_gnu();
+    file_header.set_mode(0o644);
+    file_header.set_size(1);
+    builder
+        .append_data(&mut file_header, "top/a", &b"x"[..])
+        .unwrap();
+    let first_part = builder.get_ref().len();
+    let mut link = tar::Header::new_gnu();
+    link.set_entry_type(tar::EntryType::Symlink);
+    link.set_mode(0o777);
+    link.set_size(0);
+    builder.append_link(&mut link, "top/l", "/etc").unwrap();
+    let tar_bytes = builder.into_inner().unwrap();
+    let mut data = gzip_member(&tar_bytes[..first_part]);
+    data.extend(gzip_member(&tar_bytes[first_part..]));
+    let root = TempDir::new().unwrap();
+    let file = root.path().join("two-members.tar.gz");
     fs::write(&file, data).unwrap();
     assert_eq!(
         check_archive(&file).await.unwrap_err().reason(),
@@ -773,6 +815,43 @@ async fn runs_one_replace_at_a_time_and_reports_done_with_the_version_it_install
             version: VERSION.to_owned()
         }]
     );
+}
+
+fn panicking_replace(_job: ReplaceJob) -> ReplaceFuture {
+    Box::pin(async {
+        let outcome: Result<(), ReplaceError> = Err(ReplaceError::new(ReplaceFailure::Blocked));
+        assert!(outcome.is_ok(), "replace exploded");
+        outcome
+    })
+}
+
+#[tokio::test]
+async fn reports_a_failed_replace_and_allows_a_new_one_when_the_replace_panics() {
+    let root = TempDir::new().unwrap();
+    let app_dir = installed(root.path());
+    let states: Arc<Mutex<Vec<ReplaceState>>> = Arc::default();
+    let replacer = InstallReplacer::new(InstallReplacerDeps {
+        app_dir: Box::new(move || Some(app_dir.clone())),
+        replace: Arc::new(panicking_replace),
+        on_state: Box::new({
+            let states = Arc::clone(&states);
+            move |state| states.lock().unwrap().push(state.clone())
+        }),
+        on_progress: Box::new(|_| {}),
+        on_replaced: Box::new(|_| {}),
+    });
+    assert_eq!(replacer.start(release_for(VERSION)), ReplaceStart::Started);
+    eventually("the replace to fail", || {
+        matches!(replacer.state(), ReplaceState::Failed { .. })
+    })
+    .await;
+    assert_eq!(
+        replacer.state(),
+        ReplaceState::Failed {
+            reason: ReplaceFailure::ExtractFailed
+        }
+    );
+    assert_eq!(replacer.start(release_for(VERSION)), ReplaceStart::Started);
 }
 
 #[tokio::test]

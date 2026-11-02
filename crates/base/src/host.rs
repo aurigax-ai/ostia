@@ -3,7 +3,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::APP_DIR_NAME;
+use crate::discrete_gpu::without_gpu_launch_env;
 use crate::error::{Result, io_error};
+use crate::no_new_privs_relaunch::RELAUNCHED_ENV;
 use crate::node_path;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,6 +43,12 @@ impl Host {
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
             platform: Platform::current(),
         }
+    }
+
+    pub fn child_env(&self) -> BTreeMap<String, String> {
+        let mut env = without_gpu_launch_env(&self.env);
+        env.remove(RELAUNCHED_ENV);
+        env
     }
 
     pub fn var(&self, name: &str) -> Option<&str> {

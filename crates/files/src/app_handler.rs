@@ -112,7 +112,7 @@ async fn query_default(scheme: String, env: BTreeMap<String, String>) -> String 
 }
 
 pub fn system_handler_lookup(host: Host) -> HandlerLookup {
-    let env = host.env.clone();
+    let env = host.child_env();
     HandlerLookup {
         platform: host.platform,
         protocol_app: Arc::new(|_| String::new()),

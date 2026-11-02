@@ -49,7 +49,7 @@ fn start_ticker(gaps: &Arc<Mutex<Vec<Duration>>>) -> tokio::task::JoinHandle<()>
 fn stays_in_the_project_folder_when_unpackaged() {
     assert_eq!(
         redaction_worker_script(Path::new("/home/u/ostia")),
-        Path::new("/home/u/ostia/out/redaction/worker.js")
+        Path::new("/home/u/ostia/out/redaction-lint/worker.js")
     );
 }
 
@@ -69,11 +69,11 @@ fn never_gives_more_than_twenty_seconds() {
 }
 
 #[tokio::test]
-async fn fails_closed_within_its_deadline_when_a_pattern_of_the_human_never_finishes() {
+async fn fails_closed_within_its_deadline_when_the_worker_never_answers() {
     let worker = WorkerScan::new(
+        common::node(),
         fixture_script("scan-hang.mjs"),
         fixed_deadline(400),
-        &common::path_env(),
     );
     let redactor = Redactor::new(stalling_patterns, worker.clone());
     let started = Instant::now();
@@ -86,6 +86,7 @@ async fn fails_closed_within_its_deadline_when_a_pattern_of_the_human_never_fini
 #[tokio::test]
 async fn serves_the_next_scan_with_a_fresh_worker_after_one_timed_out() {
     let worker = WorkerScan::new(
+        common::node(),
         fixture_script("scan-hang-large.mjs"),
         |length| {
             if length > 1000 {
@@ -94,7 +95,6 @@ async fn serves_the_next_scan_with_a_fresh_worker_after_one_timed_out() {
                 Duration::from_millis(5000)
             }
         },
-        &common::path_env(),
     );
     let error = worker.scan(&huge()).await.unwrap_err();
     assert_eq!(error.to_string(), "scan timed out");
@@ -107,9 +107,9 @@ async fn serves_the_next_scan_with_a_fresh_worker_after_one_timed_out() {
 #[tokio::test(flavor = "multi_thread")]
 async fn keeps_the_main_event_loop_responsive_while_a_slow_scan_runs() {
     let worker = WorkerScan::new(
+        common::node(),
         fixture_script("scan-hang.mjs"),
         fixed_deadline(1500),
-        &common::path_env(),
     );
     let gaps = Arc::new(Mutex::new(Vec::new()));
     let ticker = start_ticker(&gaps);
@@ -142,9 +142,9 @@ async fn answers_queued_scans_in_order() {
 #[tokio::test]
 async fn rejects_the_running_scan_and_every_waiting_scan_when_closed() {
     let worker = WorkerScan::new(
+        common::node(),
         fixture_script("scan-hang.mjs"),
         fixed_deadline(60_000),
-        &common::path_env(),
     );
     let scans: Vec<_> = (0..3)
         .map(|n| {
@@ -163,9 +163,9 @@ async fn rejects_the_running_scan_and_every_waiting_scan_when_closed() {
 #[tokio::test]
 async fn fails_the_scan_when_the_worker_exits() {
     let worker = WorkerScan::new(
+        common::node(),
         fixture_script("scan-exit.mjs"),
         fixed_deadline(5000),
-        &common::path_env(),
     );
     let error = worker.scan("anything").await.unwrap_err();
     assert_eq!(error.to_string(), "scan worker exited");
@@ -175,9 +175,9 @@ async fn fails_the_scan_when_the_worker_exits() {
 #[tokio::test]
 async fn fails_the_scan_with_the_error_text_of_the_worker() {
     let worker = WorkerScan::new(
+        common::node(),
         fixture_script("scan-error.mjs"),
         fixed_deadline(5000),
-        &common::path_env(),
     );
     let error = worker.scan("anything").await.unwrap_err();
     assert_eq!(error.to_string(), "rule exploded");
@@ -187,9 +187,9 @@ async fn fails_the_scan_with_the_error_text_of_the_worker() {
 #[tokio::test]
 async fn ignores_a_reply_for_another_scan_and_times_out() {
     let worker = WorkerScan::new(
+        common::node(),
         fixture_script("scan-wrong-id.mjs"),
         fixed_deadline(300),
-        &common::path_env(),
     );
     let error = worker.scan("anything").await.unwrap_err();
     assert_eq!(error.to_string(), "scan timed out");
@@ -199,9 +199,9 @@ async fn ignores_a_reply_for_another_scan_and_times_out() {
 #[tokio::test]
 async fn fails_the_scan_when_the_worker_program_does_not_exist() {
     let worker = WorkerScan::new(
+        common::node(),
         fixture_script("no-such-worker.mjs"),
         fixed_deadline(5000),
-        &common::path_env(),
     );
     assert!(worker.scan("anything").await.is_err());
     worker.close().await;
@@ -210,9 +210,9 @@ async fn fails_the_scan_when_the_worker_program_does_not_exist() {
 #[tokio::test]
 async fn fails_a_scan_started_after_close() {
     let worker = WorkerScan::new(
+        common::node(),
         fixture_script("scan-hang.mjs"),
         fixed_deadline(5000),
-        &common::path_env(),
     );
     worker.close().await;
     assert!(worker.scan("anything").await.is_err());
@@ -298,11 +298,7 @@ async fn reads_1_mib_of_mixed_terminal_output_with_secrets_without_stalling() {
         ),
     ]
     .join("\n");
-    let worker = WorkerScan::new(
-        common::real_worker_script(),
-        |_| BUDGET,
-        &common::path_env(),
-    );
+    let worker = WorkerScan::new(common::node(), common::real_worker_script(), |_| BUDGET);
     let timed = Redactor::new(|| Value::Null, worker.clone());
     timed.redact(&block).await.unwrap();
     let started = Instant::now();
@@ -318,15 +314,61 @@ async fn reads_1_mib_of_mixed_terminal_output_with_secrets_without_stalling() {
 }
 
 #[tokio::test]
-async fn gives_the_worker_nothing_from_the_environment_but_path() {
-    let env = std::collections::BTreeMap::from([
-        ("PATH".to_owned(), std::env::var("PATH").unwrap()),
-        ("OSTIA_NO_NEW_PRIVS_RELAUNCHED".to_owned(), "1".to_owned()),
-        ("OSTIA_GPU_RESTORE".to_owned(), "{}".to_owned()),
-        ("AWS_SECRET_ACCESS_KEY".to_owned(), "marker".to_owned()),
-    ]);
-    let worker = WorkerScan::new(fixture_script("scan-env.mjs"), fixed_deadline(5000), &env);
+async fn gives_the_worker_an_empty_environment() {
+    let worker = WorkerScan::new(
+        common::node(),
+        fixture_script("scan-env.mjs"),
+        fixed_deadline(5000),
+    );
     let error = worker.scan("anything").await.unwrap_err();
-    assert_eq!(error.to_string(), "PATH");
+    assert_eq!(error.to_string(), "");
+    worker.close().await;
+}
+
+#[tokio::test]
+async fn refuses_a_runtime_path_that_is_not_absolute() {
+    let worker = WorkerScan::new("node", common::real_worker_script(), fixed_deadline(5000));
+    let error = worker.scan("anything").await.unwrap_err();
+    assert_eq!(error.to_string(), "scan runtime path is not absolute");
+    worker.close().await;
+}
+
+#[tokio::test]
+async fn refuses_to_run_when_the_runtime_is_missing() {
+    let worker = WorkerScan::new(
+        "/no/such/dir/node",
+        common::real_worker_script(),
+        fixed_deadline(5000),
+    );
+    let error = worker.scan("anything").await.unwrap_err();
+    assert_eq!(error.to_string(), "scan runtime is missing");
+    worker.close().await;
+}
+
+#[tokio::test]
+async fn names_the_build_step_when_the_worker_script_is_missing() {
+    let worker = WorkerScan::new(
+        common::node(),
+        fixture_script("no-such-worker.mjs"),
+        fixed_deadline(5000),
+    );
+    let error = worker.scan("anything").await.unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("pnpm run build:redaction-lint-worker")
+    );
+    worker.close().await;
+}
+
+#[tokio::test]
+async fn scans_text_with_line_and_paragraph_separators_and_keeps_the_worker() {
+    let worker = real_worker();
+    let text = format!("a\u{2028}b\u{2029}c {}", FAKE.npm);
+    let spans = worker.scan(&text).await.unwrap();
+    assert_eq!(spans.len(), 1);
+    assert_eq!(spans[0].kind, "npm");
+    let again = worker.scan(&format!("k {}", FAKE.npm)).await.unwrap();
+    assert_eq!(again.len(), 1);
     worker.close().await;
 }

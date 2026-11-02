@@ -29,6 +29,12 @@ pub struct AppLinkDeps {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LinkSender {
+    AppWindow,
+    Other,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LinkRefusal {
     Blocked,
     NoHandler,
@@ -149,8 +155,8 @@ fn asks(deps: &AppLinkDeps, scheme: &str) -> bool {
     )
 }
 
-pub async fn app_link_info(deps: &AppLinkDeps, raw: &Value) -> AppLinkInfo {
-    let Some(raw) = raw.as_str() else {
+pub async fn app_link_info(deps: &AppLinkDeps, sender: LinkSender, raw: &Value) -> AppLinkInfo {
+    let (LinkSender::AppWindow, Some(raw)) = (sender, raw.as_str()) else {
         return AppLinkInfo::Refused(LinkRefusal::Blocked);
     };
     match resolve(deps, raw).await {
@@ -160,8 +166,13 @@ pub async fn app_link_info(deps: &AppLinkDeps, raw: &Value) -> AppLinkInfo {
     }
 }
 
-pub async fn open_link(deps: &AppLinkDeps, raw: &Value, confirmed: &Value) -> OpenLinkResult {
-    let Some(raw) = raw.as_str() else {
+pub async fn open_link(
+    deps: &AppLinkDeps,
+    sender: LinkSender,
+    raw: &Value,
+    confirmed: &Value,
+) -> OpenLinkResult {
+    let (LinkSender::AppWindow, Some(raw)) = (sender, raw.as_str()) else {
         return OpenLinkResult::Blocked;
     };
     let target = match resolve(deps, raw).await {

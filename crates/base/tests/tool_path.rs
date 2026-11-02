@@ -356,5 +356,5 @@ async fn the_default_login_path_run_passes_the_host_environment_and_nothing_else
         })
         .await;
     assert_eq!(result.path.as_deref(), Some("1|unset"));
-    assert_eq!(tool_path.child_env(), &host.env);
+    assert_eq!(tool_path.child_env(), host.env);
 }

@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -18,8 +17,8 @@ const SCAN_BASE_MS: u64 = 2000;
 const SCAN_PER_MIB_MS: f64 = 6000.0;
 const SCAN_MAX_MS: u64 = 20_000;
 const MIB: f64 = 1024.0 * 1024.0;
-const WORKER_PROGRAM: &str = "node";
-const WORKER_RELATIVE: &str = "out/redaction/worker.js";
+const WORKER_RELATIVE: &str = "out/redaction-lint/worker.js";
+const WORKER_BUILD_STEP: &str = "pnpm run build:redaction-lint-worker";
 const UNPACKED_SUFFIX: &str = ".asar.unpacked";
 const PACKED_SUFFIX: &str = ".asar";
 
@@ -42,6 +41,10 @@ impl ScanError {
 }
 
 pub trait SecretScan {
+    fn deadline(&self, length: usize) -> Duration {
+        scan_deadline(length)
+    }
+
     fn scan(&self, text: &str) -> impl Future<Output = Result<Vec<SecretSpan>, ScanError>> + Send;
 
     fn library_kinds(
@@ -71,13 +74,23 @@ struct Worker {
 }
 
 impl Worker {
-    fn spawn(script: &Path, path: Option<&str>) -> Result<Self, ScanError> {
-        let mut command = Command::new(WORKER_PROGRAM);
-        command.arg(script).env_clear();
-        if let Some(path) = path {
-            command.env("PATH", path);
+    fn spawn(node: &Path, script: &Path) -> Result<Self, ScanError> {
+        if !node.is_absolute() {
+            return Err(ScanError::Failed(
+                "scan runtime path is not absolute".to_owned(),
+            ));
         }
-        let mut child = command
+        if !node.is_file() {
+            return Err(ScanError::Failed("scan runtime is missing".to_owned()));
+        }
+        if !script.is_file() {
+            return Err(ScanError::Failed(format!(
+                "scan worker is missing, run `{WORKER_BUILD_STEP}`"
+            )));
+        }
+        let mut child = Command::new(node)
+            .arg(script)
+            .env_clear()
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -99,7 +112,10 @@ impl Worker {
         let id = self.next_id;
         self.next_id += 1;
         body["id"] = json!(id);
-        let mut line = body.to_string();
+        let mut line = body
+            .to_string()
+            .replace('\u{2028}', "\\u2028")
+            .replace('\u{2029}', "\\u2029");
         line.push('\n');
         self.stdin
             .write_all(line.as_bytes())
@@ -229,8 +245,8 @@ fn lint_messages(content: &str, reply: &Value) -> Result<Vec<LintMessage>, ScanE
 }
 
 struct Inner {
+    node: PathBuf,
     script: PathBuf,
-    path: Option<String>,
     deadline: Box<dyn Fn(usize) -> Duration + Send + Sync>,
     slot: Mutex<Option<Worker>>,
     closed: watch::Sender<bool>,
@@ -243,15 +259,15 @@ pub struct WorkerScan {
 
 impl WorkerScan {
     pub fn new(
+        node: impl Into<PathBuf>,
         script: impl Into<PathBuf>,
         deadline: impl Fn(usize) -> Duration + Send + Sync + 'static,
-        env: &BTreeMap<String, String>,
     ) -> Self {
         let (closed, _) = watch::channel(false);
         Self {
             inner: Arc::new(Inner {
+                node: node.into(),
                 script: script.into(),
-                path: env.get("PATH").cloned(),
                 deadline: Box::new(deadline),
                 slot: Mutex::new(None),
                 closed,
@@ -278,7 +294,7 @@ impl WorkerScan {
             let mut slot = self.inner.slot.lock().await;
             let worker = match slot.take() {
                 Some(worker) => worker,
-                None => Worker::spawn(&self.inner.script, self.inner.path.as_deref())?,
+                None => Worker::spawn(&self.inner.node, &self.inner.script)?,
             };
             let deadline = (self.inner.deadline)(length);
             match tokio::time::timeout(deadline, work(worker)).await {
@@ -300,6 +316,10 @@ impl WorkerScan {
 }
 
 impl SecretScan for WorkerScan {
+    fn deadline(&self, length: usize) -> Duration {
+        (self.inner.deadline)(length)
+    }
+
     async fn scan(&self, text: &str) -> Result<Vec<SecretSpan>, ScanError> {
         let owned = text.to_owned();
         self.serialized(utf16_len(text), move |mut worker| async move {

@@ -31,8 +31,7 @@ fn recorded() -> (Lines, Sink) {
     (
         lines,
         Arc::new(move |event: &str, fields: &LogFields| {
-            sink.lock()
-                .push((event.to_owned(), Value::Object(fields.clone())));
+            sink.lock().push((event.to_owned(), fields.to_json()));
         }),
     )
 }

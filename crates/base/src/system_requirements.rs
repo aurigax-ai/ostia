@@ -334,7 +334,7 @@ impl Requirements {
         {
             return cached;
         }
-        let output = run_bounded(path, args, self.tool_path.child_env(), VERSION_TIMEOUT)
+        let output = run_bounded(path, args, &self.tool_path.child_env(), VERSION_TIMEOUT)
             .unwrap_or_default();
         if let Some(key) = key {
             self.state

@@ -7,6 +7,7 @@ use std::time::Duration;
 use parking_lot::Mutex;
 use serde::Serialize;
 use serde_json::Value;
+use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 use tokio::time::{Instant, MissedTickBehavior};
 
@@ -55,6 +56,34 @@ struct Inner<S: RefreshSource> {
     source: S,
     options: WatchedRefresherOptions<S>,
     state: Mutex<State>,
+    runtime: Option<Handle>,
+}
+
+struct Refresh<S: RefreshSource> {
+    read: ReadFuture<S::Data>,
+    running: Running<S>,
+}
+
+struct Running<S: RefreshSource> {
+    inner: Arc<Inner<S>>,
+    armed: bool,
+}
+
+impl<S: RefreshSource> Running<S> {
+    fn finish(mut self) -> bool {
+        self.armed = false;
+        let mut state = self.inner.state.lock();
+        state.running = false;
+        std::mem::take(&mut state.again)
+    }
+}
+
+impl<S: RefreshSource> Drop for Running<S> {
+    fn drop(&mut self) {
+        if self.armed {
+            self.inner.state.lock().running = false;
+        }
+    }
 }
 
 pub struct WatchedRefresher<S: RefreshSource> {
@@ -78,6 +107,7 @@ impl<S: RefreshSource> WatchedRefresher<S> {
                     again: false,
                     sent: Vec::new(),
                 }),
+                runtime: Handle::try_current().ok(),
             }),
         }
     }
@@ -150,10 +180,10 @@ impl<S: RefreshSource> WatchedRefresher<S> {
 
     pub fn refresh(&self) -> impl Future<Output = ()> + Send + use<S> {
         let inner = Arc::clone(&self.inner);
-        let read = inner.begin_refresh();
+        let refresh = inner.begin_refresh();
         async move {
-            if let Some(read) = read {
-                inner.finish_refresh(read).await;
+            if let Some(refresh) = refresh {
+                inner.finish_refresh(refresh).await;
             }
         }
     }
@@ -180,8 +210,15 @@ impl<S: RefreshSource> Inner<S> {
         }
     }
 
+    fn runtime(&self) -> Option<Handle> {
+        Handle::try_current().ok().or_else(|| self.runtime.clone())
+    }
+
     fn schedule(self: &Arc<Self>, delay: Duration) {
-        let sleep = tokio::time::sleep(delay);
+        let Some(runtime) = self.runtime() else {
+            return;
+        };
+        let due = Instant::now() + delay;
         let weak = Arc::downgrade(self);
         let mut state = self.state.lock();
         state.timer_generation += 1;
@@ -189,8 +226,8 @@ impl<S: RefreshSource> Inner<S> {
         if let Some(previous) = state.timer.take() {
             previous.abort();
         }
-        state.timer = Some(tokio::spawn(async move {
-            sleep.await;
+        state.timer = Some(runtime.spawn(async move {
+            tokio::time::sleep_until(due).await;
             let Some(inner) = weak.upgrade() else {
                 return;
             };
@@ -201,8 +238,8 @@ impl<S: RefreshSource> Inner<S> {
                 }
                 state.timer = None;
             }
-            if let Some(read) = inner.begin_refresh() {
-                inner.finish_refresh(read).await;
+            if let Some(refresh) = inner.begin_refresh() {
+                inner.finish_refresh(refresh).await;
             }
         }));
     }
@@ -245,25 +282,29 @@ impl<S: RefreshSource> Inner<S> {
         if !state.focused {
             return;
         }
-        let mut interval = tokio::time::interval_at(Instant::now() + period, period);
-        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        let Some(runtime) = self.runtime() else {
+            return;
+        };
+        let first = Instant::now() + period;
         let weak: Weak<Self> = Arc::downgrade(self);
-        state.poll = Some(tokio::spawn(async move {
+        state.poll = Some(runtime.spawn(async move {
+            let mut interval = tokio::time::interval_at(first, period);
+            interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
             loop {
                 interval.tick().await;
                 let Some(inner) = weak.upgrade() else {
                     return;
                 };
                 tokio::spawn(async move {
-                    if let Some(read) = inner.begin_refresh() {
-                        inner.finish_refresh(read).await;
+                    if let Some(refresh) = inner.begin_refresh() {
+                        inner.finish_refresh(refresh).await;
                     }
                 });
             }
         }));
     }
 
-    fn begin_refresh(&self) -> Option<ReadFuture<S::Data>> {
+    fn begin_refresh(self: &Arc<Self>) -> Option<Refresh<S>> {
         if !self.active() {
             return None;
         }
@@ -276,10 +317,16 @@ impl<S: RefreshSource> Inner<S> {
             state.running = true;
             state.watches.union()
         };
-        Some(self.source.read(&watched))
+        let running = Running {
+            inner: Arc::clone(self),
+            armed: true,
+        };
+        let read = self.source.read(&watched);
+        Some(Refresh { read, running })
     }
 
-    async fn finish_refresh(self: Arc<Self>, read: ReadFuture<S::Data>) {
+    async fn finish_refresh(self: Arc<Self>, refresh: Refresh<S>) {
+        let Refresh { read, running } = refresh;
         match read.await {
             Ok(data) => {
                 if self.active() {
@@ -292,11 +339,7 @@ impl<S: RefreshSource> Inner<S> {
                 }
             }
         }
-        let rerun = {
-            let mut state = self.state.lock();
-            state.running = false;
-            std::mem::take(&mut state.again)
-        };
+        let rerun = running.finish();
         if rerun && self.active() {
             self.schedule(self.options.debounce);
         }

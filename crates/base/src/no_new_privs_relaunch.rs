@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-const RELAUNCHED: &str = "OSTIA_NO_NEW_PRIVS_RELAUNCHED";
+pub const RELAUNCHED_ENV: &str = "OSTIA_NO_NEW_PRIVS_RELAUNCHED";
 
 pub fn relaunch_without_no_new_privs(
     no_new_privs: bool,
@@ -8,8 +8,8 @@ pub fn relaunch_without_no_new_privs(
     launch: &mut dyn FnMut(&BTreeMap<String, String>) -> bool,
     warn: &mut dyn FnMut(&str),
 ) -> bool {
-    let relaunched = env.contains_key(RELAUNCHED);
-    env.remove(RELAUNCHED);
+    let relaunched = env.contains_key(RELAUNCHED_ENV_ENV);
+    env.remove(RELAUNCHED_ENV_ENV);
     if !no_new_privs {
         return false;
     }
@@ -18,7 +18,7 @@ pub fn relaunch_without_no_new_privs(
         return false;
     }
     let mut next = env.clone();
-    next.insert(RELAUNCHED.to_owned(), "1".to_owned());
+    next.insert(RELAUNCHED_ENV.to_owned(), "1".to_owned());
     if launch(&next) {
         return true;
     }

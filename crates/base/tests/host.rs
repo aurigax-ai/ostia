@@ -66,3 +66,31 @@ fn the_config_folder_fails_when_a_file_is_in_the_way() {
         Err(Error::Io { .. })
     ));
 }
+
+#[test]
+fn hands_children_an_environment_without_the_relaunch_and_gpu_markers() {
+    let home = TempDir::new().unwrap();
+    let host = host(
+        &home,
+        Platform::Linux,
+        &[
+            ("PATH", "/usr/bin"),
+            ("DRI_PRIME", "pci-0000_01_00_0"),
+            ("OSTIA_NO_NEW_PRIVS_RELAUNCHED", "1"),
+            (
+                "OSTIA_GPU_RESTORE",
+                r#"{"DRI_PRIME":null,"__NV_PRIME_RENDER_OFFLOAD":"1"}"#,
+            ),
+        ],
+    );
+    let child = host.child_env();
+    assert_eq!(child.get("PATH").map(String::as_str), Some("/usr/bin"));
+    assert_eq!(
+        child.get("__NV_PRIME_RENDER_OFFLOAD").map(String::as_str),
+        Some("1")
+    );
+    assert!(!child.contains_key("OSTIA_NO_NEW_PRIVS_RELAUNCHED"));
+    assert!(!child.contains_key("OSTIA_GPU_RESTORE"));
+    assert!(!child.contains_key("DRI_PRIME"));
+    assert!(host.env.contains_key("OSTIA_GPU_RESTORE"));
+}

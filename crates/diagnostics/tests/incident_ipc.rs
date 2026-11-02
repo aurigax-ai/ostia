@@ -5,7 +5,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use ostia_contract::incident::INCIDENT_WORDS_MAX;
-use ostia_diagnostics::incident_ipc::{IncidentActions, IncidentActionsDeps, Redacted};
+use ostia_diagnostics::incident_ipc::{
+    IncidentActions, IncidentActionsDeps, RedactFailed, Redacted,
+};
 use ostia_diagnostics::incident_timeline::{
     IncidentTimeline, IncidentTimelineDeps, PaneSnapshot, SnapshotFn,
 };
@@ -56,8 +58,15 @@ fn rig(options: Options) -> Rig {
         incidents: timeline.clone(),
         redact: Arc::new(|text: &str| {
             let count = text.matches("secret").count();
+            let failed = text.contains("unscannable");
             let text = text.replace("secret", "[redacted]");
-            Box::pin(async move { Redacted { text, count } })
+            Box::pin(async move {
+                if failed {
+                    Err(RedactFailed)
+                } else {
+                    Ok(Redacted { text, count })
+                }
+            })
         }),
         external_of: Arc::new(|reference: &str| (reference == "ext-1").then(|| "i1".to_owned())),
         agent_of: Arc::new(move |pane_id: &str| {
@@ -194,6 +203,27 @@ async fn writes_the_report_text_with_redacted_words_and_counts_the_redactions() 
     assert!(report.text.contains(
         "Ostia could not see: the agent's own screen and reasoning, terminal text, model output, prompts and messages"
     ));
+}
+
+#[tokio::test]
+async fn gives_no_report_when_the_scan_of_the_words_fails() {
+    let rig = default_rig();
+    with_incident(&rig, "pane-1", "not-submitted").await;
+    assert!(
+        rig.actions
+            .report("i1", &words("it leaked unscannable one", "no secret here"))
+            .await
+            .is_none()
+    );
+    assert!(
+        rig.actions
+            .report("i1", &words("fine", "unscannable"))
+            .await
+            .is_none()
+    );
+    assert!(!rig.actions.open_issue());
+    assert!(rig.clipboard.lock().is_empty());
+    assert!(!rig.actions.save().await.unwrap());
 }
 
 #[tokio::test]

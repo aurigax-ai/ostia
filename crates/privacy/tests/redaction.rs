@@ -8,7 +8,8 @@ use std::time::Duration;
 
 use common::{Counting, FAKE, Failing, HARMLESS, MIB, fixture_script, off, on, real_worker};
 use ostia_contract::redaction::{
-    REDACT_TEXT_MAX, REDACT_TEXTS_MAX, RedactionKindSource, RedactionResult,
+    REDACT_TEXT_MAX, REDACT_TEXTS_MAX, RedactionKindInfo, RedactionKindSource, RedactionResult,
+    SecretSpan,
 };
 use ostia_privacy::redaction::{Redactor, ScrollbackRedactor, redact_requested_texts};
 use ostia_privacy::redaction_scan::{ScanError, SecretScan, WorkerScan, scan_deadline};
@@ -276,9 +277,9 @@ async fn fails_closed_on_every_way_in_when_the_scan_fails() {
 #[tokio::test]
 async fn fails_closed_when_the_worker_program_is_missing() {
     let missing = WorkerScan::new(
+        common::node(),
         fixture_script("no-such-worker.mjs"),
         scan_deadline,
-        &common::path_env(),
     );
     let redactor = Redactor::new(|| Value::Null, missing.clone());
     assert!(redactor.redact("anything").await.is_err());
@@ -466,22 +467,33 @@ async fn returns_the_error_of_a_failed_scan_and_stores_nothing_for_the_pane() {
     assert_eq!(*calls.lock().unwrap(), 2);
 }
 
+struct ShortBudget;
+
+impl SecretScan for ShortBudget {
+    fn deadline(&self, _length: usize) -> Duration {
+        Duration::from_millis(50)
+    }
+
+    async fn scan(&self, _text: &str) -> Result<Vec<SecretSpan>, ScanError> {
+        Ok(Vec::new())
+    }
+
+    async fn library_kinds(&self) -> Result<Vec<RedactionKindInfo>, ScanError> {
+        Ok(Vec::new())
+    }
+}
+
 #[tokio::test]
 async fn fails_closed_within_its_deadline_when_a_pattern_of_the_human_never_finishes() {
-    let worker = WorkerScan::new(
-        fixture_script("scan-hang.mjs"),
-        |_| Duration::from_millis(400),
-        &common::path_env(),
-    );
+    let patterns: Vec<String> = (0..20).map(|n| format!("[a-z]+Z{n}")).collect();
     let redactor = Redactor::new(
-        || json!({"redaction": {"patterns": ["[a-z]+Z"]}}),
-        worker.clone(),
+        move || json!({"redaction": {"patterns": patterns}}),
+        ShortBudget,
     );
     let started = std::time::Instant::now();
     let error = redactor.redact(&"a".repeat(8 * MIB)).await.unwrap_err();
     assert_eq!(error.to_string(), "scan timed out");
     assert!(started.elapsed() < Duration::from_secs(3));
-    worker.close().await;
 }
 
 #[tokio::test]

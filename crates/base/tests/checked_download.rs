@@ -505,3 +505,37 @@ async fn ignores_the_proxy_variables_of_the_environment() {
     .unwrap();
     assert_eq!(response.read_capped(100).await.as_deref(), Some("direct"));
 }
+
+#[test]
+fn writes_the_file_without_blocking_the_async_thread() {
+    let (done, finished) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let server = serve(|_, _| ok(b"hello")).await;
+            let dir = tempdir().unwrap();
+            let pipe = dir.path().join("pipe");
+            let made = std::process::Command::new("mkfifo").arg(&pipe).status();
+            assert!(made.unwrap().success());
+            let reader = tokio::spawn({
+                let pipe = pipe.clone();
+                async move { tokio::fs::read(&pipe).await.unwrap() }
+            });
+            let digest = download_checked(
+                &request(&format!("{}/a", server.base), local_only(server.port)),
+                &target(pipe, false, 1000),
+            )
+            .await
+            .unwrap();
+            done.send((digest, reader.await.unwrap())).unwrap();
+        });
+    });
+    let (digest, body) = finished
+        .recv_timeout(std::time::Duration::from_secs(20))
+        .expect("the download blocked the async thread");
+    assert_eq!(body, b"hello");
+    assert_eq!(digest, hex::encode(Sha256::digest(b"hello")));
+}

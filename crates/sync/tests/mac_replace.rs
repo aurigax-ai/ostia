@@ -14,8 +14,8 @@ use ostia_contract::install_method::{ReplaceAvailability, ReplaceBlock, ReplaceF
 use ostia_contract::releases::ReleaseInfo;
 use ostia_sync::install_replace::ReplaceError;
 use ostia_sync::mac_replace::{
-    CommandResult, ReplaceMacInstall, RunCommand, SignaturePolicy, SwapDeps, SwapResult,
-    can_replace_bundle, designated_requirement, discard_staged, old_bundle_path,
+    COMMAND_OUTPUT_MAX, CommandResult, ReplaceMacInstall, RunCommand, SignaturePolicy, SwapDeps,
+    SwapResult, can_replace_bundle, designated_requirement, discard_staged, old_bundle_path,
     replace_mac_install, run_command, signature_policy, staged_bundle_path, swap_staged_bundle,
     verify_staged_sync,
 };
@@ -755,6 +755,18 @@ fn fails_closed_for_a_folder_that_is_not_a_signed_app() {
         &root.path().join("missing.app"),
         SignaturePolicy::Adhoc
     ));
+}
+
+#[tokio::test]
+async fn fails_a_command_whose_output_is_over_one_mebibyte_and_keeps_only_the_first_mebibyte() {
+    let script = format!("head -c {} /dev/zero | tr '\\0' a", COMMAND_OUTPUT_MAX * 2);
+    let flood = run_command("/bin/sh", &["-c".to_owned(), script]).await;
+    assert_ne!(flood.code, 0);
+    assert_eq!(flood.output.len(), COMMAND_OUTPUT_MAX);
+    let fits = format!("head -c {COMMAND_OUTPUT_MAX} /dev/zero | tr '\\0' a");
+    let full = run_command("/bin/sh", &["-c".to_owned(), fits]).await;
+    assert_eq!(full.code, 0);
+    assert_eq!(full.output.len(), COMMAND_OUTPUT_MAX);
 }
 
 #[tokio::test]

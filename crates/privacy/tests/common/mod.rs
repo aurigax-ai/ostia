@@ -20,8 +20,11 @@ pub fn fixture_script(name: &str) -> PathBuf {
     repo_root().join("test/fixtures/rust").join(name)
 }
 
-pub fn path_env() -> std::collections::BTreeMap<String, String> {
-    std::collections::BTreeMap::from([("PATH".to_owned(), std::env::var("PATH").unwrap())])
+pub fn node() -> PathBuf {
+    std::env::split_paths(&std::env::var_os("PATH").unwrap())
+        .map(|dir| dir.join("node"))
+        .find(|candidate| candidate.is_file())
+        .unwrap()
 }
 
 pub fn real_worker_script() -> PathBuf {
@@ -29,7 +32,7 @@ pub fn real_worker_script() -> PathBuf {
 }
 
 pub fn real_worker() -> WorkerScan {
-    WorkerScan::new(real_worker_script(), scan_deadline, &path_env())
+    WorkerScan::new(node(), real_worker_script(), scan_deadline)
 }
 
 pub fn on() -> Redactor<WorkerScan> {

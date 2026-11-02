@@ -29,10 +29,19 @@ pub struct HistoryBlock {
     pub command: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct HistoryChunk {
     pub first: u64,
     pub lines: Vec<String>,
+}
+
+impl std::fmt::Debug for HistoryChunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HistoryChunk")
+            .field("first", &self.first)
+            .field("lines", &self.lines.len())
+            .finish()
+    }
 }
 
 type LimitBytes = Arc<dyn Fn() -> Option<u64> + Send + Sync>;

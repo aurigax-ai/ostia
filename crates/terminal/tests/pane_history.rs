@@ -206,3 +206,12 @@ async fn removes_its_folder_only_after_a_write_that_is_opening_its_segment_finis
     assert!(made.failures.lock().is_empty());
     assert!(!made.dir.exists());
 }
+
+#[test]
+fn prints_no_history_text_in_the_debug_output_of_a_chunk() {
+    let chunk = ostia_terminal::pane_history::HistoryChunk {
+        first: 0,
+        lines: vec!["hunter2".to_owned()],
+    };
+    assert!(!format!("{chunk:?}").contains("hunter2"));
+}

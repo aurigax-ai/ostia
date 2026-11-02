@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use futures_util::FutureExt;
 use ostia_base::host::Platform;
 use ostia_files::app_handler::HandlerLookup;
-use ostia_files::app_links::{AppLinkDeps, app_link_info, open_link};
+use ostia_files::app_links::{AppLinkDeps, LinkSender, app_link_info, open_link};
 use ostia_files::browser_pages::{BrowserHost, BrowserLaunch};
 use parking_lot::Mutex;
 use serde_json::{Value, json};
@@ -92,11 +92,25 @@ impl Rig {
 }
 
 async fn info(rig: &Rig, raw: Value) -> Value {
-    serde_json::to_value(app_link_info(&rig.deps(), &raw).await).unwrap()
+    serde_json::to_value(app_link_info(&rig.deps(), LinkSender::AppWindow, &raw).await).unwrap()
 }
 
 async fn open(rig: &Rig, raw: Value, confirmed: Value) -> Value {
-    serde_json::to_value(open_link(&rig.deps(), &raw, &confirmed).await).unwrap()
+    serde_json::to_value(open_link(&rig.deps(), LinkSender::AppWindow, &raw, &confirmed).await)
+        .unwrap()
+}
+
+#[tokio::test]
+async fn refuses_a_sender_that_is_not_an_app_window() {
+    let rig = Rig::new();
+    let blocked = json!({"ok": false, "error": "blocked"});
+    let raw = json!("obsidian://open?vault=a");
+    let info = serde_json::to_value(app_link_info(&rig.deps(), LinkSender::Other, &raw).await);
+    assert_eq!(info.unwrap(), blocked);
+    let opened = open_link(&rig.deps(), LinkSender::Other, &raw, &json!(true)).await;
+    assert_eq!(serde_json::to_value(opened).unwrap(), blocked);
+    assert!(rig.opened().is_empty());
+    assert!(rig.started.lock().is_empty());
 }
 
 #[tokio::test]
@@ -325,7 +339,13 @@ async fn reports_a_failure_when_the_browser_cannot_start() {
     rig.install("/opt/bin/google-chrome-stable");
     let mut deps = rig.deps();
     deps.start_browser = Arc::new(|_, _| async { false }.boxed());
-    let result = open_link(&deps, &json!("chrome://inspect/"), &json!(true)).await;
+    let result = open_link(
+        &deps,
+        LinkSender::AppWindow,
+        &json!("chrome://inspect/"),
+        &json!(true),
+    )
+    .await;
     assert_eq!(
         serde_json::to_value(result).unwrap(),
         json!({"ok": false, "error": "failed"})

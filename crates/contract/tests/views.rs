@@ -241,6 +241,8 @@ fn allows_only_http_and_https_urls() {
     }
     let templated = first_problem(&link("javascript:{{workspace.name}}"));
     assert!(templated.contains("must start with"), "{templated}");
+    let folded = first_problem(&link("httpſ://{{workspace.name}}"));
+    assert!(folded.contains("must start with"), "{folded}");
     let button = plain(json!({
         "type": "button",
         "label": "x",

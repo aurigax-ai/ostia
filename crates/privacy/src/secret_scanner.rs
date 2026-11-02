@@ -8,11 +8,20 @@ const REPORTED_VALUE_MIN: usize = 8;
 const KIND_MAX: usize = 48;
 const FALLBACK_KIND: &str = "secret";
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct LintMessage {
     pub rule_id: String,
     pub range: (usize, usize),
     pub data: Value,
+}
+
+impl std::fmt::Debug for LintMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LintMessage")
+            .field("rule_id", &self.rule_id)
+            .field("range", &self.range)
+            .finish_non_exhaustive()
+    }
 }
 
 pub fn kind_of_rule(rule_id: &str) -> String {

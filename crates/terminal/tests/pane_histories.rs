@@ -18,7 +18,7 @@ use ostia_terminal::scrollback_history::ScrollbackHistory;
 use parking_lot::Mutex;
 use tempfile::TempDir;
 
-type Free = Arc<dyn Fn(&Path) -> u64 + Send + Sync>;
+type Free = Arc<dyn Fn(&Path) -> Result<u64, String> + Send + Sync>;
 
 const DEAD_PID: u32 = (1 << 22) + 7;
 
@@ -34,7 +34,7 @@ fn deps(root: &Path, setting: ScrollbackHistory, free: Free) -> PaneHistoriesDep
 }
 
 fn plenty() -> Free {
-    Arc::new(|_| FREE_SPACE_FLOOR * 2)
+    Arc::new(|_| Ok(FREE_SPACE_FLOOR * 2))
 }
 
 fn histories(setting: ScrollbackHistory, free: Free) -> (PaneHistories, TempDir) {
@@ -120,9 +120,9 @@ async fn frees_space_from_the_largest_pane_first_when_the_disk_runs_low() {
         Arc::new(move |_| {
             let first_is_zero = big.lock().as_ref().is_some_and(|h| h.first() == 0);
             if low.load(Ordering::SeqCst) && first_is_zero {
-                0
+                Ok(0)
             } else {
-                FREE_SPACE_FLOOR
+                Ok(FREE_SPACE_FLOOR)
             }
         })
     };
@@ -148,8 +148,48 @@ async fn frees_space_from_the_largest_pane_first_when_the_disk_runs_low() {
 }
 
 #[tokio::test]
+async fn fails_only_the_asking_pane_when_the_free_space_cannot_be_read() {
+    let root = tempfile::tempdir().unwrap();
+    let broken = Arc::new(AtomicBool::new(false));
+    let read = broken.clone();
+    let free: Free = Arc::new(move |_| {
+        if read.load(Ordering::SeqCst) {
+            Err("EIO".to_owned())
+        } else {
+            Ok(FREE_SPACE_FLOOR * 2)
+        }
+    });
+    let mut config = deps(root.path(), ScrollbackHistory::Unlimited, free);
+    config.segment_bytes = Some(1);
+    let reasons: Arc<Mutex<Vec<(String, String)>>> = Arc::new(Mutex::new(Vec::new()));
+    let recorded = reasons.clone();
+    config.on_failed = Some(Arc::new(move |pane, reason| {
+        recorded.lock().push((pane.to_owned(), reason.to_owned()));
+    }));
+    let store = PaneHistories::new(config);
+    let other = store.for_pane("other").unwrap();
+    for i in 0..3 {
+        put(&other, &line(&format!("o {i}")));
+        other.flush().await;
+    }
+    let first_before = other.first();
+    let asking = store.for_pane("asking").unwrap();
+    broken.store(true, Ordering::SeqCst);
+    put(&asking, &line("y"));
+    asking.flush().await;
+    assert!(!asking.live());
+    assert!(other.live());
+    assert_eq!(other.first(), first_before);
+    assert_eq!(
+        *reasons.lock(),
+        vec![("asking".to_owned(), "EIO".to_owned())]
+    );
+    store.remove_all().await.unwrap();
+}
+
+#[tokio::test]
 async fn turns_a_pane_off_when_no_pane_can_give_up_space() {
-    let (store, _root) = histories(ScrollbackHistory::Unlimited, Arc::new(|_| 0));
+    let (store, _root) = histories(ScrollbackHistory::Unlimited, Arc::new(|_| Ok(0)));
     let only = store.for_pane("only").unwrap();
     put(&only, &line("y"));
     only.flush().await;
@@ -182,7 +222,7 @@ async fn quit_waits_for_the_pending_segment_write_of_a_pane_closed_just_before_q
                 entered_tx.lock().send(()).unwrap();
                 release_rx.lock().recv().unwrap();
             }
-            FREE_SPACE_FLOOR * 2
+            Ok(FREE_SPACE_FLOOR * 2)
         });
         let store = PaneHistories::new(deps(root.path(), ScrollbackHistory::Unlimited, free));
         let history = store.for_pane("p1").unwrap();

@@ -27,6 +27,7 @@ struct State {
     published: AtomicUsize,
     cleared: AtomicUsize,
     version: AtomicUsize,
+    panics: AtomicBool,
 }
 
 #[derive(Clone, Default)]
@@ -54,6 +55,9 @@ impl RefreshSource for Source {
         Box::pin(async move {
             if let Some(gate) = gate {
                 let _ = gate.await;
+            }
+            if state.panics.swap(false, Ordering::SeqCst) {
+                panic!("read exploded");
             }
             if let Some(message) = state.failure.lock().unwrap().clone() {
                 return Err(message);
@@ -450,4 +454,29 @@ async fn ignores_a_watch_call_that_does_not_change_the_set() {
     rig.refresher.watch("w1", &json!(["b", "a"]));
     advance(0).await;
     assert_eq!(reads(&rig), 1);
+}
+
+#[tokio::test(start_paused = true)]
+async fn reads_again_after_a_read_that_panicked() {
+    let rig = rig();
+    rig.source.0.panics.store(true, Ordering::SeqCst);
+    rig.refresher.watch("w1", &json!(["a"]));
+    advance(0).await;
+    assert_eq!(reads(&rig), 1);
+    rig.refresher.refresh().await;
+    assert_eq!(reads(&rig), 2);
+    assert_eq!(sent(&rig).len(), 1);
+}
+
+#[test]
+fn does_not_panic_when_used_off_a_runtime() {
+    let rig = rig();
+    rig.refresher.watch("w1", &json!(["a"]));
+    rig.refresher.set_focused(false);
+    rig.refresher.set_focused(true);
+    rig.refresher.activity("git.changed");
+    rig.refresher.apply();
+    rig.refresher.stop();
+    assert!(!rig.refresher.polling());
+    assert!(!rig.refresher.pending());
 }

@@ -153,3 +153,34 @@ fn writes_each_event_in_the_wire_shape_of_ts() {
         assert_eq!(serde_json::to_value(&event).unwrap(), expected, "{event:?}");
     }
 }
+
+#[test]
+fn prints_no_agent_text_in_the_debug_output_of_an_event() {
+    let events = [
+        StreamEvent::Prompt {
+            turn: "t".to_owned(),
+            id: "i".to_owned(),
+            text: "hunter2".to_owned(),
+            append: false,
+        },
+        StreamEvent::ToolResult {
+            turn: "t".to_owned(),
+            id: "i".to_owned(),
+            output: "hunter2".to_owned(),
+            exit_code: None,
+            is_error: false,
+            append: false,
+        },
+        StreamEvent::Edit {
+            turn: "t".to_owned(),
+            id: "i".to_owned(),
+            path: "hunter2".to_owned(),
+            change: ostia_contract::agent_stream::EditChange::Add,
+            diff: "hunter2".to_owned(),
+            append: false,
+        },
+    ];
+    for event in events {
+        assert!(!format!("{event:?}").contains("hunter2"));
+    }
+}

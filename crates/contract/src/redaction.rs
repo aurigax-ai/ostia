@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::sync::LazyLock;
+use std::time::Instant;
 
 use ostia_base::js::{JS_SPACE_CLASS, js_trim, static_regex, utf16_len};
 use regex::{Regex, RegexBuilder};
@@ -264,8 +265,52 @@ fn structure_problem(source: &[char]) -> Option<PatternProblem> {
     None
 }
 
+fn regex_syntax_of(source: &[char]) -> String {
+    let mut out = String::with_capacity(source.len());
+    let mut in_class = false;
+    let mut index = 0;
+    while index < source.len() {
+        let ch = source[index];
+        if ch == '\\' {
+            out.push(ch);
+            if let Some(next) = source.get(index + 1) {
+                out.push(*next);
+            }
+            index += 2;
+            continue;
+        }
+        if in_class {
+            let doubled = matches!(ch, '&' | '~') && source.get(index + 1) == Some(&ch);
+            if doubled {
+                out.push('\\');
+                out.push(ch);
+                out.push('\\');
+                out.push(ch);
+                index += 2;
+                continue;
+            }
+            if ch == '[' {
+                out.push('\\');
+            }
+            in_class = ch != ']';
+            out.push(ch);
+        } else if ch == '[' {
+            in_class = true;
+            out.push(ch);
+        } else {
+            if ch == '{' && braces_at(source, index).is_none() {
+                out.push('\\');
+            }
+            out.push(ch);
+        }
+        index += 1;
+    }
+    out
+}
+
 fn compile(source: &str) -> Option<Regex> {
-    RegexBuilder::new(source).build().ok()
+    let chars: Vec<char> = source.chars().collect();
+    RegexBuilder::new(&regex_syntax_of(&chars)).build().ok()
 }
 
 pub fn pattern_problem(source: &str) -> Option<PatternProblem> {
@@ -315,10 +360,10 @@ fn advance_units(text: &str, from: usize, units: usize) -> usize {
     text.len()
 }
 
-pub fn custom_spans(text: &str, regexes: &[Regex]) -> Vec<SecretSpan> {
+pub fn custom_spans(text: &str, regexes: &[Regex], until: Instant) -> Option<Vec<SecretSpan>> {
     let mut spans = Vec::new();
     if regexes.is_empty() {
-        return spans;
+        return Some(spans);
     }
     let mut line_start = 0;
     while line_start < text.len() {
@@ -331,6 +376,9 @@ pub fn custom_spans(text: &str, regexes: &[Regex]) -> Vec<SecretSpan> {
             let piece = &text[at..piece_end];
             for regex in regexes {
                 for found in regex.find_iter(piece) {
+                    if Instant::now() >= until {
+                        return None;
+                    }
                     if found.as_str().is_empty() {
                         continue;
                     }
@@ -348,7 +396,7 @@ pub fn custom_spans(text: &str, regexes: &[Regex]) -> Vec<SecretSpan> {
         }
         line_start = line_end + 1;
     }
-    spans
+    Some(spans)
 }
 
 fn case_insensitive(word: &str) -> String {
@@ -498,10 +546,17 @@ fn next_boundary(text: &str, from: usize) -> usize {
     from + text[from..].chars().next().map_or(1, char::len_utf8)
 }
 
-fn bounded_captures<'t>(detector: &ExtraDetector, text: &'t str) -> Vec<regex::Captures<'t>> {
+fn bounded_captures<'t>(
+    detector: &ExtraDetector,
+    text: &'t str,
+    until: Instant,
+) -> Option<Vec<regex::Captures<'t>>> {
     let mut found = Vec::new();
     let mut at = 0;
     while at <= text.len() {
+        if Instant::now() >= until {
+            return None;
+        }
         let Some(captures) = detector.pattern.captures_at(text, at) else {
             break;
         };
@@ -519,13 +574,13 @@ fn bounded_captures<'t>(detector: &ExtraDetector, text: &'t str) -> Vec<regex::C
             at = next_boundary(text, whole.start());
         }
     }
-    found
+    Some(found)
 }
 
-pub fn extra_spans(text: &str) -> Vec<SecretSpan> {
+pub fn extra_spans(text: &str, until: Instant) -> Option<Vec<SecretSpan>> {
     let mut spans = Vec::new();
     for detector in EXTRA_DETECTORS.iter() {
-        for captures in bounded_captures(detector, text) {
+        for captures in bounded_captures(detector, text, until)? {
             let Some(value) = captures.get(1) else {
                 continue;
             };
@@ -539,7 +594,7 @@ pub fn extra_spans(text: &str) -> Vec<SecretSpan> {
             });
         }
     }
-    spans
+    Some(spans)
 }
 
 static PLACEHOLDER: LazyLock<Regex> =

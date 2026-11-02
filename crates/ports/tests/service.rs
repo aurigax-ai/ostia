@@ -65,6 +65,10 @@ fn trees() -> HashMap<i32, TreeInfo> {
 }
 
 fn fixture() -> Fixture {
+    fixture_with(|external| Some(external.replace("ext-", "pane-")))
+}
+
+fn fixture_with(renderer: impl Fn(&str) -> Option<String> + Send + Sync + 'static) -> Fixture {
     let settings = Arc::new(Mutex::new(PortsSettings::default()));
     let sent: Sent = Arc::default();
     let scan_calls: ScanCalls = Arc::default();
@@ -81,7 +85,7 @@ fn fixture() -> Fixture {
                 Box::pin(async { vec![pane("ext-a", "one", 10), pane("ext-b", "two", 20)] })
             }
         }),
-        renderer_pane_id: Box::new(|external| Some(external.replace("ext-", "pane-"))),
+        renderer_pane_id: Box::new(renderer),
         send: Box::new({
             let sent = Arc::clone(&sent);
             move |window_id, channel, payload| {
@@ -215,6 +219,16 @@ async fn shows_a_foreground_ssh_login_on_its_pane_by_renderer_pane_id_and_in_the
             },
         ]),
     );
+    f.service.stop();
+}
+
+#[tokio::test(start_paused = true)]
+async fn shows_no_pane_chip_for_an_empty_renderer_pane_id() {
+    let f = fixture_with(|_| Some(String::new()));
+    f.service.watch("w1", &["two"]);
+    settle(0).await;
+    let items = f.items("w1").unwrap();
+    assert_eq!(items["paneChips"], json!([]));
     f.service.stop();
 }
 
