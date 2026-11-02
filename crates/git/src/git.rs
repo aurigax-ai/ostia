@@ -127,3 +127,29 @@ pub struct BlameLine {
     pub summary: String,
     pub text: String,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum GraphScope {
+    Current,
+    All,
+    Chosen { refs: Vec<String> },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct BranchRef {
+    pub r#ref: String,
+    pub name: String,
+    pub remote: bool,
+    pub current: bool,
+    pub sha: String,
+    pub time: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScopePlan {
+    pub scope: GraphScope,
+    pub revisions: Vec<String>,
+    pub includes_head: bool,
+}
