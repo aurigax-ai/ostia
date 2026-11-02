@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::playbooks::{
     PlaybookExtraFile, active_playbooks, collapse_spaces, parse_playbooks, skill_text,
 };
-use crate::skill_directive::skill_directive;
+use ostia_contract::agent_skills::skill_directive;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlaybookFile {

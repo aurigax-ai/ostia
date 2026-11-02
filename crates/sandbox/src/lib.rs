@@ -1,8 +1,13 @@
+pub mod left_behind;
 pub mod package_env;
 pub mod package_lookups;
 pub mod package_policy;
 pub mod package_requests;
 pub mod packages;
+pub mod plugins_farm;
+pub mod protocol;
+pub mod pty_wrap;
+pub mod sandboxed_caller;
 pub mod visibility;
 
 use std::collections::HashSet;

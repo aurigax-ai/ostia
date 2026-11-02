@@ -1,0 +1,2 @@
+[2m Keep shells: tmux could not start its server: line one ]0;x two three.
+ This shell will not survive a restart.[0m

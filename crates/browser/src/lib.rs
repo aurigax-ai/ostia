@@ -1,5 +1,15 @@
-pub mod chord_spec;
+pub mod browse_world;
+pub mod browser_profile;
+pub mod browser_profiles;
+pub mod browser_user_agent;
+pub mod credentials;
+pub mod guest_first_load;
+pub mod guest_inject;
 pub mod guest_key;
+pub mod guest_key_event;
+pub mod guest_link_clicks;
+pub mod guest_pointer;
+pub mod guest_tabs;
 pub mod native_menu_keys;
 
 use ostia_rpc::RpcError;

@@ -10,12 +10,6 @@ pub const AGENT_HOOK_INPUT_MAX: usize = 1024 * 1024;
 static ID_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| static_regex(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"));
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HookAgent {
-    Claude,
-    Codex,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentStop {
     pub session_id: String,
@@ -37,7 +31,7 @@ fn non_empty_list(value: Option<&Value>) -> bool {
         .is_some_and(|items| !items.is_empty())
 }
 
-pub fn parse_agent_stop(_agent: HookAgent, input: &str) -> Option<AgentStop> {
+pub fn parse_agent_stop(_agent: &str, input: &str) -> Option<AgentStop> {
     if input.len() > AGENT_HOOK_INPUT_MAX {
         return None;
     }

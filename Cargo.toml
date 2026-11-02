@@ -20,6 +20,7 @@ ostia-approvals = { path = "crates/approvals" }
 ostia-attention = { path = "crates/attention" }
 ostia-base = { path = "crates/base" }
 ostia-contract = { path = "crates/contract" }
+ostia-diagnostics = { path = "crates/diagnostics" }
 ostia-control = { path = "crates/control" }
 ostia-model = { path = "crates/model" }
 ostia-park = { path = "crates/park" }
@@ -32,17 +33,22 @@ base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 command-fds = "0.3"
+fixed_decimal = "0.7"
 flate2 = "1"
 futures = "0.3"
 futures-util = "0.3"
 gpui-kit = { version = "=0.8.1", default-features = false, features = ["component"] }
 getrandom = "0.4"
+globset = "0.4"
 hex = "0.4"
 hmac = "0.13"
 icu_collator = "2"
+icu_experimental = "0.7"
+icu_locale_core = "2"
 libc = "0.2"
 libghostty-vt = { version = "0.2.2", default-features = false }
 parking_lot = "0.12"
+notify = "8"
 percent-encoding = "2"
 portable-pty = "0.9.0"
 regex = "1"
@@ -56,12 +62,14 @@ tar = { version = "0.4", default-features = false }
 tempfile = "3"
 thiserror = "2"
 tokio = { version = "1.53", features = ["io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-tungstenite = "0.28"
 tokio-util = { version = "0.7", features = ["codec", "rt"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unicode-normalization = "0.1"
 url = "2"
 uuid = { version = "1", features = ["v4"] }
+writeable = "0.6"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

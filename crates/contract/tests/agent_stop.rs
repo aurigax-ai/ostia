@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use ostia_contract::agent_stop::{AGENT_HOOK_INPUT_MAX, AgentStop, HookAgent, parse_agent_stop};
+use ostia_contract::agent_stop::{AGENT_HOOK_INPUT_MAX, AgentStop, parse_agent_stop};
 use serde_json::{Map, Value, json};
 
 const SESSION: &str = "0f6b2a3c-aaaa-4bbb-8ccc-0123456789ab";
@@ -34,7 +34,7 @@ fn codex_stop() -> String {
 #[test]
 fn grf_c129_reads_the_session_and_closing_message_of_claude_code_and_codex() {
     assert_eq!(
-        parse_agent_stop(HookAgent::Claude, &claude_stop(json!({}))),
+        parse_agent_stop("claude", &claude_stop(json!({}))),
         Some(AgentStop {
             session_id: SESSION.to_owned(),
             turn_id: None,
@@ -43,7 +43,7 @@ fn grf_c129_reads_the_session_and_closing_message_of_claude_code_and_codex() {
         })
     );
     assert_eq!(
-        parse_agent_stop(HookAgent::Codex, &codex_stop()),
+        parse_agent_stop("codex", &codex_stop()),
         Some(AgentStop {
             session_id: "019a-codex-session".to_owned(),
             turn_id: Some("turn-7".to_owned()),
@@ -52,38 +52,30 @@ fn grf_c129_reads_the_session_and_closing_message_of_claude_code_and_codex() {
         })
     );
     let tasks = claude_stop(json!({ "background_tasks": [{ "id": "b1", "status": "running" }] }));
-    assert!(
-        parse_agent_stop(HookAgent::Claude, &tasks)
-            .unwrap()
-            .background_work
-    );
+    assert!(parse_agent_stop("claude", &tasks).unwrap().background_work);
     let crons = claude_stop(json!({ "session_crons": [{ "id": "c1" }] }));
-    assert!(
-        parse_agent_stop(HookAgent::Claude, &crons)
-            .unwrap()
-            .background_work
-    );
+    assert!(parse_agent_stop("claude", &crons).unwrap().background_work);
 }
 
 #[test]
 fn grf_c130_no_message_without_the_field_and_nothing_from_bad_or_large_input() {
     let mut payload: Map<String, Value> = serde_json::from_str(&claude_stop(json!({}))).unwrap();
     payload.remove("last_assistant_message");
-    let without = parse_agent_stop(HookAgent::Claude, &Value::Object(payload).to_string()).unwrap();
+    let without = parse_agent_stop("claude", &Value::Object(payload).to_string()).unwrap();
     assert_eq!(without.message, None);
     assert_eq!(without.session_id, SESSION);
-    assert_eq!(parse_agent_stop(HookAgent::Claude, "not json"), None);
+    assert_eq!(parse_agent_stop("claude", "not json"), None);
     let padded = claude_stop(json!({ "pad": "x".repeat(AGENT_HOOK_INPUT_MAX) }));
-    assert_eq!(parse_agent_stop(HookAgent::Claude, &padded), None);
+    assert_eq!(parse_agent_stop("claude", &padded), None);
 }
 
 #[test]
 fn refuses_a_payload_that_is_not_an_object_or_has_a_bad_session_id() {
-    assert_eq!(parse_agent_stop(HookAgent::Claude, "[1]"), None);
-    assert_eq!(parse_agent_stop(HookAgent::Claude, "{}"), None);
+    assert_eq!(parse_agent_stop("claude", "[1]"), None);
+    assert_eq!(parse_agent_stop("claude", "{}"), None);
     for id in ["", "-x", "a b", &"a".repeat(129)] {
         let raw = json!({ "session_id": id }).to_string();
-        assert_eq!(parse_agent_stop(HookAgent::Claude, &raw), None, "{id}");
+        assert_eq!(parse_agent_stop("claude", &raw), None, "{id}");
     }
 }
 
@@ -91,7 +83,7 @@ fn refuses_a_payload_that_is_not_an_object_or_has_a_bad_session_id() {
 fn takes_the_prompt_id_when_there_is_no_turn_id_and_drops_a_blank_message() {
     let raw = json!({ "session_id": "s-1", "prompt_id": "p-1", "last_assistant_message": " \n " })
         .to_string();
-    let stop = parse_agent_stop(HookAgent::Codex, &raw).unwrap();
+    let stop = parse_agent_stop("codex", &raw).unwrap();
     assert_eq!(stop.turn_id.as_deref(), Some("p-1"));
     assert_eq!(stop.message, None);
 }

@@ -1,4 +1,8 @@
+pub mod closed_panes;
 mod hidden_text;
+pub mod pane_confirm;
+pub mod pane_input;
+pub mod pane_journal;
 pub mod pane_names;
 pub mod pane_waking;
 pub mod phone_agent;
