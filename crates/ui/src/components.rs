@@ -1,7 +1,7 @@
 pub mod badge;
 pub mod button;
-pub mod commit_input;
 pub mod checkbox;
+pub mod commit_input;
 pub mod control_row;
 pub mod dialog;
 pub mod empty_state;
@@ -29,8 +29,8 @@ pub mod tooltip;
 pub use crate::icons::IconName;
 pub use badge::{Badge, BadgeVariant};
 pub use button::{Button, ButtonSize, ButtonVariant, ClickHandler};
-pub use commit_input::{CommitInput, CommitInputState};
 pub use checkbox::Checkbox;
+pub use commit_input::{CommitInput, CommitInputState};
 pub use control_row::{ControlRow, ExperimentalBadge, toggle_row};
 pub use dialog::{close_dialog, open_dialog};
 pub use empty_state::{EmptyBlock, EmptyState, EmptySurfaceSize};

@@ -207,11 +207,12 @@ impl<'a> Case<'a> {
     }
 
     fn focus(&mut self) {
-        self.step(|view, window, cx| focus_field(view, window, cx));
+        self.step(focus_field);
     }
 
     fn leave(&mut self) {
-        self.step(|view, window, cx| leave_field(view, window, cx));
+        self.step(leave_field);
+        self.step(|_, window, cx| window.render_frame(cx));
     }
 
     fn press(&mut self, key: &'static str) {
