@@ -19,10 +19,12 @@ use ostia_terminal::spill_host::{SpillEvent, SpillRequest};
 use ostia_terminal::spill_terminal::{SPILL_SCROLLBACK, SpillTerminal};
 use parking_lot::Mutex;
 
+type EventListener = Arc<dyn Fn(SpillEvent) + Send + Sync>;
+
 #[derive(Default)]
 struct FakePort {
     posted: Mutex<Vec<SpillRequest>>,
-    listener: Mutex<Option<Arc<dyn Fn(SpillEvent) + Send + Sync>>>,
+    listener: Mutex<Option<EventListener>>,
 }
 
 impl SpillPort for FakePort {
@@ -168,7 +170,7 @@ fn make_histories() -> (PaneHistories, tempfile::TempDir) {
 
 #[test]
 fn keeps_every_line_the_worker_could_still_spill_a_batch_fits_in_its_scrollback() {
-    assert!(SPILL_BATCH < SPILL_SCROLLBACK);
+    const { assert!(SPILL_BATCH < SPILL_SCROLLBACK) };
 }
 
 #[tokio::test]
