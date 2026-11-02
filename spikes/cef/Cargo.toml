@@ -1,0 +1,12 @@
+[package]
+name = "spike-cef"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+cef = { version = "=156.3.0", default-features = false, features = ["sandbox", "resources"] }
+gpui-kit = "=0.8.1"
+image = { version = "0.25", default-features = false }

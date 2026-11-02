@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>spike</title>
+<style>
+body { margin: 0; font: 16px sans-serif; background: #fff; }
+header { position: sticky; top: 0; background: #222; color: #fff; padding: 8px; }
+.row { height: 120px; border-bottom: 1px solid #ccc; padding: 8px; }
+.row:nth-child(odd) { background: #eef; }
+#box { width: 120px; height: 24px; background: #c33; animation: slide 2s linear infinite alternate; }
+@keyframes slide { to { transform: translateX(400px); } }
+video { width: 480px; height: 270px; background: #000; }
+</style>
+<header><input id="t" size="30" placeholder="type here"> <span id="log"></span></header>
+<div id="box"></div>
+<video id="v" src="video.webm" autoplay muted loop></video>
+<div id="rows"></div>
+<script>
+const state = { wheel: 0, down: 0, up: 0, move: 0, key: "", text: "", drop: "", comp: "" };
+const show = () => { document.title = JSON.stringify(state); };
+document.addEventListener("wheel", e => { state.wheel += Math.round(e.deltaY); show(); }, { passive: true });
+document.addEventListener("mousedown", e => { state.down = e.button + 1; state.x = e.clientX; state.y = e.clientY; show(); });
+document.addEventListener("mouseup", () => { state.up++; show(); });
+document.addEventListener("mousemove", e => { state.move++; });
+document.addEventListener("keydown", e => { state.key = e.key; show(); });
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => { e.preventDefault(); state.drop = [...e.dataTransfer.files].map(f => f.name).join(","); show(); });
+const t = document.getElementById("t");
+t.addEventListener("input", () => { state.text = t.value; show(); });
+t.addEventListener("compositionupdate", e => { state.comp = e.data; show(); });
+const rows = document.getElementById("rows");
+for (let i = 0; i < 200; i++) { const d = document.createElement("div"); d.className = "row"; d.textContent = "row " + i; rows.appendChild(d); }
+setInterval(show, 1000);
+</script>
