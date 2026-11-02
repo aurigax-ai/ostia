@@ -1,0 +1,5 @@
+
+[38;2;239;89;111m Sandbox unavailable: cannot start[0m
+ Missing: bubblewrap, socat
+ Install them with: ostia system install bubblewrap socat
+ No shell was started. This workspace only runs sandboxed.

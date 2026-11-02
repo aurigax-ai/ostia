@@ -23,7 +23,7 @@ fn linked_to(link: &Path, target: &Path) -> bool {
         && fs::read_link(link).is_ok_and(|current| current == target)
 }
 
-fn remove_any(path: &Path) -> Result<()> {
+pub(crate) fn remove_any(path: &Path) -> Result<()> {
     let removed = match fs::symlink_metadata(path) {
         Ok(meta) if meta.is_dir() => fs::remove_dir_all(path),
         Ok(_) => fs::remove_file(path),

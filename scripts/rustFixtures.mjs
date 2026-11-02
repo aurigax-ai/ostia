@@ -18,6 +18,8 @@ export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
 export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/paneBanner'
 export { en, zhHant, mergeCatalog } from './src/shared/app/dict'
 export { keepShellsNotice, tmuxMissing } from './src/main/tmux/keepShellsBanner'
+export { hiddenHomeNotice, sandboxFailureBanner } from './src/main/sandbox/spawnBanner'
+export { SandboxTmpDirs } from './src/main/sandbox/sandboxTmp'
 export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
 export { scrollbackToSave } from './src/main/workspaces/savedScrollback'
 export { USAGE_TABLE } from './src/cli/common/usageTable'
@@ -71,6 +73,9 @@ const {
   integrationNotLoadedNotice,
   keepShellsNotice,
   tmuxMissing,
+  hiddenHomeNotice,
+  sandboxFailureBanner,
+  SandboxTmpDirs,
   en,
   zhHant,
   mergeCatalog,
@@ -335,6 +340,42 @@ writeFileSync(
     en.native.paneBanner,
     'tmux could not start its server: line one\n\x1b]0;x\x07two  \x7f three',
   ),
+)
+
+writeFileSync(
+  join(out, 'sandbox-failure-banner-en.txt'),
+  sandboxFailureBanner(en.native.paneBanner, 'cannot start', ['bwrap not found', 'socat is missing']),
+)
+writeFileSync(
+  join(out, 'sandbox-failure-banner-zh-hant.txt'),
+  sandboxFailureBanner(zhHant.native.paneBanner, 'cannot start', ['bwrap not found']),
+)
+writeFileSync(
+  join(out, 'sandbox-failure-banner-bare.txt'),
+  sandboxFailureBanner(en.native.paneBanner, 'cannot start', []),
+)
+writeFileSync(
+  join(out, 'hidden-home-notice-en.txt'),
+  hiddenHomeNotice(en.native.paneBanner, 'linux'),
+)
+writeFileSync(
+  join(out, 'hidden-home-notice-zh-hant.txt'),
+  hiddenHomeNotice(zhHant.native.paneBanner, 'linux'),
+)
+const sandboxTmp = new SandboxTmpDirs({ tmpRoot: '/t', pid: 4242 })
+writeFileSync(
+  join(out, 'sandbox-tmp-paths.json'),
+  `${JSON.stringify(
+    ['ws-1', 'é workspace'].map((id) => ({
+      id,
+      tmpDir: sandboxTmp.tmpDir(id),
+      pluginsDir: sandboxTmp.pluginsDir(id),
+      pluginsData: sandboxTmp.pluginsData(id),
+      sshAgentSocket: sandboxTmp.sshAgentSocket(id),
+    })),
+    null,
+    2,
+  )}\n`,
 )
 
 const SNAPSHOT_BEFORE = {

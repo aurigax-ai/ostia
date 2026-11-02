@@ -1,0 +1,3 @@
+[2m Sandbox: your home folder is hidden here. Files written to it, outside the
+ workspace folder, are discarded when this shell exits. Add a writable folder
+ in Settings › Sandbox to keep them.[0m

@@ -1,0 +1,3 @@
+
+[38;2;239;89;111m Sandbox unavailable: cannot start[0m
+ No shell was started. This workspace only runs sandboxed.

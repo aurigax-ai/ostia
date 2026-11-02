@@ -1,0 +1,5 @@
+
+[38;2;239;89;111m 沙箱無法使用：cannot start[0m
+ 缺少：bubblewrap
+ 請用這個指令安裝：ostia system install bubblewrap
+ 未啟動 shell。這個工作區只能在沙箱中執行。
