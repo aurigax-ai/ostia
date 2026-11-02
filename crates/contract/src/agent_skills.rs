@@ -5,6 +5,8 @@ use ostia_base::js::{JS_SPACE_CLASS, js_trim, static_regex};
 use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
 
+use crate::agent_plugins::AgentHookEvent;
+
 const SKILL_KEYS: [&str; 2] = ["name", "description"];
 
 static LINE_BREAK: LazyLock<Regex> =
@@ -25,6 +27,13 @@ static COMMENT_AFTER_SPACE: LazyLock<Regex> =
 static BLOCK_SCALAR: LazyLock<Regex> = LazyLock::new(|| static_regex(r"^[>|][+-]?$"));
 static FLOW_START: LazyLock<Regex> = LazyLock::new(|| static_regex(r"^[{\[]"));
 static ANCHOR_START: LazyLock<Regex> = LazyLock::new(|| static_regex(r"^[&*!]"));
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExtensionAgentHook {
+    pub ext_id: String,
+    pub event: AgentHookEvent,
+    pub command: String,
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SkillFrontmatter {

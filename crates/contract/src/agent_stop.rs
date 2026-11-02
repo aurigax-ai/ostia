@@ -5,16 +5,12 @@ use ostia_base::js_json::parse_js_json;
 use regex::Regex;
 use serde_json::Value;
 
+pub use crate::agent_plugins::HookAgent;
+
 pub const AGENT_HOOK_INPUT_MAX: usize = 1024 * 1024;
 
 static ID_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| static_regex(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"));
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HookAgent {
-    Claude,
-    Codex,
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentStop {
