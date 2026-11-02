@@ -2,9 +2,9 @@
 
 use ostia_contract::attention::WorkspaceLiveState;
 use ostia_model::ids::IdNamespace;
+use ostia_model::stores::app::settings_model::NewWorkspacePlacement;
 use ostia_model::workspaces::actions::{close_workspace, ensure_terminal, new_tab_or_terminal};
 use ostia_model::workspaces::layout_store::LayoutStore;
-use ostia_model::stores::app::settings_model::NewWorkspacePlacement;
 use ostia_model::workspaces::workspaces_store::{
     WorkspaceKind, WorkspacesStore, name_from_work_dir, workspace_title,
 };
