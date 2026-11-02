@@ -1,3 +1,6 @@
+pub mod wake_reason;
+pub mod worktree_share;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
