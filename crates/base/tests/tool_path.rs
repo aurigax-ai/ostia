@@ -90,9 +90,11 @@ async fn puts_the_login_shell_path_between_the_given_path_and_the_fallbacks_with
     );
 }
 
+type ShellCall = (String, Vec<String>, Duration);
+
 #[tokio::test]
 async fn runs_the_login_shell_as_an_interactive_login_shell_with_a_time_limit() {
-    let calls: Arc<Mutex<Vec<(String, Vec<String>, Duration)>>> = Arc::default();
+    let calls: Arc<Mutex<Vec<ShellCall>>> = Arc::default();
     let seen = Arc::clone(&calls);
     let run: ShellRunner = Arc::new(move |shell, args, timeout| {
         seen.lock().unwrap().push((shell, args, timeout));
