@@ -7,6 +7,8 @@ pub mod ssh;
 
 use serde::{Deserialize, Serialize};
 
+pub use ostia_contract::boards_ports::PortHost;
+
 use crate::ssh::SshLogin;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,11 +22,4 @@ pub struct ListeningPort {
 pub struct TreeInfo {
     pub ports: Vec<ListeningPort>,
     pub ssh: Option<SshLogin>,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum PortHost {
-    #[default]
-    Localhost,
-    Loopback,
 }

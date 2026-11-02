@@ -1,6 +1,7 @@
 pub mod agent_launch;
 pub mod agent_resume;
 pub mod agent_skills;
+pub mod boards_ports;
 pub mod capabilities;
 pub mod commands;
 pub mod extensions;
