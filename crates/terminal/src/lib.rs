@@ -8,6 +8,7 @@ pub mod pane_launcher;
 pub mod pty_flow;
 pub mod pty_reaper;
 pub mod pty_ring_buffer;
+pub mod tmux_pane;
 
 use std::collections::HashMap;
 use std::sync::Arc;
