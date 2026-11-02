@@ -1,0 +1,29 @@
+[package]
+name = "spike-terminal"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[lib]
+name = "spike_terminal"
+path = "src/lib.rs"
+
+[[bin]]
+name = "engine"
+path = "src/bin/engine.rs"
+
+[[bin]]
+name = "window"
+path = "src/bin/window.rs"
+
+[dependencies]
+anyhow = "1"
+futures = "0.3"
+gpui-kit = { version = "0.8.1", default-features = false }
+libghostty-vt = { version = "0.2.2", default-features = false }
+portable-pty = "0.9.0"
+
+[profile.release]
+debug = false
