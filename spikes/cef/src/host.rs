@@ -223,13 +223,17 @@ pub struct Page {
 pub enum ContextKind {
     Disk,
     DiskWithHandler,
+    DiskFresh,
+    DiskProfileName,
     Memory,
     Global,
 }
 
-pub const CONTEXT_ORDER: [ContextKind; 4] = [
+pub const CONTEXT_ORDER: [ContextKind; 6] = [
     ContextKind::Disk,
     ContextKind::DiskWithHandler,
+    ContextKind::DiskFresh,
+    ContextKind::DiskProfileName,
     ContextKind::Memory,
     ContextKind::Global,
 ];
@@ -251,8 +255,22 @@ pub fn open_page(
         windowless_frame_rate: 60,
         ..Default::default()
     };
+    let profile_name_dir = format!(
+        "{}/Profile 1",
+        context_dir
+            .rsplit_once('/')
+            .map_or(context_dir, |(root, _)| root)
+    );
     let cache_path = match kind {
-        ContextKind::Disk | ContextKind::DiskWithHandler => context_dir,
+        ContextKind::Disk | ContextKind::DiskWithHandler => {
+            std::fs::create_dir_all(context_dir).ok();
+            context_dir
+        }
+        ContextKind::DiskFresh => {
+            std::fs::remove_dir_all(context_dir).ok();
+            context_dir
+        }
+        ContextKind::DiskProfileName => profile_name_dir.as_str(),
         ContextKind::Memory | ContextKind::Global => "",
     };
     let context_settings = RequestContextSettings {
