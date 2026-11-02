@@ -12,3 +12,8 @@ workspace = true
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+futures-util = { workspace = true }
+ostia-contract = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
