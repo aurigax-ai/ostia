@@ -148,7 +148,7 @@ fn accepts_a_markdown_or_text_skill_file_name_and_refuses_every_other_name() {
         "dir/a.md",
         "../a.md",
         "a.md\n",
-        &format!("a{}.md", "b".repeat(57)),
+        &format!("a{}.md", "b".repeat(60)),
     ];
     for name in refused {
         assert!(!AGENT_SKILL_FILE_PATTERN.is_match(name), "{name:?}");
