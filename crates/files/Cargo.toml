@@ -11,6 +11,7 @@ futures-util.workspace = true
 globset.workspace = true
 libc.workspace = true
 ostia-base.workspace = true
+ostia-fd.workspace = true
 ostia-contract.workspace = true
 parking_lot.workspace = true
 regex.workspace = true

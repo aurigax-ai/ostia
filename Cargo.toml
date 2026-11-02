@@ -23,6 +23,7 @@ ostia-attention = { path = "crates/attention" }
 ostia-base = { path = "crates/base" }
 ostia-contract = { path = "crates/contract" }
 ostia-diagnostics = { path = "crates/diagnostics" }
+ostia-fd = { path = "crates/fd" }
 ostia-control = { path = "crates/control" }
 ostia-model = { path = "crates/model" }
 ostia-park = { path = "crates/park" }
