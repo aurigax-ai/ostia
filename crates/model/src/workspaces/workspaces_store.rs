@@ -42,10 +42,6 @@ pub fn name_from_work_dir(work_dir: &str) -> String {
         .to_owned()
 }
 
-pub fn workspace_title(workspace: &Workspace) -> &str {
-    workspace.custom_name.as_deref().unwrap_or(&workspace.name)
-}
-
 #[derive(Clone, Debug, Default)]
 pub struct WorkspacesStore {
     workspaces: Vec<Workspace>,
