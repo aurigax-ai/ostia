@@ -1,5 +1,8 @@
 use gpui_kit::prelude::*;
-use gpui_kit::{Context, ElementId, Entity, EventEmitter, MouseButton, Render, Window, div, px};
+use gpui_kit::{
+    Context, ElementId, Entity, EventEmitter, MouseButton, Render, Role, TestSupportExt as _,
+    Window, div, px,
+};
 use ostia_ui::components::{EmptyState, IconButton, IconName, StatusLine, StatusTone, hint};
 use ostia_ui::icons::{IconSize, icon};
 use ostia_ui::theme::UiTheme;
@@ -104,6 +107,9 @@ impl PaneView {
                 "pane-tab".into(),
                 self.index as u64,
             ))
+            .role(Role::Tab)
+            .aria_label(title.clone())
+            .test_support()
             .relative()
             .flex()
             .flex_1()
