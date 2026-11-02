@@ -1,4 +1,8 @@
 pub mod pty_size;
+pub mod screen_replay;
+pub mod screen_title_filter;
+pub mod tmux_command;
+pub mod tmux_conf;
 
 use std::collections::HashMap;
 use std::sync::Arc;
