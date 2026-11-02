@@ -13,6 +13,10 @@ ostia-control.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 ostia-rpc.workspace = true
+futures-util.workspace = true
+rustix.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
 parking_lot.workspace = true
 regex.workspace = true
 
