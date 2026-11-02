@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -102,6 +102,7 @@ fn fixture() -> Fixture {
             }
         })),
         host_pid: Some(1),
+        env: BTreeMap::new(),
         log: None,
     });
     Fixture {

@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -48,6 +48,7 @@ pub struct PortsServiceDeps {
     pub send: SendFn,
     pub scan: Option<ScanFn>,
     pub host_pid: Option<i32>,
+    pub env: BTreeMap<String, String>,
     pub log: Option<LogFn>,
 }
 
@@ -91,7 +92,10 @@ impl Shared {
             .unwrap_or_else(|| i32::try_from(std::process::id()).unwrap_or(0));
         let trees: TreeMap = match &self.deps.scan {
             Some(scan) => scan(roots, host_pid),
-            None => Box::pin(async move { scan_trees(&roots, host_pid).await }),
+            None => {
+                let env = self.deps.env.clone();
+                Box::pin(async move { scan_trees(&roots, host_pid, &env).await })
+            }
         };
         async move {
             let trees = trees.await;

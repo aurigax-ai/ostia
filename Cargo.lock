@@ -933,11 +933,13 @@ dependencies = [
  "ostia-contract",
  "parking_lot",
  "regex",
+ "rustix",
  "serde",
  "serde_json",
  "tempfile",
  "tokio",
  "tokio-util",
+ "url",
 ]
 
 [[package]]
@@ -1003,10 +1005,13 @@ dependencies = [
  "ostia-base",
  "ostia-contract",
  "ostia-testkit",
+ "parking_lot",
  "regex",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

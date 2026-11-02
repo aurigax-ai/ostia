@@ -1,6 +1,7 @@
 #![cfg(any(target_os = "linux", target_os = "macos"))]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use std::collections::BTreeMap;
 use std::net::TcpListener;
 use std::os::unix::fs::symlink;
 use std::path::Path;
@@ -153,6 +154,7 @@ async fn listening_ports_show_as_a_plug_in_the_top_bar_that_opens_the_browser_pa
         }),
         scan: None,
         host_pid: None,
+        env: BTreeMap::from([("PATH".to_owned(), std::env::var("PATH").unwrap())]),
         log: Some(Box::new({
             let logged = Arc::clone(&logged);
             move |line| logged.lock().unwrap().push(line.to_owned())
