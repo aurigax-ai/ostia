@@ -3,7 +3,8 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use ostia_files::open_waits::{OpenWaits, WaitOutcome, WaitRequest};
+use ostia_contract::open_files::WaitOutcome;
+use ostia_files::open_waits::{OpenWaits, WaitRequest};
 use ostia_files::workspace_closed::{WorkspaceClosedDeps, WorkspaceStep, create_workspace_closed};
 use parking_lot::Mutex;
 
@@ -82,9 +83,9 @@ async fn closing_the_workspace_ends_a_waiting_editor_with_a_failure_instead_of_h
     let other = rig.open_waits.start(request("w2", "t2", "other"));
     (rig.closed)("w1");
     assert_eq!(rig.open_waits.size(), 1);
-    assert_eq!(mine.done.await, WaitOutcome::Gone);
+    assert_eq!(mine.done.await.unwrap(), WaitOutcome::Gone);
     rig.open_waits.pane_closed("other");
-    assert_eq!(other.done.await, WaitOutcome::Closed);
+    assert_eq!(other.done.await.unwrap(), WaitOutcome::Closed);
 }
 
 #[test]
