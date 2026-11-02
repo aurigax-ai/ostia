@@ -1097,7 +1097,24 @@ dependencies = [
 name = "ostia-diagnostics"
 version = "0.0.0"
 dependencies = [
+ "chrono",
+ "futures-util",
+ "ostia-base",
+ "ostia-contract",
+ "ostia-terminal",
+ "parking_lot",
+ "percent-encoding",
+ "regex",
+ "reqwest",
+ "rustix",
+ "serde",
  "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
 ]
 
 [[package]]
