@@ -3,7 +3,8 @@ use std::rc::Rc;
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenu};
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    App, ClickEvent, Context, ElementId, IntoElement, RenderOnce, SharedString, Window, div, px,
+    Anchor, App, ClickEvent, Context, ElementId, IntoElement, RenderOnce, SharedString, Window,
+    div, px,
 };
 
 use super::button::{
