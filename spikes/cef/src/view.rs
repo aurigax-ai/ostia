@@ -127,19 +127,21 @@ impl BrowserView {
         for index in 0..self.settings.pages {
             let geometry = new_geometry(width.max(640), height.max(480), 1.0);
             let slot: SharedSlot = Default::default();
-            let variants = [(true, true), (false, true), (false, false), (true, false)];
+            let variants = [(Some(true), true), (Some(false), true), (None, true)];
             let mut opened = None;
             for (with_context, alloy) in variants {
+                std::fs::create_dir_all(format!("{}/ctx-{}", self.settings.profile_dir, index))
+                    .ok();
                 let dir = format!("{}/ctx-{}", self.settings.profile_dir, index);
                 let page = open_page(
                     &self.settings.url,
-                    with_context.then_some(dir.as_str()),
+                    with_context.map(|on_disk| if on_disk { dir.as_str() } else { "" }),
                     alloy,
                     geometry.clone(),
                     slot.clone(),
                 );
                 eprintln!(
-                    "SPIKE variant context={with_context} alloy={alloy} ok={}",
+                    "SPIKE variant context={with_context:?} alloy={alloy} ok={}",
                     page.is_some()
                 );
                 if page.is_some() {
@@ -326,6 +328,7 @@ impl Render for BrowserView {
             .on_mouse_up(MouseButton::Middle, cx.listener(Self::mouse_up))
             .on_mouse_up(MouseButton::Right, cx.listener(Self::mouse_up))
             .on_scroll_wheel(cx.listener(|view, event: &ScrollWheelEvent, _, _| {
+                eprintln!("SPIKE gpui-wheel {:?}", event.delta);
                 if let Some(browser) = view.active_browser() {
                     let (x, y) = view.local(event.position);
                     let delta = event.delta.pixel_delta(px(20.0));
@@ -339,6 +342,7 @@ impl Render for BrowserView {
                 }
             }))
             .on_key_down(cx.listener(|view, event: &KeyDownEvent, _, _| {
+                eprintln!("SPIKE gpui-key {:?}", event.keystroke.key);
                 if let Some(browser) = view.active_browser() {
                     input::send_key_down(browser, &event.keystroke);
                 }
@@ -365,6 +369,7 @@ impl Render for BrowserView {
 
 impl BrowserView {
     fn mouse_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        eprintln!("SPIKE gpui-mouse-down {:?}", event.position);
         window.focus(&self.focus, cx);
         if let Some(browser) = self.active_browser() {
             if let Some(host) = browser.host() {
