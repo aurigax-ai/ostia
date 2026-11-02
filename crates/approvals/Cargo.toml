@@ -17,7 +17,9 @@ parking_lot.workspace = true
 regex.workspace = true
 
 [dev-dependencies]
+futures-util.workspace = true
 tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 
 ostia-testkit.workspace = true
 
