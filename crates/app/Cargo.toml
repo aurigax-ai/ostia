@@ -6,7 +6,29 @@ rust-version.workspace = true
 license-file.workspace = true
 publish.workspace = true
 
+[features]
+default = ["window"]
+window = [
+    "dep:anyhow",
+    "dep:futures",
+    "dep:gpui-kit",
+    "dep:libghostty-vt",
+    "dep:ostia-ui",
+    "dep:portable-pty",
+]
+
+[[bin]]
+name = "ostia-window"
+path = "src/bin/ostia-window.rs"
+required-features = ["window"]
+
 [dependencies]
+anyhow = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+gpui-kit = { workspace = true, optional = true }
+libghostty-vt = { workspace = true, optional = true }
+ostia-ui = { workspace = true, optional = true }
+portable-pty = { workspace = true, optional = true }
 ostia-approvals.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
@@ -19,6 +41,10 @@ serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+[dev-dependencies]
+ostia-ui.workspace = true
+gpui-kit = { workspace = true, features = ["test-support"] }
 
 [lints]
 workspace = true
