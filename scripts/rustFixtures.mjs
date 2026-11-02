@@ -11,6 +11,7 @@ const work = mkdtempSync(join(tmpdir(), 'rust-fixtures-'))
 const ENTRY = `
 export { ParkedStore } from './src/main/park/parkedStore'
 export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
+export { USAGE_TABLE } from './src/cli/common/usageTable'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -22,7 +23,7 @@ await build({
   outfile: bundle,
   logLevel: 'error',
 })
-const { ParkedStore, saveJson, saveJsonAsync } = createRequire(import.meta.url)(bundle)
+const { ParkedStore, saveJson, saveJsonAsync, USAGE_TABLE } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
   v: 1,
@@ -159,4 +160,5 @@ store.park({ workspaceId: 'w2', resume: { agent: 'agy', id: 's3' }, title: 'thir
 writeFileSync(join(out, 'parked-sessions-before.json'), readFileSync(parked))
 store.remove(gone.record.id)
 writeFileSync(join(out, 'parked-sessions-after.json'), readFileSync(parked))
+writeFileSync(join(out, 'cli-usage-table.json'), `${JSON.stringify(USAGE_TABLE, null, 1)}\n`)
 rmSync(work, { recursive: true, force: true })
