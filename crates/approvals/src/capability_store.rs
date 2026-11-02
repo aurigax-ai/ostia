@@ -9,7 +9,7 @@ use ostia_base::atomic_write::{AtomicWriteOptions, write_file_atomic};
 use ostia_base::host::Host;
 use ostia_base::json_store::load_json;
 use ostia_contract::capabilities::{Capability, DEFAULT_CAPABILITIES};
-use ostia_contract::reach::{ReachMode, parse_reach_mode};
+use ostia_contract::reach::{ReachMode, is_reach_mode, parse_reach_mode};
 use ostia_control::CapabilityStore as ControlCapabilityStore;
 use parking_lot::Mutex;
 use serde_json::{Map, Value};
@@ -37,11 +37,11 @@ fn grants_of(settings: Option<&Value>) -> Vec<Capability> {
 }
 
 fn reach_of(settings: Option<&Value>) -> ReachMode {
-    parse_reach_mode(
-        settings
-            .and_then(|value| value.get("capabilities"))
-            .and_then(|value| value.get("reach")),
-    )
+    let reach = settings
+        .and_then(|value| value.get("capabilities"))
+        .and_then(|value| value.get("reach"))
+        .unwrap_or(&Value::Null);
+    parse_reach_mode(reach)
 }
 
 fn unique(caps: impl IntoIterator<Item = Capability>) -> Vec<Capability> {
@@ -237,9 +237,10 @@ impl CapabilityStore {
     }
 
     pub fn set_reach_mode(&self, mode: &Value) -> bool {
-        let Some(mode) = ReachMode::parse(mode) else {
+        if !is_reach_mode(mode) {
             return false;
-        };
+        }
+        let mode = parse_reach_mode(mode);
         let mut state = self.state.lock();
         let written = state.write_capabilities(|capabilities| {
             capabilities.insert("reach".to_owned(), Value::String(mode.name().to_owned()));

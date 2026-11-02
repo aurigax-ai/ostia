@@ -9,6 +9,7 @@ pub mod archive_paths;
 pub mod argv;
 pub mod attention;
 pub mod build_info;
+pub mod approvals;
 pub mod capabilities;
 pub mod chord_spec;
 pub mod command_line;
