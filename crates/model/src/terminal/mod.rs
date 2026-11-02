@@ -1,5 +1,9 @@
 pub mod app_link_store;
+pub mod block_text;
+pub mod blocks;
 pub mod blocks_store;
+pub mod clear_terminal;
+pub mod frame_coalesce;
 pub mod history_search_store;
 pub mod history_view_store;
 pub mod kept_link_store;
