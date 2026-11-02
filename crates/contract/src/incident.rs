@@ -123,11 +123,11 @@ pub fn trigger_words(code: &str) -> String {
 
 #[derive(Debug, Serialize)]
 pub struct IncidentSnapshot {
-    agent: String,
-    state: String,
-    drafting: bool,
-    mail: u64,
-    alive: bool,
+    pub agent: String,
+    pub state: String,
+    pub drafting: bool,
+    pub mail: u64,
+    pub alive: bool,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -186,25 +186,25 @@ pub enum IncidentEvent {
 
 #[derive(Debug, Serialize)]
 pub struct IncidentAgent {
-    kind: String,
+    pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    version: Option<String>,
+    pub version: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IncidentBlock {
-    version: u64,
-    app: String,
-    platform: String,
-    agent: IncidentAgent,
-    settings: Map<String, Value>,
-    pane: String,
-    trigger: String,
-    events: Vec<IncidentEvent>,
-    unseen: Vec<String>,
-    counts: Map<String, Value>,
-    since_min: u64,
+    pub version: u64,
+    pub app: String,
+    pub platform: String,
+    pub agent: IncidentAgent,
+    pub settings: Map<String, Value>,
+    pub pane: String,
+    pub trigger: String,
+    pub events: Vec<IncidentEvent>,
+    pub unseen: Vec<String>,
+    pub counts: Map<String, Value>,
+    pub since_min: u64,
 }
 
 pub fn parse_incident_block(value: &Value) -> Option<IncidentBlock> {

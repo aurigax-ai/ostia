@@ -1,9 +1,16 @@
-use serde_json::{Map, Value};
-
-pub type LogFields = Map<String, Value>;
-
-pub trait AppLog: Send + Sync {
-    fn info(&self, event: &str, fields: &LogFields);
-    fn warn(&self, event: &str, fields: &LogFields);
-    fn error(&self, event: &str, fields: &LogFields);
-}
+pub mod agent_journal;
+pub mod app_log;
+pub mod diagnostics;
+pub mod error_report;
+pub mod gpu_report;
+pub mod incident_ipc;
+pub mod incident_report;
+pub mod incident_timeline;
+pub mod privacy_telemetry;
+pub mod renderer_reports;
+pub mod session_facts;
+pub mod telemetry;
+pub mod telemetry_queue;
+pub mod telemetry_usage;
+pub mod test_crash_dumps;
+pub mod text_clip;
