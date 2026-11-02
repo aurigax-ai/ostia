@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use futures_util::FutureExt;
-use ostia_approvals::GrantTable;
+use ostia_approvals::CapabilityStore;
 use ostia_base::clock::system_clock;
 use ostia_base::host::Host;
 use ostia_base::json_store::{StoreScope, store_path};
@@ -23,7 +23,7 @@ use ostia_terminal::TerminalStates;
 
 pub struct App {
     pub registry: IdRegistry,
-    pub grants: Arc<GrantTable>,
+    pub grants: Arc<CapabilityStore>,
     pub parked: ParkedStore,
     pub terminal_states: TerminalStates,
     pub sandboxes: WorkspaceSandboxes,
@@ -56,7 +56,7 @@ impl App {
     pub fn start(host: &Host) -> Result<Self> {
         let salt = load_pane_id_salt(&store_path(host, "pane-id-salt", StoreScope::Global, None));
         let registry = IdRegistry::new(&salt);
-        let grants = Arc::new(GrantTable::default());
+        let grants = Arc::new(CapabilityStore::new(host));
         let parked = ParkedStore::new(store_path(
             host,
             "parked-sessions",
