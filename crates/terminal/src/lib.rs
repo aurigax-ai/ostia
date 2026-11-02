@@ -1,3 +1,5 @@
+pub mod pty_size;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
