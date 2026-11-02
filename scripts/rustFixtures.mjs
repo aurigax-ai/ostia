@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -22,6 +22,7 @@ export * as bus from './src/main/agents/busStore'
 export { encodeViewerSelection } from './packages/extension-sdk/src/contract/viewerSelection'
 export { createHeadlessTerminal } from './src/shared/terminal/ghosttyHeadless'
 export { createTelemetry } from './src/main/diagnostics/telemetry'
+export { OpenFileGrants } from './src/main/files/openFileGrants'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -54,6 +55,7 @@ const {
   encodeViewerSelection,
   createHeadlessTerminal,
   createTelemetry,
+  OpenFileGrants,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -389,6 +391,22 @@ bus.dismissFailed('e')
 await bus.flushBus()
 writeFileSync(join(out, 'bus-after.json'), readFileSync(busFile))
 globalThis.Date = RealDate
+
+const grantsBase = realpathSync(mkdtempSync(join(work, 'grants-')))
+const grantsHome = join(grantsBase, 'home')
+const grantsOutside = join(grantsBase, 'outside')
+mkdirSync(grantsHome)
+mkdirSync(grantsOutside)
+writeFileSync(join(grantsOutside, 'app.log'), 'log')
+writeFileSync(join(grantsOutside, 'other.log'), 'other')
+const grantsFile = join(grantsBase, 'data', 'opened-files.json')
+const grantsKept = new OpenFileGrants({ roots: () => [grantsHome], file: grantsFile })
+const grantsHuman = { sandboxed: false, remember: true }
+const withRootMarker = (bytes) => bytes.toString('utf8').replaceAll(grantsBase, '@ROOT@')
+grantsKept.admit(join(grantsOutside, 'app.log'), grantsHuman)
+writeFileSync(join(out, 'open-file-grants-before.json'), withRootMarker(readFileSync(grantsFile)))
+grantsKept.admit(join(grantsOutside, 'other.log'), grantsHuman)
+writeFileSync(join(out, 'open-file-grants-after.json'), withRootMarker(readFileSync(grantsFile)))
 
 const toHex = (bytes) => Buffer.from(bytes).toString('hex')
 const SELECTION_META = {
