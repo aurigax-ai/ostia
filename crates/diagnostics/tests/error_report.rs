@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ostia_diagnostics::app_log::{AppLog, LogFields};
 use ostia_diagnostics::error_report::{ErrorSink, Thrown, expect_errno, is_errno};
 use parking_lot::Mutex;
-use serde_json::{Value, json};
+use serde_json::json;
 
 #[derive(Default)]
 struct Warnings {
@@ -39,7 +39,7 @@ fn writes_the_scope_error_name_and_code_never_the_message() {
     assert_eq!(seen.len(), 1);
     assert_eq!(seen[0].0, "unexpected-error");
     assert_eq!(
-        Value::Object(seen[0].1.clone()),
+        seen[0].1.to_json(),
         json!({"scope": "fsText", "name": "Error", "code": "EIO"})
     );
 }
@@ -66,7 +66,7 @@ fn names_a_thrown_value_that_is_not_an_error_by_its_type_and_leaves_the_code_out
         },
     );
     assert_eq!(
-        Value::Object(warnings.seen.lock()[0].1.clone()),
+        warnings.seen.lock()[0].1.to_json(),
         json!({"scope": "scan", "name": "string"})
     );
 }

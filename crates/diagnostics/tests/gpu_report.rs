@@ -8,7 +8,7 @@ use ostia_diagnostics::gpu_report::{
     GpuDevice, GpuFeatureStatus, GpuInfo, GpuReport, GpuSource, gpu_facts,
 };
 use parking_lot::Mutex;
-use serde_json::{Value, json};
+use serde_json::json;
 
 #[derive(Default)]
 struct Lines {
@@ -169,7 +169,7 @@ async fn warns_with_the_error_text_when_the_gpu_information_cannot_be_read() {
     assert_eq!(warned.len(), 1);
     assert_eq!(warned[0].0, "gpu-info");
     assert_eq!(
-        Value::Object(warned[0].1.clone()),
+        warned[0].1.to_json(),
         json!({"error": "gpu process is gone"})
     );
 }
