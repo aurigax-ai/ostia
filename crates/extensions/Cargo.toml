@@ -7,7 +7,16 @@ license-file.workspace = true
 publish.workspace = true
 
 [dependencies]
+ostia-base.workspace = true
+ostia-contract.workspace = true
 ostia-control.workspace = true
+parking_lot.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
 
 [lints]
 workspace = true
