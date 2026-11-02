@@ -146,7 +146,7 @@ fn checks_agent_names_against_the_manager_pattern() {
     }));
     let mut names: Vec<&str> = parsed.agents.keys().map(String::as_str).collect();
     names.sort_unstable();
-    assert_eq!(names, vec![sixty_four.as_str(), "a.b_c-d"]);
+    assert_eq!(names, vec!["a.b_c-d", sixty_four.as_str()]);
 }
 
 #[test]
