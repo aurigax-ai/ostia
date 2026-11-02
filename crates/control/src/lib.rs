@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod conn;
 pub mod discovery;
+pub mod events;
 pub mod foreign_sandbox;
 pub mod identity;
 pub mod method;
