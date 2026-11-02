@@ -124,9 +124,15 @@ fn puts_the_stamp_path_by_how_deep_app_asar_sits_above_the_cli_folder() {
 }
 
 fn installed_cli(info: Option<Value>) -> (TempDir, PathBuf) {
-    let (out, cli) = out_dir(info);
+    let built = PathBuf::from(env!("CARGO_BIN_EXE_ostia"));
+    let out = TempDir::new_in(built.parent().unwrap()).unwrap();
+    let cli = out.path().join("cli");
+    fs::create_dir(&cli).unwrap();
+    if let Some(info) = info {
+        fs::write(out.path().join("build-info.json"), info.to_string()).unwrap();
+    }
     let exe = cli.join("ostia");
-    fs::copy(env!("CARGO_BIN_EXE_ostia"), &exe).unwrap();
+    fs::hard_link(&built, &exe).unwrap();
     (out, exe)
 }
 

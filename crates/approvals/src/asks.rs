@@ -158,10 +158,13 @@ pub trait Approvals: Send + Sync {
     fn answer(&self, window_id: &str, ask_id: &str, choice: Option<&Value>) -> bool;
 }
 
+pub type QuestionsSource = Box<dyn Fn() -> Option<Arc<dyn Questions>> + Send + Sync>;
+pub type ApprovalsSource = Box<dyn Fn() -> Option<Arc<dyn Approvals>> + Send + Sync>;
+
 pub struct AskHubDeps {
     pub text: Box<dyn Fn() -> ApprovalText + Send + Sync>,
-    pub questions: Box<dyn Fn() -> Option<Arc<dyn Questions>> + Send + Sync>,
-    pub approvals: Box<dyn Fn() -> Option<Arc<dyn Approvals>> + Send + Sync>,
+    pub questions: QuestionsSource,
+    pub approvals: ApprovalsSource,
     pub identity: Box<dyn Fn(&str) -> Option<PaneIdentity> + Send + Sync>,
     pub created: Box<dyn Fn(&Ask) + Send + Sync>,
     pub resolved: Box<dyn Fn(&AskResolved) + Send + Sync>,
@@ -284,7 +287,7 @@ impl AskHub {
         }
     }
 
-    fn from_question(&self, request: &QuestionRequest) -> Option<Ask> {
+    fn ask_for_question(&self, request: &QuestionRequest) -> Option<Ask> {
         let text = (self.deps.text)();
         if let Some(workspace) = &request.source_workspace {
             let at = AskPlace {
@@ -301,7 +304,7 @@ impl AskHub {
         Some(question_ask(request, at, &text))
     }
 
-    fn from_approval(&self, request: &ApprovalRequest) -> Option<Ask> {
+    fn ask_for_approval(&self, request: &ApprovalRequest) -> Option<Ask> {
         if !is_phone_approval(request) {
             return None;
         }
@@ -314,12 +317,12 @@ impl AskHub {
             .map(|questions| questions.open())
             .unwrap_or_default()
             .into_iter()
-            .map(|open| self.from_question(&open.request));
+            .map(|open| self.ask_for_question(&open.request));
         let approvals = (self.deps.approvals)()
             .map(|approvals| approvals.open())
             .unwrap_or_default()
             .into_iter()
-            .map(|open| self.from_approval(&open.request));
+            .map(|open| self.ask_for_approval(&open.request));
         let mut asks: Vec<Ask> = questions.chain(approvals).flatten().collect();
         asks.sort_by_key(|ask| ask.since);
         asks
@@ -406,11 +409,11 @@ impl AskHub {
     }
 
     pub fn question_opened(&self, request: &QuestionRequest) {
-        self.announce(self.from_question(request));
+        self.announce(self.ask_for_question(request));
     }
 
     pub fn approval_opened(&self, request: &ApprovalRequest) {
-        self.announce(self.from_approval(request));
+        self.announce(self.ask_for_approval(request));
     }
 
     pub fn settled(&self, ask_id: &str, outcome: &str) {
