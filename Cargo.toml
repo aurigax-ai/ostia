@@ -37,6 +37,7 @@ futures = "0.3"
 futures-util = "0.3"
 gpui-kit = { version = "=0.8.1", default-features = false, features = ["component"] }
 getrandom = "0.4"
+globset = "0.4"
 hex = "0.4"
 hmac = "0.13"
 icu_collator = "2"
