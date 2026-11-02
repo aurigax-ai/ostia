@@ -59,6 +59,7 @@ pub mod modifier_remap;
 pub mod onboard_playbook;
 pub mod open_files;
 pub mod osc7;
+pub mod pane_banner_text;
 pub mod pane_status;
 pub mod pick;
 pub mod proto_guard;
