@@ -19,6 +19,7 @@ workspace = true
 
 [dev-dependencies]
 ostia-base.workspace = true
+ostia-testscript.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 tokio.workspace = true

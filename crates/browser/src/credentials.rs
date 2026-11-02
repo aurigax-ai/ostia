@@ -1,6 +1,6 @@
 use std::fmt;
 
-use ostia_base::js::{js_trim, locale_compare, utf16_len};
+use ostia_base::js::{is_js_space, js_trim, locale_compare, utf16_len};
 use parking_lot::Mutex;
 use url::Url;
 
@@ -18,6 +18,8 @@ pub enum CredentialError {
     Cancelled,
     Unreadable,
     NoColumns,
+    Storage,
+    Crypto,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -115,14 +117,15 @@ pub enum CredentialImportResult {
 }
 
 type Load = Box<dyn Fn() -> Vec<StoredCredential> + Send + Sync>;
-type Save = Box<dyn Fn(&[StoredCredential]) + Send + Sync>;
+type Save = Box<dyn Fn(&[StoredCredential]) -> Result<(), CredentialError> + Send + Sync>;
+type Encrypt = Box<dyn Fn(&str) -> Result<String, CredentialError> + Send + Sync>;
 
 pub struct CredentialDeps {
     pub load: Load,
     pub save: Save,
     pub can_encrypt: Box<dyn Fn() -> bool + Send + Sync>,
-    pub encrypt: Box<dyn Fn(&str) -> String + Send + Sync>,
-    pub decrypt: Box<dyn Fn(&str) -> String + Send + Sync>,
+    pub encrypt: Encrypt,
+    pub decrypt: Encrypt,
     pub now: Box<dyn Fn() -> i64 + Send + Sync>,
     pub new_id: Box<dyn Fn() -> String + Send + Sync>,
 }
@@ -166,25 +169,29 @@ pub fn create_credential_store(deps: CredentialDeps) -> CredentialStore {
 }
 
 impl CredentialStore {
-    fn upsert(&self, list: &mut Vec<StoredCredential>, input: &CredentialInput) -> Upsert {
+    fn upsert(
+        &self,
+        list: &mut Vec<StoredCredential>,
+        input: &CredentialInput,
+    ) -> Result<Upsert, CredentialError> {
         let Some(origin) = normalize_origin(&input.origin) else {
-            return Upsert::Invalid(CredentialError::InvalidOrigin);
+            return Ok(Upsert::Invalid(CredentialError::InvalidOrigin));
         };
         let username = take_utf16_units(js_trim(&input.username), CREDENTIAL_FIELD_MAX);
         if input.password.is_empty() || utf16_len(&input.password) > CREDENTIAL_FIELD_MAX {
-            return Upsert::Invalid(CredentialError::Empty);
+            return Ok(Upsert::Invalid(CredentialError::Empty));
         }
-        let secret = (self.deps.encrypt)(&input.password);
+        let secret = (self.deps.encrypt)(&input.password)?;
         if let Some(existing) = list
             .iter_mut()
             .find(|c| c.origin == origin && c.username == username)
         {
             existing.secret = secret;
             existing.updated_at = (self.deps.now)();
-            return Upsert::Stored {
+            return Ok(Upsert::Stored {
                 id: existing.id.clone(),
                 updated: true,
-            };
+            });
         }
         let id = (self.deps.new_id)();
         list.push(StoredCredential {
@@ -194,7 +201,7 @@ impl CredentialStore {
             secret,
             updated_at: (self.deps.now)(),
         });
-        Upsert::Stored { id, updated: false }
+        Ok(Upsert::Stored { id, updated: false })
     }
 
     pub fn list(&self) -> Vec<CredentialSummary> {
@@ -219,52 +226,56 @@ impl CredentialStore {
         let _turn = self.guard.lock();
         let mut list = (self.deps.load)();
         match self.upsert(&mut list, &input) {
-            Upsert::Invalid(error) => CredentialSaveResult::Failed { error },
-            Upsert::Stored { id, updated } => {
-                (self.deps.save)(&list);
-                CredentialSaveResult::Saved { id, updated }
-            }
+            Err(error) | Ok(Upsert::Invalid(error)) => CredentialSaveResult::Failed { error },
+            Ok(Upsert::Stored { id, updated }) => match (self.deps.save)(&list) {
+                Ok(()) => CredentialSaveResult::Saved { id, updated },
+                Err(error) => CredentialSaveResult::Failed { error },
+            },
         }
     }
 
-    pub fn remove(&self, id: &str) -> bool {
+    pub fn remove(&self, id: &str) -> Result<bool, CredentialError> {
         let _turn = self.guard.lock();
         let list = (self.deps.load)();
         let next: Vec<StoredCredential> = list.iter().filter(|c| c.id != id).cloned().collect();
         if next.len() == list.len() {
-            return false;
+            return Ok(false);
         }
-        (self.deps.save)(&next);
-        true
+        (self.deps.save)(&next)?;
+        Ok(true)
     }
 
-    pub fn password(&self, id: &str) -> Option<String> {
+    pub fn password(&self, id: &str) -> Result<Option<String>, CredentialError> {
         let _turn = self.guard.lock();
-        let entry = (self.deps.load)().into_iter().find(|c| c.id == id)?;
+        let Some(entry) = (self.deps.load)().into_iter().find(|c| c.id == id) else {
+            return Ok(None);
+        };
         if (self.deps.can_encrypt)() {
-            Some((self.deps.decrypt)(&entry.secret))
+            (self.deps.decrypt)(&entry.secret).map(Some)
         } else {
-            None
+            Ok(None)
         }
     }
 
-    pub fn for_origin(&self, url: &str) -> Vec<CredentialMatch> {
+    pub fn for_origin(&self, url: &str) -> Result<Vec<CredentialMatch>, CredentialError> {
         let Some(origin) = normalize_origin(url) else {
-            return Vec::new();
+            return Ok(Vec::new());
         };
         if !(self.deps.can_encrypt)() {
-            return Vec::new();
+            return Ok(Vec::new());
         }
         let _turn = self.guard.lock();
         (self.deps.load)()
             .into_iter()
             .filter(|c| c.origin == origin)
-            .map(|c| CredentialMatch {
-                password: (self.deps.decrypt)(&c.secret),
-                id: c.id,
-                origin: c.origin,
-                username: c.username,
-                updated_at: c.updated_at,
+            .map(|c| {
+                Ok(CredentialMatch {
+                    password: (self.deps.decrypt)(&c.secret)?,
+                    id: c.id,
+                    origin: c.origin,
+                    username: c.username,
+                    updated_at: c.updated_at,
+                })
             })
             .collect()
     }
@@ -280,16 +291,19 @@ impl CredentialStore {
         let (mut imported, mut updated, mut skipped) = (0, 0, 0);
         for row in &rows {
             match self.upsert(&mut list, row) {
-                Upsert::Invalid(_) => skipped += 1,
-                Upsert::Stored { updated: true, .. } => updated += 1,
-                Upsert::Stored { updated: false, .. } => imported += 1,
+                Err(error) => return CredentialImportResult::Failed { error },
+                Ok(Upsert::Invalid(_)) => skipped += 1,
+                Ok(Upsert::Stored { updated: true, .. }) => updated += 1,
+                Ok(Upsert::Stored { updated: false, .. }) => imported += 1,
             }
         }
-        (self.deps.save)(&list);
-        CredentialImportResult::Imported {
-            imported,
-            updated,
-            skipped,
+        match (self.deps.save)(&list) {
+            Ok(()) => CredentialImportResult::Imported {
+                imported,
+                updated,
+                skipped,
+            },
+            Err(error) => CredentialImportResult::Failed { error },
         }
     }
 }
@@ -317,6 +331,7 @@ fn parse_csv(text: &str) -> Option<Vec<Vec<String>>> {
                         other => field.push(other),
                     }
                 }
+                while chars.next_if(|&ch| ch != '\n' && is_js_space(ch)).is_some() {}
                 match chars.peek() {
                     None | Some(',' | '\n') => {}
                     Some(_) => return None,
@@ -366,7 +381,9 @@ fn column_at(names: &[String], options: &[&str]) -> Option<usize> {
 }
 
 pub fn password_rows_from_csv(text: &str) -> Option<Vec<CredentialInput>> {
-    let parsed = parse_csv(&normalize_newlines(text))?;
+    let parsed = parse_csv(&normalize_newlines(
+        text.strip_prefix('\u{feff}').unwrap_or(text),
+    ))?;
     let mut rows = parsed
         .into_iter()
         .filter(|r| !js_trim(&r.concat()).is_empty());

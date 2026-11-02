@@ -147,6 +147,11 @@ fn claim_target<A: FolderAnchor>(
     Ok(None)
 }
 
+fn copy_and_flush(input: &mut File, output: &mut File) -> io::Result<()> {
+    io::copy(input, output)?;
+    output.sync_all()
+}
+
 fn fill<A: FolderAnchor>(
     claim: Claim,
     source: &TransferEnd<'_, A>,
@@ -159,9 +164,7 @@ fn fill<A: FolderAnchor>(
             mut output,
         } => {
             let from = path_of(source);
-            io::copy(&mut input, &mut output)
-                .map(|_| ())
-                .map_err(|error| io_failure(&from, error))
+            copy_and_flush(&mut input, &mut output).map_err(|error| io_failure(&from, error))
         }
         Claim::Folder { expected } => {
             let to = target.anchor.at(target.name)?;
@@ -250,4 +253,23 @@ pub fn entry_unchanged<A: FolderAnchor>(end: &TransferEnd<'_, A>, expected: &Met
         return false;
     };
     fs::symlink_metadata(path).is_ok_and(|now| same_entry(expected, &now))
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use std::io::pipe;
+
+    use super::*;
+
+    #[test]
+    fn reports_a_failure_of_the_final_flush_of_the_output() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("empty");
+        File::create(&path).unwrap();
+        let mut input = File::open(&path).unwrap();
+        let (_reader, writer) = pipe().unwrap();
+        let mut output = File::from(std::os::fd::OwnedFd::from(writer));
+        assert!(copy_and_flush(&mut input, &mut output).is_err());
+    }
 }

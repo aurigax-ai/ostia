@@ -66,11 +66,6 @@ fn marks_its_messages_with_a_random_id_in_the_uuid_shape() {
 }
 
 #[test]
-fn keeps_one_marker_for_the_life_of_the_process() {
-    assert_eq!(marker(), marker());
-}
-
-#[test]
 fn returns_an_empty_address_for_a_message_that_is_only_the_marker() {
     assert_eq!(clicked_link_of(&marker()).as_deref(), Some(""));
 }

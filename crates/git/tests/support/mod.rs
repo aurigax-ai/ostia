@@ -1,11 +1,12 @@
 #![allow(dead_code)]
 
 use std::fs;
-use std::os::unix::fs::{PermissionsExt, symlink};
+use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use ostia_base::Host;
+use ostia_testscript::ScriptsGuard;
 use tempfile::TempDir;
 
 pub fn host() -> Host {
@@ -56,15 +57,29 @@ pub struct Sandbox {
     pub dir: TempDir,
     pub root: PathBuf,
     pub marks: PathBuf,
+    _scripts: Option<ScriptsGuard>,
 }
 
 impl Sandbox {
     pub fn new(prefix: &str) -> Self {
+        Self::build(prefix, None)
+    }
+
+    pub fn scripted(prefix: &str) -> Self {
+        Self::build(prefix, Some(ostia_testscript::lock()))
+    }
+
+    fn build(prefix: &str, scripts: Option<ScriptsGuard>) -> Self {
         let dir = tempfile::Builder::new().prefix(prefix).tempdir().unwrap();
         let root = fs::canonicalize(dir.path()).unwrap();
         let marks = root.join("marks");
         fs::create_dir(&marks).unwrap();
-        Self { dir, root, marks }
+        Self {
+            dir,
+            root,
+            marks,
+            _scripts: scripts,
+        }
     }
 
     pub fn path(&self, name: &str) -> PathBuf {
@@ -80,11 +95,12 @@ impl Sandbox {
     pub fn program(&self, name: &str) -> String {
         let path = self.path(name);
         let mark = self.marks.join(name);
-        write(
+        ostia_testscript::write_script(
             &path,
             &format!("#!/bin/sh\ntouch \"{}\"\nexit 1\n", mark.display()),
-        );
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+            0o755,
+        )
+        .unwrap();
         path.to_string_lossy().into_owned()
     }
 

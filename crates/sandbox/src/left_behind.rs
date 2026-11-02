@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use parking_lot::Mutex;
+use tokio::runtime::Handle;
+use tokio::sync::watch;
 use tokio::task::{JoinHandle, spawn_blocking};
 
 pub type LeftBehindBaseline = BTreeMap<String, String>;
@@ -160,10 +162,17 @@ struct Pending {
 
 pub struct LeftBehindWatch {
     ended: AtomicBool,
+    runtime: Handle,
+    scanned: watch::Receiver<bool>,
     pending: Mutex<Option<Pending>>,
 }
 
 impl LeftBehindWatch {
+    pub async fn baseline_taken(&self) {
+        let mut scanned = self.scanned.clone();
+        let _ = scanned.wait_for(|done| *done).await;
+    }
+
     pub fn end(&self) {
         if self.ended.swap(true, Ordering::SeqCst) {
             return;
@@ -171,7 +180,7 @@ impl LeftBehindWatch {
         let Some(pending) = self.pending.lock().take() else {
             return;
         };
-        tokio::spawn(async move {
+        self.runtime.spawn(async move {
             let Ok(before) = pending.baseline.await else {
                 return;
             };
@@ -188,9 +197,16 @@ pub fn watch_left_behind(
     on_found: impl FnOnce(Vec<String>) + Send + 'static,
 ) -> LeftBehindWatch {
     let scan_dir = work_dir.clone();
-    let baseline = tokio::task::spawn_blocking(move || scan(&scan_dir));
+    let (scanned_tx, scanned) = watch::channel(false);
+    let baseline = tokio::task::spawn_blocking(move || {
+        let taken = scan(&scan_dir);
+        scanned_tx.send_replace(true);
+        taken
+    });
     LeftBehindWatch {
         ended: AtomicBool::new(false),
+        runtime: Handle::current(),
+        scanned,
         pending: Mutex::new(Some(Pending {
             work_dir,
             baseline,

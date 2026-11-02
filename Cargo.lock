@@ -5261,6 +5261,7 @@ dependencies = [
  "ostia-control",
  "ostia-rpc",
  "ostia-testkit",
+ "ostia-testscript",
  "parking_lot",
  "regex",
  "rustix",
@@ -5291,6 +5292,7 @@ dependencies = [
  "hex",
  "icu_collator",
  "libc",
+ "ostia-testscript",
  "parking_lot",
  "regex",
  "reqwest",
@@ -5466,6 +5468,7 @@ name = "ostia-git"
 version = "0.0.0"
 dependencies = [
  "ostia-base",
+ "ostia-testscript",
  "parking_lot",
  "regex",
  "serde",
@@ -5657,6 +5660,10 @@ dependencies = [
  "tempfile",
  "tokio",
 ]
+
+[[package]]
+name = "ostia-testscript"
+version = "0.0.0"
 
 [[package]]
 name = "ostia-ui"

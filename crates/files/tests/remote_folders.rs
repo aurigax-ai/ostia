@@ -34,6 +34,7 @@ struct Setup {
     published: Arc<AtomicUsize>,
     reply: Arc<Mutex<Result<Value, String>>>,
     gate: Arc<Mutex<Option<Arc<Notify>>>>,
+    vanish: Arc<Mutex<Option<String>>>,
 }
 
 impl Setup {
@@ -66,6 +67,7 @@ impl Setup {
         )));
         let gate: Arc<Mutex<Option<Arc<Notify>>>> = Arc::default();
         let next = Arc::new(AtomicUsize::new(0));
+        let vanish: Arc<Mutex<Option<String>>> = Arc::default();
         let deps = RemoteFoldersDeps {
             window_of_workspace: {
                 let owners = owners.clone();
@@ -112,8 +114,14 @@ impl Setup {
             },
             new_id: seeded_ids.then(|| {
                 let next = next.clone();
-                Arc::new(move || format!("folder{:06}", next.fetch_add(1, Ordering::SeqCst) + 1))
-                    as Arc<dyn Fn() -> String + Send + Sync>
+                let owners = owners.clone();
+                let vanish = vanish.clone();
+                Arc::new(move || {
+                    if let Some(workspace) = vanish.lock().take() {
+                        owners.lock().remove(&workspace);
+                    }
+                    format!("folder{:06}", next.fetch_add(1, Ordering::SeqCst) + 1)
+                }) as Arc<dyn Fn() -> String + Send + Sync>
             }),
         };
         Self {
@@ -125,6 +133,7 @@ impl Setup {
             published,
             reply,
             gate,
+            vanish,
         }
     }
 
@@ -278,6 +287,19 @@ async fn ssh_c59_holds_at_most_eight_folders_per_workspace() {
     assert_eq!(error_of(&res), "too-many");
     assert_eq!(s.confirms.lock().len(), 8);
     assert_eq!(s.opened("w2", "/srv/more").await, "folder000009");
+}
+
+#[tokio::test]
+async fn drops_the_folder_when_the_workspace_closes_between_the_check_and_the_insert() {
+    let s = Setup::new();
+    *s.vanish.lock() = Some("w1".to_owned());
+    let res = s
+        .open(json!({"workspaceId": "w1", "host": "db", "path": "/srv"}))
+        .await;
+    assert_eq!(error_of(&res), "unknown-workspace");
+    assert_eq!(s.published(), 0);
+    s.owners.lock().insert("w1".to_owned(), "win1".to_owned());
+    assert_eq!(s.folder_ids("win1"), Vec::<String>::new());
 }
 
 #[tokio::test]

@@ -22,7 +22,11 @@ impl AtFs for ProcAtFs {
         flags: OFlags,
         mode: Mode,
     ) -> io::Result<OwnedFd> {
-        Ok(rustix::fs::open(at(dir, name), flags, mode)?)
+        Ok(rustix::fs::open(
+            at(dir, name),
+            flags | OFlags::CLOEXEC,
+            mode,
+        )?)
     }
 
     fn lstatat(&self, dir: BorrowedFd<'_>, name: &str) -> io::Result<EntryStat> {

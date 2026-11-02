@@ -27,6 +27,7 @@ tokio = { workspace = true, features = ["test-util"] }
 tokio-util.workspace = true
 
 ostia-testkit.workspace = true
+ostia-testscript.workspace = true
 
 [lints]
 workspace = true

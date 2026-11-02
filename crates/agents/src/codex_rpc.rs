@@ -16,12 +16,14 @@ use tokio::time::Instant;
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::error::Error as WsError;
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 
 use crate::stream_codex::{CodexNotice, CodexRequestError, CodexRpc};
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
 const CLOSE_TIMEOUT: Duration = Duration::from_millis(1000);
+const MAX_PAYLOAD: usize = 100 * 1024 * 1024;
 
 type Reply = Result<Value, CodexRequestError>;
 
@@ -224,7 +226,10 @@ async fn open(path: &Path) -> Result<WebSocketStream<UnixStream>, CodexRequestEr
         let stream = UnixStream::connect(path)
             .await
             .map_err(|error| CodexRequestError::new(error.to_string()))?;
-        tokio_tungstenite::client_async("ws://localhost/", stream)
+        let limits = WebSocketConfig::default()
+            .max_message_size(Some(MAX_PAYLOAD))
+            .max_frame_size(Some(MAX_PAYLOAD));
+        tokio_tungstenite::client_async_with_config("ws://localhost/", stream, Some(limits))
             .await
             .map(|(socket, _)| socket)
             .map_err(|error| CodexRequestError::new(error.to_string()))

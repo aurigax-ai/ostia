@@ -50,6 +50,10 @@ const RESUME_CWD_MAX: usize = 4096;
 static RESUME_ID: LazyLock<Regex> =
     LazyLock::new(|| static_regex(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"));
 
+pub fn is_resume_id(id: &str) -> bool {
+    RESUME_ID.is_match(id)
+}
+
 fn is_resume_cwd(value: &str) -> bool {
     value.starts_with('/') && utf16_len(value) <= RESUME_CWD_MAX && !has_control_character(value)
 }
@@ -69,7 +73,7 @@ pub fn parse_agent_resume(raw: &Value) -> Option<AgentResume> {
     let record = raw.as_object()?;
     let agent = ResumableAgent::parse(record.get("agent")?.as_str()?)?;
     let id = record.get("id")?.as_str()?;
-    if !RESUME_ID.is_match(id) {
+    if !is_resume_id(id) {
         return None;
     }
     Some(AgentResume {

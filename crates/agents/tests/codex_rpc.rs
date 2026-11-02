@@ -77,6 +77,11 @@ async fn serve(stream: UnixStream, shared: Shared) {
                     json!({"id": id, "error": {"message": "nope"}}).to_string(),
                 ));
             }
+            "big" => {
+                let _ = tx.send(Out::Text(
+                    json!({"id": id, "result": {"text": "x".repeat(20 * 1024 * 1024)}}).to_string(),
+                ));
+            }
             "drop" => {
                 shared.dropped.store(true, Ordering::SeqCst);
                 let _ = tx.send(Out::Close);
@@ -272,4 +277,13 @@ async fn rejects_when_nothing_listens_on_the_socket() {
     let server = start_server();
     let missing = server.dir.path().join("missing.sock");
     assert!(connect_codex_rpc(&missing, "1", None).await.is_err());
+}
+
+#[tokio::test]
+async fn reads_a_reply_of_20_mib_in_one_frame() {
+    let server = start_server();
+    let rpc = connect(&server, "1", None).await;
+    let reply = rpc.request("big", json!({})).await.unwrap();
+    assert_eq!(reply["text"].as_str().unwrap().len(), 20 * 1024 * 1024);
+    finish(&rpc).await;
 }

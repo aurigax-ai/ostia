@@ -184,3 +184,17 @@ fn keeps_acting_on_the_held_folder_after_it_is_swapped_for_a_link() {
     fs::remove_file(dir.path()).unwrap();
     fs::rename(&moved, dir.path()).unwrap();
 }
+
+#[test]
+fn opens_every_descriptor_close_on_exec() {
+    let (dir, handle) = held();
+    fs::write(dir.path().join("a.txt"), "a").unwrap();
+    let fd = ProcAtFs
+        .openat(handle.as_fd(), "a.txt", OFlags::RDONLY, Mode::empty())
+        .unwrap();
+    assert!(
+        rustix::io::fcntl_getfd(&fd)
+            .unwrap()
+            .contains(rustix::io::FdFlags::CLOEXEC)
+    );
+}

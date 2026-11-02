@@ -1,4 +1,9 @@
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::await_holding_lock
+)]
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -693,13 +698,13 @@ async fn never_shows_the_ostia_dialog_after_a_touch_id_prompt_that_the_user_answ
 
 fn fake_bin(dir: &Path, name: &str, script: &str) -> PathBuf {
     let file = dir.join(name);
-    fs::write(&file, format!("#!/bin/sh\n{script}\n")).unwrap();
-    fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).unwrap();
+    ostia_testscript::write_script(&file, &format!("#!/bin/sh\n{script}\n"), 0o755).unwrap();
     file
 }
 
 #[tokio::test]
 async fn runs_the_first_pkcheck_that_exists_and_reports_its_exit_code_and_stderr() {
+    let _scripts = ostia_testscript::lock();
     let dir = tempfile::tempdir().unwrap();
     let second = fake_bin(dir.path(), "second", "echo \"second $@\" >&2; exit 3");
     fake_bin(dir.path(), "pkcheck", "exit 0");
@@ -715,6 +720,7 @@ async fn runs_the_first_pkcheck_that_exists_and_reports_its_exit_code_and_stderr
 
 #[tokio::test]
 async fn looks_only_at_the_fixed_paths_not_path() {
+    let _scripts = ostia_testscript::lock();
     let dir = tempfile::tempdir().unwrap();
     fake_bin(dir.path(), "pkcheck", "exit 0");
     let got = run_pkcheck(
@@ -730,11 +736,12 @@ async fn looks_only_at_the_fixed_paths_not_path() {
 
 #[tokio::test]
 async fn stops_a_pkcheck_that_never_answers() {
+    let _scripts = ostia_testscript::lock();
     let dir = tempfile::tempdir().unwrap();
     let slow = fake_bin(dir.path(), "slow", "exec sleep 30");
     let started = std::time::Instant::now();
     let got = run_pkcheck(&[], Duration::from_millis(50), &[slow]).await;
-    assert!(got.timed_out);
+    assert!(got.timed_out, "got {got:?}");
     assert!(started.elapsed() < Duration::from_secs(10));
 }
 
@@ -776,6 +783,7 @@ async fn reports_a_pkcheck_that_cannot_start_with_no_code_and_the_error_text() {
 #[tokio::test]
 async fn reports_the_exit_code_of_a_pkcheck_that_ends_inside_the_timeout_without_a_timed_out_flag()
 {
+    let _scripts = ostia_testscript::lock();
     let dir = tempfile::tempdir().unwrap();
     let quick = fake_bin(dir.path(), "quick", "exit 1");
     let got = run_pkcheck(&[], Duration::from_millis(5_000), &[quick]).await;
