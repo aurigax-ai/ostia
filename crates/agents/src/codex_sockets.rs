@@ -35,18 +35,21 @@ fn remove_if_present(path: &Path) -> Result<()> {
     }
 }
 
+pub fn parse_server_pid(text: &str) -> Option<Pid> {
+    let pid = js_number(text);
+    if pid.fract() != 0.0 || pid <= 0.0 || pid > f64::from(i32::MAX) {
+        return None;
+    }
+    Pid::from_raw(pid as i32)
+}
+
 fn kill_server(pid_file: &Path) {
     let Ok(bytes) = fs::read(pid_file) else {
         return;
     };
-    let pid = js_number(&String::from_utf8_lossy(&bytes));
-    if pid.fract() != 0.0 || pid <= 0.0 || pid > f64::from(i32::MAX) {
-        return;
+    if let Some(pid) = parse_server_pid(&String::from_utf8_lossy(&bytes)) {
+        let _ = kill_process(pid, Signal::TERM);
     }
-    let Some(pid) = Pid::from_raw(pid as i32) else {
-        return;
-    };
-    let _ = kill_process(pid, Signal::TERM);
 }
 
 #[derive(Clone, Default)]

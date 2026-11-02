@@ -7,8 +7,11 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
-use ostia_agents::codex_sockets::{CodexSockets, codex_socket_dir, codex_socket_path};
+use ostia_agents::codex_sockets::{
+    CodexSockets, codex_socket_dir, codex_socket_path, parse_server_pid,
+};
 use ostia_testkit::temp_host;
+use rustix::process::Pid;
 
 const SIGTERM: i32 = 15;
 
@@ -120,5 +123,33 @@ fn removes_the_files_and_does_not_fail_when_the_pid_file_is_missing_or_holds_no_
         sockets.forget("pane-z").unwrap();
         assert!(!sock.exists(), "pid file {pid_text:?}");
         assert!(!Path::new(&pid_file).exists(), "pid file {pid_text:?}");
+    }
+}
+
+#[test]
+fn takes_only_a_whole_positive_number_that_fits_a_pid_as_the_server_pid() {
+    let accepted = [
+        ("1", 1),
+        ("1234\n", 1234),
+        (" 42 ", 42),
+        ("2147483647", i32::MAX),
+    ];
+    for (text, raw) in accepted {
+        assert_eq!(parse_server_pid(text), Pid::from_raw(raw), "text {text:?}");
+    }
+    let refused = [
+        "0",
+        "-1",
+        "-5",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "1.5",
+        "2147483648",
+        "abc",
+        "",
+    ];
+    for text in refused {
+        assert_eq!(parse_server_pid(text), None, "text {text:?}");
     }
 }

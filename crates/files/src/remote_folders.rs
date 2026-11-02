@@ -245,6 +245,10 @@ impl RemoteFolders {
                             None => folders.push(folder.clone()),
                         }
                     }
+                    if this.window_of(&folder.workspace_id).is_none() {
+                        this.folders.lock().retain(|f| f.id != folder.id);
+                        return refused("unknown-workspace", "the workspace closed");
+                    }
                     (this.deps.publish)();
                     opened(folder.id)
                 }

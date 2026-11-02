@@ -65,6 +65,41 @@ async fn worktree_key_is_none_outside_a_repository() {
 }
 
 #[tokio::test]
+async fn worktree_key_is_the_same_at_the_top_and_in_a_subfolder() {
+    let (sandbox, repo) = repo_with(&[("src/a.txt", "one\n")]);
+    let top = worktree_key(&host(), &repo).await;
+    assert!(top.is_some());
+    assert_eq!(worktree_key(&host(), &sandbox.dir("repo/src")).await, top);
+}
+
+#[tokio::test]
+async fn worktree_key_differs_between_the_main_and_a_linked_worktree() {
+    let (sandbox, repo) = repo_with(&[("a.txt", "one\n")]);
+    let linked = sandbox.path("linked");
+    git(
+        &repo,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            linked.to_str().unwrap(),
+            "-b",
+            "other",
+        ],
+    );
+    let main = worktree_key(&host(), &repo).await;
+    let other = worktree_key(&host(), &linked).await;
+    assert!(other.is_some());
+    assert_ne!(other, main);
+}
+
+#[tokio::test]
+async fn worktree_key_is_none_for_a_folder_that_does_not_exist() {
+    let sandbox = Sandbox::new("ostia-git-repo-");
+    assert_eq!(worktree_key(&host(), &sandbox.path("missing")).await, None);
+}
+
+#[tokio::test]
 async fn run_ok_reports_git_stderr_as_a_git_failed_error() {
     let (_sandbox, repo) = repo_with(&[("a.txt", "one\n")]);
     let err = run_ok(
@@ -596,6 +631,15 @@ async fn blame_lists_each_line_with_the_commit_that_wrote_it() {
     assert_eq!(lines[0].summary, "first");
     assert_eq!(lines[1].summary, "second");
     assert_eq!(lines[1].text, "two");
+}
+
+#[tokio::test]
+async fn blame_refuses_a_file_whose_blame_output_passes_four_times_the_side_limit() {
+    let (_sandbox, repo) = repo_with(&[("a.txt", "one\n")]);
+    write(repo.join("big.txt"), &"x\n".repeat(200_000));
+    commit_all(&repo, "big");
+    let err = blame(&host(), &repo, "big.txt").await.unwrap_err();
+    assert_eq!(err.code, RepoErrorCode::TooLarge);
 }
 
 #[tokio::test]

@@ -228,6 +228,19 @@ fn names_the_project_folder_the_way_claude_does_every_non_alphanumeric_as_a_dash
 }
 
 #[test]
+fn refuses_an_id_that_is_a_path_instead_of_reading_outside_the_transcript_root() {
+    let home = claude_home();
+    let outside = TempDir::new().unwrap();
+    fs::write(outside.path().join("x.jsonl"), "x\n").unwrap();
+    let id = outside.path().join("x").to_string_lossy().into_owned();
+    assert_eq!(transcript_path(&claude(&id, None), home.path()), None);
+    assert_eq!(
+        transcript_path(&claude(&id, Some("/work/other")), home.path()),
+        None
+    );
+}
+
+#[test]
 fn still_searches_every_project_when_no_cwd_is_known() {
     let home = claude_home();
     assert_eq!(

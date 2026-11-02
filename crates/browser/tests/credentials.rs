@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use ostia_browser::credentials::{
     CredentialDeps, CredentialError, CredentialImportResult, CredentialInput, CredentialSaveResult,
@@ -13,11 +13,17 @@ use parking_lot::Mutex;
 struct Memory {
     store: CredentialStore,
     saved: Arc<Mutex<Vec<StoredCredential>>>,
+    fail_save: Arc<AtomicBool>,
+    fail_encrypt: Arc<AtomicBool>,
+    fail_decrypt: Arc<AtomicBool>,
 }
 
 fn memory_store(can_encrypt: bool) -> Memory {
     let saved = Arc::new(Mutex::new(Vec::<StoredCredential>::new()));
     let counter = Arc::new(AtomicUsize::new(0));
+    let fail_save = Arc::new(AtomicBool::new(false));
+    let fail_encrypt = Arc::new(AtomicBool::new(false));
+    let fail_decrypt = Arc::new(AtomicBool::new(false));
     let store = create_credential_store(CredentialDeps {
         load: {
             let saved = saved.clone();
@@ -25,15 +31,44 @@ fn memory_store(can_encrypt: bool) -> Memory {
         },
         save: {
             let saved = saved.clone();
-            Box::new(move |list| *saved.lock() = list.to_vec())
+            let fail = fail_save.clone();
+            Box::new(move |list| {
+                if fail.load(Ordering::SeqCst) {
+                    return Err(CredentialError::Storage);
+                }
+                *saved.lock() = list.to_vec();
+                Ok(())
+            })
         },
         can_encrypt: Box::new(move || can_encrypt),
-        encrypt: Box::new(|plain| format!("enc:{plain}")),
-        decrypt: Box::new(|secret| secret.strip_prefix("enc:").unwrap_or(secret).to_owned()),
+        encrypt: {
+            let fail = fail_encrypt.clone();
+            Box::new(move |plain| {
+                if fail.load(Ordering::SeqCst) {
+                    return Err(CredentialError::Crypto);
+                }
+                Ok(format!("enc:{plain}"))
+            })
+        },
+        decrypt: {
+            let fail = fail_decrypt.clone();
+            Box::new(move |secret| {
+                if fail.load(Ordering::SeqCst) {
+                    return Err(CredentialError::Crypto);
+                }
+                Ok(secret.strip_prefix("enc:").unwrap_or(secret).to_owned())
+            })
+        },
         now: Box::new(|| 1000),
         new_id: Box::new(move || format!("c{}", counter.fetch_add(1, Ordering::SeqCst) + 1)),
     });
-    Memory { store, saved }
+    Memory {
+        store,
+        saved,
+        fail_save,
+        fail_encrypt,
+        fail_decrypt,
+    }
 }
 
 fn input(origin: &str, username: &str, password: &str) -> CredentialInput {
@@ -77,7 +112,7 @@ fn stores_passwords_encrypted_under_the_exact_origin_and_lists_them_without_pass
         m.store.list(),
         vec![summary("c1", "https://github.com", "me")]
     );
-    assert_eq!(m.store.password("c1"), Some("pw".to_owned()));
+    assert_eq!(m.store.password("c1"), Ok(Some("pw".to_owned())));
 }
 
 #[test]
@@ -89,20 +124,27 @@ fn updates_the_password_of_the_same_origin_and_username_instead_of_adding_a_dupl
         saved("c1", true)
     );
     assert_eq!(m.store.list().len(), 1);
-    assert_eq!(m.store.password("c1"), Some("new".to_owned()));
+    assert_eq!(m.store.password("c1"), Ok(Some("new".to_owned())));
 }
 
 #[test]
 fn matches_only_the_exact_origin_never_a_look_alike_host() {
     let m = memory_store(true);
     m.store.save(input("https://github.com", "me", "pw"));
-    assert_eq!(m.store.for_origin("https://github.com/settings").len(), 1);
+    assert_eq!(
+        m.store
+            .for_origin("https://github.com/settings")
+            .unwrap()
+            .len(),
+        1
+    );
     assert!(
         m.store
             .for_origin("https://github.com.evil.io/login")
+            .unwrap()
             .is_empty()
     );
-    assert!(m.store.for_origin("http://github.com").is_empty());
+    assert!(m.store.for_origin("http://github.com").unwrap().is_empty());
 }
 
 #[test]
@@ -147,8 +189,8 @@ fn imports_rows_counting_new_updated_and_skipped_entries() {
 fn removes_an_entry_by_id() {
     let m = memory_store(true);
     m.store.save(input("https://a.dev", "me", "pw"));
-    assert!(m.store.remove("c1"));
-    assert!(!m.store.remove("c1"));
+    assert_eq!(m.store.remove("c1"), Ok(true));
+    assert_eq!(m.store.remove("c1"), Ok(false));
     assert!(m.store.list().is_empty());
 }
 
@@ -225,15 +267,15 @@ fn lists_entries_by_origin_and_then_by_username() {
 fn gives_the_password_and_the_origin_matches_only_while_encryption_is_available() {
     let m = memory_store(true);
     m.store.save(input("https://a.dev", "me", "pw"));
-    let matches = m.store.for_origin("https://a.dev/x");
+    let matches = m.store.for_origin("https://a.dev/x").unwrap();
     assert_eq!(matches[0].password, "pw");
     assert_eq!(matches[0].origin, "https://a.dev");
-    assert_eq!(m.store.password("missing"), None);
+    assert_eq!(m.store.password("missing"), Ok(None));
 
     let locked = memory_store(false);
     *locked.saved.lock() = m.saved.lock().clone();
-    assert_eq!(locked.store.password("c1"), None);
-    assert!(locked.store.for_origin("https://a.dev").is_empty());
+    assert_eq!(locked.store.password("c1"), Ok(None));
+    assert!(locked.store.for_origin("https://a.dev").unwrap().is_empty());
 }
 
 #[test]
@@ -264,7 +306,7 @@ fn counts_a_row_repeated_inside_one_import_as_new_then_updated() {
             skipped: 0
         }
     );
-    assert_eq!(m.store.password("c1"), Some("two".to_owned()));
+    assert_eq!(m.store.password("c1"), Ok(Some("two".to_owned())));
 }
 
 #[test]
@@ -380,4 +422,77 @@ fn fills_a_missing_username_column_and_short_rows_with_empty_text() {
 #[test]
 fn returns_a_row_list_with_no_rows_for_a_header_only_file() {
     assert_eq!(password_rows_from_csv("url,password\n"), Some(vec![]));
+}
+
+#[test]
+fn reports_a_failed_write_and_keeps_the_file_as_it_was() {
+    let m = memory_store(true);
+    m.store.save(input("https://a.dev", "me", "old"));
+    m.fail_save.store(true, Ordering::SeqCst);
+    assert_eq!(
+        m.store.save(input("https://b.dev", "me", "pw")),
+        failed(CredentialError::Storage)
+    );
+    assert_eq!(m.store.remove("c1"), Err(CredentialError::Storage));
+    assert_eq!(
+        m.store
+            .import_rows(vec![input("https://c.dev", "me", "pw")]),
+        CredentialImportResult::Failed {
+            error: CredentialError::Storage
+        }
+    );
+    m.fail_save.store(false, Ordering::SeqCst);
+    assert_eq!(m.store.list().len(), 1);
+}
+
+#[test]
+fn keeps_the_old_secret_when_encryption_fails_on_an_update() {
+    let m = memory_store(true);
+    m.store.save(input("https://a.dev", "me", "old"));
+    m.fail_encrypt.store(true, Ordering::SeqCst);
+    assert_eq!(
+        m.store.save(input("https://a.dev", "me", "new")),
+        failed(CredentialError::Crypto)
+    );
+    assert_eq!(
+        m.store
+            .import_rows(vec![input("https://a.dev", "me", "new")]),
+        CredentialImportResult::Failed {
+            error: CredentialError::Crypto
+        }
+    );
+    assert_eq!(m.saved.lock()[0].secret, "enc:old");
+}
+
+#[test]
+fn never_fills_a_password_when_decryption_fails() {
+    let m = memory_store(true);
+    m.store.save(input("https://a.dev", "me", "pw"));
+    m.fail_decrypt.store(true, Ordering::SeqCst);
+    assert_eq!(m.store.password("c1"), Err(CredentialError::Crypto));
+    assert_eq!(
+        m.store.for_origin("https://a.dev").unwrap_err(),
+        CredentialError::Crypto
+    );
+}
+
+#[test]
+fn reads_a_file_that_starts_with_a_byte_order_mark() {
+    assert_eq!(
+        password_rows_from_csv("\u{feff}\"url\",\"username\",\"password\"\nhttps://a.test,me,pw\n"),
+        Some(vec![input("https://a.test", "me", "pw")])
+    );
+}
+
+#[test]
+fn accepts_white_space_between_a_closing_quote_and_the_delimiter() {
+    assert_eq!(
+        password_rows_from_csv(
+            "url,username,password\n\"https://a.test\" ,me,\"pw\"\t\nhttps://b.test,you,pw2\n"
+        ),
+        Some(vec![
+            input("https://a.test", "me", "pw"),
+            input("https://b.test", "you", "pw2"),
+        ])
+    );
 }

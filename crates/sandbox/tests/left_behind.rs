@@ -3,7 +3,6 @@
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 use ostia_sandbox::left_behind::{left_behind_baseline, left_behind_since, watch_left_behind};
@@ -99,25 +98,57 @@ async fn does_not_list_a_file_that_was_removed_since_the_baseline() {
     assert!(left_behind_since(dir.path(), &baseline).await.is_empty());
 }
 
+async fn next_report(
+    reports: &mut tokio::sync::mpsc::UnboundedReceiver<Vec<String>>,
+) -> Option<Vec<String>> {
+    tokio::time::timeout(Duration::from_secs(5), reports.recv())
+        .await
+        .ok()
+        .flatten()
+}
+
 #[tokio::test]
 async fn reports_once_when_the_watch_ends_and_says_nothing_for_a_quiet_session() {
     let dir = TempDir::new().unwrap();
-    let seen: Arc<Mutex<Vec<Vec<String>>>> = Arc::new(Mutex::new(Vec::new()));
-    let sink = seen.clone();
+    let (sink, mut reports) = tokio::sync::mpsc::unbounded_channel();
+    let quiet_sink = sink.clone();
     let quiet = watch_left_behind(dir.path().to_path_buf(), move |paths| {
-        sink.lock().unwrap().push(paths);
+        let _ = quiet_sink.send(paths);
     });
+    quiet.baseline_taken().await;
     quiet.end();
-    tokio::time::sleep(Duration::from_millis(50)).await;
-    assert!(seen.lock().unwrap().is_empty());
-    let sink = seen.clone();
     let busy = watch_left_behind(dir.path().to_path_buf(), move |paths| {
-        sink.lock().unwrap().push(paths);
+        let _ = sink.send(paths);
     });
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    busy.baseline_taken().await;
     fs::write(dir.path().join(".envrc"), "x").unwrap();
     busy.end();
     busy.end();
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    assert_eq!(*seen.lock().unwrap(), vec![vec![".envrc".to_owned()]]);
+    assert_eq!(
+        next_report(&mut reports).await,
+        Some(vec![".envrc".to_owned()])
+    );
+    assert_eq!(
+        tokio::time::timeout(Duration::from_millis(100), reports.recv())
+            .await
+            .ok()
+            .flatten(),
+        None
+    );
+}
+
+#[tokio::test]
+async fn reports_when_the_watch_ends_on_a_thread_outside_the_runtime() {
+    let dir = TempDir::new().unwrap();
+    let (sink, mut reports) = tokio::sync::mpsc::unbounded_channel();
+    let watch = watch_left_behind(dir.path().to_path_buf(), move |paths| {
+        let _ = sink.send(paths);
+    });
+    watch.baseline_taken().await;
+    fs::write(dir.path().join(".envrc"), "x").unwrap();
+    std::thread::spawn(move || watch.end()).join().unwrap();
+    assert_eq!(
+        next_report(&mut reports).await,
+        Some(vec![".envrc".to_owned()])
+    );
 }

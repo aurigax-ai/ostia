@@ -3,7 +3,7 @@ use std::os::unix::fs::{FileExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
 use ostia_base::{Error, Result, error::io_error};
-use ostia_contract::agent_resume::{AgentResume, ResumableAgent};
+use ostia_contract::agent_resume::{AgentResume, ResumableAgent, is_resume_id};
 
 const NEW_LINES_BYTES: u64 = 4 * 1024 * 1024;
 const LONGEST_LINE_BYTES: u64 = 64 * 1024 * 1024;
@@ -188,6 +188,9 @@ fn codex_transcript(home: &Path, id: &str) -> Option<PathBuf> {
 }
 
 pub fn transcript_path(resume: &AgentResume, home: &Path) -> Option<PathBuf> {
+    if !is_resume_id(&resume.id) {
+        return None;
+    }
     match resume.agent {
         ResumableAgent::Claude => claude_transcript(home, &resume.id, resume.cwd.as_deref()),
         ResumableAgent::Codex | ResumableAgent::Agy => codex_transcript(home, &resume.id),
