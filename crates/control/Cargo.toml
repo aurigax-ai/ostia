@@ -31,3 +31,4 @@ workspace = true
 ostia-attention.workspace = true
 ostia-panes.workspace = true
 tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
