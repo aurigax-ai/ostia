@@ -27,4 +27,5 @@ uuid.workspace = true
 workspace = true
 
 [dev-dependencies]
+ostia-attention.workspace = true
 tempfile.workspace = true
