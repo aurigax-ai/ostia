@@ -79,9 +79,21 @@ def run_shot(name):
 
 
 time.sleep(start_delay)
+if len(sys.argv) > 3 and sys.argv[3] == 'probe':
+    for x, y in ((200, 60), (300, 60), (400, 60), (600, 60), (1000, 60), (200, 70), (200, 80), (200, 90), (200, 100), (200, 150), (200, 300), (600, 300)):
+        move(x, y)
+        print('moved', x, y, flush=True)
+        time.sleep(1.0)
+    for _ in range(3):
+        rd('NotifyPointerAxis', (0.0, 15.0, 0), '(ddu)')
+        time.sleep(0.2)
+    rd('NotifyPointerAxis', (0.0, 0.0, 1), '(ddu)')
+    time.sleep(1)
+    sys.exit(0)
 shot("wl-before")
-move(400, 300)
-time.sleep(0.5)
+for x, y in ((200, 60), (201, 61), (400, 300), (402, 302)):
+    move(x, y)
+    time.sleep(1.0)
 for _ in range(3):
     rd("NotifyPointerAxis", (0.0, 15.0, 0), "(ddu)")
     time.sleep(0.1)
