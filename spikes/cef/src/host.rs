@@ -234,14 +234,7 @@ pub enum ContextKind {
     Global,
 }
 
-pub const CONTEXT_ORDER: [ContextKind; 6] = [
-    ContextKind::Disk,
-    ContextKind::DiskWithHandler,
-    ContextKind::DiskFresh,
-    ContextKind::DiskProfileName,
-    ContextKind::Global,
-    ContextKind::Memory,
-];
+pub const CONTEXT_ORDER: [ContextKind; 2] = [ContextKind::Disk, ContextKind::Memory];
 
 pub fn open_page(
     url: &str,
@@ -282,14 +275,25 @@ pub fn open_page(
         cache_path: cache_path.into(),
         ..Default::default()
     };
-    let mut handler = SpikeContextHandler::new(());
+    let context_ready = Rc::new(Cell::new(false));
+    let mut handler = SpikeContextHandler::new(context_ready.clone());
     let mut context = match kind {
         ContextKind::Global => request_context_get_global_context(),
-        ContextKind::DiskWithHandler => {
+        ContextKind::Disk | ContextKind::DiskWithHandler => {
             request_context_create_context(Some(&context_settings), Some(&mut handler))
         }
         _ => request_context_create_context(Some(&context_settings), None),
     };
+    if matches!(kind, ContextKind::Disk | ContextKind::DiskWithHandler) {
+        for _ in 0..300 {
+            if context_ready.get() {
+                break;
+            }
+            do_message_loop_work();
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        eprintln!("SPIKE context-initialized={}", context_ready.get());
+    }
     eprintln!(
         "SPIKE request-context kind={kind:?} created={}",
         context.is_some()
@@ -367,10 +371,14 @@ pub fn register_scheme(context: &RequestContext, root: &str) -> bool {
 
 wrap_request_context_handler! {
     struct SpikeContextHandler {
-        unit: (),
+        ready: Rc<Cell<bool>>,
     }
 
-    impl RequestContextHandler {}
+    impl RequestContextHandler {
+        fn on_request_context_initialized(&self, _request_context: Option<&mut RequestContext>) {
+            self.ready.set(true);
+        }
+    }
 }
 
 #[derive(Clone)]
