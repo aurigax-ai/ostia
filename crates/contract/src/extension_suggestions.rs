@@ -104,10 +104,7 @@ pub fn suggested_extension_in(
     table: &[(&str, ExtensionSuggestionRule)],
 ) -> Option<SuggestedExtension> {
     let name = file_name(path);
-    if let Some((ext_id, _)) = table
-        .iter()
-        .find(|(_, rule)| rule.names.iter().any(|known| *known == name))
-    {
+    if let Some((ext_id, _)) = table.iter().find(|(_, rule)| rule.names.contains(&name)) {
         return Some(SuggestedExtension {
             ext_id: (*ext_id).to_owned(),
             files: name.to_owned(),
@@ -116,7 +113,7 @@ pub fn suggested_extension_in(
     let suffix = file_suffix(path)?;
     table
         .iter()
-        .find(|(_, rule)| rule.suffixes.iter().any(|known| *known == suffix.as_str()))
+        .find(|(_, rule)| rule.suffixes.contains(&suffix.as_str()))
         .map(|(ext_id, _)| SuggestedExtension {
             ext_id: (*ext_id).to_owned(),
             files: format!(".{suffix}"),
