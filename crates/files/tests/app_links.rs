@@ -12,11 +12,13 @@ use ostia_files::browser_pages::{BrowserHost, BrowserLaunch};
 use parking_lot::Mutex;
 use serde_json::{Value, json};
 
+type Started = Vec<(BrowserLaunch, BTreeMap<String, String>)>;
+
 struct Rig {
     terminal: Arc<Mutex<Option<Value>>>,
     installed: Arc<Mutex<Vec<String>>>,
     opened: Arc<Mutex<Vec<String>>>,
-    started: Arc<Mutex<Vec<(BrowserLaunch, BTreeMap<String, String>)>>>,
+    started: Arc<Mutex<Started>>,
     fail_open: Arc<AtomicBool>,
 }
 
