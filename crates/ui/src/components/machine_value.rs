@@ -1,5 +1,7 @@
 use gpui_kit::prelude::*;
-use gpui_kit::{App, ElementId, IntoElement, RenderOnce, Role, SharedString, Window, div};
+use gpui_kit::{
+    App, ElementId, IntoElement, RenderOnce, Role, SharedString, TestSupportExt as _, Window, div,
+};
 
 use super::tooltip::hint;
 use crate::theme::UiTheme;
