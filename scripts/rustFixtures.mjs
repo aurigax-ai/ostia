@@ -19,6 +19,7 @@ export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
 export { scrollbackToSave } from './src/main/workspaces/savedScrollback'
 export { USAGE_TABLE } from './src/cli/common/usageTable'
 export * as bus from './src/main/agents/busStore'
+export { encodeViewerSelection } from './packages/extension-sdk/src/contract/viewerSelection'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -44,6 +45,7 @@ const {
   ViewStateStore,
   USAGE_TABLE,
   bus,
+  encodeViewerSelection,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -379,4 +381,19 @@ bus.dismissFailed('e')
 await bus.flushBus()
 writeFileSync(join(out, 'bus-after.json'), readFileSync(busFile))
 globalThis.Date = RealDate
+
+const toHex = (bytes) => Buffer.from(bytes).toString('hex')
+const SELECTION_META = {
+  capture: { kind: 'image', imageWidth: 4, imageHeight: 3, region: null },
+  rect: { x: 1, y: 2, width: 3, height: 4 },
+  frame: { width: 800, height: 600 },
+  text: 'h\u00e9llo \u597d \ud83d\ude00',
+}
+const SELECTION_PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3])
+const withPng = new Uint8Array(await encodeViewerSelection(SELECTION_META, SELECTION_PNG).arrayBuffer())
+const withoutPng = new Uint8Array(await encodeViewerSelection(SELECTION_META, null).arrayBuffer())
+writeFileSync(
+  join(out, 'viewer-selection-body.json'),
+  `${JSON.stringify({ meta: SELECTION_META, png: [...SELECTION_PNG], withPng: toHex(withPng), withoutPng: toHex(withoutPng) }, null, 2)}\n`,
+)
 rmSync(work, { recursive: true, force: true })

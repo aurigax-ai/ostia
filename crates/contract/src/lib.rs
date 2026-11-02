@@ -6,10 +6,14 @@ pub mod commands;
 pub mod extensions;
 pub mod hidden_text;
 pub mod open_files;
+pub mod proto_guard;
 pub mod reach;
+pub mod remote_folders;
 pub mod sandbox;
 pub mod script_tokens;
+pub mod scrollbar;
 pub mod terminal_state;
+pub mod viewer_selection;
 
 pub const TARGET_PANE_PARAM: &str = "targetPaneId";
 pub const SANDBOXED_REFUSAL: &str =
