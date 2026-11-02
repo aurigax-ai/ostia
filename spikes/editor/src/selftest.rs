@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -251,5 +252,69 @@ pub async fn language_server(left: Entity<EditorState>, file: String, cx: &mut A
             Err(error) => eprintln!("lsp hover_failed={error:#}"),
         }
     }
+    cx.update(|_, cx| cx.quit()).ok();
+}
+
+async fn next_frame(cx: &mut AsyncWindowContext) {
+    let done = Rc::new(Cell::new(false));
+    let flag = done.clone();
+    cx.on_next_frame(move |_, _| flag.set(true));
+    while !done.get() {
+        cx.background_executor()
+            .timer(Duration::from_micros(500))
+            .await;
+    }
+}
+
+fn summary(label: &str, mut milliseconds: Vec<f64>) {
+    milliseconds.sort_by(f64::total_cmp);
+    let last = milliseconds.len().saturating_sub(1);
+    let at = |share: usize| milliseconds.get((milliseconds.len() * share / 100).min(last));
+    eprintln!(
+        "latency {label} n={} p50_ms={:.1?} p95_ms={:.1?} max_ms={:.1?}",
+        milliseconds.len(),
+        at(50),
+        at(95),
+        milliseconds.last()
+    );
+}
+
+pub async fn latency(left: Entity<EditorState>, cx: &mut AsyncWindowContext) {
+    pause(cx, 5000).await;
+    cx.update(|window, cx| {
+        left.update(cx, |state, cx| {
+            state.set_cursor_position(Position::new(20, 0), window, cx)
+        });
+    })
+    .ok();
+    next_frame(cx).await;
+    pause(cx, 500).await;
+    let mut typing = Vec::new();
+    for _ in 0..100 {
+        let started = Instant::now();
+        cx.update(|window, cx| {
+            left.update(cx, |state, cx| state.insert("a", window, cx));
+        })
+        .ok();
+        next_frame(cx).await;
+        typing.push(started.elapsed().as_secs_f64() * 1000.0);
+        pause(cx, 20).await;
+    }
+    summary("typing_to_frame", typing);
+    let mut scrolling = Vec::new();
+    for _ in 0..60 {
+        let started = Instant::now();
+        cx.update(|_, cx| {
+            left.update(cx, |state, cx| {
+                let offset = state.scroll_offset();
+                state.set_scroll_offset(point(offset.x, offset.y - px(4000.)), cx)
+            });
+        })
+        .ok();
+        next_frame(cx).await;
+        scrolling.push(started.elapsed().as_secs_f64() * 1000.0);
+        pause(cx, 20).await;
+    }
+    summary("scroll_step_to_frame", scrolling);
     cx.update(|_, cx| cx.quit()).ok();
 }

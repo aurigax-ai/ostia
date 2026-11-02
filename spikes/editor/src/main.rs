@@ -28,6 +28,7 @@ impl SideBySide {
             let (left, right) = (left.clone(), right.clone());
             cx.spawn_in(window, async move |_, cx| match kind.as_str() {
                 "editing" => selftest::editing(left, right, cx).await,
+                "latency" => selftest::latency(left, cx).await,
                 _ => selftest::language_server(left, file, cx).await,
             })
         });
