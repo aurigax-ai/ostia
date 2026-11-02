@@ -46,6 +46,8 @@ pub struct BrowserView {
     shown: Option<std::sync::Arc<RenderImage>>,
     last_size: (i32, i32),
     last_logged_frames: u64,
+    init_tick: Option<u64>,
+    ticks: u64,
 }
 
 impl BrowserView {
@@ -65,6 +67,8 @@ impl BrowserView {
             shown: None,
             last_size: (0, 0),
             last_logged_frames: 0,
+            init_tick: None,
+            ticks: 0,
         };
         cx.spawn(async move |this, cx| {
             let (lazy_ms, run_secs) = this
@@ -109,6 +113,11 @@ impl BrowserView {
             return;
         }
         eprintln!("SPIKE cef-init-done");
+        self.init_tick = Some(self.ticks);
+        cx.notify();
+    }
+
+    fn create_pages(&mut self, cx: &mut Context<Self>) {
         let (width, height) = self.last_size;
         for index in 0..self.settings.pages {
             let geometry = new_geometry(width.max(640), height.max(480), 1.0);
@@ -131,6 +140,10 @@ impl BrowserView {
     }
 
     fn pull(&mut self, ticks: u64, cx: &mut Context<Self>) {
+        self.ticks = ticks;
+        if self.init_tick.is_some_and(|at| ticks == at + 40) {
+            self.create_pages(cx);
+        }
         let Some(page) = self.pages.get(self.active) else {
             return;
         };
