@@ -488,7 +488,7 @@ async fn never_writes_text_that_a_clear_during_the_snapshot_removed() {
     let store = SavedScrollback::new(host.clone());
     let clearer = store.clone();
     let clear_while_reading = move |_: &str| {
-        let _ = clearer.clear_persisted();
+        drop(clearer.clear_persisted());
         false
     };
     store

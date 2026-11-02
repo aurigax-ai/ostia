@@ -521,7 +521,7 @@ fn a_listing_of_exactly_the_most_entries_is_not_truncated() {
     ));
     assert_eq!(
         listing["entries"].as_array().unwrap().len(),
-        REMOTE_ENTRIES_MAX - 1
+        REMOTE_ENTRIES_MAX
     );
     assert_eq!(listing["truncated"], json!(false));
 }
