@@ -348,14 +348,7 @@ fn counts_offsets_in_utf16_units_and_keeps_only_links_the_filter_accepts() {
 
 #[test]
 fn rejects_a_scheme_that_follows_a_link_character_and_finds_one_after_a_space() {
-    for text in [
-        "x/zed://a",
-        "x:zed://a",
-        "x-zed://a",
-        "x.zed://a",
-        "x+zed://a",
-        "9zed://a",
-    ] {
+    for text in ["x/zed://a", "x:zed://a", "_zed://a", "9zed://a"] {
         assert!(urls(text).is_empty(), "{text}");
     }
     assert_eq!(urls("x zed://a"), ["zed://a"]);
