@@ -67,7 +67,9 @@ fn js_to_number(value: &Value) -> f64 {
 fn cooldown_days(value: &Value) -> Option<i64> {
     let days = js_to_number(value);
     if days.is_finite() && days.fract() == 0.0 && (0.0..=60.0).contains(&days) {
-        (0..=60).find(|candidate| f64::from(*candidate) == days)
+        (0..=60_i32)
+            .find(|candidate| f64::from(*candidate) == days)
+            .map(i64::from)
     } else {
         None
     }
