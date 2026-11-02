@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -70,9 +71,13 @@ struct Worker {
 }
 
 impl Worker {
-    fn spawn(script: &Path) -> Result<Self, ScanError> {
-        let mut child = Command::new(WORKER_PROGRAM)
-            .arg(script)
+    fn spawn(script: &Path, path: Option<&str>) -> Result<Self, ScanError> {
+        let mut command = Command::new(WORKER_PROGRAM);
+        command.arg(script).env_clear();
+        if let Some(path) = path {
+            command.env("PATH", path);
+        }
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -225,6 +230,7 @@ fn lint_messages(content: &str, reply: &Value) -> Result<Vec<LintMessage>, ScanE
 
 struct Inner {
     script: PathBuf,
+    path: Option<String>,
     deadline: Box<dyn Fn(usize) -> Duration + Send + Sync>,
     slot: Mutex<Option<Worker>>,
     closed: watch::Sender<bool>,
@@ -239,11 +245,13 @@ impl WorkerScan {
     pub fn new(
         script: impl Into<PathBuf>,
         deadline: impl Fn(usize) -> Duration + Send + Sync + 'static,
+        env: &BTreeMap<String, String>,
     ) -> Self {
         let (closed, _) = watch::channel(false);
         Self {
             inner: Arc::new(Inner {
                 script: script.into(),
+                path: env.get("PATH").cloned(),
                 deadline: Box::new(deadline),
                 slot: Mutex::new(None),
                 closed,
@@ -270,7 +278,7 @@ impl WorkerScan {
             let mut slot = self.inner.slot.lock().await;
             let worker = match slot.take() {
                 Some(worker) => worker,
-                None => Worker::spawn(&self.inner.script)?,
+                None => Worker::spawn(&self.inner.script, self.inner.path.as_deref())?,
             };
             let deadline = (self.inner.deadline)(length);
             match tokio::time::timeout(deadline, work(worker)).await {

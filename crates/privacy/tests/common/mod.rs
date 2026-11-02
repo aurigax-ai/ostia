@@ -20,12 +20,16 @@ pub fn fixture_script(name: &str) -> PathBuf {
     repo_root().join("test/fixtures/rust").join(name)
 }
 
+pub fn path_env() -> std::collections::BTreeMap<String, String> {
+    std::collections::BTreeMap::from([("PATH".to_owned(), std::env::var("PATH").unwrap())])
+}
+
 pub fn real_worker_script() -> PathBuf {
     redaction_worker_script(&repo_root())
 }
 
 pub fn real_worker() -> WorkerScan {
-    WorkerScan::new(real_worker_script(), scan_deadline)
+    WorkerScan::new(real_worker_script(), scan_deadline, &path_env())
 }
 
 pub fn on() -> Redactor<WorkerScan> {

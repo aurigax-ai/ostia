@@ -275,7 +275,11 @@ async fn fails_closed_on_every_way_in_when_the_scan_fails() {
 
 #[tokio::test]
 async fn fails_closed_when_the_worker_program_is_missing() {
-    let missing = WorkerScan::new(fixture_script("no-such-worker.mjs"), scan_deadline);
+    let missing = WorkerScan::new(
+        fixture_script("no-such-worker.mjs"),
+        scan_deadline,
+        &common::path_env(),
+    );
     let redactor = Redactor::new(|| Value::Null, missing.clone());
     assert!(redactor.redact("anything").await.is_err());
     missing.close().await;
@@ -464,9 +468,11 @@ async fn returns_the_error_of_a_failed_scan_and_stores_nothing_for_the_pane() {
 
 #[tokio::test]
 async fn fails_closed_within_its_deadline_when_a_pattern_of_the_human_never_finishes() {
-    let worker = WorkerScan::new(fixture_script("scan-hang.mjs"), |_| {
-        Duration::from_millis(400)
-    });
+    let worker = WorkerScan::new(
+        fixture_script("scan-hang.mjs"),
+        |_| Duration::from_millis(400),
+        &common::path_env(),
+    );
     let redactor = Redactor::new(
         || json!({"redaction": {"patterns": ["[a-z]+Z"]}}),
         worker.clone(),

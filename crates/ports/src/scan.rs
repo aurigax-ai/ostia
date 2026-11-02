@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -18,7 +18,11 @@ const PROC: &str = "/proc";
 const TOOL_TIMEOUT: Duration = Duration::from_secs(5);
 const TOOL_MAX_OUTPUT: usize = 8 * 1024 * 1024;
 
-pub async fn scan_trees(roots: &[i32], host_pid: i32) -> HashMap<i32, TreeInfo> {
+pub async fn scan_trees(
+    roots: &[i32],
+    host_pid: i32,
+    env: &BTreeMap<String, String>,
+) -> HashMap<i32, TreeInfo> {
     if roots.is_empty() {
         return HashMap::new();
     }
@@ -29,23 +33,26 @@ pub async fn scan_trees(roots: &[i32], host_pid: i32) -> HashMap<i32, TreeInfo> 
                 .await
                 .unwrap_or_default()
         }
-        Platform::Darwin => scan_darwin(roots, host_pid).await,
+        Platform::Darwin => scan_darwin(roots, host_pid, env).await,
     }
 }
 
-async fn tool_output(program: &str, args: &[&str]) -> String {
-    read_tool(program, args, TOOL_TIMEOUT, TOOL_MAX_OUTPUT).await
+async fn tool_output(program: &str, args: &[&str], env: &BTreeMap<String, String>) -> String {
+    read_tool(program, args, env, TOOL_TIMEOUT, TOOL_MAX_OUTPUT).await
 }
 
 pub async fn read_tool(
     program: &str,
     args: &[&str],
+    env: &BTreeMap<String, String>,
     timeout: Duration,
     max_output: usize,
 ) -> String {
     let mut command = Command::new(program);
     command
         .args(args)
+        .env_clear()
+        .envs(env)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -192,10 +199,14 @@ fn scan_linux(roots: &[i32], host_pid: i32) -> HashMap<i32, TreeInfo> {
     out
 }
 
-async fn scan_darwin(roots: &[i32], host_pid: i32) -> HashMap<i32, TreeInfo> {
+async fn scan_darwin(
+    roots: &[i32],
+    host_pid: i32,
+    env: &BTreeMap<String, String>,
+) -> HashMap<i32, TreeInfo> {
     let (ps, lsof) = tokio::join!(
-        tool_output("ps", &["-axo", "pid=,ppid=,pgid=,tpgid=,comm="]),
-        tool_output("lsof", &["-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pn"]),
+        tool_output("ps", &["-axo", "pid=,ppid=,pgid=,tpgid=,comm="], env),
+        tool_output("lsof", &["-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pn"], env),
     );
     let procs = parse_ps_table(&ps);
     let children = children_of(&procs);
@@ -217,7 +228,7 @@ async fn scan_darwin(roots: &[i32], host_pid: i32) -> HashMap<i32, TreeInfo> {
         let login = match foreground_ssh(&tree, &by_pid) {
             Some(entry) => {
                 let pid = entry.pid.to_string();
-                let args = tool_output("ps", &["-o", "args=", "-p", pid.as_str()]).await;
+                let args = tool_output("ps", &["-o", "args=", "-p", pid.as_str()], env).await;
                 ssh_login(&ssh_args(&split_ps_args(&args)))
             }
             None => None,

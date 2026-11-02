@@ -70,7 +70,11 @@ fn never_gives_more_than_twenty_seconds() {
 
 #[tokio::test]
 async fn fails_closed_within_its_deadline_when_a_pattern_of_the_human_never_finishes() {
-    let worker = WorkerScan::new(fixture_script("scan-hang.mjs"), fixed_deadline(400));
+    let worker = WorkerScan::new(
+        fixture_script("scan-hang.mjs"),
+        fixed_deadline(400),
+        &common::path_env(),
+    );
     let redactor = Redactor::new(stalling_patterns, worker.clone());
     let started = Instant::now();
     let error = redactor.redact(&huge()).await.unwrap_err();
@@ -81,13 +85,17 @@ async fn fails_closed_within_its_deadline_when_a_pattern_of_the_human_never_fini
 
 #[tokio::test]
 async fn serves_the_next_scan_with_a_fresh_worker_after_one_timed_out() {
-    let worker = WorkerScan::new(fixture_script("scan-hang-large.mjs"), |length| {
-        if length > 1000 {
-            Duration::from_millis(300)
-        } else {
-            Duration::from_millis(5000)
-        }
-    });
+    let worker = WorkerScan::new(
+        fixture_script("scan-hang-large.mjs"),
+        |length| {
+            if length > 1000 {
+                Duration::from_millis(300)
+            } else {
+                Duration::from_millis(5000)
+            }
+        },
+        &common::path_env(),
+    );
     let error = worker.scan(&huge()).await.unwrap_err();
     assert_eq!(error.to_string(), "scan timed out");
     let spans = worker.scan(&format!("k {}", FAKE.npm)).await.unwrap();
@@ -98,7 +106,11 @@ async fn serves_the_next_scan_with_a_fresh_worker_after_one_timed_out() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn keeps_the_main_event_loop_responsive_while_a_slow_scan_runs() {
-    let worker = WorkerScan::new(fixture_script("scan-hang.mjs"), fixed_deadline(1500));
+    let worker = WorkerScan::new(
+        fixture_script("scan-hang.mjs"),
+        fixed_deadline(1500),
+        &common::path_env(),
+    );
     let gaps = Arc::new(Mutex::new(Vec::new()));
     let ticker = start_ticker(&gaps);
     let error = worker.scan(&huge()).await.unwrap_err();
@@ -129,7 +141,11 @@ async fn answers_queued_scans_in_order() {
 
 #[tokio::test]
 async fn rejects_the_running_scan_and_every_waiting_scan_when_closed() {
-    let worker = WorkerScan::new(fixture_script("scan-hang.mjs"), fixed_deadline(60_000));
+    let worker = WorkerScan::new(
+        fixture_script("scan-hang.mjs"),
+        fixed_deadline(60_000),
+        &common::path_env(),
+    );
     let scans: Vec<_> = (0..3)
         .map(|n| {
             let worker = worker.clone();
@@ -146,7 +162,11 @@ async fn rejects_the_running_scan_and_every_waiting_scan_when_closed() {
 
 #[tokio::test]
 async fn fails_the_scan_when_the_worker_exits() {
-    let worker = WorkerScan::new(fixture_script("scan-exit.mjs"), fixed_deadline(5000));
+    let worker = WorkerScan::new(
+        fixture_script("scan-exit.mjs"),
+        fixed_deadline(5000),
+        &common::path_env(),
+    );
     let error = worker.scan("anything").await.unwrap_err();
     assert_eq!(error.to_string(), "scan worker exited");
     worker.close().await;
@@ -154,7 +174,11 @@ async fn fails_the_scan_when_the_worker_exits() {
 
 #[tokio::test]
 async fn fails_the_scan_with_the_error_text_of_the_worker() {
-    let worker = WorkerScan::new(fixture_script("scan-error.mjs"), fixed_deadline(5000));
+    let worker = WorkerScan::new(
+        fixture_script("scan-error.mjs"),
+        fixed_deadline(5000),
+        &common::path_env(),
+    );
     let error = worker.scan("anything").await.unwrap_err();
     assert_eq!(error.to_string(), "rule exploded");
     worker.close().await;
@@ -162,7 +186,11 @@ async fn fails_the_scan_with_the_error_text_of_the_worker() {
 
 #[tokio::test]
 async fn ignores_a_reply_for_another_scan_and_times_out() {
-    let worker = WorkerScan::new(fixture_script("scan-wrong-id.mjs"), fixed_deadline(300));
+    let worker = WorkerScan::new(
+        fixture_script("scan-wrong-id.mjs"),
+        fixed_deadline(300),
+        &common::path_env(),
+    );
     let error = worker.scan("anything").await.unwrap_err();
     assert_eq!(error.to_string(), "scan timed out");
     worker.close().await;
@@ -170,14 +198,22 @@ async fn ignores_a_reply_for_another_scan_and_times_out() {
 
 #[tokio::test]
 async fn fails_the_scan_when_the_worker_program_does_not_exist() {
-    let worker = WorkerScan::new(fixture_script("no-such-worker.mjs"), fixed_deadline(5000));
+    let worker = WorkerScan::new(
+        fixture_script("no-such-worker.mjs"),
+        fixed_deadline(5000),
+        &common::path_env(),
+    );
     assert!(worker.scan("anything").await.is_err());
     worker.close().await;
 }
 
 #[tokio::test]
 async fn fails_a_scan_started_after_close() {
-    let worker = WorkerScan::new(fixture_script("scan-hang.mjs"), fixed_deadline(5000));
+    let worker = WorkerScan::new(
+        fixture_script("scan-hang.mjs"),
+        fixed_deadline(5000),
+        &common::path_env(),
+    );
     worker.close().await;
     assert!(worker.scan("anything").await.is_err());
 }
@@ -262,7 +298,11 @@ async fn reads_1_mib_of_mixed_terminal_output_with_secrets_without_stalling() {
         ),
     ]
     .join("\n");
-    let worker = WorkerScan::new(common::real_worker_script(), |_| BUDGET);
+    let worker = WorkerScan::new(
+        common::real_worker_script(),
+        |_| BUDGET,
+        &common::path_env(),
+    );
     let timed = Redactor::new(|| Value::Null, worker.clone());
     timed.redact(&block).await.unwrap();
     let started = Instant::now();
@@ -275,4 +315,18 @@ async fn reads_1_mib_of_mixed_terminal_output_with_secrets_without_stalling() {
     assert!(elapsed < BUDGET);
     assert!(!result.text.contains(&FAKE.github_classic));
     assert!(result.count > 1000);
+}
+
+#[tokio::test]
+async fn gives_the_worker_nothing_from_the_environment_but_path() {
+    let env = std::collections::BTreeMap::from([
+        ("PATH".to_owned(), std::env::var("PATH").unwrap()),
+        ("OSTIA_NO_NEW_PRIVS_RELAUNCHED".to_owned(), "1".to_owned()),
+        ("OSTIA_GPU_RESTORE".to_owned(), "{}".to_owned()),
+        ("AWS_SECRET_ACCESS_KEY".to_owned(), "marker".to_owned()),
+    ]);
+    let worker = WorkerScan::new(fixture_script("scan-env.mjs"), fixed_deadline(5000), &env);
+    let error = worker.scan("anything").await.unwrap_err();
+    assert_eq!(error.to_string(), "PATH");
+    worker.close().await;
 }
