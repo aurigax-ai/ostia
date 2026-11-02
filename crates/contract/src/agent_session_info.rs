@@ -1,4 +1,5 @@
 use ostia_base::js::js_trim;
+use serde::Serialize;
 use serde_json::{Map, Value};
 
 use crate::utf16_prefix::utf16_prefix;
@@ -8,7 +9,8 @@ const PATH_MAX: usize = 4096;
 const THOUSAND: u64 = 1000;
 const MILLION: u64 = 1_000_000;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentSessionInfo {
     pub title: Option<String>,
     pub model: Option<String>,
