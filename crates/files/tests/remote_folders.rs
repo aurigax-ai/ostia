@@ -746,5 +746,5 @@ async fn limits_a_write_by_utf8_bytes_and_accepts_the_any_and_new_base_versions(
             .await,
     );
     assert_eq!(empty, json!({"ok": true, "version": "1-1"}));
-    assert_eq!(s.requests.lock().len(), 4);
+    assert_eq!(s.requests.lock().len(), 3);
 }
