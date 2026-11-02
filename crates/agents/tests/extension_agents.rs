@@ -12,6 +12,8 @@ use ostia_agents::extension_agents::{
 use ostia_contract::agent_resume::{AgentResume, ResumableAgent};
 use serde_json::{Value, json};
 
+type Parser = fn(&Value) -> Option<String>;
+
 fn held(agent: ResumableAgent, held: bool) -> HeldResume {
     HeldResume {
         resume: AgentResume {
@@ -76,7 +78,7 @@ fn expands_the_home_folder_and_drops_anything_that_is_not_absolute() {
 
 #[test]
 fn limits_an_offer_text_a_label_and_a_prompt_to_their_maximum_in_utf16_units() {
-    let cases: [(&str, fn(&Value) -> Option<String>, usize); 3] = [
+    let cases: [(&str, Parser, usize); 3] = [
         ("offer text", offer_text, 2000),
         ("offer label", offer_label, 120),
         ("prompt", agent_prompt, 16_000),
