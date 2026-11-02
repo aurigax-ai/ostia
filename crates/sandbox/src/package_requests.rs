@@ -40,10 +40,14 @@ pub struct PackageAsk {
     pub packages: Vec<BlockedPackage>,
 }
 
+pub type AskPackages = Arc<dyn Fn(PackageAsk) -> BoxFuture<'static, PackageOutcome> + Send + Sync>;
+
+pub type AllowPackage = Arc<dyn Fn(&WorkspaceId, &str) + Send + Sync>;
+
 pub struct PackageRequestsDeps {
-    pub ask: Arc<dyn Fn(PackageAsk) -> BoxFuture<'static, PackageOutcome> + Send + Sync>,
-    pub allow_workspace: Arc<dyn Fn(&WorkspaceId, &str) + Send + Sync>,
-    pub allow_until_restart: Arc<dyn Fn(&WorkspaceId, &str) + Send + Sync>,
+    pub ask: AskPackages,
+    pub allow_workspace: AllowPackage,
+    pub allow_until_restart: AllowPackage,
     pub batch_ms: u64,
 }
 
