@@ -11,9 +11,9 @@ pub mod browser_pages;
 pub mod exclusive_transfer;
 pub mod external_editor;
 pub mod file_guard;
+pub mod file_watch;
 pub mod fs_binary;
 pub mod fs_range;
-pub mod file_watch;
 pub mod fuzzy_paths;
 #[cfg(target_os = "macos")]
 pub mod mac_at;

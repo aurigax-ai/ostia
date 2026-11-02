@@ -1,8 +1,8 @@
 pub mod agent_hook_commands;
 pub mod attention_file;
+pub mod completion_specs;
 pub mod control_mode;
 pub mod folder_access;
-pub mod completion_specs;
 pub mod generated_folder;
 pub mod headless_screen;
 pub mod history_feed;

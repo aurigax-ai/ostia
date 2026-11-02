@@ -10,14 +10,12 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-ostia-base = { workspace = true }
-ostia-contract = { workspace = true }
 futures-util.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 parking_lot.workspace = true
-serde = { workspace = true }
-serde_json = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
