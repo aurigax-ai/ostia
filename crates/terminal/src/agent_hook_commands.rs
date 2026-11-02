@@ -45,9 +45,7 @@ pub fn extension_hook_command(hook: &ExtensionAgentHook, agent: &str) -> String 
 pub fn hooks_for(hooks: &[ExtensionAgentHook], agent: &str, event: &str) -> Vec<String> {
     hooks
         .iter()
-        .filter(|hook| {
-            hook.event == event && hook_agents_for(event).iter().any(|name| *name == agent)
-        })
+        .filter(|hook| hook.event == event && hook_agents_for(event).contains(&agent))
         .map(|hook| extension_hook_command(hook, agent))
         .collect()
 }
