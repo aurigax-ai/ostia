@@ -2,6 +2,7 @@ pub mod chips;
 pub mod darwin;
 pub mod procfs;
 pub mod scan;
+pub mod service;
 pub mod sidebar;
 pub mod ssh;
 
