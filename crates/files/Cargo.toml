@@ -8,6 +8,7 @@ publish.workspace = true
 
 [dependencies]
 futures-util.workspace = true
+globset.workspace = true
 libc.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
@@ -26,7 +27,9 @@ workspace = true
 
 [dev-dependencies]
 futures-util.workspace = true
+libc.workspace = true
 ostia-contract.workspace = true
+parking_lot.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
