@@ -7,12 +7,14 @@ license-file.workspace = true
 publish.workspace = true
 
 [dependencies]
+command-fds.workspace = true
 getrandom.workspace = true
 hex.workspace = true
 icu_collator.workspace = true
 libc.workspace = true
 parking_lot.workspace = true
 regex.workspace = true
+reqwest.workspace = true
 rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
