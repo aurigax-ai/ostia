@@ -20,7 +20,5 @@ url.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 uuid.workspace = true
 
-[dev-dependencies]
-
 [lints]
 workspace = true

@@ -5302,7 +5302,12 @@ dependencies = [
  "ostia-base",
  "ostia-contract",
  "ostia-rpc",
+ "parking_lot",
+ "regex",
  "serde_json",
+ "tokio",
+ "url",
+ "uuid",
 ]
 
 [[package]]
@@ -5626,6 +5631,7 @@ dependencies = [
 name = "ostia-workspaces"
 version = "0.0.0"
 dependencies = [
+ "futures-util",
  "notify",
  "ostia-base",
  "ostia-contract",
@@ -5636,6 +5642,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "url",
 ]
 
 [[package]]
