@@ -8,6 +8,7 @@ use parking_lot::Mutex;
 use regex::Regex;
 use serde_json::{Value, json};
 use tokio::task::JoinHandle;
+use tokio::time::Sleep;
 
 use crate::agent_stream::{StreamEnd, StreamEvent, last_turns};
 use crate::codex_stream::{codex_notification, codex_turn};
@@ -227,11 +228,12 @@ fn subscribe_later(core: &Arc<Core>, ms: u64) {
         return;
     }
     let owner = Arc::clone(core);
-    inner.retry = Some(tokio::spawn(retry_subscribe(owner, ms)));
+    let timer = tokio::time::sleep(Duration::from_millis(ms));
+    inner.retry = Some(tokio::spawn(retry_subscribe(owner, timer)));
 }
 
-async fn retry_subscribe(core: Arc<Core>, ms: u64) {
-    tokio::time::sleep(Duration::from_millis(ms)).await;
+async fn retry_subscribe(core: Arc<Core>, timer: Sleep) {
+    timer.await;
     let client = {
         let mut inner = core.inner.lock();
         inner.retry = None;
