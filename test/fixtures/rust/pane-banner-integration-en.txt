@@ -1,0 +1,2 @@
+
+[38;2;239;89;111m Shell integration not loaded (ENOSPC): this shell runs without prompt marks, the CLI or agent hooks. Open a new pane to try again.[0m
