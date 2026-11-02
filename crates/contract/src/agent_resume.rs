@@ -2,13 +2,13 @@ use std::sync::LazyLock;
 
 use ostia_base::js::{static_regex, utf16_len};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::agent_launch::resume_flags;
 use crate::hidden_text::has_control_character;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ResumableAgent {
     Claude,
@@ -35,13 +35,13 @@ impl ResumableAgent {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct AgentResume {
     pub agent: ResumableAgent,
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cwd: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub args: Vec<String>,
 }
 

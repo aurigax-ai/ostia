@@ -10,13 +10,16 @@ use futures_util::FutureExt;
 use futures_util::future::BoxFuture;
 use ostia_base::clock::system_clock;
 use ostia_base::{ExternalId, PaneId, WindowId, WorkspaceId};
+use ostia_contract::SANDBOXED_REFUSAL;
 use ostia_contract::capabilities::Capability;
 use ostia_contract::terminal_state::TerminalStateSnapshot;
+use ostia_control::foreign_sandbox::proc_fs;
 use ostia_control::identity::stable_pane_external_id;
+use ostia_control::server::ReadProc;
 use ostia_control::{
-    ApprovalOutcome, ApprovalRequest, Approver, Callers, CapabilityStore, ControlAuth,
-    ControlAuthParts, ControlListener, ControlMethod, ControlServer, IdRegistry, MethodTable,
-    PaneIdentity, PaneInput, ScriptTokenGrant, ServerDeps,
+    ApprovalOutcome, ApprovalRequest, Approver, AuthedConn, Callers, CapabilityStore, ControlAuth,
+    ControlAuthParts, ControlListener, ControlMethod, ControlServer, IdRegistry, MethodRefused,
+    MethodTable, PaneIdentity, PaneInput, ScriptTokenGrant, ServerDeps,
 };
 use ostia_rpc::{Client, ClientError, RpcError, codes};
 use parking_lot::Mutex;
@@ -101,6 +104,14 @@ fn methods() -> MethodTable {
             .targetable(),
         )
         .unwrap();
+    for name in ["process.run", "pane.input"] {
+        table
+            .register(
+                name,
+                ControlMethod::new(|_params, _ctx| async move { Ok(json!("ran")) }),
+            )
+            .unwrap();
+    }
     table
         .register(
             "test.failing",
@@ -130,6 +141,14 @@ fn methods() -> MethodTable {
 }
 
 fn fixture(approver: Option<Arc<dyn Approver>>) -> Fixture {
+    fixture_with(approver, None, Arc::new(proc_fs))
+}
+
+fn fixture_with(
+    approver: Option<Arc<dyn Approver>>,
+    shell_pid: Option<i32>,
+    read_proc: ReadProc,
+) -> Fixture {
     let dir = TempDir::new().unwrap();
     let socket = dir.path().join("c.sock");
     let registry = IdRegistry::new(&[1; 32]);
@@ -152,7 +171,7 @@ fn fixture(approver: Option<Arc<dyn Approver>>) -> Fixture {
         auth,
         version: Some("9.9.9".to_owned()),
         is_sandboxed: Arc::new(|_| false),
-        pty_pid: Arc::new(|_| None),
+        pty_pid: Arc::new(move |_| shell_pid),
         terminal_state: Arc::new(|pane: &PaneId| {
             Some(TerminalStateSnapshot {
                 pane_id: pane.clone(),
@@ -165,6 +184,7 @@ fn fixture(approver: Option<Arc<dyn Approver>>) -> Fixture {
             })
         }),
         script_covers: Arc::new(|_, _, _| async { false }.boxed()),
+        read_proc,
     };
     let listener = ControlServer::new(deps, methods()).listen(&socket).unwrap();
     Fixture {
@@ -491,7 +511,7 @@ async fn a_message_over_the_cap_closes_the_connection() {
         .await
         .unwrap();
     let mut buffer = [0u8; 16];
-    assert_eq!(stream.read(&mut buffer).await.unwrap_or(0), 0);
+    assert_eq!(stream.read(&mut buffer).await.unwrap(), 0);
 }
 
 #[tokio::test]
@@ -534,4 +554,145 @@ async fn the_socket_is_0600_and_stop_removes_it() {
     let path = fixture.socket.clone();
     fixture.listener.stop();
     assert!(!path.exists());
+}
+
+#[tokio::test]
+async fn the_socket_folder_keeps_no_temp_entry_and_the_moved_socket_still_accepts() {
+    let fixture = fixture(None);
+    let names: Vec<_> = fs::read_dir(fixture._dir.path())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name())
+        .collect();
+    assert_eq!(names, ["c.sock"]);
+    let identity = pane(&fixture, "p1");
+    connected(&fixture, &identity.token).await;
+}
+
+#[tokio::test]
+async fn an_approval_card_shows_no_detail_for_a_call_without_params() {
+    let approver = Arc::new(FixedAnswer(ApprovalOutcome::Allow, Mutex::default()));
+    let fixture = fixture(Some(approver.clone()));
+    let identity = pane(&fixture, "p1");
+    let client = connected(&fixture, &identity.token).await;
+    client.request("test.shell", None).await.unwrap();
+    client
+        .request("test.shell", Some(&json!([])))
+        .await
+        .unwrap();
+    client
+        .request("test.shell", Some(&json!(null)))
+        .await
+        .unwrap();
+    let details: Vec<String> = approver
+        .1
+        .lock()
+        .iter()
+        .map(|request| request.detail.clone())
+        .collect();
+    assert_eq!(details, ["", "", "null"]);
+}
+
+#[test]
+fn a_method_cannot_take_a_name_the_server_answers_itself() {
+    let mut table = MethodTable::default();
+    for name in [
+        "hello",
+        "whoami",
+        "pane.info",
+        "command.list",
+        "command.exec",
+        "cwd.get",
+    ] {
+        let refused = table.register(
+            name,
+            ControlMethod::new(|_params, _ctx| async move { Ok(json!(1)) }),
+        );
+        assert!(matches!(refused, Err(MethodRefused::BuiltIn(_))), "{name}");
+    }
+    table
+        .register(
+            "a",
+            ControlMethod::new(|_params, _ctx| async move { Ok(json!(1)) }),
+        )
+        .unwrap();
+    let again = table.register(
+        "a",
+        ControlMethod::new(|_params, _ctx| async move { Ok(json!(1)) }),
+    );
+    assert!(matches!(again, Err(MethodRefused::AlreadyRegistered(_))));
+}
+
+#[test]
+fn debug_output_hides_the_session_token() {
+    let conn = AuthedConn {
+        external_id: ExternalId::new("e"),
+        pane_id: PaneId::default(),
+        workspace_id: WorkspaceId::default(),
+        script_session: Some("secret-session".to_owned()),
+    };
+    assert!(!format!("{conn:?}").contains("secret-session"));
+}
+
+fn world(peer_seccomp: u32, shell_seccomp: u32) -> ReadProc {
+    let peer = format!("/proc/{}/", std::process::id());
+    let rest = (0..19).map(|n| n.to_string()).collect::<Vec<_>>().join(" ");
+    Arc::new(move |path: &str| {
+        if path.ends_with("/stat") {
+            return Some(format!("1 (x) {rest} 100 1"));
+        }
+        let mode = if path.starts_with(&peer) {
+            peer_seccomp
+        } else {
+            shell_seccomp
+        };
+        Some(format!("Seccomp:\t{mode}\n"))
+    })
+}
+
+#[tokio::test]
+async fn a_kernel_sandboxed_peer_is_refused_a_call_that_leaves_the_sandbox() {
+    let fixture = fixture_with(None, Some(7), world(2, 0));
+    let identity = pane(&fixture, "p1");
+    let client = connected(&fixture, &identity.token).await;
+    let error = rpc_error(client.request("process.run", None).await);
+    assert_eq!(error.code, codes::INVALID_REQUEST);
+    assert_eq!(error.message, SANDBOXED_REFUSAL);
+    let other = json!({"pane": "other"});
+    assert_eq!(
+        rpc_error(client.request("pane.input", Some(&other)).await).message,
+        SANDBOXED_REFUSAL
+    );
+    let own = json!({"pane": identity.external_id});
+    assert_eq!(
+        client.request("pane.input", Some(&own)).await.unwrap(),
+        json!("ran")
+    );
+    assert_eq!(
+        client.request("test.echo", Some(&json!(1))).await.unwrap(),
+        json!(1)
+    );
+}
+
+#[tokio::test]
+async fn a_peer_filtered_like_its_shell_or_not_filtered_passes() {
+    for (peer, shell) in [(2, 2), (0, 0)] {
+        let fixture = fixture_with(None, Some(7), world(peer, shell));
+        let identity = pane(&fixture, "p1");
+        let client = connected(&fixture, &identity.token).await;
+        assert_eq!(
+            client.request("process.run", None).await.unwrap(),
+            json!("ran")
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_filtered_peer_with_no_known_shell_is_refused() {
+    let fixture = fixture_with(None, None, world(2, 0));
+    let identity = pane(&fixture, "p1");
+    let client = connected(&fixture, &identity.token).await;
+    assert_eq!(
+        rpc_error(client.request("process.run", None).await).message,
+        SANDBOXED_REFUSAL
+    );
 }

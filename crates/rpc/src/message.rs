@@ -84,6 +84,14 @@ pub fn normalize_params(params: Option<Value>) -> Value {
     }
 }
 
+pub fn params_given(params: Option<&Value>) -> bool {
+    match params {
+        None => false,
+        Some(Value::Array(items)) => !items.is_empty(),
+        Some(_) => true,
+    }
+}
+
 pub fn request_body(id: u64, method: &str, params: Option<&Value>) -> Value {
     match params {
         Some(params) => json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}),

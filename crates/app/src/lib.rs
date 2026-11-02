@@ -7,12 +7,15 @@ use ostia_base::clock::system_clock;
 use ostia_base::host::Host;
 use ostia_base::json_store::{StoreScope, store_path};
 use ostia_base::{Error, Result};
+use ostia_contract::capabilities::Capability;
+use ostia_control::auth::CapFilter;
 use ostia_control::discovery::{clear_control_info, control_info_path, write_control_info};
+use ostia_control::foreign_sandbox::proc_fs;
 use ostia_control::pane_id_salt::load_pane_id_salt;
 use ostia_control::socket_path::control_socket_path_for;
 use ostia_control::{
-    ControlAuth, ControlAuthParts, ControlListener, ControlServer, IdRegistry, MethodContext,
-    MethodTable, ServerDeps,
+    AuthedConn, ControlAuth, ControlAuthParts, ControlListener, ControlServer, IdRegistry,
+    MethodContext, MethodTable, ServerDeps,
 };
 use ostia_park::{FromActivity, PARKED_PANEL_EXTENSION_ID, ParkedStore, register_park_methods};
 use ostia_sandbox::WorkspaceSandboxes;
@@ -32,6 +35,20 @@ pub struct App {
 fn from_activity() -> FromActivity {
     Arc::new(|ctx: &MethodContext| {
         ctx.identity.ext_id.as_deref() == Some(PARKED_PANEL_EXTENSION_ID)
+    })
+}
+
+pub fn cap_filter(registry: IdRegistry, sandboxes: WorkspaceSandboxes) -> CapFilter {
+    Arc::new(move |conn: &AuthedConn, cap: Capability| {
+        if cap != Capability::AllWorkspaces {
+            return true;
+        }
+        let workspace = registry
+            .resolve_external(&conn.external_id)
+            .map(|identity| identity.workspace_id)
+            .filter(|workspace| !workspace.is_empty())
+            .unwrap_or_else(|| conn.workspace_id.clone());
+        workspace.is_empty() || !sandboxes.is_enabled(&workspace)
     })
 }
 
@@ -57,7 +74,7 @@ impl App {
             registry: registry.clone(),
             caps: grants.clone(),
             script_tokens: Arc::new(|_: &str| None),
-            cap_filter: Arc::new(|_, _| true),
+            cap_filter: cap_filter(registry.clone(), sandboxes.clone()),
             approver: None,
             clock: system_clock(),
         }));
@@ -70,6 +87,7 @@ impl App {
             pty_pid: Arc::new(|_| None),
             terminal_state: Arc::new(move |pane| states.get(pane)),
             script_covers: Arc::new(|_, _, _| async { false }.boxed()),
+            read_proc: Arc::new(proc_fs),
         };
 
         let socket = control_socket_path_for(std::process::id(), host)?;

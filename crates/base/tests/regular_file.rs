@@ -3,6 +3,8 @@
 use std::fs;
 use std::os::unix::fs::symlink;
 
+use rustix::fs::{CWD, FileType, Mode, mknodat};
+
 use ostia_base::regular_file::{RegularFileRead, read_regular_file};
 use tempfile::tempdir;
 
@@ -54,4 +56,13 @@ fn refuses_a_folder_and_a_file_over_the_limit_and_a_missing_file() {
         read_regular_file(&root.join("none"), 5),
         RegularFileRead::Unreadable
     );
+}
+
+#[test]
+fn refuses_a_fifo_and_does_not_block_on_it() {
+    let dir = tempdir().unwrap();
+    let root = fs::canonicalize(dir.path()).unwrap();
+    let fifo = root.join("pipe");
+    mknodat(CWD, &fifo, FileType::Fifo, Mode::RUSR | Mode::WUSR, 0).unwrap();
+    assert_eq!(read_regular_file(&fifo, 100), RegularFileRead::NotAFile);
 }

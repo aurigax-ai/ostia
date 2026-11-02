@@ -24,6 +24,12 @@ fn host(env: &[(&str, &str)]) -> Host {
     }
 }
 
+fn fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test/fixtures/rust")
+        .join(name)
+}
+
 fn mode(path: &std::path::Path) -> u32 {
     fs::metadata(path).unwrap().permissions().mode() & 0o777
 }
@@ -64,12 +70,24 @@ fn a_missing_or_broken_file_loads_as_none() {
 fn reads_a_file_the_ts_store_wrote_and_writes_the_same_bytes() {
     let dir = tempdir().unwrap();
     let file = dir.path().join("store.json");
-    let ts_text = "{\n  \"v\": 1,\n  \"items\": [\n    {\n      \"z\": \"é\",\n      \"a\": 5\n    }\n  ],\n  \"empty\": [],\n  \"none\": {}\n}";
-    fs::write(&file, ts_text).unwrap();
+    let ts_bytes = fs::read(fixture("json-store-pretty.json")).unwrap();
+    fs::write(&file, &ts_bytes).unwrap();
     let value = load_json(&file).unwrap();
-    assert_eq!(value["items"][0]["a"], json!(5));
+    assert_eq!(value["count"], json!(1700000000123_i64));
     save_json(&file, &value, SaveOptions::default()).unwrap();
-    assert_eq!(fs::read_to_string(&file).unwrap(), ts_text);
+    assert_eq!(fs::read(&file).unwrap(), ts_bytes);
+}
+
+#[tokio::test]
+async fn the_async_save_writes_the_same_bytes_as_the_ts_store() {
+    let dir = tempdir().unwrap();
+    let file = dir.path().join("store.json");
+    let ts_bytes = fs::read(fixture("json-store-compact.json")).unwrap();
+    let value = load_json(&fixture("json-store-pretty.json")).unwrap();
+    save_json_async(&file, &value, SaveOptions::default())
+        .await
+        .unwrap();
+    assert_eq!(fs::read(&file).unwrap(), ts_bytes);
 }
 
 #[test]

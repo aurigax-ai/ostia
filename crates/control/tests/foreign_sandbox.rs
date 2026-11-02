@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use ostia_control::foreign_sandbox::{
-    escapes_sandbox, escapes_sandbox_command, parse_seccomp, parse_start_time, read_peer,
+    Peer, escapes_sandbox, escapes_sandbox_command, parse_seccomp, parse_start_time, read_peer,
     sandboxed_by_kernel,
 };
 use serde_json::json;
@@ -79,7 +79,22 @@ fn a_peer_counts_as_sandboxed_only_if_seccomp_is_new_since_its_shell() {
     assert!(!sandboxed_by_kernel(Some(&peer), Some(7), &shell_filtered));
     assert!(sandboxed_by_kernel(Some(&peer), Some(7), &reused_pid));
     assert!(!sandboxed_by_kernel(None, Some(7), &shell_free));
-    assert!(!sandboxed_by_kernel(Some(&peer), None, &shell_free));
+}
+
+#[test]
+fn a_filtered_peer_with_no_known_shell_counts_as_sandboxed() {
+    let filtered = Peer {
+        pid: 42,
+        start_time: "1".to_owned(),
+        seccomp: 2,
+    };
+    let free = Peer {
+        seccomp: 0,
+        ..filtered.clone()
+    };
+    let proc = |_: &str| Some(stat("1"));
+    assert!(sandboxed_by_kernel(Some(&filtered), None, &proc));
+    assert!(!sandboxed_by_kernel(Some(&free), None, &proc));
 }
 
 #[test]

@@ -2,6 +2,8 @@ use regex::Regex;
 
 pub const JS_SPACE_CLASS: &str = r"\t\n\x0b\x0c\r \x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}";
 
+pub const JS_DOT: &str = r"[^\n\r\x{2028}\x{2029}]";
+
 #[allow(clippy::expect_used)]
 pub fn static_regex(pattern: &str) -> Regex {
     Regex::new(pattern).expect("a constant pattern compiles")

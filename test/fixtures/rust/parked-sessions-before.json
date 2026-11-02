@@ -1,0 +1,42 @@
+{
+  "v": 1,
+  "items": [
+    {
+      "id": "ionkcwkmyn",
+      "workspaceId": "w1",
+      "resume": {
+        "agent": "claude",
+        "id": "s1",
+        "cwd": "/home/u/api",
+        "args": [
+          "--model",
+          "opus"
+        ]
+      },
+      "title": "export é",
+      "titlePinned": true,
+      "summary": "stopped at the retry test",
+      "parkedAt": 1700000000123
+    },
+    {
+      "id": "vy2wyuddyh",
+      "workspaceId": "w1",
+      "resume": {
+        "agent": "codex",
+        "id": "s2"
+      },
+      "title": "gone",
+      "parkedAt": 9
+    },
+    {
+      "id": "7n5amypg7f",
+      "workspaceId": "w2",
+      "resume": {
+        "agent": "agy",
+        "id": "s3"
+      },
+      "title": "third",
+      "parkedAt": 1.5
+    }
+  ]
+}

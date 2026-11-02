@@ -18,7 +18,7 @@ pub use error::{Error, Result};
 pub use events::EventHub;
 pub use host::{Host, Platform};
 pub use ids::{ExternalId, PaneId, WindowId, WorkspaceId};
-pub use owner_thread::{OwnerGone, OwnerThread};
+pub use owner_thread::{JobLost, OwnerThread};
 
 pub const PRODUCT_NAME: &str = "ostia";
 pub const APP_DIR_NAME: &str = "ostia-rs";

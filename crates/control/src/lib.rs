@@ -14,5 +14,5 @@ pub use auth::{
 };
 pub use conn::ConnHandle;
 pub use identity::{IdRegistry, IdentityKind, PaneIdentity, PaneInput};
-pub use method::{Callers, ControlMethod, DuplicateMethod, MethodContext, MethodTable};
+pub use method::{Callers, ControlMethod, MethodContext, MethodRefused, MethodTable};
 pub use server::{ControlListener, ControlServer, ServerDeps};

@@ -133,16 +133,71 @@ fn writes_the_file_0600_and_reloads_it() {
     assert_eq!(reloaded.parked_at.as_i64(), Some(9));
 }
 
+fn fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test/fixtures/rust")
+        .join(name)
+}
+
 #[test]
-fn writes_the_same_bytes_as_the_ts_store() {
+fn reads_a_file_the_ts_store_wrote_and_writes_the_same_bytes_as_the_ts_store() {
     let (_dir, file) = file_in();
-    let store = ParkedStore::with_clock(file.clone(), fixed(9));
-    let (record, _) = parked(store.park(input("w1", claude("s1"), "export")).unwrap());
-    let expected = format!(
-        "{{\n  \"v\": 1,\n  \"items\": [\n    {{\n      \"id\": \"{}\",\n      \"workspaceId\": \"w1\",\n      \"resume\": {{\n        \"agent\": \"claude\",\n        \"id\": \"s1\",\n        \"cwd\": \"/home/u/api\"\n      }},\n      \"title\": \"export\",\n      \"parkedAt\": 9\n    }}\n  ]\n}}",
-        record.id
+    fs::copy(fixture("parked-sessions-before.json"), &file).unwrap();
+    let store = ParkedStore::new(file.clone());
+    let first = &store.list(&w("w1"));
+    assert_eq!(first.len(), 2);
+    let pinned = first.iter().find(|record| record.title_pinned).unwrap();
+    assert_eq!(pinned.title, "export é");
+    assert_eq!(pinned.resume.args, ["--model", "opus"]);
+    let gone = first.iter().find(|record| record.title == "gone").unwrap();
+    assert!(store.remove(&gone.id).unwrap());
+    assert_eq!(
+        fs::read(&file).unwrap(),
+        fs::read(fixture("parked-sessions-after.json")).unwrap()
     );
-    assert_eq!(fs::read_to_string(&file).unwrap(), expected);
+}
+
+#[test]
+fn keeps_a_fractional_time_and_treats_optional_fields_as_ts_does() {
+    let (_dir, file) = file_in();
+    let record = |id: &str, extra: Value| {
+        let mut base = json!({
+            "id": id,
+            "workspaceId": "w1",
+            "resume": {"agent": "claude", "id": id},
+            "title": "t",
+            "parkedAt": 1.5
+        });
+        for (key, value) in extra.as_object().unwrap() {
+            base[key] = value.clone();
+        }
+        base
+    };
+    let items = json!([
+        record("aaaaaaaaaa", json!({})),
+        record("bbbbbbbbbb", json!({"summary": ""})),
+        record("cccccccccc", json!({"summary": 5})),
+        record("dddddddddd", json!({"summary": null})),
+        record("eeeeeeeeee", json!({"titlePinned": false})),
+        record("ffffffffff", json!({"parkedAt": "soon"})),
+    ]);
+    fs::write(&file, json!({"v": 1, "items": items}).to_string()).unwrap();
+    let store = ParkedStore::new(file.clone());
+    let ids: Vec<String> = store
+        .list(&w("w1"))
+        .into_iter()
+        .map(|record| record.id)
+        .collect();
+    assert_eq!(ids, ["aaaaaaaaaa", "bbbbbbbbbb", "eeeeeeeeee"]);
+    let kept = store.get("bbbbbbbbbb").unwrap();
+    assert_eq!(kept.summary, None);
+    assert_eq!(kept.parked_at.as_f64(), Some(1.5));
+    assert!(!store.get("eeeeeeeeee").unwrap().title_pinned);
+    store.remove("aaaaaaaaaa").unwrap();
+    let written = fs::read_to_string(&file).unwrap();
+    assert!(written.contains("\"parkedAt\": 1.5"));
+    assert!(!written.contains("summary"));
+    assert!(!written.contains("titlePinned"));
 }
 
 #[test]

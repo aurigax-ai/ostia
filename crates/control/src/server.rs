@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::fs::{self, Permissions};
-use std::os::unix::fs::PermissionsExt;
+use std::fs::{self, DirBuilder, Permissions};
+use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -10,13 +10,14 @@ use futures_util::future::BoxFuture;
 use futures_util::stream::FuturesUnordered;
 use futures_util::{FutureExt, StreamExt};
 use ostia_base::error::io_error;
+use ostia_base::random::random_bytes;
 use ostia_base::{ExternalId, PaneId, Result, WorkspaceId};
 use ostia_contract::capabilities::Capability;
 use ostia_contract::terminal_state::TerminalStateSnapshot;
 use ostia_contract::{SANDBOXED_REFUSAL, TARGET_PANE_PARAM};
 use ostia_rpc::{
     CONTROL_MESSAGE_MAX, FrameCodec, Incoming, RpcError, classify, error_body, is_falsy,
-    normalize_params, parse_body, success_body,
+    normalize_params, params_given, parse_body, success_body,
 };
 use parking_lot::Mutex;
 use serde_json::{Map, Value, json};
@@ -30,7 +31,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::auth::{AuthedConn, ControlAuth, needs_elevation};
 use crate::conn::ConnHandle;
-use crate::foreign_sandbox::{Peer, escapes_sandbox, proc_fs, read_peer, sandboxed_by_kernel};
+use crate::foreign_sandbox::{Peer, escapes_sandbox, read_peer, sandboxed_by_kernel};
 use crate::identity::{IdentityKind, PaneIdentity};
 use crate::method::{Callers, MethodContext, MethodTable, caller_allowed};
 
@@ -38,6 +39,7 @@ const DETAIL_HIDDEN_PREFIXES: [&str; 2] = ["vault.", "secret."];
 
 pub type PtyPid = Arc<dyn Fn(&PaneId) -> Option<i32> + Send + Sync>;
 pub type TerminalState = Arc<dyn Fn(&PaneId) -> Option<TerminalStateSnapshot> + Send + Sync>;
+pub type ReadProc = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 pub type ScriptCovers =
     Arc<dyn Fn(PaneIdentity, AuthedConn, WorkspaceId) -> BoxFuture<'static, bool> + Send + Sync>;
 
@@ -48,6 +50,7 @@ pub struct ServerDeps {
     pub pty_pid: PtyPid,
     pub terminal_state: TerminalState,
     pub script_covers: ScriptCovers,
+    pub read_proc: ReadProc,
 }
 
 pub struct ControlServer {
@@ -62,7 +65,10 @@ struct Session {
     cancels: Mutex<HashMap<String, CancellationToken>>,
 }
 
-fn describe_params(method: &str, params: &Value) -> String {
+fn describe_params(method: &str, params: &Value, given: bool) -> String {
+    if !given {
+        return String::new();
+    }
     if DETAIL_HIDDEN_PREFIXES
         .iter()
         .any(|prefix| method.starts_with(prefix))
@@ -102,6 +108,29 @@ async fn write_frames(
 
 fn request_key(id: &Value) -> String {
     id.to_string()
+}
+
+fn bind_private(path: &Path) -> Result<UnixListener> {
+    let parent = path
+        .parent()
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let holder = parent.join(format!(".{}", hex::encode(random_bytes::<4>())));
+    DirBuilder::new()
+        .mode(0o700)
+        .create(&holder)
+        .map_err(io_error(&holder))?;
+    let inner = holder.join("s");
+    let bound = UnixListener::bind(&inner)
+        .map_err(io_error(&inner))
+        .and_then(|listener| {
+            fs::set_permissions(&inner, Permissions::from_mode(0o600)).map_err(io_error(&inner))?;
+            fs::rename(&inner, path).map_err(io_error(path))?;
+            Ok(listener)
+        });
+    let _ = fs::remove_file(&inner);
+    let _ = fs::remove_dir(&holder);
+    bound
 }
 
 impl ControlServer {
@@ -220,7 +249,7 @@ impl ControlServer {
         sandboxed_by_kernel(
             session.peer.as_ref(),
             (self.deps.pty_pid)(&me.pane_id),
-            &proc_fs,
+            &*self.deps.read_proc,
         )
     }
 
@@ -269,6 +298,7 @@ impl ControlServer {
         session: &Session,
         name: &str,
         params: Value,
+        given: bool,
         cancel: CancellationToken,
     ) -> std::result::Result<Value, RpcError> {
         let Some(method) = self.methods.get(name) else {
@@ -285,7 +315,7 @@ impl ControlServer {
             return Err(RpcError::invalid_request(SANDBOXED_REFUSAL));
         }
         if let Some(cap) = method.cap {
-            let detail = describe_params(name, &params);
+            let detail = describe_params(name, &params, given);
             self.deps
                 .auth
                 .ensure_caps(&authed, &caller, &[cap], name, &detail)
@@ -311,13 +341,14 @@ impl ControlServer {
         session: &Session,
         name: &str,
         params: Value,
+        given: bool,
         cancel: CancellationToken,
     ) -> std::result::Result<Value, RpcError> {
         match name {
             "hello" => self.hello(session, &params),
             "whoami" => self.whoami(session),
             "pane.info" => self.pane_info(session, &params).await,
-            _ => self.call_table(session, name, params, cancel).await,
+            _ => self.call_table(session, name, params, given, cancel).await,
         }
     }
 
@@ -331,8 +362,9 @@ impl ControlServer {
         let cancel = CancellationToken::new();
         let key = request_key(&id);
         session.cancels.lock().insert(key.clone(), cancel.clone());
+        let given = params_given(params.as_ref());
         let params = normalize_params(params);
-        let outcome = AssertUnwindSafe(self.call(&session, &name, params, cancel))
+        let outcome = AssertUnwindSafe(self.call(&session, &name, params, given, cancel))
             .catch_unwind()
             .await
             .unwrap_or_else(|_| Err(RpcError::thrown("the handler panicked")));
@@ -352,7 +384,7 @@ impl ControlServer {
     }
 
     async fn serve(self: Arc<Self>, stream: UnixStream) {
-        let peer = peer_pid(&stream).and_then(|pid| read_peer(pid, &proc_fs));
+        let peer = peer_pid(&stream).and_then(|pid| read_peer(pid, &*self.deps.read_proc));
         let (read, write) = stream.into_split();
         let (outgoing, queue) = mpsc::unbounded_channel();
         let closed = CancellationToken::new();
@@ -400,17 +432,7 @@ impl ControlServer {
     }
 
     pub fn listen(self: &Arc<Self>, path: &Path) -> Result<ControlListener> {
-        match fs::remove_file(path) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(io_error(path)(error)),
-        }
-        let listener = UnixListener::bind(path).map_err(io_error(path))?;
-        if let Err(error) = fs::set_permissions(path, Permissions::from_mode(0o600)) {
-            drop(listener);
-            let _ = fs::remove_file(path);
-            return Err(io_error(path)(error));
-        }
+        let listener = bind_private(path)?;
         let server = Arc::clone(self);
         let accept = tokio::spawn(async move {
             loop {

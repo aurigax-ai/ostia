@@ -98,9 +98,22 @@ impl ControlMethod {
     }
 }
 
+const BUILT_IN_METHODS: [&str; 6] = [
+    "hello",
+    "whoami",
+    "pane.info",
+    "command.list",
+    "command.exec",
+    "cwd.get",
+];
+
 #[derive(Debug, thiserror::Error)]
-#[error("control method already registered: {0}")]
-pub struct DuplicateMethod(pub String);
+pub enum MethodRefused {
+    #[error("control method already registered: {0}")]
+    AlreadyRegistered(String),
+    #[error("the control server answers this method itself: {0}")]
+    BuiltIn(String),
+}
 
 #[derive(Clone, Default)]
 pub struct MethodTable {
@@ -108,9 +121,12 @@ pub struct MethodTable {
 }
 
 impl MethodTable {
-    pub fn register(&mut self, name: &str, method: ControlMethod) -> Result<(), DuplicateMethod> {
+    pub fn register(&mut self, name: &str, method: ControlMethod) -> Result<(), MethodRefused> {
+        if BUILT_IN_METHODS.contains(&name) {
+            return Err(MethodRefused::BuiltIn(name.to_owned()));
+        }
         if self.methods.contains_key(name) {
-            return Err(DuplicateMethod(name.to_owned()));
+            return Err(MethodRefused::AlreadyRegistered(name.to_owned()));
         }
         self.methods.insert(name.to_owned(), method);
         Ok(())

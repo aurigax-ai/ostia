@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::Arc;
 
 use futures_util::future::BoxFuture;
@@ -11,12 +12,22 @@ use serde_json::Value;
 
 use crate::identity::{IdRegistry, IdentityKind, PaneIdentity};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct AuthedConn {
     pub external_id: ExternalId,
     pub pane_id: PaneId,
     pub workspace_id: WorkspaceId,
     pub script_session: Option<String>,
+}
+
+impl fmt::Debug for AuthedConn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AuthedConn")
+            .field("external_id", &self.external_id)
+            .field("pane_id", &self.pane_id)
+            .field("workspace_id", &self.workspace_id)
+            .finish_non_exhaustive()
+    }
 }
 
 pub struct ScriptTokenGrant {

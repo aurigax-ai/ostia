@@ -1,4 +1,4 @@
-use std::fs::{self, DirBuilder, OpenOptions, Permissions};
+use std::fs::{self, DirBuilder, File, OpenOptions, Permissions};
 use std::io::Write;
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
@@ -8,7 +8,7 @@ use regex::Regex;
 use sha2::{Digest, Sha256};
 
 use crate::error::{Error, Result, io_error};
-use crate::js::static_regex;
+use crate::js::{JS_DOT, static_regex};
 use crate::process::is_running;
 use crate::random::random_bytes;
 
@@ -25,8 +25,11 @@ impl AtomicWriteOptions {
     };
 }
 
-static TEMP_NAME: LazyLock<Regex> =
-    LazyLock::new(|| static_regex(r"^(.+)\.([0-9a-f]{8})\.([0-9]+)\.[0-9a-f]{16}\.tmp$"));
+static TEMP_NAME: LazyLock<Regex> = LazyLock::new(|| {
+    static_regex(&format!(
+        r"^({JS_DOT}+)\.([0-9a-f]{{8}})\.([0-9]+)\.[0-9a-f]{{16}}\.tmp$"
+    ))
+});
 
 static HOST_TAG: LazyLock<String> = LazyLock::new(|| {
     let uname = rustix::system::uname();
@@ -82,13 +85,16 @@ fn remove_stale_temps(path: &Path, dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn write_and_rename(tmp: &Path, path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
-    let mut file = OpenOptions::new()
+fn open_temp(tmp: &Path, mode: u32) -> std::io::Result<File> {
+    OpenOptions::new()
         .write(true)
         .create_new(true)
         .mode(mode)
         .open(tmp)
-        .map_err(io_error(tmp))?;
+}
+
+fn write_and_rename(tmp: &Path, path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
+    let mut file = open_temp(tmp, mode).map_err(io_error(tmp))?;
     let written = file
         .write_all(bytes)
         .and_then(|()| file.sync_all())
@@ -133,7 +139,12 @@ pub async fn write_file_atomic_async(
 
 #[cfg(test)]
 mod tests {
-    use super::{HOST_TAG, is_stale_temp};
+    use std::fs;
+    use std::os::unix::fs::{PermissionsExt, symlink};
+
+    use tempfile::tempdir;
+
+    use super::{AtomicWriteOptions, HOST_TAG, is_stale_temp, open_temp, write_file_atomic};
 
     fn temp(base: &str, host: &str, pid: &str) -> String {
         format!("{base}.{host}.{pid}.0123456789abcdef.tmp")
@@ -160,5 +171,37 @@ mod tests {
             &temp("s.json", "00000000", "2147483646")
         ));
         assert!(!is_stale_temp("s.json", "s.json"));
+    }
+
+    #[test]
+    fn a_write_removes_the_temp_of_a_dead_process() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("s.json");
+        let stale = dir.path().join(temp("s.json", &HOST_TAG, "2147483646"));
+        fs::write(&stale, "x").unwrap();
+        write_file_atomic(&file, b"{}", AtomicWriteOptions::SECURE).unwrap();
+        assert!(!stale.exists());
+        assert_eq!(fs::read_to_string(&file).unwrap(), "{}");
+    }
+
+    #[test]
+    fn the_temp_is_0600_at_creation_before_any_byte_is_written() {
+        let dir = tempdir().unwrap();
+        let tmp = dir.path().join("t.tmp");
+        let file = open_temp(&tmp, 0o600).unwrap();
+        assert_eq!(file.metadata().unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(file.metadata().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn the_temp_never_opens_a_path_that_exists_or_a_symlink() {
+        let dir = tempdir().unwrap();
+        let taken = dir.path().join("taken");
+        fs::write(&taken, "x").unwrap();
+        assert!(open_temp(&taken, 0o600).is_err());
+        let link = dir.path().join("link");
+        symlink(dir.path().join("target"), &link).unwrap();
+        assert!(open_temp(&link, 0o600).is_err());
+        assert!(!dir.path().join("target").exists());
     }
 }

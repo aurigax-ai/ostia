@@ -3,8 +3,11 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
+use ostia_app::cap_filter;
 use ostia_base::WorkspaceId;
+use ostia_contract::capabilities::Capability;
 use ostia_control::discovery::{control_info_path, read_control_socket};
+use ostia_control::{AuthedConn, PaneIdentity};
 use ostia_park::ParkInput;
 use ostia_testkit::{TestApp, fixture_text};
 use serde_json::json;
@@ -109,4 +112,22 @@ async fn another_extension_gets_the_activity_only_answer() {
 #[test]
 fn a_ts_fixture_is_readable_from_a_rust_test() {
     assert!(fixture_text("ports/net-tcp.txt").unwrap().contains("sl"));
+}
+
+#[tokio::test]
+async fn a_sandboxed_workspace_cannot_use_all_workspaces_until_its_setting_is_ported() {
+    let test = TestApp::start().unwrap();
+    let inside = test.pane("w1", "s1", "p1");
+    let outside = test.pane("w1", "s2", "p2");
+    test.app.sandboxes.enable(WorkspaceId::new("s1"));
+    let filter = cap_filter(test.app.registry.clone(), test.app.sandboxes.clone());
+    let conn = |identity: &PaneIdentity| AuthedConn {
+        external_id: identity.external_id.clone(),
+        pane_id: identity.pane_id.clone(),
+        workspace_id: identity.workspace_id.clone(),
+        script_session: None,
+    };
+    assert!(!filter(&conn(&inside), Capability::AllWorkspaces));
+    assert!(filter(&conn(&inside), Capability::ReadBoard));
+    assert!(filter(&conn(&outside), Capability::AllWorkspaces));
 }

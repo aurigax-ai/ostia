@@ -61,12 +61,15 @@ pub fn sandboxed_by_kernel(
     shell_pid: Option<i32>,
     proc: ProcReader<'_>,
 ) -> bool {
-    let (Some(peer), Some(shell_pid)) = (peer, shell_pid) else {
+    let Some(peer) = peer else {
         return false;
     };
     if peer.seccomp == 0 {
         return false;
     }
+    let Some(shell_pid) = shell_pid else {
+        return true;
+    };
     if start_time_of(peer.pid, proc).is_some_and(|now| now != peer.start_time) {
         return true;
     }

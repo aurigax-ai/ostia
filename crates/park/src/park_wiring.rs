@@ -3,7 +3,7 @@ use std::sync::Arc;
 use ostia_base::WorkspaceId;
 use ostia_contract::agent_resume::ResumableAgent;
 use ostia_contract::capabilities::Capability;
-use ostia_control::{Callers, ControlMethod, DuplicateMethod, MethodContext, MethodTable};
+use ostia_control::{Callers, ControlMethod, MethodContext, MethodRefused, MethodTable};
 use ostia_rpc::RpcError;
 use serde_json::{Map, Value, json};
 
@@ -43,7 +43,7 @@ pub fn register_park_methods(
     table: &mut MethodTable,
     store: &ParkedStore,
     from_activity: &FromActivity,
-) -> Result<(), DuplicateMethod> {
+) -> Result<(), MethodRefused> {
     let list_store = store.clone();
     let list_activity = Arc::clone(from_activity);
     table.register(

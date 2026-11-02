@@ -53,18 +53,28 @@ async fn jobs_run_in_the_order_they_were_sent() {
 }
 
 #[tokio::test]
-async fn a_panic_in_a_job_stops_the_owner_and_later_calls_get_an_error() {
+async fn a_panic_in_a_job_loses_only_that_job() {
     let terminal = owner();
+    terminal
+        .post(|state| state.lines.borrow_mut().push("before".to_owned()))
+        .unwrap();
     terminal.post(|_| panic!("job failed")).unwrap();
-    let mut answer = terminal.call(|_| 1).await;
-    for _ in 0..50 {
-        if answer.is_err() {
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        answer = terminal.call(|_| 1).await;
-    }
-    assert!(answer.is_err());
+    terminal
+        .post(|state| state.lines.borrow_mut().push("queued".to_owned()))
+        .unwrap();
+    let failing = terminal.call(|_| -> u32 { panic!("call failed") }).await;
+    assert!(failing.is_err());
+    let lines = terminal
+        .call(|state| state.lines.borrow().clone())
+        .await
+        .unwrap();
+    assert_eq!(lines, ["before", "queued"]);
+}
+
+#[tokio::test]
+async fn a_panic_in_init_gives_later_callers_an_error() {
+    let terminal = OwnerThread::<u32>::spawn("test-owner", || panic!("init failed")).unwrap();
+    assert!(terminal.call(|state| *state).await.is_err());
 }
 
 #[test]
