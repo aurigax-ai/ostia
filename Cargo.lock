@@ -5251,6 +5251,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ostia-model"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ostia-panes"
 version = "0.0.0"
 dependencies = [

@@ -1,1 +1,2 @@
 crates/*/src/lib.rs merge=union
+crates/ui/src/components.rs merge=union
