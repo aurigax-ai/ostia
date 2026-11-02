@@ -3,6 +3,10 @@ pub mod package_lookups;
 pub mod package_policy;
 pub mod package_requests;
 pub mod packages;
+pub mod spawn_env;
+pub mod srt_config;
+pub mod store;
+pub mod violations;
 
 use std::collections::HashSet;
 use std::sync::Arc;
