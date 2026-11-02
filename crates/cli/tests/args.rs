@@ -171,7 +171,7 @@ fn with_unknown_keep_keeps_unknown_flags_as_words_in_the_order_they_were_written
         result.positional,
         words(&["git", "commit", "-m", "fix: -1 off", "--amend"])
     );
-    assert_eq!(result.booleans["enter"], true);
+    assert!(result.booleans["enter"]);
 }
 
 #[test]
@@ -186,7 +186,7 @@ fn with_unknown_keep_keeps_a_word_that_only_starts_with_a_dash_such_as_a_bullet_
 fn with_unknown_keep_drops_only_the_dash_dash_that_ends_the_flags() {
     let result = parsed(&["-x", "--", "--enter", "--"], &SEND);
     assert_eq!(result.positional, words(&["-x", "--enter", "--"]));
-    assert_eq!(result.booleans["enter"], false);
+    assert!(!result.booleans["enter"]);
 }
 
 #[test]
