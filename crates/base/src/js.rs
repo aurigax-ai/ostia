@@ -1,12 +1,15 @@
 use std::cmp::Ordering;
 use std::sync::LazyLock;
 
-use icu_collator::CollatorBorrowed;
 use icu_collator::options::CollatorOptions;
+use icu_collator::{CollatorBorrowed, CollatorPreferences};
 use regex::Regex;
 
-static COLLATOR: LazyLock<CollatorBorrowed<'static>> =
-    LazyLock::new(|| CollatorBorrowed::new_root(CollatorOptions::default()));
+#[allow(clippy::expect_used)]
+static COLLATOR: LazyLock<CollatorBorrowed<'static>> = LazyLock::new(|| {
+    CollatorBorrowed::try_new(CollatorPreferences::default(), CollatorOptions::default())
+        .expect("the compiled collation data loads")
+});
 
 pub fn locale_compare(left: &str, right: &str) -> Ordering {
     COLLATOR.compare(left, right)
