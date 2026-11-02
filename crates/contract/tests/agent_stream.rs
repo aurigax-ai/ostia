@@ -51,7 +51,7 @@ fn keeps_everything_from_the_start_of_the_last_n_turns() {
     let events = history();
     assert_eq!(last_turns(&events, 1), events[6..]);
     assert_eq!(last_turns(&events, 2), events[4..]);
-    assert_eq!(last_turns(&events, 3), events[1..]);
+    assert_eq!(last_turns(&events, 3), events[0..]);
 }
 
 #[test]
