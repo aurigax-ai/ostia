@@ -1,5 +1,6 @@
 pub mod args;
 pub mod command_help;
+pub mod cross_workspace;
 pub mod failure;
 pub mod file_args;
 pub mod line_field;

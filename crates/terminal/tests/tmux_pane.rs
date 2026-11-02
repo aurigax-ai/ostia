@@ -27,8 +27,6 @@ impl PaneServer for NullServer {
 
     fn forget(&self, _pane_id: &str) {}
 
-    async fn kill_window(&self, _window_id: &str) {}
-
     fn retry(&self) {}
 }
 
@@ -51,8 +49,6 @@ impl PaneServer for ZeroReplyServer {
     }
 
     fn forget(&self, _pane_id: &str) {}
-
-    async fn kill_window(&self, _window_id: &str) {}
 
     fn retry(&self) {}
 }
@@ -138,4 +134,106 @@ async fn releases_output_held_during_a_snapshot_without_filtering_it_twice() {
     pane.live();
     pane.deliver("tle\x1b\\!");
     assert_eq!(seen(&mut rx), "hello!");
+}
+
+#[derive(Clone, Default)]
+struct RecordingServer {
+    sent: Arc<parking_lot::Mutex<Vec<String>>>,
+    reply: &'static str,
+}
+
+impl PaneServer for RecordingServer {
+    fn send(&self, line: &str) {
+        self.sent.lock().push(line.to_owned());
+    }
+
+    async fn command(&self, _line: &str) -> Result<Vec<String>> {
+        Ok(vec![self.reply.to_owned()])
+    }
+
+    async fn batch(
+        &self,
+        lines: &[String],
+        _on_last_reply: &(dyn Fn() + Send + Sync),
+    ) -> Result<Vec<Vec<String>>> {
+        Ok(lines.iter().map(|_| vec!["0".to_owned()]).collect())
+    }
+
+    fn forget(&self, _pane_id: &str) {}
+
+    fn retry(&self) {}
+}
+
+#[test]
+fn a_write_after_a_paste_is_sent_after_it() {
+    let server = RecordingServer::default();
+    let pane = TmuxPane::new(server.clone(), "@1", "%1", 1, 80, 24);
+    pane.paste("pasted");
+    pane.write("a");
+    let sent = server.sent.lock();
+    assert!(sent[0].starts_with("set-buffer"));
+    assert!(sent[1].starts_with("paste-buffer"));
+    assert!(sent[2].starts_with("send-keys"));
+}
+
+#[test]
+fn kills_the_window_at_once_and_outside_a_runtime() {
+    let server = RecordingServer::default();
+    let pane = TmuxPane::new(server.clone(), "@7", "%1", 1, 80, 24);
+    pane.kill();
+    assert_eq!(*server.sent.lock(), ["kill-window -t @7"]);
+}
+
+#[test]
+fn asks_the_window_to_close_when_its_command_ends_outside_a_runtime() {
+    let server = RecordingServer::default();
+    let pane = TmuxPane::new(server.clone(), "@7", "%1", 1, 80, 24);
+    pane.died(0);
+    assert_eq!(*server.sent.lock(), ["kill-window -t @7"]);
+}
+
+#[tokio::test]
+async fn reads_the_shell_pid_as_an_integer() {
+    let server = RecordingServer {
+        reply: "4321",
+        ..RecordingServer::default()
+    };
+    let pane = TmuxPane::new(server, "@1", "%1", 1, 80, 24);
+    let pid = pane.shell_pid().await.unwrap();
+    assert_eq!(serde_json::to_string(&pid).unwrap(), "4321");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn never_lets_a_chunk_overtake_held_output_during_a_redraw() {
+    let pane = Arc::new(TmuxPane::new(
+        RecordingServer::default(),
+        "@1",
+        "%1",
+        1,
+        80,
+        24,
+    ));
+    let mut rx = pane.on_data();
+    let feeder = {
+        let pane = Arc::clone(&pane);
+        std::thread::spawn(move || {
+            for i in 0..20_000 {
+                pane.deliver(&format!("<{i}>"));
+            }
+        })
+    };
+    for _ in 0..300 {
+        pane.redraw().await.unwrap();
+        tokio::task::yield_now().await;
+    }
+    feeder.join().unwrap();
+    pane.live();
+    let stream = seen(&mut rx);
+    let tokens: Vec<u32> = stream
+        .split('<')
+        .filter_map(|part| part.split_once('>'))
+        .filter_map(|(number, _)| number.parse().ok())
+        .collect();
+    assert!(tokens.windows(2).all(|pair| pair[0] < pair[1]));
+    assert_eq!(tokens.len(), 20_000);
 }

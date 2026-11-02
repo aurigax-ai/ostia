@@ -208,3 +208,55 @@ async fn ignores_a_second_answer_to_the_same_offer() {
     tokio::time::advance(Duration::from_millis(AGENT_OFFER_TIMEOUT_MS)).await;
     assert_eq!(sent.lock().len(), 1);
 }
+
+#[tokio::test(start_paused = true)]
+async fn withdraws_the_offer_and_frees_the_request_when_the_future_is_dropped() {
+    let (r, sent) = relay();
+    let future = r.offer(offer());
+    drop(future);
+    assert_eq!(
+        *sent.lock(),
+        vec![
+            (
+                WindowId::new("7"),
+                AGENT_OFFER_CHANNEL.to_owned(),
+                offer_payload("offer-1")
+            ),
+            (
+                WindowId::new("7"),
+                AGENT_OFFER_WITHDRAWN_CHANNEL.to_owned(),
+                json!("offer-1")
+            ),
+        ]
+    );
+    answer(&r, "7", json!("offer-1"), json!("pane-1"));
+    assert_eq!(sent.lock().len(), 2);
+}
+
+#[tokio::test(start_paused = true)]
+async fn does_not_send_a_withdrawal_for_an_offer_that_was_answered() {
+    let (r, sent) = relay();
+    let pending = start(&r, offer());
+    tokio::task::yield_now().await;
+    answer(&r, "7", json!("offer-1"), json!("pane-1"));
+    pending.await.unwrap();
+    assert_eq!(sent.lock().len(), 1);
+}
+
+#[tokio::test(start_paused = true)]
+async fn does_not_deliver_to_a_window_with_an_empty_id() {
+    let sent: Sent = Arc::new(Mutex::new(Vec::new()));
+    let log = Arc::clone(&sent);
+    let r = AgentOfferRelay::new(AgentOfferRelayDeps {
+        window_of: Box::new(|_| Some(WindowId::new(""))),
+        send: Box::new(move |window, channel, payload| {
+            log.lock()
+                .push((window.clone(), channel.to_owned(), payload));
+            true
+        }),
+        external_id_of: Box::new(|_| None),
+        timeout: None,
+    });
+    assert_eq!(r.offer(offer()).await, AgentOfferDelivery::NotDelivered);
+    assert!(sent.lock().is_empty());
+}

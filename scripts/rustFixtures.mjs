@@ -16,8 +16,10 @@ export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
 export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/paneBanner'
 export { en, zhHant } from './src/shared/app/dict'
 export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
+export { scrollbackToSave } from './src/main/workspaces/savedScrollback'
 export { USAGE_TABLE } from './src/cli/common/usageTable'
 export * as bus from './src/main/agents/busStore'
+export { encodeViewerSelection } from './packages/extension-sdk/src/contract/viewerSelection'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -39,9 +41,11 @@ const {
   en,
   zhHant,
   parseSnapshot,
+  scrollbackToSave,
   ViewStateStore,
   USAGE_TABLE,
   bus,
+  encodeViewerSelection,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -311,6 +315,24 @@ const SNAPSHOT_BEFORE = {
 writeFileSync(join(out, 'workspace-snapshot-before.json'), `${JSON.stringify(SNAPSHOT_BEFORE, null, 2)}\n`)
 saveJson(join(out, 'workspace-snapshot-after.json'), parseSnapshot(SNAPSHOT_BEFORE))
 
+const SCROLLBACK_INPUT = {
+  p1: 'plain line\nsecond é 日本語 😀 line\n',
+  p2: '',
+  p3: 'never saved',
+  __proto__: 'x',
+  p4: '\u001b[31mred\u001b[0m \u001b]133;C ls\r\n',
+  constructor: 'y',
+  prototype: 'z',
+  p5: 'tail "quoted" back\\slash\ttab',
+}
+const scrollbackInput = JSON.parse(JSON.stringify(SCROLLBACK_INPUT))
+Object.defineProperty(scrollbackInput, '__proto__', { value: 'x', enumerable: true, configurable: true, writable: true })
+writeFileSync(join(out, 'scrollback-input.json'), JSON.stringify(scrollbackInput))
+await saveJsonAsync(
+  join(out, 'scrollback-saved.json'),
+  scrollbackToSave(scrollbackInput, (paneId) => paneId === 'p3'),
+)
+
 const viewFile = join(work, 'git', 'view.json')
 const view = new ViewStateStore(viewFile)
 view.setChosen('/r/a', ['refs/heads/main', 'refs/remotes/origin/dev'])
@@ -359,4 +381,19 @@ bus.dismissFailed('e')
 await bus.flushBus()
 writeFileSync(join(out, 'bus-after.json'), readFileSync(busFile))
 globalThis.Date = RealDate
+
+const toHex = (bytes) => Buffer.from(bytes).toString('hex')
+const SELECTION_META = {
+  capture: { kind: 'image', imageWidth: 4, imageHeight: 3, region: null },
+  rect: { x: 1, y: 2, width: 3, height: 4 },
+  frame: { width: 800, height: 600 },
+  text: 'h\u00e9llo \u597d \ud83d\ude00',
+}
+const SELECTION_PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3])
+const withPng = new Uint8Array(await encodeViewerSelection(SELECTION_META, SELECTION_PNG).arrayBuffer())
+const withoutPng = new Uint8Array(await encodeViewerSelection(SELECTION_META, null).arrayBuffer())
+writeFileSync(
+  join(out, 'viewer-selection-body.json'),
+  `${JSON.stringify({ meta: SELECTION_META, png: [...SELECTION_PNG], withPng: toHex(withPng), withoutPng: toHex(withoutPng) }, null, 2)}\n`,
+)
 rmSync(work, { recursive: true, force: true })

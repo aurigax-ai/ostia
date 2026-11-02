@@ -1,6 +1,7 @@
 use serde_json::{Map, Number, Value};
 
-use crate::agent_stream::{EditChange, PlanItem, PlanStatus, StreamEvent, TurnEnd, TurnStepKind};
+use ostia_contract::agent_stream::{EditChange, PlanItem, PlanStatus, StreamEvent, TurnEnd};
+use ostia_contract::turn_hook::TurnStepKind;
 
 const FAILED: [&str; 2] = ["failed", "declined"];
 

@@ -1,6 +1,5 @@
 pub mod agent_offer_relay;
 pub mod agent_resumes;
-pub mod agent_stream;
 pub mod bundled_skills;
 pub mod bus_store;
 mod bus_text;

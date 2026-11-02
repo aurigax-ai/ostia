@@ -117,6 +117,7 @@ impl PaneWaking {
         timeout: Duration,
         cancel: &CancellationToken,
     ) -> impl Future<Output = WakeWaitResult> + Send + use<> {
+        let mut ended = self.ended.subscribe();
         let mut left: HashSet<String> = {
             let state = self.state.lock();
             pane_ids
@@ -125,13 +126,12 @@ impl PaneWaking {
                 .map(|pane_id| (*pane_id).to_owned())
                 .collect()
         };
-        let mut ended = self.ended.subscribe();
         let cancel = cancel.clone();
+        let deadline = tokio::time::sleep(timeout);
         async move {
             if left.is_empty() {
                 return WakeWaitResult::Started;
             }
-            let deadline = tokio::time::sleep(timeout);
             tokio::pin!(deadline);
             loop {
                 tokio::select! {

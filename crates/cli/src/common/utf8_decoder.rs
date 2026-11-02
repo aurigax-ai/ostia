@@ -3,6 +3,7 @@ use std::mem;
 #[derive(Default)]
 pub struct Utf8Decoder {
     pending: Vec<u8>,
+    started: bool,
 }
 
 fn complete_prefix_len(bytes: &[u8]) -> usize {
@@ -26,6 +27,13 @@ impl Utf8Decoder {
             let complete = complete_prefix_len(&all);
             self.pending = all.split_off(complete);
         }
-        String::from_utf8_lossy(&all).into_owned()
+        let mut text = String::from_utf8_lossy(&all).into_owned();
+        if !self.started && !text.is_empty() {
+            self.started = true;
+            if text.starts_with('\u{feff}') {
+                text.remove(0);
+            }
+        }
+        text
     }
 }

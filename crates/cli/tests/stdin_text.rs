@@ -172,3 +172,24 @@ async fn passes_a_stream_failure_on_as_an_io_error() {
         other => panic!("{other}"),
     }
 }
+
+#[tokio::test]
+async fn drops_a_leading_byte_order_mark_even_when_it_is_split_between_chunks() {
+    let whole = read_stdin_up_to(100, chunks(&["\u{feff}secret\n".as_bytes()]))
+        .await
+        .unwrap();
+    assert_eq!(whole, "secret");
+    let bom = "\u{feff}".as_bytes();
+    let split = read_stdin_up_to(100, chunks(&[&bom[..2], &[bom[2], b's'], b"ecret"]))
+        .await
+        .unwrap();
+    assert_eq!(split, "secret");
+}
+
+#[tokio::test]
+async fn keeps_a_byte_order_mark_that_is_not_at_the_start() {
+    let text = read_stdin_up_to(100, chunks(&["a\u{feff}b".as_bytes()]))
+        .await
+        .unwrap();
+    assert_eq!(text, "a\u{feff}b");
+}

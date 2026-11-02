@@ -40,8 +40,6 @@ pub trait PaneServer: Send + Sync + 'static {
 
     fn forget(&self, pane_id: &str);
 
-    fn kill_window(&self, window_id: &str) -> impl Future<Output = ()> + Send;
-
     fn retry(&self);
 }
 
@@ -204,14 +202,13 @@ impl<S: PaneServer> TmuxPane<S> {
             return;
         }
         let buffer = tmux_quote(&format!("ostia-paste-{}", self.pane_id));
-        let lines = vec![
+        let lines = [
             format!("set-buffer -b {buffer} -- {}", tmux_quote(text)),
             format!("paste-buffer -d -p -r -b {buffer} -t {}", self.pane_id),
         ];
-        let server = Arc::clone(&self.server);
-        tokio::spawn(async move {
-            let _ = server.batch(&lines, &|| {}).await;
-        });
+        for line in lines {
+            self.server.send(&line);
+        }
     }
 
     pub fn resize(&self, cols: u32, rows: u32) {
@@ -241,7 +238,7 @@ impl<S: PaneServer> TmuxPane<S> {
             state.detached = true;
         }
         self.server.forget(&self.pane_id);
-        self.spawn_kill_window();
+        self.kill_window();
     }
 
     pub fn detach(&self) {
@@ -260,7 +257,7 @@ impl<S: PaneServer> TmuxPane<S> {
         ));
     }
 
-    pub async fn shell_pid(&self) -> Result<Option<f64>> {
+    pub async fn shell_pid(&self) -> Result<Option<u64>> {
         let replies = self
             .server
             .command(&format!(
@@ -269,7 +266,8 @@ impl<S: PaneServer> TmuxPane<S> {
             ))
             .await?;
         let pid = js_number(replies.first().map_or("", String::as_str));
-        Ok((pid.is_finite() && pid.fract() == 0.0 && pid > 0.0).then_some(pid))
+        let integer = pid.is_finite() && pid.fract() == 0.0 && pid > 0.0 && pid < u64::MAX as f64;
+        Ok(integer.then_some(pid as u64))
     }
 
     pub async fn current_command(&self) -> Result<String> {
@@ -300,10 +298,11 @@ impl<S: PaneServer> TmuxPane<S> {
                 return Err(err);
             }
         };
-        let held = self.state.lock().held.take().unwrap_or_default();
-        self.emit(format!("{REDRAW_RESET}{screen}"));
+        let mut state = self.state.lock();
+        let held = state.held.take().unwrap_or_default();
+        Self::emit_into(&mut state, format!("{REDRAW_RESET}{screen}"));
         if !held.is_empty() {
-            self.emit(held.concat());
+            Self::emit_into(&mut state, held.concat());
         }
         Ok(())
     }
@@ -373,25 +372,23 @@ impl<S: PaneServer> TmuxPane<S> {
     }
 
     pub fn live(&self) {
-        let held = self.state.lock().held.take();
+        let mut state = self.state.lock();
+        let held = state.held.take();
         if let Some(held) = held.filter(|held| !held.is_empty()) {
-            self.emit(held.concat());
+            Self::emit_into(&mut state, held.concat());
         }
     }
 
     pub fn deliver(&self, raw: &str) {
-        let data = {
-            let mut state = self.state.lock();
-            if state.detached {
-                return;
-            }
-            state.titles.push(raw)
-        };
-        self.emit(data);
+        let mut state = self.state.lock();
+        if state.detached {
+            return;
+        }
+        let data = state.titles.push(raw);
+        Self::emit_into(&mut state, data);
     }
 
-    fn emit(&self, data: String) {
-        let mut state = self.state.lock();
+    fn emit_into(state: &mut PaneState, data: String) {
         if state.detached || data.is_empty() {
             return;
         }
@@ -414,7 +411,7 @@ impl<S: PaneServer> TmuxPane<S> {
             state.detached
         };
         self.server.forget(&self.pane_id);
-        self.spawn_kill_window();
+        self.kill_window();
         if detached {
             return;
         }
@@ -443,11 +440,8 @@ impl<S: PaneServer> TmuxPane<S> {
         state.exited || state.detached
     }
 
-    fn spawn_kill_window(&self) {
-        let server = Arc::clone(&self.server);
-        let window_id = self.window_id.clone();
-        tokio::spawn(async move {
-            server.kill_window(&window_id).await;
-        });
+    fn kill_window(&self) {
+        self.server
+            .send(&format!("kill-window -t {}", self.window_id));
     }
 }

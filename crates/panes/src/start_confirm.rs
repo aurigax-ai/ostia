@@ -128,8 +128,13 @@ where
     } = armed;
     tokio::pin!(deadline);
     loop {
-        if let Some(settled) = observe().await {
-            return settled;
+        tokio::select! {
+            () = &mut deadline => return on_timeout(),
+            settled = observe() => {
+                if let Some(settled) = settled {
+                    return settled;
+                }
+            }
         }
         tokio::select! {
             () = &mut deadline => return on_timeout(),

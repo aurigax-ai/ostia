@@ -8,6 +8,7 @@ use sha2::{Digest, Sha256};
 use crate::APP_DIR_NAME;
 use crate::error::{Error, Result, io_error};
 use crate::host::{Host, Platform};
+use crate::node_path;
 use crate::process::current_uid;
 
 const SHORT_SOCKET_BASE: &str = "/tmp";
@@ -61,7 +62,7 @@ pub fn short_socket_dir() -> Result<PathBuf> {
 }
 
 pub fn socket_path(dir: &Path, name: &str, platform: Platform) -> Result<PathBuf> {
-    let preferred = dir.join(name);
+    let preferred = node_path::join(dir, name);
     let bytes = preferred.as_os_str().as_bytes();
     if bytes.len() <= socket_path_limit(platform) {
         return Ok(preferred);

@@ -249,3 +249,16 @@ fn diff_refusal_covers_the_open_reasons_the_diff_only_reasons_and_the_fallbacks(
         "ostia diff: odd-code"
     );
 }
+
+#[test]
+fn opens_the_file_for_a_line_or_column_too_large_for_a_number() {
+    let p = probe(&[], &[]);
+    assert_eq!(
+        parse_file_arg("f.ts:99999999999999999999", &p),
+        target("/w/project/f.ts", Some(u64::MAX), None)
+    );
+    assert_eq!(
+        parse_file_arg("f.ts:3:99999999999999999999", &p),
+        target("/w/project/f.ts", Some(3), Some(u64::MAX))
+    );
+}

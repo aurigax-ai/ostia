@@ -515,3 +515,32 @@ fn spells_each_outcome_as_the_ts_word_in_the_message() {
         );
     }
 }
+
+struct HungProbe;
+
+impl TurnProbe for HungProbe {
+    async fn turn_state(&self, _pane_id: &str) -> Option<String> {
+        std::future::pending().await
+    }
+
+    async fn session(&self, _pane_id: &str) -> Option<String> {
+        None
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn reports_no_turn_after_the_turn_timeout_when_the_state_probe_never_returns() {
+    let scene = Scene::new(EntryStatus::Running);
+    let entry = Arc::clone(&scene.entry);
+    let watch = TurnWatch {
+        entry: Arc::new(move || entry.lock().clone()),
+        probe: HungProbe,
+        changes: scene.changes.clone(),
+        timing: START_TIMING,
+    };
+    let handle = tokio::spawn(confirm_turn(watch));
+    pass(ms(19_000)).await;
+    assert!(!handle.is_finished());
+    pass(ms(2000)).await;
+    assert!(!ready(handle).await.turn_started);
+}

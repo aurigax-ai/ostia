@@ -250,3 +250,18 @@ fn reads_a_file_the_ts_store_wrote_and_writes_the_same_bytes_as_the_ts_store() {
         fs::read(fixture("git-view-state-after.json")).unwrap()
     );
 }
+
+#[test]
+fn leaves_the_permissions_of_a_folder_that_already_exists() {
+    let dir = TempDir::new().unwrap();
+    let folder = dir.path().join("shared");
+    fs::create_dir(&folder).unwrap();
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+    open(&folder.join("view.json"))
+        .set_chosen("/r/a", Some(&strings(&["refs/heads/x"])))
+        .unwrap();
+    assert_eq!(
+        fs::metadata(&folder).unwrap().permissions().mode() & 0o777,
+        0o755
+    );
+}

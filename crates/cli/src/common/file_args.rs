@@ -46,6 +46,10 @@ fn absolute(arg: &str, probe: &FileProbe) -> PathBuf {
     resolve(Path::new(arg), &probe.cwd)
 }
 
+fn saturating_number(digits: &str) -> u64 {
+    digits.parse::<u64>().unwrap_or(u64::MAX)
+}
+
 pub fn parse_file_arg(arg: &str, probe: &FileProbe) -> FileTarget {
     let path = absolute(arg, probe);
     if (probe.is_file)(&path) {
@@ -54,17 +58,14 @@ pub fn parse_file_arg(arg: &str, probe: &FileProbe) -> FileTarget {
     let Some(position) = POSITION_SUFFIX.captures(arg) else {
         return plain(path);
     };
-    let Ok(line) = position[2].parse::<u64>() else {
-        return plain(path);
-    };
+    let line = saturating_number(&position[2]);
     if line < 1 {
         return plain(path);
     }
-    let column = match position.get(3).map(|digits| digits.as_str().parse::<u64>()) {
-        None => None,
-        Some(Ok(column)) => (column > 0).then_some(column),
-        Some(Err(_)) => return plain(path),
-    };
+    let column = position
+        .get(3)
+        .map(|digits| saturating_number(digits.as_str()))
+        .filter(|column| *column > 0);
     FileTarget {
         path: absolute(&position[1], probe),
         line: Some(line),

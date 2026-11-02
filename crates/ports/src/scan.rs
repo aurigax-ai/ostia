@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet};
+use std::process::Stdio;
 use std::time::Duration;
 
 use ostia_base::host::Platform;
 use ostia_base::procfs::{ProcEntry, children_of, parse_proc_stat, process_tree};
+use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 
 use crate::darwin::{parse_lsof_listeners, parse_ps_table, ports_of_tree, split_ps_args};
@@ -32,13 +34,49 @@ pub async fn scan_trees(roots: &[i32], host_pid: i32) -> HashMap<i32, TreeInfo> 
 }
 
 async fn tool_output(program: &str, args: &[&str]) -> String {
+    read_tool(program, args, TOOL_TIMEOUT, TOOL_MAX_OUTPUT).await
+}
+
+pub async fn read_tool(
+    program: &str,
+    args: &[&str],
+    timeout: Duration,
+    max_output: usize,
+) -> String {
     let mut command = Command::new(program);
-    command.args(args).kill_on_drop(true);
-    let Ok(Ok(output)) = tokio::time::timeout(TOOL_TIMEOUT, command.output()).await else {
+    command
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
+    let Ok(mut child) = command.spawn() else {
         return String::new();
     };
-    let end = output.stdout.len().min(TOOL_MAX_OUTPUT);
-    String::from_utf8_lossy(&output.stdout[..end]).into_owned()
+    let Some(mut stdout) = child.stdout.take() else {
+        return String::new();
+    };
+    let deadline = tokio::time::sleep(timeout);
+    tokio::pin!(deadline);
+    let mut bytes: Vec<u8> = Vec::new();
+    let mut chunk = [0u8; 16 * 1024];
+    loop {
+        tokio::select! {
+            () = &mut deadline => break,
+            read = stdout.read(&mut chunk) => match read {
+                Ok(0) | Err(_) => break,
+                Ok(count) => {
+                    let room = max_output - bytes.len();
+                    bytes.extend_from_slice(&chunk[..count.min(room)]);
+                    if count >= room {
+                        break;
+                    }
+                }
+            },
+        }
+    }
+    let _ = child.start_kill();
+    String::from_utf8_lossy(&bytes).into_owned()
 }
 
 fn read_text(path: &str) -> String {

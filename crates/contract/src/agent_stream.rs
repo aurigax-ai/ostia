@@ -1,17 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum TurnStepKind {
-    Edit,
-    Command,
-    Search,
-    Read,
-    Subagent,
-    Web,
-    Other,
-}
+use crate::turn_hook::TurnStepKind;
+
+pub const STREAM_TURNS_MAX: usize = 50;
+pub const STREAM_TURNS_DEFAULT: usize = 5;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -19,6 +12,12 @@ pub enum PlanStatus {
     Pending,
     Active,
     Done,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanItem {
+    pub text: String,
+    pub status: PlanStatus,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,12 +36,6 @@ pub enum TurnEnd {
     Failed,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PlanItem {
-    pub text: String,
-    pub status: PlanStatus,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum StreamEnd {
@@ -52,10 +45,6 @@ pub enum StreamEnd {
     OutOfScope,
     TooSlow,
     TooLarge,
-}
-
-fn is_false(value: &bool) -> bool {
-    !*value
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -136,15 +125,27 @@ pub enum StreamEvent {
     Ended { reason: StreamEnd },
 }
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+fn is_turn_start(event: &StreamEvent) -> bool {
+    matches!(event, StreamEvent::TurnStarted { .. })
+}
+
+pub fn turns_started(events: &[StreamEvent]) -> usize {
+    events.iter().filter(|event| is_turn_start(event)).count()
+}
+
 pub fn last_turns(events: &[StreamEvent], turns: usize) -> Vec<StreamEvent> {
     let starts: Vec<usize> = events
         .iter()
         .enumerate()
-        .filter(|(_, event)| matches!(event, StreamEvent::TurnStarted { .. }))
+        .filter(|(_, event)| is_turn_start(event))
         .map(|(index, _)| index)
         .collect();
-    let first = if turns > 0 && starts.len() > turns {
-        starts[starts.len() - turns]
+    let first = if starts.len() > turns {
+        starts.get(starts.len() - turns).copied().unwrap_or(0)
     } else {
         0
     };
