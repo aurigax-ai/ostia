@@ -7,6 +7,9 @@ pub mod archive_tree;
 pub mod archives;
 pub mod browse_providers;
 pub mod browser_pages;
+pub mod remote_folders;
+pub mod ripgrep;
+pub mod search;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
