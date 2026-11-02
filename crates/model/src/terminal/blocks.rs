@@ -17,14 +17,14 @@ pub enum StepDirection {
 }
 
 pub fn block_span(block: &CommandBlock, cursor_line: i64) -> LineSpan {
-    let prompt = block.prompt_line.line;
+    let prompt = block.prompt_line.line();
     let start = if prompt >= 0 {
         prompt
     } else {
-        block.output_start_line.line
+        block.output_start_line.line()
     };
     let end = match &block.end_line {
-        Some(end_line) => end_line.line + i64::from(block.end_col > 0),
+        Some(end_line) => end_line.line() + i64::from(block.end_col > 0),
         None => cursor_line + 1,
     };
     LineSpan {
@@ -34,11 +34,11 @@ pub fn block_span(block: &CommandBlock, cursor_line: i64) -> LineSpan {
 }
 
 pub fn command_line(block: &CommandBlock) -> i64 {
-    let input = block.input_line.as_ref().map_or(-1, |anchor| anchor.line);
+    let input = block.input_line.as_ref().map_or(-1, |anchor| anchor.line());
     if input >= 0 {
         input
     } else {
-        block.prompt_line.line
+        block.prompt_line.line()
     }
 }
 

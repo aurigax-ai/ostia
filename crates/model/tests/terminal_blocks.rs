@@ -9,7 +9,7 @@ use ostia_model::terminal::blocks::{
 use ostia_model::terminal::blocks_store::{CommandBlock, LineAnchor};
 
 fn anchor(line: i64) -> LineAnchor {
-    LineAnchor { line }
+    LineAnchor::at(line)
 }
 
 fn block(id: &str) -> CommandBlock {
