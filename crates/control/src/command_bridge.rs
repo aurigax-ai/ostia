@@ -216,10 +216,9 @@ impl CommandBridge {
                 .as_ref()
                 .and_then(|workspace| (self.deps.workspace_window)(workspace))
         });
-        let window = match requested {
-            Some(window) => self.open_window(Some(window)),
-            None => self.open_window(self.deps.windows.main_window()),
-        };
+        let window = self
+            .open_window(requested)
+            .or_else(|| self.open_window(self.deps.windows.main_window()));
         let started = window.map(|window| {
             let (answer, receiver) = oneshot::channel();
             let request_id = {
