@@ -166,7 +166,7 @@ fn a_split_keeps_the_surface_of_the_first_pane(cx: &mut TestAppContext) {
     assert!(exists(&opened, name("pane-tab", "pane-2"), cx));
     assert_eq!(surface(&opened, "pane-1", cx), before);
     click(&opened, name("pane-split-down", "pane-2"), cx);
-    assert!(exists(&opened, name("pane-tab", "pane-3"), cx));
+    assert!(exists(&opened, name("pane-tab", "pane-4"), cx));
     assert_eq!(surface(&opened, "pane-1", cx), before);
 }
 
