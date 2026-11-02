@@ -3,6 +3,7 @@ pub mod screen_replay;
 pub mod screen_title_filter;
 pub mod tmux_command;
 pub mod tmux_conf;
+pub mod tmux_pane;
 
 use std::collections::HashMap;
 use std::sync::Arc;
