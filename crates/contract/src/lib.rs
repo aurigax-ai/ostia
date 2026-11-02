@@ -1,17 +1,22 @@
+pub mod agent_issues;
 pub mod agent_launch;
 pub mod agent_resume;
 pub mod agent_skills;
 pub mod app_menu;
 pub mod build_info;
 pub mod argv;
+pub mod agent_stream;
+pub mod agent_work;
 pub mod capabilities;
 pub mod chord_spec;
 pub mod command_line;
 pub mod commands;
 pub mod discrete_gpu;
 pub mod extensions;
+pub mod finished_hibernate;
 pub mod hidden_text;
 pub mod keep_shells;
+pub mod hook_payload;
 pub mod open_files;
 pub mod proto_guard;
 pub mod osc7;
@@ -24,6 +29,8 @@ pub mod scrollbar;
 pub mod terminal_state;
 pub mod viewer_selection;
 pub mod zoom;
+pub mod turn_hook;
+pub mod utf16_prefix;
 
 pub const TARGET_PANE_PARAM: &str = "targetPaneId";
 pub const SANDBOXED_REFUSAL: &str =
