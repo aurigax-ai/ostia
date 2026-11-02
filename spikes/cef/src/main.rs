@@ -13,7 +13,7 @@ fn main() {
     let is_browser_process = args
         .as_cmd_line()
         .is_some_and(|line| line.has_switch(Some(&"type".into())) != 1);
-    let mut app = host::build_app();
+    let mut app = host::build_app(Default::default());
     let code = cef::execute_process(
         Some(args.as_main_args()),
         Some(&mut app),

@@ -47,6 +47,8 @@ pub struct BrowserView {
     last_size: (i32, i32),
     last_logged_frames: u64,
     init_tick: Option<u64>,
+    ready: std::rc::Rc<std::cell::Cell<bool>>,
+    created: bool,
     ticks: u64,
 }
 
@@ -68,6 +70,8 @@ impl BrowserView {
             last_size: (0, 0),
             last_logged_frames: 0,
             init_tick: None,
+            ready: Default::default(),
+            created: false,
             ticks: 0,
         };
         cx.spawn(async move |this, cx| {
@@ -108,7 +112,8 @@ impl BrowserView {
 
     fn start_cef(&mut self, cx: &mut Context<Self>) {
         eprintln!("SPIKE cef-init-begin");
-        if !crate::host::initialize_cef(&self.args, &self.settings.profile_dir) {
+        if !crate::host::initialize_cef(&self.args, &self.settings.profile_dir, self.ready.clone())
+        {
             eprintln!("SPIKE cef-init-failed");
             return;
         }
@@ -141,7 +146,9 @@ impl BrowserView {
 
     fn pull(&mut self, ticks: u64, cx: &mut Context<Self>) {
         self.ticks = ticks;
-        if self.init_tick.is_some_and(|at| ticks == at + 40) {
+        if self.init_tick.is_some() && self.ready.get() && !self.created {
+            self.created = true;
+            eprintln!("SPIKE context-ready tick={}", ticks);
             self.create_pages(cx);
         }
         let Some(page) = self.pages.get(self.active) else {

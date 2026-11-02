@@ -39,9 +39,22 @@ impl AppConfig {
     }
 }
 
+wrap_browser_process_handler! {
+    struct SpikeBrowserProcessHandler {
+        ready: Rc<Cell<bool>>,
+    }
+
+    impl BrowserProcessHandler {
+        fn on_context_initialized(&self) {
+            self.ready.set(true);
+        }
+    }
+}
+
 wrap_app! {
     struct SpikeApp {
         config: AppConfig,
+        ready: Rc<Cell<bool>>,
     }
 
     impl App {
@@ -62,11 +75,15 @@ wrap_app! {
                 }
             }
         }
+
+        fn browser_process_handler(&self) -> Option<BrowserProcessHandler> {
+            Some(SpikeBrowserProcessHandler::new(self.ready.clone()))
+        }
     }
 }
 
-pub fn build_app() -> App {
-    SpikeApp::new(AppConfig::from_env())
+pub fn build_app(ready: Rc<Cell<bool>>) -> App {
+    SpikeApp::new(AppConfig::from_env(), ready)
 }
 
 #[derive(Clone)]
@@ -165,7 +182,7 @@ wrap_client! {
     }
 }
 
-pub fn initialize_cef(args: &cef::args::Args, root_cache: &str) -> bool {
+pub fn initialize_cef(args: &cef::args::Args, root_cache: &str, ready: Rc<Cell<bool>>) -> bool {
     let settings = Settings {
         windowless_rendering_enabled: true as _,
         external_message_pump: true as _,
@@ -173,7 +190,7 @@ pub fn initialize_cef(args: &cef::args::Args, root_cache: &str) -> bool {
         cache_path: root_cache.into(),
         ..Default::default()
     };
-    let mut app = build_app();
+    let mut app = build_app(ready);
     initialize(
         Some(args.as_main_args()),
         Some(&settings),
