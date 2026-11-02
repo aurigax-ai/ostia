@@ -234,7 +234,8 @@ pub enum ContextKind {
     Global,
 }
 
-pub const CONTEXT_ORDER: [ContextKind; 2] = [ContextKind::Disk, ContextKind::Memory];
+pub const CONTEXT_ORDER: [ContextKind; 3] =
+    [ContextKind::Disk, ContextKind::Memory, ContextKind::Global];
 
 pub fn open_page(
     url: &str,

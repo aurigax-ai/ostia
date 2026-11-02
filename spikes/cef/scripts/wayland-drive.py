@@ -63,9 +63,18 @@ def key(code):
 def shot(name):
     if "id" not in node:
         return
+    try:
+        run_shot(name)
+    except subprocess.TimeoutExpired:
+        print("shot timeout", name, flush=True)
+
+
+def run_shot(name):
     subprocess.run(
-        ["gst-launch-1.0", "-q", "pipewiresrc", f"path={node['id']}", "num-buffers=3", "!", "videoconvert", "!", "pngenc", "snapshot=true", "!", "filesink", f"location={out}/{name}.png"],
-        timeout=30,
+        ["gst-launch-1.0", "pipewiresrc", f"path={node['id']}", "do-timestamp=true", "keepalive-time=100", "num-buffers=1", "!", "videoconvert", "!", "pngenc", "!", "filesink", f"location={out}/{name}.png"],
+        timeout=15,
+        stdout=open(f"{out}/gst-{name}.log", "w"),
+        stderr=subprocess.STDOUT,
     )
 
 

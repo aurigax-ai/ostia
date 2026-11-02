@@ -142,7 +142,10 @@ impl BrowserView {
             let geometry = new_geometry(width.max(640), height.max(480), 1.0);
             let slot: SharedSlot = Default::default();
             let mut opened = None;
-            for kind in CONTEXT_ORDER {
+            let wanted = std::env::var("SPIKE_KIND").unwrap_or_default();
+            for kind in CONTEXT_ORDER.into_iter().filter(|kind| {
+                wanted.is_empty() || format!("{kind:?}").eq_ignore_ascii_case(&wanted)
+            }) {
                 std::fs::create_dir_all(format!("{}/ctx-{}", self.settings.profile_dir, index))
                     .ok();
                 let dir = format!("{}/ctx-{}", self.settings.profile_dir, index);
