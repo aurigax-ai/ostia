@@ -50,7 +50,7 @@ fn origin_of(url: &str) -> Option<String> {
         .map(|parsed| parsed.origin().ascii_serialization())
 }
 
-fn is_tab_url(url: &str) -> bool {
+pub fn is_tab_url(url: &str) -> bool {
     let bytes = url.as_bytes();
     let scheme_len = if bytes.len() >= 8 && bytes[..5].eq_ignore_ascii_case(b"https") {
         5
