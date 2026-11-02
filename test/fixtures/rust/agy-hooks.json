@@ -1,0 +1,26 @@
+{
+  "ostia": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "[ -n \"${OSTIA_SOCKET}\" ] && [ -z \"${OSTIA_NO_AGY_HOOKS}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" resume-token agy - >/dev/null 2>&1; echo '{}'"
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "[ -n \"${OSTIA_SOCKET}\" ] && [ -z \"${OSTIA_NO_AGY_HOOKS}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" resume-token agy - >/dev/null 2>&1; echo '{}'"
+      },
+      {
+        "type": "command",
+        "command": "[ -n \"${OSTIA_SOCKET}\" ] && [ -z \"${OSTIA_NO_AGY_HOOKS}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" state working >/dev/null 2>&1; echo '{}'"
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "[ -n \"${OSTIA_SOCKET}\" ] && [ -z \"${OSTIA_NO_AGY_HOOKS}\" ] && ELECTRON_RUN_AS_NODE=1 \"${OSTIA_NODE}\" \"${OSTIA_CLI}\" state done --stop >/dev/null 2>&1; echo '{}'"
+      }
+    ]
+  }
+}

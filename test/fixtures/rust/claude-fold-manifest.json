@@ -1,0 +1,5 @@
+{
+  "name": "ostia-fold",
+  "version": "0.5.13",
+  "description": "ostia display plugin: draws a bus message turn as one row."
+}

@@ -28,6 +28,25 @@ pub struct ExtensionAgentHook {
     pub command: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentSkillFile {
+    pub name: String,
+    pub data: Vec<u8>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LoadedAgentSkill {
+    pub id: String,
+    pub description: String,
+    pub files: Vec<AgentSkillFile>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct AgentPluginContent {
+    pub skills: Vec<LoadedAgentSkill>,
+    pub hooks: Vec<ExtensionAgentHook>,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum SkillFrontmatter {
     Valid { name: String, description: String },
