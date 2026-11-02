@@ -70,8 +70,9 @@ impl Inner {
         st.stall_generation += 1;
         let generation = st.stall_generation;
         let inner = Arc::clone(self);
+        let timer = tokio::time::sleep(Duration::from_millis(FLOW_STALL_MS));
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(FLOW_STALL_MS)).await;
+            timer.await;
             let mut st = inner.state.lock();
             if st.stall_generation != generation {
                 return;
