@@ -244,7 +244,7 @@ sandboxes.set('w1', {
 sandboxes.set('w2', { enabled: false, allowRead: [], domains: [], controls: {} })
 sandboxes.set('w3', { enabled: true, allowRead: [], domains: ['é.example.com'], controls: {} })
 writeFileSync(join(out, 'sandboxes-before.json'), readFileSync(sandboxFile))
-sandboxes.remove('w3')
+new SandboxStore(sandboxFile).remove('w3')
 writeFileSync(join(out, 'sandboxes-after.json'), readFileSync(sandboxFile))
 writeFileSync(join(out, 'pane-launcher.sh'), ostiaLauncherScript())
 writeFileSync(join(out, 'pane-banner-error.txt'), errorBanner('Sandbox unavailable'))

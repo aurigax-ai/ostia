@@ -4,18 +4,18 @@
     "allowRead": [
       "~/notes"
     ],
-    "allowWrite": [
-      "~/builds"
-    ],
     "domains": [
       "example.com"
-    ],
-    "deniedDomains": [
-      "ads.example.com"
     ],
     "controls": {
       "browser": "unrestricted"
     },
+    "allowWrite": [
+      "~/builds"
+    ],
+    "deniedDomains": [
+      "ads.example.com"
+    ],
     "switches": {
       "gitConfig": true
     },
