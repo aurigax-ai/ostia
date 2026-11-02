@@ -20,7 +20,9 @@ impl Render for Harness {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         let list = SettingsList::new("patterns", LABEL, EMPTY)
             .children(self.rows.iter().map(|title| ListRow::new(*title)))
-            .when(self.with_add, |list| list.add(Button::new(ADD).label(ADD)));
+            .when(self.with_add, |list| {
+                list.add_row(Button::new(ADD).label(ADD))
+            });
         div().size_full().child(list)
     }
 }

@@ -163,146 +163,198 @@ fn field_text(view: &Entity<Harness>, cx: &App) -> String {
         .to_string()
 }
 
-fn text_case(
-    cx: &mut TestAppContext,
-    saved: &'static str,
-    run: impl FnOnce(&Entity<Harness>, &Rc<RefCell<Log>>, &mut Window, &mut App),
-) {
-    let log = Rc::new(RefCell::new(Log::default()));
-    let setup_log = log.clone();
-    let (handle, view) = open(cx, move |window, cx| {
-        Harness::text(saved, &setup_log, window, cx)
-    });
-    cx.update_window(handle, |_, window, cx| run(&view, &log, window, cx))
-        .expect("window update");
+struct Case<'a> {
+    cx: &'a mut TestAppContext,
+    handle: AnyWindowHandle,
+    view: Entity<Harness>,
+    log: Rc<RefCell<Log>>,
 }
 
-fn number_case(
-    cx: &mut TestAppContext,
-    min: Option<f64>,
-    max: Option<f64>,
-    run: impl FnOnce(&Entity<Harness>, &Rc<RefCell<Log>>, &mut Window, &mut App),
-) {
-    let log = Rc::new(RefCell::new(Log::default()));
-    let setup_log = log.clone();
-    let (handle, view) = open(cx, move |window, cx| {
-        Harness::number(min, max, &setup_log, window, cx)
-    });
-    cx.update_window(handle, |_, window, cx| run(&view, &log, window, cx))
-        .expect("window update");
+impl<'a> Case<'a> {
+    fn text(cx: &'a mut TestAppContext, saved: &'static str) -> Self {
+        let log = Rc::new(RefCell::new(Log::default()));
+        let setup_log = log.clone();
+        let (handle, view) = open(cx, move |window, cx| {
+            Harness::text(saved, &setup_log, window, cx)
+        });
+        Self {
+            cx,
+            handle,
+            view,
+            log,
+        }
+    }
+
+    fn number(cx: &'a mut TestAppContext, min: Option<f64>, max: Option<f64>) -> Self {
+        let log = Rc::new(RefCell::new(Log::default()));
+        let setup_log = log.clone();
+        let (handle, view) = open(cx, move |window, cx| {
+            Harness::number(min, max, &setup_log, window, cx)
+        });
+        Self {
+            cx,
+            handle,
+            view,
+            log,
+        }
+    }
+
+    fn step<R>(&mut self, run: impl FnOnce(&Entity<Harness>, &mut Window, &mut App) -> R) -> R {
+        let view = self.view.clone();
+        self.cx
+            .update_window(self.handle, |_, window, cx| run(&view, window, cx))
+            .expect("window update")
+    }
+
+    fn focus(&mut self) {
+        self.step(|view, window, cx| focus_field(view, window, cx));
+    }
+
+    fn leave(&mut self) {
+        self.step(|view, window, cx| leave_field(view, window, cx));
+    }
+
+    fn press(&mut self, key: &'static str) {
+        self.step(|_, window, cx| window.press(key, cx));
+    }
+
+    fn type_over(&mut self, erase: usize, text: &'static str) {
+        self.step(|_, window, cx| retype(window, erase, text, cx));
+    }
+
+    fn click(&mut self, id: &'static str) {
+        self.step(|_, window, cx| {
+            window.click(id, cx);
+            window.render_frame(cx);
+        });
+    }
+
+    fn field(&mut self) -> String {
+        self.step(|view, _, cx| field_text(view, cx))
+    }
+
+    fn bad(&mut self) -> bool {
+        self.step(|view, _, cx| view.read(cx).bad)
+    }
+
+    fn focused(&mut self) -> Option<bool> {
+        self.step(|_, window, _| window.find_by_label(LABEL).focused())
+    }
+
+    fn commits(&self) -> Vec<String> {
+        self.log.borrow().commits.clone()
+    }
+
+    fn numbers(&self) -> Vec<f64> {
+        self.log.borrow().numbers.clone()
+    }
+
+    fn cancels(&self) -> u32 {
+        self.log.borrow().cancels
+    }
 }
 
 #[gpui_kit::test]
 fn does_not_commit_while_typing_commits_on_blur(cx: &mut TestAppContext) {
-    text_case(cx, "a", |view, log, window, cx| {
-        focus_field(view, window, cx);
-        window.input("b", cx);
-        assert!(log.borrow().commits.is_empty());
-        leave_field(view, window, cx);
-        assert_eq!(log.borrow().commits, ["ab"]);
-    });
+    let mut case = Case::text(cx, "a");
+    case.focus();
+    case.type_over(0, "b");
+    assert!(case.commits().is_empty());
+    case.leave();
+    assert_eq!(case.commits(), ["ab"]);
 }
 
 #[gpui_kit::test]
 fn commits_on_enter(cx: &mut TestAppContext) {
-    text_case(cx, "a", |view, log, window, cx| {
-        focus_field(view, window, cx);
-        window.input("b", cx);
-        window.press("enter", cx);
-        assert_eq!(log.borrow().commits, ["ab"]);
-    });
+    let mut case = Case::text(cx, "a");
+    case.focus();
+    case.type_over(0, "b");
+    case.press("enter");
+    assert_eq!(case.commits(), ["ab"]);
 }
 
 #[gpui_kit::test]
 fn escape_restores_the_saved_value_and_commits_nothing(cx: &mut TestAppContext) {
-    text_case(cx, "a", |view, log, window, cx| {
-        focus_field(view, window, cx);
-        window.input("b", cx);
-        window.press("escape", cx);
-        assert_eq!(field_text(view, cx), "a");
-        leave_field(view, window, cx);
-        assert!(log.borrow().commits.is_empty());
-        assert_eq!(log.borrow().cancels, 1);
-    });
+    let mut case = Case::text(cx, "a");
+    case.focus();
+    case.type_over(0, "b");
+    case.press("escape");
+    assert_eq!(case.field(), "a");
+    case.leave();
+    assert!(case.commits().is_empty());
+    assert_eq!(case.cancels(), 1);
 }
 
 #[gpui_kit::test]
 fn keeps_the_draft_when_the_commit_is_rejected(cx: &mut TestAppContext) {
-    text_case(cx, "a", |view, _, window, cx| {
-        focus_field(view, window, cx);
-        retype(window, 1, "bad", cx);
-        leave_field(view, window, cx);
-        assert_eq!(field_text(view, cx), "bad");
-    });
+    let mut case = Case::text(cx, "a");
+    case.focus();
+    case.type_over(1, "bad");
+    case.leave();
+    assert_eq!(case.field(), "bad");
 }
 
 #[gpui_kit::test]
 fn clears_the_error_when_the_saved_value_is_retyped(cx: &mut TestAppContext) {
-    text_case(cx, "ok", |view, log, window, cx| {
-        focus_field(view, window, cx);
-        retype(window, 2, "bad", cx);
-        leave_field(view, window, cx);
-        assert!(view.read(cx).bad);
-        focus_field(view, window, cx);
-        retype(window, 3, "ok", cx);
-        leave_field(view, window, cx);
-        assert!(!view.read(cx).bad);
-        assert_eq!(log.borrow().cancels, 1);
-    });
+    let mut case = Case::text(cx, "ok");
+    case.focus();
+    case.type_over(2, "bad");
+    case.leave();
+    assert!(case.bad());
+    case.focus();
+    case.type_over(3, "ok");
+    case.leave();
+    assert!(!case.bad());
+    assert_eq!(case.cancels(), 1);
 }
 
 #[gpui_kit::test]
 fn keeps_focus_on_the_same_input_after_enter_commits_a_new_value(cx: &mut TestAppContext) {
-    text_case(cx, "ok", |view, _, window, cx| {
-        focus_field(view, window, cx);
-        retype(window, 2, "next", cx);
-        window.press("enter", cx);
-        window.render_frame(cx);
-        assert_eq!(window.find_by_label(LABEL).focused(), Some(true));
-        assert_eq!(field_text(view, cx), "next");
-    });
+    let mut case = Case::text(cx, "ok");
+    case.focus();
+    case.type_over(2, "next");
+    case.press("enter");
+    case.step(|_, window, cx| window.render_frame(cx));
+    assert_eq!(case.focused(), Some(true));
+    assert_eq!(case.field(), "next");
 }
 
 #[gpui_kit::test]
 fn drops_a_draft_when_the_saved_value_changes_elsewhere(cx: &mut TestAppContext) {
-    text_case(cx, "ok", |view, log, window, cx| {
-        focus_field(view, window, cx);
-        retype(window, 2, "bad", cx);
-        window.click(PRESET, cx);
-        window.render_frame(cx);
-        assert_eq!(field_text(view, cx), PRESET);
-        leave_field(view, window, cx);
-        assert!(log.borrow().commits.is_empty());
-    });
+    let mut case = Case::text(cx, "ok");
+    case.focus();
+    case.type_over(2, "bad");
+    case.click(PRESET);
+    assert_eq!(case.field(), PRESET);
+    case.leave();
+    assert!(case.commits().is_empty());
 }
 
 #[gpui_kit::test]
 fn commits_a_clamped_number_on_blur_and_enter(cx: &mut TestAppContext) {
-    number_case(cx, Some(1.), Some(10.), |view, log, window, cx| {
-        focus_field(view, window, cx);
-        retype(window, 1, "99", cx);
-        assert!(log.borrow().numbers.is_empty());
-        leave_field(view, window, cx);
-        assert_eq!(log.borrow().numbers, [10.]);
-        focus_field(view, window, cx);
-        retype(window, 1, "3", cx);
-        window.press("enter", cx);
-        assert_eq!(log.borrow().numbers, [10., 3.]);
-    });
+    let mut case = Case::number(cx, Some(1.), Some(10.));
+    case.focus();
+    case.type_over(1, "99");
+    assert!(case.numbers().is_empty());
+    case.leave();
+    assert_eq!(case.numbers(), [10.]);
+    case.focus();
+    case.type_over(1, "3");
+    case.press("enter");
+    assert_eq!(case.numbers(), [10., 3.]);
 }
 
 #[gpui_kit::test]
 fn reverts_an_empty_entry_and_escape_restores_the_saved_value(cx: &mut TestAppContext) {
-    number_case(cx, None, None, |view, log, window, cx| {
-        focus_field(view, window, cx);
-        retype(window, 1, "", cx);
-        leave_field(view, window, cx);
-        assert!(log.borrow().numbers.is_empty());
-        assert_eq!(field_text(view, cx), "5");
-        focus_field(view, window, cx);
-        retype(window, 1, "8", cx);
-        window.press("escape", cx);
-        assert_eq!(field_text(view, cx), "5");
-        assert!(log.borrow().numbers.is_empty());
-    });
+    let mut case = Case::number(cx, None, None);
+    case.focus();
+    case.type_over(1, "");
+    case.leave();
+    assert!(case.numbers().is_empty());
+    assert_eq!(case.field(), "5");
+    case.focus();
+    case.type_over(1, "8");
+    case.press("escape");
+    assert_eq!(case.field(), "5");
+    assert!(case.numbers().is_empty());
 }
