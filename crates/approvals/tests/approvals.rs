@@ -384,14 +384,15 @@ async fn moves_pending_cards_and_history_to_the_window_a_pane_moved_to() {
         .map(|p| p.id.clone())
         .collect();
     assert_eq!(moved, vec![id.clone()]);
-    let published = rig.published.lock();
-    let mut windows: Vec<String> = published
-        .iter()
-        .rev()
-        .take(2)
-        .map(|(window_id, _)| window_id.clone())
-        .collect();
-    drop(published);
+    let mut windows: Vec<String> = {
+        let published = rig.published.lock();
+        published
+            .iter()
+            .rev()
+            .take(2)
+            .map(|(window_id, _)| window_id.clone())
+            .collect()
+    };
     windows.sort();
     assert_eq!(windows, vec!["7".to_owned(), "9".to_owned()]);
     assert!(!rig.answer("7", &id, "once"));
