@@ -5,6 +5,7 @@ use ostia_ui::icons::{IconSize, icon};
 use ostia_ui::theme::UiTheme;
 use ostia_ui::tokens::{TAB_MAX_W, TAB_MIN_W, TABSTRIP_H, TextStep, UNFOCUSED_PANE_DIM, UiText};
 
+use super::Terminals;
 use super::terminal::view::{TerminalEvent, TerminalView};
 
 const TAB_LINE: f32 = 2.;
@@ -28,16 +29,22 @@ pub struct PaneView {
 }
 
 const FIXTURE_STATUS: &str = "Fixture: pane status comes from the panes core, which is not ported.";
+const TERMINALS_OFF: &str = "Terminals are off in this run.";
 const SHELL_EXITED: &str = "The shell exited.";
 
 impl PaneView {
     pub fn new(
         index: usize,
-        shell_argv: &[String],
+        terminals: &Terminals,
         show_fixture_status: bool,
         cx: &mut Context<Self>,
     ) -> Self {
-        let terminal = TerminalView::spawn(shell_argv, cx).map_err(|error| error.to_string());
+        let terminal = match terminals {
+            Terminals::DefaultShell => {
+                TerminalView::spawn(&[], cx).map_err(|error| error.to_string())
+            }
+            Terminals::Off => Err(TERMINALS_OFF.to_owned()),
+        };
         if let Ok(view) = &terminal {
             cx.subscribe(view, |pane, _, event, cx| match event {
                 TerminalEvent::Exited => {

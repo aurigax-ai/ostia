@@ -32,7 +32,7 @@ pub struct ShellRoot {
 
 impl ShellRoot {
     pub fn new(options: ShellOptions, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let work = cx.new(|cx| WorkArea::new(&options.shell_argv, window, cx));
+        let work = cx.new(|cx| WorkArea::new(&options.terminals, window, cx));
         let settings = cx.new(|cx| SettingsScreen::new(window, cx));
         let focus = cx.focus_handle();
         let view = match options.screen {

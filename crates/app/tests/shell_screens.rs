@@ -3,13 +3,10 @@ extern crate gpui_kit as gpui;
 use gpui_kit::test::TestWindowExt as _;
 use gpui_kit::{AnyWindowHandle, AppContext as _, Entity, TestAppContext, base::Root};
 use ostia_app::shell::{
-    Screen, ShellOptions, ShellRoot, bind_shell_keys, fixture_workspaces, open_shell_window,
+    Screen, ShellOptions, ShellRoot, Terminals, bind_shell_keys, fixture_workspaces,
+    open_shell_window,
 };
 use ostia_ui::theme::UiTheme as _;
-
-fn cat_shell() -> Vec<String> {
-    vec!["cat".to_owned()]
-}
 
 fn open(screen: Screen, cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<ShellRoot>) {
     cx.update(|cx| {
@@ -21,7 +18,7 @@ fn open(screen: Screen, cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<She
             ShellOptions {
                 screen,
                 theme: None,
-                shell_argv: cat_shell(),
+                terminals: Terminals::Off,
             },
             cx,
         )
@@ -119,4 +116,17 @@ fn set_theme_changes_the_tokens_every_screen_reads(cx: &mut TestAppContext) {
         assert_ne!(cx.tokens().bg, dark);
         assert_eq!(cx.ui_theme().scheme.id, "ostia-light");
     });
+}
+
+#[gpui_kit::test]
+fn panes_without_terminals_keep_the_split_and_the_tabs(cx: &mut TestAppContext) {
+    let (handle, _root) = open(Screen::Main, cx);
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        for index in 0..2 {
+            let id = gpui_kit::ElementId::NamedInteger("pane-tab".into(), index);
+            assert!(window.try_find(id).is_some(), "pane {index} is missing");
+        }
+    })
+    .expect("window update");
 }

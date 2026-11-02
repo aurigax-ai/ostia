@@ -155,3 +155,44 @@ fn rgb_color(color: Rgba8) -> RgbColor {
         b: color.b,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row_text(frame: &Frame, row: usize) -> String {
+        frame.lines[row]
+            .iter()
+            .map(|span| span.text.as_str())
+            .collect()
+    }
+
+    #[test]
+    fn written_bytes_reach_the_frame() {
+        let mut screen = Screen::new(20, 4, 100).expect("screen");
+        screen.feed(b"one\r\ntwo");
+        let frame = screen.frame().expect("frame");
+        assert!(row_text(&frame, 0).starts_with("one"));
+        assert!(row_text(&frame, 1).starts_with("two"));
+    }
+
+    #[test]
+    fn scheme_colors_set_the_default_background() {
+        let mut screen = Screen::new(20, 4, 100).expect("screen");
+        let scheme = ostia_ui::theme::color_schemes().first().expect("scheme");
+        screen.apply_scheme(scheme).expect("apply");
+        let frame = screen.frame().expect("frame");
+        let expected = scheme.background;
+        assert_eq!(
+            (frame.background.r, frame.background.g, frame.background.b),
+            (expected.r, expected.g, expected.b)
+        );
+    }
+
+    #[test]
+    fn title_follows_the_escape_sequence() {
+        let mut screen = Screen::new(20, 4, 100).expect("screen");
+        screen.feed(b"\x1b]2;build\x07");
+        assert_eq!(screen.title(), "build");
+    }
+}

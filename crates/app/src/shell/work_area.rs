@@ -3,6 +3,7 @@ use gpui_kit::prelude::*;
 use gpui_kit::{Context, Entity, Render, Subscription, Window, div};
 use ostia_ui::components::EmptyState;
 
+use super::Terminals;
 use super::pane::{PaneEvent, PaneView};
 
 const LIVE_PANES: usize = 2;
@@ -14,11 +15,11 @@ pub struct WorkArea {
 }
 
 impl WorkArea {
-    pub fn new(shell_argv: &[String], window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(terminals: &Terminals, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let panes: Vec<Entity<PaneView>> = (0..LIVE_PANES)
             .map(|index| {
                 let show_status = index == 0;
-                cx.new(|cx| PaneView::new(index, shell_argv, show_status, cx))
+                cx.new(|cx| PaneView::new(index, terminals, show_status, cx))
             })
             .collect();
         let subscriptions = panes

@@ -1,4 +1,4 @@
-use ostia_app::shell::{Screen, ShellOptions, run_window};
+use ostia_app::shell::{Screen, ShellOptions, Terminals, run_window};
 use tracing_subscriber::EnvFilter;
 
 fn value_of(args: &[String], flag: &str) -> Option<String> {
@@ -17,6 +17,6 @@ fn main() {
     run_window(ShellOptions {
         screen: Screen::parse(value_of(&args, "--screen").as_deref()),
         theme: value_of(&args, "--theme"),
-        shell_argv: Vec::new(),
+        terminals: Terminals::DefaultShell,
     });
 }

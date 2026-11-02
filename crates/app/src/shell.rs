@@ -43,10 +43,17 @@ impl Screen {
 }
 
 #[derive(Clone, Debug, Default)]
+pub enum Terminals {
+    #[default]
+    DefaultShell,
+    Off,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct ShellOptions {
     pub screen: Screen,
     pub theme: Option<String>,
-    pub shell_argv: Vec<String>,
+    pub terminals: Terminals,
 }
 
 pub fn bind_shell_keys(cx: &mut App) {
