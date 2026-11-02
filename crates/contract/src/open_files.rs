@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use serde::Serialize;
+use serde::ser::SerializeMap;
 use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -9,13 +11,47 @@ pub struct FileTarget {
     pub column: Option<u64>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum OpenFileError {
     NotFound,
     Directory,
     NotAFile,
     Unreadable,
     OutsideSandbox,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WaitOutcome {
+    Closed,
+    Gone,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OpenFileVerdict {
+    Admitted { path: String },
+    Refused { path: String, error: OpenFileError },
+}
+
+impl Serialize for OpenFileVerdict {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Admitted { path } => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("ok", &true)?;
+                map.serialize_entry("path", path)?;
+                map.end()
+            }
+            Self::Refused { path, error } => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("ok", &false)?;
+                map.serialize_entry("path", path)?;
+                map.serialize_entry("error", error)?;
+                map.end()
+            }
+        }
+    }
 }
 
 pub const OPEN_FILES_COMMAND: &str = "editor.openFiles";

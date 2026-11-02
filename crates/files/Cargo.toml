@@ -29,5 +29,5 @@ futures-util.workspace = true
 ostia-contract.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 tokio-util.workspace = true
