@@ -11,5 +11,8 @@ ostia-base.workspace = true
 ostia-rpc.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+ostia-contract.workspace = true
+
 [lints]
 workspace = true
