@@ -1,3 +1,11 @@
+pub mod browser_device;
+pub mod js_json;
+pub mod js_text;
+pub mod patterns;
+pub mod stored_resume;
+pub mod workspace_snapshot;
+pub mod workspace_text;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
