@@ -24,6 +24,7 @@ export * as bus from './src/main/agents/busStore'
 export { encodeViewerSelection } from './packages/extension-sdk/src/contract/viewerSelection'
 export { createHeadlessTerminal } from './src/shared/terminal/ghosttyHeadless'
 export { createTelemetry } from './src/main/diagnostics/telemetry'
+export { ViewStore } from './src/main/workspaces/viewHost'
 `
 
 const bundle = join(work, 'bundle.cjs')
@@ -59,6 +60,7 @@ const {
   encodeViewerSelection,
   createHeadlessTerminal,
   createTelemetry,
+  ViewStore,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -370,6 +372,16 @@ writeFileSync(join(out, 'git-view-state-before.json'), readFileSync(viewFile))
 view.setChosen('/r/b', null)
 view.setChosen('/r/a', ['refs/heads/next'])
 writeFileSync(join(out, 'git-view-state-after.json'), readFileSync(viewFile))
+const viewsFile = join(work, 'views', 'views.json')
+mkdirSync(join(work, 'views'), { recursive: true })
+const views = new ViewStore(viewsFile)
+views.set('agents', { enabled: true })
+views.set('notes', { enabled: false })
+views.set('ports', { enabled: true })
+writeFileSync(join(out, 'views-before.json'), readFileSync(viewsFile))
+views.set('agents', { enabled: false })
+views.set('late', { enabled: true })
+writeFileSync(join(out, 'views-after.json'), readFileSync(viewsFile))
 writeFileSync(join(out, 'cli-usage-table.json'), `${JSON.stringify(USAGE_TABLE, null, 1)}\n`)
 
 const BUS_FIXED_MS = Date.parse('2026-10-18T10:00:00.000Z')
