@@ -13,4 +13,5 @@ workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-workspaces.workspace = true
+parking_lot.workspace = true
 url.workspace = true
