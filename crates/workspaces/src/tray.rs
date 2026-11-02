@@ -108,6 +108,8 @@ pub trait TrayIcon: Send {
 
 pub type WindowList = dyn Fn() -> Vec<Arc<dyn TrayWindow>> + Send + Sync;
 
+pub type TrayFactory = dyn Fn(&Path, TraySpec) -> Box<dyn TrayIcon> + Send + Sync;
+
 pub type Callback = Arc<dyn Fn() + Send + Sync>;
 
 #[derive(Clone)]
@@ -127,7 +129,7 @@ pub struct TrayDeps {
     pub windows: Arc<WindowList>,
     pub quit: Callback,
     pub set_badge_count: Arc<dyn Fn(i64) + Send + Sync>,
-    pub create_tray: Arc<dyn Fn(&Path, TraySpec) -> Box<dyn TrayIcon> + Send + Sync>,
+    pub create_tray: Arc<TrayFactory>,
 }
 
 #[derive(Default)]
