@@ -173,6 +173,17 @@ const PALETTE_PREFIX: &str = "\x1b]4;";
 const STRING_TERMINATOR: &str = "\x1b\\";
 const RESET: &str = "\x1b[0m";
 
+fn trailing_pen(text: &str) -> Option<usize> {
+    let start = text.rfind("\x1b[")?;
+    let body = text[start + 2..].strip_suffix('m')?;
+    let is_pen = !body.is_empty()
+        && body != "0"
+        && body
+            .chars()
+            .all(|ch| ch.is_ascii_digit() || ch == ';' || ch == ':');
+    is_pen.then_some(start)
+}
+
 fn normalize_vt(text: &str) -> String {
     let mut rest = text;
     while rest.starts_with(PALETTE_PREFIX) {
@@ -182,6 +193,17 @@ fn normalize_vt(text: &str) -> String {
         }
     }
     let mut out = rest.to_string();
+    let mut restored = false;
+    while let Some(start) = trailing_pen(&out) {
+        out.truncate(start);
+        restored = true;
+    }
+    if restored {
+        if out.ends_with(RESET) {
+            out.truncate(out.len() - RESET.len());
+        }
+        return out;
+    }
     if out.ends_with(RESET) {
         let row_start = out.rfind("\r\n").map_or(0, |at| at + 2);
         let row = &out[row_start..out.len() - RESET.len()];
