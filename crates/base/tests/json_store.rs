@@ -152,3 +152,143 @@ async fn the_async_save_writes_compact_json() {
     assert_eq!(fs::read_to_string(&file).unwrap(), r#"{"z":1,"a":[1,2]}"#);
     assert_eq!(mode(&file), 0o600);
 }
+
+#[test]
+fn project_scope_with_no_work_dir_falls_back_to_cwd() {
+    let path = store_path(&host(&[]), "notes", StoreScope::Project, None);
+    assert_eq!(path, PathBuf::from("/work/cwd/.ostia/notes.json"));
+}
+
+#[test]
+fn global_scope_falls_back_to_the_local_share_folder_of_the_home_when_xdg_data_home_is_unset() {
+    let path = store_path(&host(&[]), "notes", StoreScope::Global, None);
+    assert_eq!(
+        path,
+        PathBuf::from("/home/u/.local/share/ostia-rs/notes.json")
+    );
+}
+
+#[test]
+fn global_scope_ignores_an_empty_xdg_data_home() {
+    let path = store_path(
+        &host(&[("XDG_DATA_HOME", "")]),
+        "notes",
+        StoreScope::Global,
+        None,
+    );
+    assert_eq!(
+        path,
+        PathBuf::from("/home/u/.local/share/ostia-rs/notes.json")
+    );
+}
+
+#[test]
+fn round_trips_data_through_save_json_then_load_json() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("sub").join("store.json");
+    let data = json!({"hello": "world", "n": 42});
+    save_json(&path, &data, SaveOptions::default()).unwrap();
+    assert_eq!(load_json(&path), Some(data));
+}
+
+#[test]
+fn creates_parent_directories_as_needed() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("deep/nested/dir/store.json");
+    save_json(&path, &json!({"a": 1}), SaveOptions::default()).unwrap();
+    assert!(path.exists());
+}
+
+fn listing(dir: &std::path::Path) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    names.sort();
+    names
+}
+
+#[test]
+fn leaves_no_temp_file_behind_after_an_atomic_write() {
+    let dir = tempdir().unwrap();
+    save_json(
+        &dir.path().join("store.json"),
+        &json!({"a": 1}),
+        SaveOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(listing(dir.path()), vec!["store.json".to_owned()]);
+}
+
+#[test]
+fn removes_the_temp_file_when_the_rename_fails() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("store.json");
+    fs::create_dir_all(path.join("occupied")).unwrap();
+    assert!(save_json(&path, &json!({"a": 1}), SaveOptions::default()).is_err());
+    assert_eq!(listing(dir.path()), vec!["store.json".to_owned()]);
+}
+
+#[tokio::test]
+async fn an_async_secure_save_makes_the_file_0600_and_its_new_folder_0700() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("secure").join("store.json");
+    save_json_async(&path, &json!({"a": 1}), SaveOptions::SECURE)
+        .await
+        .unwrap();
+    assert_eq!(mode(&path), 0o600);
+    assert_eq!(mode(path.parent().unwrap()), 0o700);
+}
+
+#[tokio::test]
+async fn tightens_an_existing_secure_folder_before_the_store_is_written() {
+    let dir = tempdir().unwrap();
+    let folder = dir.path().join("secure");
+    fs::create_dir_all(&folder).unwrap();
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+    save_json(
+        &folder.join("sync.json"),
+        &json!({"a": 1}),
+        SaveOptions::SECURE,
+    )
+    .unwrap();
+    assert_eq!(mode(&folder), 0o700);
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+    save_json_async(
+        &folder.join("async.json"),
+        &json!({"a": 1}),
+        SaveOptions::SECURE,
+    )
+    .await
+    .unwrap();
+    assert_eq!(mode(&folder), 0o700);
+}
+
+#[tokio::test]
+async fn leaves_valid_json_from_one_of_two_concurrent_writes_to_the_same_store() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("store.json");
+    let first = json!({"fill": "a".repeat(1 << 20)});
+    let second = json!({"fill": "b".repeat(1 << 20)});
+    let (one, two) = tokio::join!(
+        save_json_async(&path, &first, SaveOptions::SECURE),
+        save_json_async(&path, &second, SaveOptions::SECURE)
+    );
+    one.unwrap();
+    two.unwrap();
+    let stored = load_json(&path).unwrap();
+    assert!(stored == first || stored == second);
+    assert_eq!(listing(dir.path()), vec!["store.json".to_owned()]);
+}
+
+#[test]
+fn loads_a_symlinked_store_replaced_by_a_save_as_the_new_data() {
+    let dir = tempdir().unwrap();
+    let target = dir.path().join("target.txt");
+    let path = dir.path().join("store.json");
+    fs::write(&target, "untouched").unwrap();
+    symlink(&target, &path).unwrap();
+    save_json(&path, &json!({"a": 1}), SaveOptions::default()).unwrap();
+    assert_eq!(load_json(&path), Some(json!({"a": 1})));
+    assert_eq!(fs::read_to_string(&target).unwrap(), "untouched");
+}
