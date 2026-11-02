@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use ostia_workspaces::js_json::JsNumber;
+use ostia_base::js::JsNumber;
 
 fn text(value: f64) -> String {
     serde_json::to_string(&JsNumber(value)).unwrap()

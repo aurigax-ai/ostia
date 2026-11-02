@@ -2,9 +2,9 @@ use serde::{Serialize, Serializer};
 
 use crate::PanePlacementZone;
 use crate::browser_device::BrowserDevice;
-use crate::js_json::JsNumber;
 use crate::stored_resume::{ResumeFailure, StoredResume};
 use crate::workspace_text::WorkspaceGroupColor;
+use ostia_base::js::JsNumber;
 
 pub fn is_false(value: &bool) -> bool {
     !*value

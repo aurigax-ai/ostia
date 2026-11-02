@@ -106,3 +106,33 @@ pub enum LifecycleEvent {
         message: Option<String>,
     },
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum KeptAttentionState {
+    Working,
+    Waiting,
+    Done,
+    Error,
+}
+
+impl KeptAttentionState {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "working" => Some(Self::Working),
+            "waiting" => Some(Self::Waiting),
+            "done" => Some(Self::Done),
+            "error" => Some(Self::Error),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Working => "working",
+            Self::Waiting => "waiting",
+            Self::Done => "done",
+            Self::Error => "error",
+        }
+    }
+}

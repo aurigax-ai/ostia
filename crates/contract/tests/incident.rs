@@ -602,3 +602,13 @@ fn refuses_a_value_that_is_not_an_object() {
         assert!(!accepts(&value), "{value}");
     }
 }
+
+#[test]
+fn exposes_the_parsed_block_fields_and_serializes_it_back() {
+    let parsed = parse_incident_block(&block()).unwrap();
+    assert_eq!(parsed.pane, "P1");
+    assert_eq!(parsed.since_min, 12);
+    assert_eq!(parsed.agent.kind, "claude");
+    assert_eq!(parsed.events.len(), 5);
+    assert_eq!(serde_json::to_value(&parsed).unwrap(), block());
+}

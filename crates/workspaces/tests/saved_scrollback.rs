@@ -481,3 +481,42 @@ async fn writes_the_same_bytes_as_the_ts_store_and_reads_them_back() {
         .collect();
     assert_eq!(pending(&store), wanted);
 }
+
+#[tokio::test]
+async fn never_writes_text_that_a_clear_during_the_snapshot_removed() {
+    let (_dir, host) = temp_host();
+    let store = SavedScrollback::new(host.clone());
+    let clearer = store.clone();
+    let clear_while_reading = move |_: &str| {
+        let _ = clearer.clear_persisted();
+        false
+    };
+    store
+        .save_scrollback(&entries(&[("p1", "cleared text")]), &clear_while_reading)
+        .await
+        .unwrap();
+    assert!(!scrollback_path(&host).exists());
+}
+
+#[test]
+fn reports_an_error_instead_of_panicking_without_a_runtime() {
+    let (_dir, host) = temp_host();
+    let store = SavedScrollback::new(host);
+    let saving = store.save_scrollback(&entries(&[("p1", "one")]), &none_unsaved);
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap();
+    assert!(runtime.block_on(saving).is_err());
+}
+
+#[test]
+fn keeps_every_pane_when_one_text_holds_a_lone_surrogate_escape() {
+    let (_dir, host) = temp_host();
+    write_scrollback(&host, r#"{"p1":"one","p2":"a\ud83d","p3":"three"}"#);
+    let store = SavedScrollback::new(host);
+    assert_eq!(store.load_restored_scrollback(), RestoreOutcome::Ok);
+    assert_eq!(
+        pending(&store),
+        entries(&[("p1", "one"), ("p2", "a\u{fffd}"), ("p3", "three")])
+    );
+}

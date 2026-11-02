@@ -672,6 +672,7 @@ dependencies = [
  "ostia-contract",
  "ostia-control",
  "ostia-rpc",
+ "ostia-terminal",
  "ostia-testkit",
  "regex",
  "rustix",

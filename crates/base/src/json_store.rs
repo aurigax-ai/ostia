@@ -7,6 +7,7 @@ use crate::atomic_write::{AtomicWriteOptions, write_file_atomic, write_file_atom
 use crate::error::{Error, Result};
 use crate::host::Host;
 use crate::js::js_trim;
+use crate::js_json::parse_js_json;
 use crate::{PRODUCT_NAME, node_path};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,7 +51,7 @@ pub fn store_path(host: &Host, name: &str, scope: StoreScope, work_dir: Option<&
 
 pub fn load_json(path: &Path) -> Option<Value> {
     let bytes = std::fs::read(path).ok()?;
-    serde_json::from_str(&String::from_utf8_lossy(&bytes)).ok()
+    parse_js_json(&String::from_utf8_lossy(&bytes)).ok()
 }
 
 pub fn save_json<T: Serialize>(path: &Path, data: &T, options: SaveOptions) -> Result<()> {

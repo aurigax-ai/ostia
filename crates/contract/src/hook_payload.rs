@@ -1,4 +1,5 @@
 use ostia_base::js::js_trim;
+use ostia_base::js_json::parse_js_json;
 use serde_json::{Map, Value};
 
 use crate::utf16_prefix::utf16_prefix;
@@ -6,7 +7,7 @@ use crate::utf16_prefix::utf16_prefix;
 const MESSAGE_MAX: usize = 300;
 
 pub fn parse_payload(raw: &str) -> Map<String, Value> {
-    match serde_json::from_str(raw) {
+    match parse_js_json(raw) {
         Ok(Value::Object(record)) => record,
         _ => Map::new(),
     }

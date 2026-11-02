@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use ostia_base::js::{static_regex, utf16_len};
@@ -292,6 +293,7 @@ pub fn normalize_remote_listing(raw: &Value) -> RemoteListResult {
         return RemoteListResult::Failure(RemoteFailure::of(FAILED));
     };
     let mut entries: Vec<RemoteEntry> = Vec::new();
+    let mut seen: HashSet<&str> = HashSet::new();
     let mut truncated = raw.get("truncated") == Some(&Value::Bool(true));
     for item in items {
         if entries.len() >= REMOTE_ENTRIES_MAX {
@@ -303,7 +305,7 @@ pub fn normalize_remote_listing(raw: &Value) -> RemoteListResult {
             continue;
         }
         let name = name.as_str().unwrap_or_default();
-        if entries.iter().any(|entry| entry.name == name) {
+        if !seen.insert(name) {
             continue;
         }
         entries.push(RemoteEntry {

@@ -1,3 +1,4 @@
+use ostia_base::js_json::parse_js_json;
 use serde_json::Value;
 
 pub const VIEWER_SELECTION_PATH: &str = "/~selection";
@@ -42,7 +43,7 @@ pub fn decode_viewer_selection(body: &[u8]) -> Option<ViewerSelectionBody> {
     }
     let (json, tail) = rest.split_at(json_length);
     let json = json.strip_prefix(&UTF8_BOM).unwrap_or(json);
-    let meta = serde_json::from_str(std::str::from_utf8(json).ok()?).ok()?;
+    let meta = parse_js_json(std::str::from_utf8(json).ok()?).ok()?;
     let png = (!tail.is_empty()).then(|| tail.to_vec());
     Some(ViewerSelectionBody { meta, png })
 }

@@ -5,6 +5,7 @@ pub mod events;
 pub mod host;
 pub mod ids;
 pub mod js;
+pub mod js_json;
 pub mod json_store;
 pub mod node_path;
 pub mod owner_thread;

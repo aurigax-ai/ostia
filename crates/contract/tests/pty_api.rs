@@ -119,3 +119,11 @@ fn writes_pane_activity_and_a_history_entry_with_null_fields() {
         json!({"command": "ls", "time": null})
     );
 }
+
+#[test]
+fn spawn_options_keep_a_fractional_size_like_a_script_number() {
+    let raw = json!({"cols": 80.5, "rows": 24});
+    let parsed: PtySpawnOptions = serde_json::from_value(raw.clone()).unwrap();
+    assert!((parsed.cols - 80.5).abs() < f64::EPSILON);
+    assert_eq!(serde_json::to_value(&parsed).unwrap(), raw);
+}
