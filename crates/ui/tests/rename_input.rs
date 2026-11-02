@@ -48,7 +48,7 @@ fn open(cx: &mut TestAppContext) -> (AnyWindowHandle, Done) {
     });
     cx.update_window(handle, |_, window, cx| window.render_frame(cx))
         .expect("window update");
-    (handle.into(), done)
+    (handle, done)
 }
 
 fn act(

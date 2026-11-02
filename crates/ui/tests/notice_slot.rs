@@ -46,7 +46,7 @@ fn open(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<NoticeSlot>) {
         .expect("window")
     });
     let slot = host.read_with(cx, |host, _| host.slot.clone());
-    (handle.into(), slot)
+    (handle, slot)
 }
 
 fn render(cx: &mut TestAppContext, handle: AnyWindowHandle) {
