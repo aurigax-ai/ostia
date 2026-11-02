@@ -16,6 +16,7 @@ export { ostiaLauncherScript } from './src/main/terminal/paneLauncher'
 export { errorBanner, integrationNotLoadedNotice } from './src/main/terminal/paneBanner'
 export { en, zhHant } from './src/shared/app/dict'
 export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
+export { scrollbackToSave } from './src/main/workspaces/savedScrollback'
 export { USAGE_TABLE } from './src/cli/common/usageTable'
 export * as bus from './src/main/agents/busStore'
 `
@@ -39,6 +40,7 @@ const {
   en,
   zhHant,
   parseSnapshot,
+  scrollbackToSave,
   ViewStateStore,
   USAGE_TABLE,
   bus,
@@ -310,6 +312,24 @@ const SNAPSHOT_BEFORE = {
 }
 writeFileSync(join(out, 'workspace-snapshot-before.json'), `${JSON.stringify(SNAPSHOT_BEFORE, null, 2)}\n`)
 saveJson(join(out, 'workspace-snapshot-after.json'), parseSnapshot(SNAPSHOT_BEFORE))
+
+const SCROLLBACK_INPUT = {
+  p1: 'plain line\nsecond é 日本語 😀 line\n',
+  p2: '',
+  p3: 'never saved',
+  __proto__: 'x',
+  p4: '\u001b[31mred\u001b[0m \u001b]133;C ls\r\n',
+  constructor: 'y',
+  prototype: 'z',
+  p5: 'tail "quoted" back\\slash\ttab',
+}
+const scrollbackInput = JSON.parse(JSON.stringify(SCROLLBACK_INPUT))
+Object.defineProperty(scrollbackInput, '__proto__', { value: 'x', enumerable: true, configurable: true, writable: true })
+writeFileSync(join(out, 'scrollback-input.json'), JSON.stringify(scrollbackInput))
+await saveJsonAsync(
+  join(out, 'scrollback-saved.json'),
+  scrollbackToSave(scrollbackInput, (paneId) => paneId === 'p3'),
+)
 
 const viewFile = join(work, 'git', 'view.json')
 const view = new ViewStateStore(viewFile)

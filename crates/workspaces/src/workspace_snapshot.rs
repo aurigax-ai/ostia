@@ -17,7 +17,7 @@ use self::model::{AppSnapshot, PaneDrop, SnapshotGroup, SnapshotWorkspace};
 
 const SNAPSHOT_VERSION: u8 = 1;
 const MAX_WORKSPACES: usize = 32;
-const MAX_PANES: usize = 64;
+pub(crate) const MAX_PANES: usize = 64;
 const MAX_LAYOUT_DEPTH: usize = 12;
 const MAX_WINDOWS: usize = 16;
 const MAX_GROUPS: usize = 32;
