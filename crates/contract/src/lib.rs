@@ -6,6 +6,7 @@ pub mod commands;
 pub mod extensions;
 pub mod hidden_text;
 pub mod open_files;
+pub mod pick;
 pub mod reach;
 pub mod sandbox;
 pub mod script_tokens;
