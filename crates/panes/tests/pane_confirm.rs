@@ -85,7 +85,7 @@ async fn confirms_a_pane_gone_at_the_first_look_with_no_wait() {
 #[tokio::test(start_paused = true)]
 async fn confirms_a_pane_that_closes_while_it_waits() {
     let scene = Scene::default();
-    scene.list(&[("p1", None), ("p2", None)]);
+    scene.list(&[("ext-1", None), ("p2", None)]);
     *scene.vanish_after.lock() = Some(4);
     let (result, waited) = elapsed_of(scene.confirms().confirm_gone(&target())).await;
     assert_eq!(result, Ok(()));
@@ -102,7 +102,7 @@ async fn keeps_other_panes_out_of_the_answer_when_it_checks_that_one_is_gone() {
 #[tokio::test(start_paused = true)]
 async fn reports_a_pane_still_open_after_three_seconds_and_says_the_human_was_asked() {
     let scene = Scene::default();
-    scene.list(&[("p1", None)]);
+    scene.list(&[("ext-1", None)]);
     let (result, waited) = elapsed_of(scene.confirms().confirm_gone(&target())).await;
     assert_eq!(
         result,
@@ -219,13 +219,13 @@ async fn watches_a_submit_only_for_a_listed_pane_with_an_agent_whose_hooks_are_o
     assert!(!scene.confirms().watches_submit(&target()).await);
     scene.list(&[("p2", Some("claude"))]);
     assert!(!scene.confirms().watches_submit(&target()).await);
-    scene.list(&[("p1", None)]);
+    scene.list(&[("ext-1", None)]);
     assert!(!scene.confirms().watches_submit(&target()).await);
-    scene.list(&[("p1", Some(""))]);
+    scene.list(&[("ext-1", Some(""))]);
     assert!(!scene.confirms().watches_submit(&target()).await);
-    scene.list(&[("p1", Some("codex"))]);
+    scene.list(&[("ext-1", Some("codex"))]);
     assert!(!scene.confirms().watches_submit(&target()).await);
-    scene.list(&[("p1", Some("claude"))]);
+    scene.list(&[("ext-1", Some("claude"))]);
     assert!(scene.confirms().watches_submit(&target()).await);
 }
 
@@ -233,7 +233,7 @@ async fn watches_a_submit_only_for_a_listed_pane_with_an_agent_whose_hooks_are_o
 async fn does_not_watch_a_submit_when_the_agent_is_already_in_a_turn() {
     let scene = Scene::default();
     scene.hooked.lock().push("claude".to_owned());
-    scene.list(&[("p1", Some("claude"))]);
+    scene.list(&[("ext-1", Some("claude"))]);
     for (state, expected) in [
         (Some("working"), false),
         (Some("waiting"), false),
