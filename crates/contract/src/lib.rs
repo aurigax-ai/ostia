@@ -37,6 +37,8 @@ pub mod reach;
 pub mod releases;
 pub mod remote_folders;
 pub mod sandbox;
+pub mod sandbox_parse;
+pub mod sandbox_presets;
 pub mod script_tokens;
 pub mod scrollback_history;
 pub mod scrollbar;
