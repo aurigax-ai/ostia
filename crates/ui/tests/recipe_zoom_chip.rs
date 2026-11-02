@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 extern crate gpui_kit as gpui;
 
 use gpui_kit::prelude::*;
