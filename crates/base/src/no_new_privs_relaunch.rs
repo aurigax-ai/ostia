@@ -8,8 +8,8 @@ pub fn relaunch_without_no_new_privs(
     launch: &mut dyn FnMut(&BTreeMap<String, String>) -> bool,
     warn: &mut dyn FnMut(&str),
 ) -> bool {
-    let relaunched = env.contains_key(RELAUNCHED_ENV_ENV);
-    env.remove(RELAUNCHED_ENV_ENV);
+    let relaunched = env.contains_key(RELAUNCHED_ENV);
+    env.remove(RELAUNCHED_ENV);
     if !no_new_privs {
         return false;
     }
