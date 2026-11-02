@@ -3,6 +3,7 @@ use gpui_kit::component::{Sizable as _, Size};
 use gpui_kit::prelude::*;
 use gpui_kit::{App, Entity, IntoElement, Pixels, RenderOnce, SharedString, Window, px};
 
+use crate::theme::UiTheme;
 use crate::tokens::{CONTROL_H, RADIUS_MD, RADIUS_SM, TextStep, UiText};
 
 const INLINE_PADDING: Pixels = px(2.);
@@ -15,6 +16,7 @@ pub struct Input {
     code: bool,
     inline: bool,
     disabled: bool,
+    invalid: bool,
 }
 
 impl Input {
@@ -26,6 +28,7 @@ impl Input {
             code: false,
             inline: false,
             disabled: false,
+            invalid: false,
         }
     }
 
@@ -48,17 +51,24 @@ impl Input {
         self.disabled = disabled;
         self
     }
+
+    pub fn invalid(mut self, invalid: bool) -> Self {
+        self.invalid = invalid;
+        self
+    }
 }
 
 impl RenderOnce for Input {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let attn_fg = cx.tokens().attn_fg;
         let input = KitInput::new(&self.state)
             .aria_label(self.label)
             .disabled(self.disabled)
             .with_size(Size::Small)
             .rounded(RADIUS_MD)
             .ui_text(TextStep::Base, cx)
-            .when_some(self.width, |input, width| input.w(width));
+            .when_some(self.width, |input, width| input.w(width))
+            .when(self.invalid, |input| input.border_color(attn_fg));
         let input = if self.inline {
             input
                 .appearance(false)
