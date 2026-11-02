@@ -12,7 +12,6 @@ futures-util.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-control.workspace = true
-ostia-model.workspace = true
 ostia-rpc.workspace = true
 ostia-terminal.workspace = true
 regex.workspace = true

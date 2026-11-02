@@ -1,6 +1,5 @@
 use ostia_base::js::non_empty;
 use ostia_base::js_json::parse_js_json;
-use ostia_model::workspaces::workspace_title::workspace_title;
 use ostia_rpc::{Client, ClientError};
 use serde_json::{Map, Value, json};
 
@@ -24,7 +23,7 @@ impl WorkspaceRow {
     }
 
     fn shown_name(&self) -> &str {
-        workspace_title(&self.name, non_empty(self.custom_name.as_deref()))
+        non_empty(self.custom_name.as_deref()).unwrap_or(&self.name)
     }
 
     fn describe(&self) -> String {
