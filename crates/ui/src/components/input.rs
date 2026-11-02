@@ -3,7 +3,9 @@ use gpui_kit::component::{Sizable as _, Size};
 use gpui_kit::prelude::*;
 use gpui_kit::{App, Entity, IntoElement, Pixels, RenderOnce, SharedString, Window, px};
 
-use crate::tokens::{CONTROL_H, RADIUS_MD, TextStep, UiText};
+use crate::tokens::{CONTROL_H, RADIUS_MD, RADIUS_SM, TextStep, UiText};
+
+const INLINE_PADDING: Pixels = px(2.);
 
 #[derive(IntoElement)]
 pub struct Input {
@@ -11,6 +13,7 @@ pub struct Input {
     label: SharedString,
     width: Option<Pixels>,
     code: bool,
+    inline: bool,
     disabled: bool,
 }
 
@@ -21,6 +24,7 @@ impl Input {
             label: label.into(),
             width: None,
             code: false,
+            inline: false,
             disabled: false,
         }
     }
@@ -32,6 +36,11 @@ impl Input {
 
     pub fn code(mut self) -> Self {
         self.code = true;
+        self
+    }
+
+    pub fn inline(mut self) -> Self {
+        self.inline = true;
         self
     }
 
@@ -50,7 +59,16 @@ impl RenderOnce for Input {
             .rounded(RADIUS_MD)
             .ui_text(TextStep::Base, cx)
             .when_some(self.width, |input, width| input.w(width));
-        let input = Styled::h(input, CONTROL_H);
+        let input = if self.inline {
+            input
+                .appearance(false)
+                .bordered(false)
+                .rounded(RADIUS_SM)
+                .px(INLINE_PADDING)
+                .py(INLINE_PADDING)
+        } else {
+            Styled::h(input, CONTROL_H)
+        };
         if self.code { input.font_code() } else { input }
     }
 }
