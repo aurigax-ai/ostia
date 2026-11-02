@@ -53,6 +53,10 @@ async fn run(host: &Host, verb: &str) -> ExitCode {
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
     let verb = std::env::args().nth(1).unwrap_or_default();
+    if verb == "--version" {
+        println!("{}", env!("CARGO_PKG_VERSION"));
+        return ExitCode::SUCCESS;
+    }
     if verb != "whoami" {
         eprintln!("ostia: {verb} is not ported yet");
         return ExitCode::FAILURE;

@@ -7,21 +7,25 @@ license-file.workspace = true
 publish.workspace = true
 
 [dependencies]
+chrono.workspace = true
+futures-util.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-control.workspace = true
 ostia-rpc.workspace = true
 regex.workspace = true
+rustix.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 
 [lints]
 workspace = true
 
 [dev-dependencies]
-ostia-contract.workspace = true
 ostia-testkit.workspace = true
-tokio.workspace = true
+tempfile.workspace = true
+tokio-util.workspace = true
 
 [[bin]]
 name = "ostia"
