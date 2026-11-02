@@ -1,7 +1,12 @@
 pub mod browser_device;
+pub mod context_menu_template;
 pub mod dir_watch;
+pub mod global_hotkey;
 pub mod js_text;
 pub mod patterns;
+pub mod primary_selection;
+pub mod quit_plan;
+pub mod quit_prompt;
 pub mod saved_scrollback;
 pub mod stored_resume;
 pub mod view_host;
