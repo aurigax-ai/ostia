@@ -17,9 +17,13 @@ tokio.workspace = true
 workspace = true
 
 [dev-dependencies]
+chrono.workspace = true
+futures-util.workspace = true
 ostia-contract.workspace = true
 ostia-testkit.workspace = true
+tempfile.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 
 [[bin]]
 name = "ostia"
