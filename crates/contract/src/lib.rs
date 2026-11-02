@@ -77,6 +77,7 @@ pub mod script_tokens;
 pub mod scrollback_history;
 pub mod scrollbar;
 pub mod shell_quote;
+pub mod snippets;
 pub mod string_enum;
 pub mod sync_kinds;
 pub mod terminal_replies;
