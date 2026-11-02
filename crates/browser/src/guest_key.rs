@@ -1,4 +1,4 @@
-use crate::chord_spec::KeyLike;
+use ostia_contract::chord_spec::KeyLike;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GuestKeyInput {

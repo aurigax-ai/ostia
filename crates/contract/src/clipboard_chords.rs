@@ -50,6 +50,7 @@ fn normalize_spec(raw: Option<&Value>, mac: bool) -> Option<Option<ChordSpec>> {
         alt: flag("alt")?,
         meta: flag("meta")?,
         key: key.to_owned(),
+        terminal: false,
     };
     if spec.key == DIGIT_RANGE {
         return None;
