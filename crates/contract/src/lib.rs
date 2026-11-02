@@ -10,6 +10,9 @@ pub mod reach;
 pub mod sandbox;
 pub mod script_tokens;
 pub mod terminal_state;
+pub mod text_cut;
+pub mod workspace_groups;
+pub mod workspace_text;
 
 pub const TARGET_PANE_PARAM: &str = "targetPaneId";
 pub const SANDBOXED_REFUSAL: &str =
