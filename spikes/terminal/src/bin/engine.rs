@@ -111,11 +111,18 @@ fn serialize() -> Result<()> {
     println!("SERIALIZE all_text={everything:?}");
     let range = row_range_text(&pane, 1, 3)?;
     println!("SERIALIZE row_range(1..=3)={range:?}");
-    let second = marks.get(1).ok_or_else(|| anyhow!("fewer than 2 marks"))?;
-    println!(
-        "SERIALIZE output_after_mark(1)={:?}",
-        output_after_mark(&pane, *second)?
-    );
+    for mark in &marks {
+        for offset in 0..3 {
+            let probe = spike_terminal::serialize::PromptMark {
+                row: mark.row + offset,
+            };
+            println!(
+                "SERIALIZE output_after_mark(prompt_row={} + {offset})={:?}",
+                mark.row,
+                output_after_mark(&pane, probe)?
+            );
+        }
+    }
     Ok(())
 }
 
