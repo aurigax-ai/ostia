@@ -503,7 +503,7 @@ async fn answers_a_write_failure_with_its_message_when_it_has_one_and_its_code_w
     *guest.cookie_failure.lock() = Some("bad cookie".to_owned());
     let cookie = json!({
         "kind": "cookies",
-        "cookie": {"name": "sid", "value": "abc", "domain": "app.test", "path": "/"}
+        "cookie": {"name": "sid", "value": "abc", "domain": "app.test", "path": "/", "expires": null}
     });
     assert_eq!(
         json_of(ipc.storage_set("p1", "7", &cookie).await),
