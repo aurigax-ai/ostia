@@ -22,6 +22,7 @@ pub mod onboard_playbook;
 pub mod open_files;
 pub mod proto_guard;
 pub mod osc7;
+pub mod pick;
 pub mod reach;
 pub mod remote_folders;
 pub mod releases;
