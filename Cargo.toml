@@ -27,6 +27,7 @@ ostia-testkit = { path = "crates/testkit" }
 base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+command-fds = "0.3"
 futures-util = "0.3"
 getrandom = "0.4"
 hex = "0.4"
@@ -36,6 +37,7 @@ libc = "0.2"
 parking_lot = "0.12"
 percent-encoding = "2"
 regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 rustix = { version = "1", features = ["fs", "process", "system", "termios"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

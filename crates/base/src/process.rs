@@ -1,11 +1,19 @@
 use rustix::io::Errno;
-use rustix::process::{Pid, test_kill_process};
+use rustix::process::{Pid, test_kill_process, test_kill_process_group};
 
 pub fn is_running(pid: i32) -> bool {
-    let Some(pid) = Pid::from_raw(pid) else {
-        return pid == 0;
+    let probe = if pid < 0 {
+        let Some(group) = pid.checked_neg().and_then(Pid::from_raw) else {
+            return false;
+        };
+        test_kill_process_group(group)
+    } else {
+        let Some(process) = Pid::from_raw(pid) else {
+            return true;
+        };
+        test_kill_process(process)
     };
-    match test_kill_process(pid) {
+    match probe {
         Ok(()) => true,
         Err(errno) => errno == Errno::PERM,
     }

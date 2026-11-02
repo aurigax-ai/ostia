@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::js::{is_js_space, js_trim};
+use crate::js::{is_js_space, js_number, js_trim};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProcEntry {
@@ -11,19 +11,27 @@ pub struct ProcEntry {
     pub comm: String,
 }
 
+fn integer(text: &str) -> Option<i32> {
+    let number = js_number(text);
+    if number.fract() != 0.0 {
+        return None;
+    }
+    number.to_string().parse().ok()
+}
+
 pub fn parse_proc_stat(text: &str) -> Option<ProcEntry> {
     let open = text.find('(')?;
     let close = text.rfind(')')?;
     if close < open {
         return None;
     }
-    let pid = js_trim(&text[..open]).parse::<i32>().ok()?;
+    let pid = integer(&text[..open])?;
     let comm = &text[open + 1..close];
     let fields: Vec<&str> = js_trim(&text[close + 1..])
         .split(is_js_space)
         .filter(|field| !field.is_empty())
         .collect();
-    let field = |index: usize| fields.get(index)?.parse::<i32>().ok();
+    let field = |index: usize| integer(fields.get(index)?);
     let ppid = field(1)?;
     let pgrp = field(2)?;
     let tpgid = field(5)?;
