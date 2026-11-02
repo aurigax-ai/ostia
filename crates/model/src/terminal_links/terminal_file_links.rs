@@ -29,6 +29,9 @@ pub struct BufferRow {
 
 pub trait TerminalBuffer: Send + Sync {
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
     fn line(&self, y: usize) -> Option<BufferRow>;
 }
 
