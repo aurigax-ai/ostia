@@ -121,6 +121,9 @@ pub struct SpawnDeps {
     pub spawn: Option<SpawnServer>,
 }
 
+pub type EnabledSource = Arc<dyn Fn(&str) -> Option<LanguageServerSource> + Send + Sync>;
+pub type RecordLookup = Arc<dyn Fn(&str) -> RecordHandle + Send + Sync>;
+pub type NoteSink = Arc<dyn Fn(&str, LspLogEntry) + Send + Sync>;
 pub type Refusals = Arc<Mutex<HashMap<String, String>>>;
 pub type RecordHandle = Arc<Mutex<ServerRecord>>;
 
@@ -137,9 +140,9 @@ pub struct ServerStart {
     pub refusals: Refusals,
     pub stopped: Arc<dyn Fn() -> bool + Send + Sync>,
     pub slot: Arc<dyn Fn(&str) -> SlotState + Send + Sync>,
-    pub enabled_source: Arc<dyn Fn(&str) -> Option<LanguageServerSource> + Send + Sync>,
-    pub record: Arc<dyn Fn(&str) -> RecordHandle + Send + Sync>,
-    pub note: Arc<dyn Fn(&str, LspLogEntry) + Send + Sync>,
+    pub enabled_source: EnabledSource,
+    pub record: RecordLookup,
+    pub note: NoteSink,
     pub now: Arc<dyn Fn() -> i64 + Send + Sync>,
     pub changed: Arc<dyn Fn() + Send + Sync>,
 }
@@ -211,7 +214,7 @@ pub fn find_server_root(
         None => {
             let mut known: Vec<&String> =
                 roots.iter().filter(|root| inside(root, &start)).collect();
-            known.sort_by(|a, b| utf16_len(b).cmp(&utf16_len(a)));
+            known.sort_by_key(|root| std::cmp::Reverse(utf16_len(root)));
             known
                 .first()
                 .map_or_else(|| start.clone(), |root| (*root).clone())
