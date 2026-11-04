@@ -5736,6 +5736,7 @@ dependencies = [
  "ostia-rpc",
  "parking_lot",
  "rustix",
+ "serde",
  "serde_json",
  "tempfile",
  "tokio",
