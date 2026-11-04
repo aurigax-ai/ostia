@@ -42,6 +42,7 @@ flate2 = "1"
 futures = "0.3"
 futures-util = "0.3"
 gpui-kit = { version = "=0.8.1", default-features = false, features = ["component"] }
+gethostname = "1"
 getrandom = "0.4"
 globset = "0.4"
 hex = "0.4"
@@ -53,12 +54,15 @@ icu_locale_core = "2"
 libc = "0.2"
 libghostty-vt = { version = "0.2.2", default-features = false }
 parking_lot = "0.12"
+nix = { version = "0.31", default-features = false, features = ["net"] }
 notify = "8"
 percent-encoding = "2"
 portable-pty = "0.9.0"
+rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "pem"] }
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 rustix = { version = "1", features = ["fs", "process", "system", "termios"] }
+rustls-pki-types = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.11"
@@ -66,6 +70,7 @@ subtle = "2"
 tar = { version = "0.4", default-features = false }
 tempfile = "3"
 thiserror = "2"
+time = { version = "0.3", default-features = false, features = ["std"] }
 tokio = { version = "1.53", features = ["io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-tungstenite = "0.28"
 tokio-util = { version = "0.7", features = ["codec", "rt"] }

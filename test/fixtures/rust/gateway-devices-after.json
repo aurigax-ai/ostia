@@ -1,0 +1,81 @@
+{
+  "dev_30c907b5-a1d6-4c77-ad36-e0a8812e9534": {
+    "deviceId": "dev_30c907b5-a1d6-4c77-ad36-e0a8812e9534",
+    "name": "Desk",
+    "pubkey": "pk-Desk",
+    "token": "32b016ea56a19b65f64093cda7a8171f474e6e0c27e7d595e2bd25961db0812b",
+    "caps": [
+      "read",
+      "notify"
+    ],
+    "createdAt": "2023-11-14T22:13:20.000Z",
+    "installId": "dddddddddddddddddddd",
+    "lastSeenAt": "2023-11-14T22:13:20.000Z",
+    "push": {
+      "enabled": true,
+      "handle": "hhhhhhhhhhhhhhhhhhhhhhhhhh",
+      "platform": "fcm"
+    }
+  },
+  "dev_8e1611b3-78d4-43f0-b337-d7458668f3e6": {
+    "deviceId": "dev_8e1611b3-78d4-43f0-b337-d7458668f3e6",
+    "name": "Pixel",
+    "pubkey": "pk-Pixel",
+    "token": "8d54f1c11acd6807ac9d5693926d44ee3a6cec1b47b5fd0052912de9efee90e3",
+    "caps": [
+      "read",
+      "notify"
+    ],
+    "createdAt": "2023-11-14T22:13:20.000Z",
+    "push": {
+      "enabled": true,
+      "handle": "hhhhhhhhhhhhhhhhhhhhhhhhhh",
+      "platform": "fcm"
+    },
+    "lastSeenAt": "2023-11-14T22:13:20.000Z"
+  },
+  "dev_2fc7b17a-c8eb-4d25-91c1-6a528781e0e5": {
+    "deviceId": "dev_2fc7b17a-c8eb-4d25-91c1-6a528781e0e5",
+    "name": "Tab",
+    "pubkey": "pk-Tab",
+    "token": "aa315bfb7499c839736ac88ef8026ccc34e96e3904b1874c648f0a1539c098a4",
+    "caps": [
+      "read",
+      "notify"
+    ],
+    "createdAt": "2023-11-14T22:13:20.000Z",
+    "lastSeenAt": "2023-11-14T22:13:20.000Z",
+    "push": {
+      "enabled": true,
+      "handle": "hhhhhhhhhhhhhhhhhhhhhhhhhh",
+      "platform": "apns"
+    }
+  },
+  "dev_df28270a-4f30-47c7-a3d3-255a6a6793d5": {
+    "deviceId": "dev_df28270a-4f30-47c7-a3d3-255a6a6793d5",
+    "name": "Old",
+    "pubkey": "pk-Old",
+    "token": "17cb9ed32ddbd4082568e5ffb9cec612c35f5af616098fe5c8fc0ef4fcd37a0e",
+    "caps": [
+      "read",
+      "notify",
+      "command",
+      "input"
+    ],
+    "createdAt": "2023-11-14T22:13:20.000Z"
+  },
+  "dev_325a3a0b-cabb-44b3-8ea9-d2271db379f4": {
+    "deviceId": "dev_325a3a0b-cabb-44b3-8ea9-d2271db379f4",
+    "name": "Renamed",
+    "pubkey": "pk-Plain",
+    "token": "7775b93d9991bf6e5f060b968e0e75fad8d4f6a5fa82d80320c188c545d1a755",
+    "caps": [
+      "read",
+      "notify"
+    ],
+    "createdAt": "2023-11-14T22:13:20.000Z",
+    "push": {
+      "enabled": true
+    }
+  }
+}
