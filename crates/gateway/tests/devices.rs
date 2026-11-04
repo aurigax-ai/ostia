@@ -430,7 +430,7 @@ fn pid_c9_replaces_every_row_of_one_install_identity_and_revokes_their_tokens() 
         caps_of(&store, &next.device_id),
         ["read", "notify", "input"]
     );
-    assert_eq!(next.replaced, [old.device_id.clone()]);
+    assert_eq!(next.replaced, std::slice::from_ref(&old.device_id));
     let ids: Vec<String> = store.list().into_iter().map(|d| d.device_id).collect();
     assert_eq!(ids, [next.device_id]);
     assert!(store.verify_token(&old.token).is_none());
