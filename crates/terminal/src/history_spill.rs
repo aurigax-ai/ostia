@@ -312,8 +312,7 @@ impl HistorySpill {
         if !screen.is_normal() {
             return None;
         }
-        let base_y = i64::try_from(screen.base_y()).unwrap_or(0);
-        screen.track_active_row(line - base_y)
+        screen.track_screen_row(line)
     }
 
     fn frontier_line(&mut self, screen: &HeadlessScreen) -> i64 {

@@ -123,6 +123,25 @@ fn resolve_from(base: &Path, raw: &str) -> PathBuf {
     }
 }
 
+fn points_back(git_dir: &Path, dot_git: &Path) -> bool {
+    let dot_git = real_or(dot_git);
+    if let Some(back) = read_trimmed(&node_path::join(git_dir, "gitdir")) {
+        return real_or(&resolve_from(git_dir, &back)) == dot_git;
+    }
+    let Some(config) = read_trimmed(&node_path::join(git_dir, "config")) else {
+        return false;
+    };
+    let Some(work_tree) = config.lines().find_map(|line| {
+        let (key, value) = line.split_once('=')?;
+        (js_trim(key) == "worktree").then(|| js_trim(value).to_owned())
+    }) else {
+        return false;
+    };
+    dot_git
+        .parent()
+        .is_some_and(|dir| real_or(&resolve_from(git_dir, &work_tree)) == dir)
+}
+
 fn common_git_dir(dot_git: &Path) -> Option<PathBuf> {
     if fs::metadata(dot_git).ok()?.is_dir() {
         return Some(real_or(dot_git));
@@ -131,6 +150,9 @@ fn common_git_dir(dot_git: &Path) -> Option<PathBuf> {
     let raw = js_trim(line.strip_prefix("gitdir:")?);
     let parent = dot_git.parent().unwrap_or_else(|| Path::new("/"));
     let git_dir = resolve_from(parent, raw);
+    if !points_back(&git_dir, dot_git) {
+        return None;
+    }
     match read_trimmed(&node_path::join(&git_dir, "commondir")) {
         Some(common) => Some(real_or(&resolve_from(&git_dir, &common))),
         None => Some(real_or(&git_dir)),

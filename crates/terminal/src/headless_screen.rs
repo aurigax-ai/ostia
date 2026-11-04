@@ -88,6 +88,15 @@ impl HeadlessScreen {
         Some(Marker { tracked })
     }
 
+    pub fn track_screen_row(&self, y: i64) -> Option<Marker> {
+        let row = u32::try_from(y).ok()?;
+        let tracked = self
+            .term
+            .track_grid_ref(Point::Screen(PointCoordinate { x: 0, y: row }))
+            .ok()?;
+        Some(Marker { tracked })
+    }
+
     pub fn marker_line(&self, marker: &Marker) -> Option<usize> {
         let point = marker.tracked.point(PointSpace::Screen).ok()??;
         usize::try_from(point.y).ok()

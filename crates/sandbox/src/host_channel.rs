@@ -70,7 +70,12 @@ pub type Respond = Arc<dyn Fn(Value) + Send + Sync>;
 
 type MessageCallback = dyn Fn(Value, Respond) + Send + Sync;
 
-type AskKey = Option<u64>;
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum AskKey {
+    Missing,
+    Number(u64),
+    Other(String),
+}
 
 fn write_line(outbox: &UnboundedSender<Vec<u8>>, message: &Value) {
     let mut line = message.to_string().into_bytes();
@@ -114,9 +119,15 @@ pub fn staging_path(path: &Path) -> PathBuf {
 }
 
 fn ask_key(message: &Value) -> AskKey {
-    let id = message.get("askId")?.as_f64()?;
-    let same_value_zero = if id == 0.0 { 0.0 } else { id };
-    Some(same_value_zero.to_bits())
+    match message.get("askId") {
+        None => AskKey::Missing,
+        Some(Value::Number(number)) => {
+            let id = number.as_f64().unwrap_or(f64::NAN);
+            let same_value_zero = if id == 0.0 { 0.0 } else { id };
+            AskKey::Number(same_value_zero.to_bits())
+        }
+        Some(other) => AskKey::Other(other.to_string()),
+    }
 }
 
 fn is_ask(message: &Value) -> bool {

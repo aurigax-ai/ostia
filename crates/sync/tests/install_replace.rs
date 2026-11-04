@@ -4,6 +4,7 @@ mod support;
 
 use std::fs;
 use std::future::Future;
+use std::io::Read;
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -17,9 +18,9 @@ use ostia_contract::releases::{ReleaseInfo, tarball_asset_name};
 use ostia_sync::install_replace::{
     ArchiveEntry, ArchiveEntryKind, InstallReplacer, InstallReplacerDeps, PendingSweep,
     ReplaceError, ReplaceFuture, ReplaceInstallOptions, ReplaceJob, RunTar, TarballReplace,
-    allowed_hop, can_replace_install, check_archive, checksum_for, entry_problem,
-    release_asset_url, release_download_base, replace_install, run_tar, swap_install,
-    sweep_old_install, tarball_replace,
+    UPDATE_UNPACKED_MAX_BYTES, allowed_hop, can_replace_install, check_archive, checksum_for,
+    entry_problem, release_asset_url, release_download_base, replace_install, run_tar,
+    swap_install, sweep_old_install, tarball_replace,
 };
 use support::{FakeHttp, Reply, eventually, is_root, linux_host, names, sha256_hex, tar_gz, write};
 use tempfile::TempDir;
@@ -81,7 +82,7 @@ fn installed(root: &Path) -> PathBuf {
 type TarFuture = Pin<Box<dyn Future<Output = Result<(), ReplaceError>> + Send>>;
 
 fn tar_runner() -> RunTar {
-    Arc::new(|args: Vec<String>| -> TarFuture { Box::pin(run_tar(args)) })
+    Arc::new(|args: Vec<String>, input: fs::File| -> TarFuture { Box::pin(run_tar(args, input)) })
 }
 
 fn options(app_dir: &Path, base: &str) -> ReplaceInstallOptions {
@@ -298,7 +299,10 @@ async fn refuses_an_archive_on_disk_that_holds_a_symlink_pointing_outside() {
     let file = root.path().join("bad.tar.gz");
     fs::write(&file, data).unwrap();
     assert_eq!(
-        check_archive(&file).await.unwrap_err().reason(),
+        check_archive(&fs::File::open(&file).unwrap(), UPDATE_UNPACKED_MAX_BYTES)
+            .await
+            .unwrap_err()
+            .reason(),
         ReplaceFailure::BadArchive
     );
 }
@@ -339,7 +343,10 @@ async fn refuses_a_symlink_that_hides_in_a_second_gzip_member() {
     let file = root.path().join("two-members.tar.gz");
     fs::write(&file, data).unwrap();
     assert_eq!(
-        check_archive(&file).await.unwrap_err().reason(),
+        check_archive(&fs::File::open(&file).unwrap(), UPDATE_UNPACKED_MAX_BYTES)
+            .await
+            .unwrap_err()
+            .reason(),
         ReplaceFailure::BadArchive
     );
 }
@@ -349,11 +356,16 @@ async fn accepts_an_archive_on_disk_that_stays_inside_and_refuses_one_that_is_no
     let root = TempDir::new().unwrap();
     let good = root.path().join("good.tar.gz");
     fs::write(&good, archive(root.path(), VERSION, |_| {})).unwrap();
-    check_archive(&good).await.unwrap();
+    check_archive(&fs::File::open(&good).unwrap(), UPDATE_UNPACKED_MAX_BYTES)
+        .await
+        .unwrap();
     let junk = root.path().join("junk.tar.gz");
     fs::write(&junk, "not an archive at all").unwrap();
     assert_eq!(
-        check_archive(&junk).await.unwrap_err().reason(),
+        check_archive(&fs::File::open(&junk).unwrap(), UPDATE_UNPACKED_MAX_BYTES)
+            .await
+            .unwrap_err()
+            .reason(),
         ReplaceFailure::BadArchive
     );
 }
@@ -891,5 +903,53 @@ async fn reports_the_reason_of_a_failed_replace_and_allows_a_new_one() {
     assert_eq!(
         r.replacer.start(release_for(VERSION)),
         ReplaceStart::Started
+    );
+}
+
+fn symlink_entry(builder: &mut tar::Builder<Vec<u8>>, path: &str, target: &str) {
+    let mut link = tar::Header::new_gnu();
+    link.set_entry_type(tar::EntryType::Symlink);
+    link.set_mode(0o777);
+    link.set_size(0);
+    builder.append_link(&mut link, path, target).unwrap();
+}
+
+#[tokio::test]
+async fn refuses_a_symlink_that_escapes_only_after_an_earlier_symlink_is_followed() {
+    let mut builder = tar::Builder::new(Vec::new());
+    symlink_entry(&mut builder, "top/x/y/s1", "../../a");
+    symlink_entry(&mut builder, "top/l", "x/y/s1/../..");
+    let root = TempDir::new().unwrap();
+    let file = root.path().join("chained.tar.gz");
+    fs::write(&file, gzip_member(&builder.into_inner().unwrap())).unwrap();
+    assert_eq!(
+        check_archive(&fs::File::open(&file).unwrap(), UPDATE_UNPACKED_MAX_BYTES)
+            .await
+            .unwrap_err()
+            .reason(),
+        ReplaceFailure::BadArchive
+    );
+}
+
+#[tokio::test]
+async fn refuses_an_archive_that_unpacks_to_more_than_the_cap() {
+    let mut builder = tar::Builder::new(Vec::new());
+    let mut header = tar::Header::new_gnu();
+    header.set_mode(0o644);
+    header.set_size(1024 * 1024);
+    builder
+        .append_data(&mut header, "top/big", std::io::repeat(0).take(1024 * 1024))
+        .unwrap();
+    let root = TempDir::new().unwrap();
+    let file = root.path().join("bomb.tar.gz");
+    fs::write(&file, gzip_member(&builder.into_inner().unwrap())).unwrap();
+    let opened = fs::File::open(&file).unwrap();
+    check_archive(&opened, 4 * 1024 * 1024).await.unwrap();
+    assert_eq!(
+        check_archive(&opened, 512 * 1024)
+            .await
+            .unwrap_err()
+            .reason(),
+        ReplaceFailure::BadArchive
     );
 }

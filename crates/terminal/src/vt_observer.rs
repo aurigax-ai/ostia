@@ -4,6 +4,8 @@ const MAX_SEQUENCE: usize = 256;
 const MAX_OSC: usize = 65_536;
 const ESC: u8 = 0x1b;
 const BEL: u8 = 0x07;
+const CAN: u8 = 0x18;
+const SUB: u8 = 0x1a;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum State {
@@ -50,25 +52,11 @@ impl Observer {
                 None
             }
             State::Escape => {
-                if byte == b'[' {
-                    self.state = State::Csi;
-                    self.body.clear();
-                } else if byte == b']' {
-                    self.state = State::Osc;
-                    self.osc.clear();
-                } else if matches!(byte, b'P' | b'_' | b'^' | b'X') {
-                    self.state = State::OtherString;
-                } else {
-                    self.state = if byte == ESC {
-                        State::Escape
-                    } else {
-                        State::Ground
-                    };
-                }
+                self.escape_byte(byte);
                 None
             }
             State::OtherString => {
-                if byte == BEL {
+                if byte == BEL || byte == CAN || byte == SUB {
                     self.state = State::Ground;
                 } else if byte == ESC {
                     self.state = State::OtherStringEscape;
@@ -76,13 +64,11 @@ impl Observer {
                 None
             }
             State::OtherStringEscape => {
-                self.state = if byte == b'\\' {
-                    State::Ground
-                } else if byte == ESC {
-                    State::OtherStringEscape
+                if byte == b'\\' {
+                    self.state = State::Ground;
                 } else {
-                    State::OtherString
-                };
+                    self.escape_byte(byte);
+                }
                 None
             }
             State::Osc => {
@@ -90,7 +76,9 @@ impl Observer {
                     self.state = State::Ground;
                     return Some(Sequence::Osc(self.take_osc()));
                 }
-                if byte == ESC {
+                if byte == CAN || byte == SUB {
+                    self.state = State::Ground;
+                } else if byte == ESC {
                     self.state = State::OscEscape;
                 } else if self.osc.len() < MAX_OSC {
                     self.osc.push(byte);
@@ -102,14 +90,26 @@ impl Observer {
                     self.state = State::Ground;
                     return Some(Sequence::Osc(self.take_osc()));
                 }
-                self.state = if byte == ESC {
-                    State::OscEscape
-                } else {
-                    State::Osc
-                };
+                self.escape_byte(byte);
                 None
             }
             State::Csi => self.csi_byte(byte),
+        }
+    }
+
+    fn escape_byte(&mut self, byte: u8) {
+        if byte == b'[' {
+            self.state = State::Csi;
+            self.body.clear();
+        } else if byte == b']' {
+            self.state = State::Osc;
+            self.osc.clear();
+        } else if matches!(byte, b'P' | b'_' | b'^' | b'X') {
+            self.state = State::OtherString;
+        } else if byte == ESC {
+            self.state = State::Escape;
+        } else {
+            self.state = State::Ground;
         }
     }
 
@@ -128,7 +128,7 @@ impl Observer {
             return None;
         }
         if !(0x20..=0x3f).contains(&byte) {
-            if byte == 0x18 || byte == 0x1a {
+            if byte == CAN || byte == SUB {
                 self.state = State::Ground;
             }
             return None;

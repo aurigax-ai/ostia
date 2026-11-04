@@ -377,19 +377,19 @@ async fn reports_the_running_version_as_latest_for_the_same_an_older_or_no_relea
 }
 
 #[test]
-fn checks_again_one_hour_after_a_successful_check() {
-    assert_eq!(RELEASE_CHECK_INTERVAL_MS, 60 * 60 * 1000);
+fn checks_again_one_day_after_a_successful_check() {
+    assert_eq!(RELEASE_CHECK_INTERVAL_MS, 24 * 60 * 60 * 1000);
 }
 
 #[tokio::test]
-async fn checks_on_the_first_tick_then_not_again_until_an_hour_has_passed() {
+async fn checks_on_the_first_tick_then_not_again_until_a_day_has_passed() {
     let rig = checker_rig(RigOptions::default());
 
     rig.checker.tick().await;
     assert_eq!(rig.fetch_count(), 1);
 
     rig.enabled_calls.store(0, Ordering::SeqCst);
-    rig.advance(60 * 60 * 1000 - 1);
+    rig.advance(24 * 60 * 60 * 1000 - 1);
     rig.checker.tick().await;
     assert_eq!(rig.fetch_count(), 1);
     assert_eq!(rig.enabled_calls.load(Ordering::SeqCst), 0);
@@ -441,7 +441,7 @@ async fn never_checks_on_a_tick_while_the_setting_is_off_and_resumes_when_it_is_
 }
 
 #[tokio::test]
-async fn counts_a_manual_check_toward_the_hourly_schedule_even_with_the_setting_off() {
+async fn counts_a_manual_check_toward_the_daily_schedule_even_with_the_setting_off() {
     let rig = checker_rig(RigOptions {
         disabled: true,
         ..RigOptions::default()
@@ -565,7 +565,7 @@ async fn the_schedule_never_checks_while_the_setting_is_off() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn the_schedule_checks_again_about_an_hour_after_a_successful_automatic_check() {
+async fn the_schedule_checks_again_about_a_day_after_a_successful_automatic_check() {
     let started = tokio::time::Instant::now();
     let now: ostia_base::clock::Clock = Arc::new(move || {
         1_000_000 + i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX)

@@ -535,3 +535,27 @@ fn builds_the_listen_future_on_a_thread_with_no_runtime_and_binds_nothing_until_
     drop(listening);
     assert!(!path.exists());
 }
+
+#[tokio::test]
+async fn keeps_questions_with_different_non_numeric_ids_apart() {
+    let h = harness();
+    let (path, listening, answers) = channel(&h, "h.sock").await;
+    listening.send(&json!({"type": "ask", "askId": "a", "host": "a", "port": 1}));
+    listening.send(&json!({"type": "ask", "askId": "b", "host": "b", "port": 2}));
+    let mut first = client(&path).await;
+    until(|| seen_len(&first.seen) == 2).await;
+    first
+        .write(&json!({"type": "ask-answer", "askId": "a", "allow": false}))
+        .await;
+    until(|| seen_len(&answers) == 1).await;
+    first.destroy().await;
+    let second = client(&path).await;
+    until(|| seen_len(&second.seen) == 1).await;
+    quiet().await;
+    assert_eq!(
+        seen_all(&second.seen),
+        vec![json!({"type": "ask", "askId": "b", "host": "b", "port": 2})]
+    );
+    second.destroy().await;
+    listening.close();
+}

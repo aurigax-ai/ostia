@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod app_update;
 pub mod app_version;
+mod archive_layout;
 mod install_cleanup;
 pub mod install_method;
 pub mod install_replace;

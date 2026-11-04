@@ -67,6 +67,11 @@ fn worktree(home: &Path, main: &Path, name: &str) -> PathBuf {
     fs::create_dir_all(&git_dir).unwrap();
     fs::create_dir_all(&dir).unwrap();
     fs::write(git_dir.join("commondir"), "../..\n").unwrap();
+    fs::write(
+        git_dir.join("gitdir"),
+        format!("{}\n", dir.join(".git").display()),
+    )
+    .unwrap();
     fs::write(dir.join(".git"), format!("gitdir: {}\n", git_dir.display())).unwrap();
     dir
 }
@@ -369,4 +374,44 @@ fn a_fifo_named_dot_git_does_not_block_the_project_key() {
     });
     let key = receiver.recv_timeout(Duration::from_secs(10)).unwrap();
     assert_eq!(key, Some(format!("dir:{}", dir.to_string_lossy())));
+}
+
+#[test]
+fn ignores_a_git_file_that_points_at_another_repository_without_a_link_back() {
+    let t = Tree::new();
+    let victim_git = t.terminal.join(".git");
+    let forged_plain = t.home.join("forged-plain");
+    let forged_worktree = t.home.join("forged-worktree");
+    fs::create_dir_all(&forged_plain).unwrap();
+    fs::create_dir_all(&forged_worktree).unwrap();
+    fs::write(
+        forged_plain.join(".git"),
+        format!("gitdir: {}\n", victim_git.display()),
+    )
+    .unwrap();
+    let victim_tree = victim_git.join("worktrees").join("terminal-workers");
+    fs::write(
+        forged_worktree.join(".git"),
+        format!("gitdir: {}\n", victim_tree.display()),
+    )
+    .unwrap();
+    for dir in [&forged_plain, &forged_worktree] {
+        assert_eq!(t.key(dir), Some(format!("dir:{}", dir.display())));
+    }
+}
+
+#[test]
+fn keeps_the_git_dir_of_a_checkout_that_names_its_work_tree_in_its_config() {
+    let t = Tree::new();
+    let dir = t.home.join("separate");
+    let git_dir = t.home.join("separate-git");
+    fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&git_dir).unwrap();
+    fs::write(dir.join(".git"), format!("gitdir: {}\n", git_dir.display())).unwrap();
+    fs::write(
+        git_dir.join("config"),
+        format!("[core]\n\tworktree = {}\n", dir.display()),
+    )
+    .unwrap();
+    assert_eq!(t.key(&dir), Some(format!("git:{}", git_dir.display())));
 }
