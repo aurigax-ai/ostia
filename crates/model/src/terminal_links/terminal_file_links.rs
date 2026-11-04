@@ -1,19 +1,14 @@
-use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 use futures_util::future::{BoxFuture, FutureExt, Shared, join_all};
 use ostia_base::js::utf16_len;
 use ostia_contract::file_links::{FileLinkMatch, find_file_links, resolve_link_path};
 use ostia_contract::utf16_prefix::utf16_prefix;
 use parking_lot::Mutex;
-use tokio::time::Instant;
 
 use crate::terminal::ostia_terminal::{TerminalPosition, TerminalRange};
 use crate::terminal_links::link_modifier::{PathLinkClick, PathLinkTarget};
-
-const STAT_TTL: Duration = Duration::from_millis(5_000);
-const STAT_CACHE_MAX: usize = 500;
+use crate::terminal_links::pending_cache::PendingCache;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BufferCell {
@@ -80,6 +75,17 @@ pub fn read_logical_line(term: &dyn TerminalBuffer, row: i64) -> LogicalLine {
     line
 }
 
+pub fn match_ends(
+    cells: &[TerminalPosition],
+    start: usize,
+    end: usize,
+    row: i64,
+) -> Option<(TerminalPosition, TerminalPosition)> {
+    let first = *cells.get(start)?;
+    let last = *cells.get(end.checked_sub(1)?)?;
+    (first.y <= row && last.y >= row).then_some((first, last))
+}
+
 pub fn matches_on_row(
     matches: Vec<FileLinkMatch>,
     cells: &[TerminalPosition],
@@ -87,11 +93,7 @@ pub fn matches_on_row(
 ) -> Vec<FileLinkMatch> {
     matches
         .into_iter()
-        .filter(|found| {
-            let start = cells.get(found.start);
-            let end = found.end.checked_sub(1).and_then(|last| cells.get(last));
-            matches!((start, end), (Some(start), Some(end)) if start.y <= row && end.y >= row)
-        })
+        .filter(|found| match_ends(cells, found.start, found.end, row).is_some())
         .collect()
 }
 
@@ -235,61 +237,10 @@ struct Kinds {
 
 type PendingKinds = Shared<BoxFuture<'static, Kinds>>;
 
-struct CacheEntry {
-    kinds: PendingKinds,
-    stored_at: Instant,
-    used: u64,
-}
-
-#[derive(Default)]
-struct StatCache {
-    entries: HashMap<String, CacheEntry>,
-    clock: u64,
-}
-
-impl StatCache {
-    fn get(&mut self, key: &str) -> Option<PendingKinds> {
-        let fresh = self
-            .entries
-            .get(key)
-            .is_some_and(|entry| entry.stored_at.elapsed() < STAT_TTL);
-        if !fresh {
-            self.entries.remove(key);
-            return None;
-        }
-        self.clock += 1;
-        let entry = self.entries.get_mut(key)?;
-        entry.used = self.clock;
-        Some(entry.kinds.clone())
-    }
-
-    fn set(&mut self, key: String, kinds: PendingKinds) {
-        self.clock += 1;
-        self.entries.insert(
-            key,
-            CacheEntry {
-                kinds,
-                stored_at: Instant::now(),
-                used: self.clock,
-            },
-        );
-        if self.entries.len() > STAT_CACHE_MAX {
-            let oldest = self
-                .entries
-                .iter()
-                .min_by_key(|(_, entry)| entry.used)
-                .map(|(key, _)| key.clone());
-            if let Some(oldest) = oldest {
-                self.entries.remove(&oldest);
-            }
-        }
-    }
-}
-
 pub struct FileLinkProvider {
     term: Arc<dyn TerminalBuffer>,
     deps: Arc<FileLinkDeps>,
-    cache: Mutex<StatCache>,
+    cache: Mutex<PendingCache<PendingKinds>>,
 }
 
 pub fn create_file_link_provider(
@@ -299,7 +250,7 @@ pub fn create_file_link_provider(
     FileLinkProvider {
         term,
         deps: Arc::new(deps),
-        cache: Mutex::new(StatCache::default()),
+        cache: Mutex::new(PendingCache::default()),
     }
 }
 

@@ -2,6 +2,7 @@ pub mod bell;
 pub mod bell_flash;
 pub mod notification_groups;
 pub mod pane_activity;
+pub mod pointer_view;
 
 use std::collections::HashMap;
 

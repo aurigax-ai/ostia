@@ -5495,6 +5495,7 @@ name = "ostia-model"
 version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
+ "chrono",
  "futures-util",
  "globset",
  "icu_collator",

@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 base64.workspace = true
+chrono.workspace = true
 futures-util.workspace = true
 globset.workspace = true
 icu_collator.workspace = true
