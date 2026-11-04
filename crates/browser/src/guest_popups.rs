@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ostia_contract::link_tabs::is_tab_url;
 use parking_lot::Mutex;
 use url::Url;
 
 use crate::guest_link_clicks::clicked_link_of;
-use crate::guest_tabs::{Referrer, is_tab_url};
+use crate::guest_tabs::Referrer;
 
 pub const POPUP_GESTURE_MS: i64 = 5000;
 

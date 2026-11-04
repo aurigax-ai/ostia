@@ -1,10 +1,8 @@
 use std::fmt;
 
 use ostia_base::js::{is_js_space, js_trim, locale_compare, utf16_len};
+pub use ostia_contract::credentials::{CREDENTIAL_FIELD_MAX, normalize_origin};
 use parking_lot::Mutex;
-use url::Url;
-
-pub const CREDENTIAL_FIELD_MAX: usize = 1024;
 
 const URL_COLUMNS: [&str; 4] = ["url", "login_uri", "origin", "website"];
 const USER_COLUMNS: [&str; 4] = ["username", "login_username", "login", "user"];
@@ -128,14 +126,6 @@ pub struct CredentialDeps {
     pub decrypt: Encrypt,
     pub now: Box<dyn Fn() -> i64 + Send + Sync>,
     pub new_id: Box<dyn Fn() -> String + Send + Sync>,
-}
-
-pub fn normalize_origin(raw: &str) -> Option<String> {
-    let url = Url::parse(js_trim(raw)).ok()?;
-    if url.scheme() != "https" && url.scheme() != "http" {
-        return None;
-    }
-    Some(url.origin().ascii_serialization())
 }
 
 fn take_utf16_units(text: &str, max: usize) -> String {

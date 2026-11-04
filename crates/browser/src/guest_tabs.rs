@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ostia_contract::link_tabs::is_tab_url;
 use parking_lot::Mutex;
 use url::Url;
 
@@ -48,18 +49,6 @@ fn origin_of(url: &str) -> Option<String> {
     Url::parse(url)
         .ok()
         .map(|parsed| parsed.origin().ascii_serialization())
-}
-
-pub fn is_tab_url(url: &str) -> bool {
-    let bytes = url.as_bytes();
-    let scheme_len = if bytes.len() >= 8 && bytes[..5].eq_ignore_ascii_case(b"https") {
-        5
-    } else if bytes.len() >= 7 && bytes[..4].eq_ignore_ascii_case(b"http") {
-        4
-    } else {
-        return false;
-    };
-    bytes[scheme_len..].starts_with(b"://")
 }
 
 pub fn tab_referrer(referrer: &Referrer, target: &str) -> String {

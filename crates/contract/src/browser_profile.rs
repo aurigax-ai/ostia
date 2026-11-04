@@ -16,14 +16,10 @@ pub const SHARED_BROWSER_PARTITION: &str = "persist:ostia-browser";
 
 const ISOLATED_PREFIX: &str = "ostia-browser-";
 
-fn isolated_browser_partition(pane_id: &str) -> String {
-    format!("{ISOLATED_PREFIX}{pane_id}")
-}
-
 pub fn browser_partition(profile: BrowserProfile, pane_id: &str) -> String {
     match profile {
         BrowserProfile::Shared => SHARED_BROWSER_PARTITION.to_owned(),
-        BrowserProfile::Isolated => isolated_browser_partition(pane_id),
+        BrowserProfile::Isolated => format!("{ISOLATED_PREFIX}{pane_id}"),
     }
 }
 
@@ -39,7 +35,7 @@ pub fn parse_browser_profile(raw: &Value) -> BrowserProfile {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BrowserProfileContext {
     pub opener: BrowserOpener,
     pub scratch: bool,

@@ -1,6 +1,6 @@
 pub mod browse_method;
 pub mod browse_world;
-pub mod browser_profile;
+pub use ostia_contract::browser_profile;
 pub mod browser_profiles;
 pub mod browser_storage;
 pub mod browser_user_agent;
