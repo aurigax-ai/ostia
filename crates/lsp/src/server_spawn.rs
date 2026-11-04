@@ -7,43 +7,86 @@ use std::sync::Arc;
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
-use futures_util::future::BoxFuture;
+use futures_util::future::{BoxFuture, Shared};
 use ostia_base::js::utf16_len;
 use ostia_base::node_path;
 use ostia_base::path_guard::is_inside_path;
 use ostia_contract::app_env::is_app_env_name;
 use ostia_contract::language_server_config::substitute_placeholders;
 use ostia_contract::language_servers::{
-    LSP_LOG_LINE_MAX, LanguageServerContribution, LanguageServerOverride, LanguageServerRun,
-    LanguageServerSandboxProblem, LspLogEntry, LspLogEvent, run_args,
+    LSP_LOG_LINE_MAX, LanguageServerContribution, LanguageServerFetchFailure,
+    LanguageServerOverride, LanguageServerRun, LanguageServerSandboxProblem, LspLogEntry,
+    LspLogEvent, run_args,
 };
 use ostia_contract::shell_quote::quote_argv;
 use ostia_diagnostics::app_log::{LogFields, redact_secrets};
 use serde_json::{Map, Value, json};
 use tokio::process::{Child, Command};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SourceState {
+    On,
+    Off,
+    Pending,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct LanguageServerSource {
+    pub ext_id: String,
+    pub ext_name: String,
     pub dir: String,
     pub server: LanguageServerContribution,
     pub builtin: bool,
+    pub state: SourceState,
+    pub setting_values: Map<String, Value>,
     pub program_override: Option<LanguageServerOverride>,
 }
 
 impl LanguageServerSource {
     pub fn new(dir: String, server: LanguageServerContribution) -> Self {
         Self {
+            ext_id: String::new(),
+            ext_name: String::new(),
             dir,
             server,
             builtin: false,
+            state: SourceState::On,
+            setting_values: Map::new(),
             program_override: None,
         }
     }
 }
 
+pub type FetchDone = Shared<BoxFuture<'static, Option<String>>>;
+
+#[derive(Clone)]
+pub struct FetchState {
+    pub percent: u32,
+    pub done: FetchDone,
+}
+
+impl std::fmt::Debug for FetchState {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("FetchState")
+            .field("percent", &self.percent)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FetchFailure {
+    pub reason: LanguageServerFetchFailure,
+    pub detail: String,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct ServerRecord {
+    pub errors: HashMap<String, u32>,
     pub sandbox_problem: Option<(LanguageServerSandboxProblem, String)>,
+    pub fetching: Option<FetchState>,
+    pub fetch_failure: Option<FetchFailure>,
+    pub fetch_held: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -284,7 +327,7 @@ fn failure_text(command: &str, error: &std::io::Error) -> String {
     cut_to_units(&redact_secrets(&text), LSP_LOG_LINE_MAX)
 }
 
-fn cut_to_units(text: &str, max: usize) -> String {
+pub(crate) fn cut_to_units(text: &str, max: usize) -> String {
     let units: Vec<u16> = text.encode_utf16().collect();
     String::from_utf16_lossy(&units[..units.len().min(max)])
 }
