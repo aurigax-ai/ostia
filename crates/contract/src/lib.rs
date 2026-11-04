@@ -40,6 +40,7 @@ pub mod diff_title;
 pub mod discrete_gpu;
 pub mod editor_languages;
 pub mod extension_api;
+pub mod extension_connections;
 pub mod extension_locales;
 pub mod extension_suggestions;
 pub mod extensions;
