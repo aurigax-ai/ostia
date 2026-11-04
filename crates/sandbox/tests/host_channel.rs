@@ -526,3 +526,12 @@ fn json_lines_drops_a_partial_line_longer_than_8_mib() {
         vec![json!({"a": 1})]
     );
 }
+
+#[test]
+fn builds_the_listen_future_on_a_thread_with_no_runtime_and_binds_nothing_until_polled() {
+    let h = harness();
+    let path = h.root.join("idle.sock");
+    let listening = listen_host_channel(&path, |_, _| {});
+    drop(listening);
+    assert!(!path.exists());
+}

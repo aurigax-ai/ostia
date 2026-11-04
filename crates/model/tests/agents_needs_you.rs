@@ -2,9 +2,9 @@
 
 use std::collections::HashMap;
 
-use ostia_approvals::approval_answers::ApprovalKind;
-use ostia_approvals::asks::{ApprovalRequest, QuestionRequest};
+use ostia_contract::approvals::{ApprovalKind, ApprovalRequest};
 use ostia_contract::capabilities::Capability;
+use ostia_contract::questions::{QuestionMode, QuestionRequest, QuestionSource};
 use ostia_model::agents::needs_you::{
     CONTEXT_FOLD_CHARS, NeedsYouItem, PaneWhere, WHERE_PATH_CHARS, WhereWorkspace, is_long_context,
     needs_you_items, pane_where, source_where,
@@ -20,9 +20,11 @@ fn question(id: &str, at: i64) -> QuestionRequest {
         question: id.to_owned(),
         context: String::new(),
         choices: Vec::new(),
+        mode: QuestionMode::Text,
         at,
+        expires_at: None,
         permission: None,
-        source_workspace: None,
+        source: None,
     }
 }
 
@@ -30,7 +32,9 @@ fn approval(id: &str, at: i64) -> ApprovalRequest {
     ApprovalRequest {
         id: id.to_owned(),
         kind: Some(ApprovalKind::Capability),
+        subject: None,
         pane_id: "p1".to_owned(),
+        workspace_id: "w1".to_owned(),
         caps: vec![Capability::Shell],
         action: "a".to_owned(),
         detail: String::new(),
@@ -243,4 +247,44 @@ fn uses_the_work_folder_for_a_source_without_a_project_folder() {
     let place = source_where("ext-notes", "w1", &workspaces()).unwrap();
     assert_eq!(place.path, "~/work/api");
     assert_eq!(place.workspace, "api");
+}
+
+#[test]
+fn keeps_the_fields_the_inbox_filters_and_shows_on_each_item() {
+    let asked = QuestionRequest {
+        mode: QuestionMode::Multi,
+        expires_at: Some(99),
+        source: Some(QuestionSource {
+            extension: "board".to_owned(),
+            workspace_id: "w2".to_owned(),
+        }),
+        ..question("q", 5)
+    };
+    let approved = ApprovalRequest {
+        subject: Some("npm".to_owned()),
+        workspace_id: "w2".to_owned(),
+        ..approval("a", 6)
+    };
+    let items = needs_you_items(&[asked.clone()], &[], &[approved.clone()]);
+    assert_eq!(
+        items,
+        vec![
+            NeedsYouItem::Question {
+                question: asked,
+                sent: false
+            },
+            NeedsYouItem::Approval { approval: approved },
+        ]
+    );
+    let NeedsYouItem::Question { question, .. } = &items[0] else {
+        panic!("expected a question")
+    };
+    assert_eq!(question.mode, QuestionMode::Multi);
+    assert_eq!(question.expires_at, Some(99));
+    assert_eq!(question.source.as_ref().unwrap().extension, "board");
+    let NeedsYouItem::Approval { approval } = &items[1] else {
+        panic!("expected an approval")
+    };
+    assert_eq!(approval.workspace_id, "w2");
+    assert_eq!(approval.subject.as_deref(), Some("npm"));
 }

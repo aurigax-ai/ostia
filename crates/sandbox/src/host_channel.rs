@@ -1,5 +1,4 @@
 use std::fs::{self, Permissions};
-use std::future::{Ready, ready};
 use std::io::ErrorKind;
 use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
@@ -341,9 +340,9 @@ fn listen(
     })
 }
 
-pub fn listen_host_channel(
+pub async fn listen_host_channel(
     path: &Path,
     on_message: impl Fn(Value, Respond) + Send + Sync + 'static,
-) -> Ready<Result<ListeningChannel, HostChannelError>> {
-    ready(listen(path, Arc::new(on_message)))
+) -> Result<ListeningChannel, HostChannelError> {
+    listen(path, Arc::new(on_message))
 }

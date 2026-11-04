@@ -1,27 +1,12 @@
-use ostia_contract::agent_launch::TypedLaunch;
-use ostia_contract::agent_resume::{AgentResume, parse_agent_resume};
+use ostia_contract::agent_resume::{AgentResume, parse_stored_resume};
 use serde::Serialize;
 use serde_json::Value;
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct StoredResume {
-    #[serde(flatten)]
-    pub resume: AgentResume,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub typed: Option<TypedLaunch>,
-}
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResumeFailure {
-    pub resume: StoredResume,
+    pub resume: AgentResume,
     pub exit_code: i64,
-}
-
-pub fn parse_stored_resume(raw: &Value) -> Option<StoredResume> {
-    let mut resume = parse_agent_resume(raw)?;
-    let typed = resume.typed.take();
-    Some(StoredResume { resume, typed })
 }
 
 pub fn parse_resume_failure(raw: &Value) -> Option<ResumeFailure> {

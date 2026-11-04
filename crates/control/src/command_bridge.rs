@@ -179,15 +179,15 @@ impl CommandBridge {
             self.deps
                 .windows
                 .send_command(&window, &request_id, &invoke);
-            (receiver, forget, sleep(COMMAND_TIMEOUT))
+            (receiver, forget)
         });
         async move {
-            let Some((receiver, forget, timer)) = started else {
+            let Some((receiver, forget)) = started else {
                 return CommandResult::failed("target window not available");
             };
             let result = tokio::select! {
                 answer = receiver => answer.unwrap_or_else(|_| CommandResult::failed("command timed out")),
-                () = timer => CommandResult::failed("command timed out"),
+                () = sleep(COMMAND_TIMEOUT) => CommandResult::failed("command timed out"),
             };
             drop(forget);
             result
@@ -251,13 +251,13 @@ impl CommandBridge {
             self.deps
                 .windows
                 .send_open_terminal(&window, &Value::Object(body));
-            (receiver, forget, sleep(OPEN_TERMINAL_TIMEOUT))
+            (receiver, forget)
         });
         async move {
-            let (receiver, forget, timer) = started?;
+            let (receiver, forget) = started?;
             let result = tokio::select! {
                 answer = receiver => answer.unwrap_or(None),
-                () = timer => None,
+                () = sleep(OPEN_TERMINAL_TIMEOUT) => None,
             };
             drop(forget);
             result

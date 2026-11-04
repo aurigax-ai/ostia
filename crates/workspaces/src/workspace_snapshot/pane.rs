@@ -2,7 +2,8 @@ use super::fields::{Record, copy_text, is_true, text};
 use super::model::{BrowserProfile, SnapshotPane, SurfaceKind};
 use crate::browser_device::parse_browser_device;
 use crate::patterns::{is_remote_path, is_view_name, is_view_type};
-use crate::stored_resume::{parse_resume_failure, parse_stored_resume};
+use crate::stored_resume::parse_resume_failure;
+use ostia_contract::agent_resume::parse_stored_resume;
 
 pub fn parse_pane(
     record: &Record,

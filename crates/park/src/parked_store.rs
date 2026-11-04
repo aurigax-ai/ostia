@@ -82,8 +82,7 @@ fn parse_record(raw: &Value) -> Option<ParkedRecord> {
         .get("workspaceId")?
         .as_str()
         .filter(|id| !id.is_empty() && utf16_len(id) <= WORKSPACE_ID_MAX)?;
-    let mut resume = parse_agent_resume(record.get("resume")?)?;
-    resume.typed = None;
+    let resume = parse_agent_resume(record.get("resume")?)?;
     let title = record
         .get("title")?
         .as_str()
@@ -177,10 +176,9 @@ impl ParkedStore {
 
     pub fn park(&self, input: ParkInput) -> Result<ParkResult> {
         let title = single_line(&input.title, TITLE_MAX);
-        let Some(mut resume) = parse_agent_resume(&input.resume) else {
+        let Some(resume) = parse_agent_resume(&input.resume) else {
             return Ok(ParkResult::Invalid);
         };
-        resume.typed = None;
         if title.is_empty() || input.workspace_id.is_empty() {
             return Ok(ParkResult::Invalid);
         }
