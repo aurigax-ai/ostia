@@ -18,6 +18,7 @@ icu_calendar.workspace = true
 icu_collator.workspace = true
 icu_datetime.workspace = true
 icu_locale_core.workspace = true
+indexmap.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-terminal.workspace = true

@@ -23,6 +23,7 @@ pub mod boards_ports;
 pub mod browser_storage;
 pub mod build_info;
 pub mod capabilities;
+pub mod chat_tools;
 pub mod chord_spec;
 pub mod claude_accounts;
 pub mod claude_attention;
