@@ -65,6 +65,7 @@ struct Pending {
     req: ApprovalRequest,
     tx: oneshot::Sender<ApprovalOutcome>,
     timer: Option<AbortHandle>,
+    claimed: bool,
 }
 
 struct StoredRecord {
@@ -175,9 +176,17 @@ impl Inner {
     }
 
     fn settle(&self, id: &str, outcome: ApprovalOutcome) -> bool {
+        self.settle_as(id, outcome, false)
+    }
+
+    fn settle_as(&self, id: &str, outcome: ApprovalOutcome, claimer: bool) -> bool {
         let entry = {
             let mut state = self.state.lock();
-            let Some(index) = state.pending.iter().position(|p| p.req.id == id) else {
+            let Some(index) = state
+                .pending
+                .iter()
+                .position(|p| p.req.id == id && p.claimed == claimer)
+            else {
                 return false;
             };
             let entry = state.pending.remove(index);
@@ -208,6 +217,22 @@ impl Inner {
         }
         let _ = entry.tx.send(outcome);
         true
+    }
+}
+
+impl Inner {
+    fn release_claim(&self, id: &str) {
+        let timer_fired = {
+            let mut state = self.state.lock();
+            let Some(entry) = state.pending.iter_mut().find(|p| p.req.id == id) else {
+                return;
+            };
+            entry.claimed = false;
+            entry.timer.as_ref().is_some_and(AbortHandle::is_finished)
+        };
+        if timer_fired {
+            self.settle(id, ApprovalOutcome::Timeout);
+        }
     }
 }
 
@@ -268,6 +293,7 @@ impl Approvals {
             req: req.clone(),
             tx,
             timer: Some(timer),
+            claimed: false,
         });
         if let Some(opened) = &inner.deps.opened {
             opened(&req);
@@ -282,26 +308,38 @@ impl Approvals {
 
     pub fn answer(&self, window_id: &str, id: &str, value: &Value) -> bool {
         let inner = &self.inner;
-        let (kind, caps) = {
-            let state = inner.state.lock();
-            let Some(entry) = state.pending.iter().find(|p| p.req.id == id) else {
-                return false;
-            };
-            if entry.window_id != window_id {
-                return false;
-            }
-            (entry.req.kind, entry.req.caps.clone())
-        };
         let Some(answer) = answer_named(value) else {
             return false;
         };
-        if !offered_answers(kind, &caps).contains(&answer) {
-            return false;
+        let caps = {
+            let mut state = inner.state.lock();
+            let Some(entry) = state
+                .pending
+                .iter_mut()
+                .find(|p| p.req.id == id && !p.claimed)
+            else {
+                return false;
+            };
+            if entry.window_id != window_id
+                || !offered_answers(entry.req.kind, &entry.req.caps).contains(&answer)
+            {
+                return false;
+            }
+            if answer != ApprovalAnswer::Always {
+                None
+            } else {
+                entry.claimed = true;
+                Some(entry.req.caps.clone())
+            }
+        };
+        let Some(caps) = caps else {
+            return inner.settle(id, ApprovalOutcome::Answer(answer));
+        };
+        if (inner.deps.always)(&caps) {
+            return inner.settle_as(id, ApprovalOutcome::Answer(answer), true);
         }
-        if answer == ApprovalAnswer::Always && !(inner.deps.always)(&caps) {
-            return false;
-        }
-        inner.settle(id, ApprovalOutcome::Answer(answer))
+        inner.release_claim(id);
+        false
     }
 
     pub fn revoke(&self, window_id: &str, id: &str) -> bool {

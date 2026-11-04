@@ -331,10 +331,14 @@ fn parse_csv(text: &str) -> Option<Vec<Vec<String>>> {
                         other => field.push(other),
                     }
                 }
-                while chars.next_if(|&ch| ch != '\n' && is_js_space(ch)).is_some() {}
+                let mut spaces = 0;
+                while chars.next_if(|&ch| ch != '\n' && is_js_space(ch)).is_some() {
+                    spaces += 1;
+                }
                 match chars.peek() {
-                    None | Some(',' | '\n') => {}
-                    Some(_) => return None,
+                    None if spaces == 0 => {}
+                    Some(',' | '\n') => {}
+                    _ => return None,
                 }
                 at_field_start = false;
             }

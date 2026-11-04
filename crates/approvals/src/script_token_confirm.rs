@@ -32,17 +32,21 @@ pub struct PresenceRequest {
 }
 
 pub type UserPresenceCheck = Arc<
-    dyn Fn(PresenceRequest) -> Pin<Box<dyn Future<Output = PresenceResult> + Send>> + Send + Sync,
+    dyn Fn(PresenceRequest) -> Pin<Box<dyn Future<Output = PresenceCheckResult> + Send>>
+        + Send
+        + Sync,
 >;
+
+pub type PresenceCheckResult = Result<PresenceResult, String>;
 
 fn unavailable_check() -> UserPresenceCheck {
     Arc::new(|_| {
         Box::pin(async {
-            PresenceResult::Refused {
+            Ok(PresenceResult::Refused {
                 code: PresenceFailure::Unavailable,
                 detail: "no user presence check is set up".to_owned(),
                 hint: None,
-            }
+            })
         })
     })
 }
@@ -74,7 +78,16 @@ impl ScriptTokenConfirm {
         request: PresenceRequest,
     ) -> impl Future<Output = PresenceResult> + Send + use<> {
         let check = Arc::clone(&self.check.lock());
-        check(request)
+        let checking = check(request);
+        async move {
+            checking
+                .await
+                .unwrap_or_else(|detail| PresenceResult::Refused {
+                    code: PresenceFailure::Failed,
+                    detail,
+                    hint: None,
+                })
+        }
     }
 
     pub fn confirm_user_presence(

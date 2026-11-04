@@ -173,14 +173,12 @@ impl LeftBehindWatch {
         let _ = scanned.wait_for(|done| *done).await;
     }
 
-    pub fn end(&self) {
+    pub fn end(&self) -> Option<JoinHandle<()>> {
         if self.ended.swap(true, Ordering::SeqCst) {
-            return;
+            return None;
         }
-        let Some(pending) = self.pending.lock().take() else {
-            return;
-        };
-        self.runtime.spawn(async move {
+        let pending = self.pending.lock().take()?;
+        Some(self.runtime.spawn(async move {
             let Ok(before) = pending.baseline.await else {
                 return;
             };
@@ -188,7 +186,7 @@ impl LeftBehindWatch {
             if !paths.is_empty() {
                 (pending.on_found)(paths);
             }
-        });
+        }))
     }
 }
 

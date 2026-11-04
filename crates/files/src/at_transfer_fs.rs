@@ -1,9 +1,9 @@
 use std::io;
-use std::os::fd::BorrowedFd;
+use std::os::fd::{AsFd, OwnedFd};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use ostia_fd::borrow_fd;
+use ostia_fd::dup_fd;
 use rustix::fs::{Mode, OFlags};
 
 use crate::at_fs::AtFs;
@@ -43,8 +43,8 @@ fn named(path: &Path) -> Option<Named> {
     })
 }
 
-fn dir(fd: i32) -> io::Result<BorrowedFd<'static>> {
-    borrow_fd(fd).ok_or_else(|| io::Error::from_raw_os_error(libc::EBADF))
+fn dir(fd: i32) -> io::Result<OwnedFd> {
+    dup_fd(fd)
 }
 
 #[derive(Clone)]
@@ -64,7 +64,8 @@ impl<A: AtFs + 'static> TransferFs for AtTransferFs<A> {
             return NodeTransferFs.lstat(path).await;
         };
         let at = Arc::clone(&self.at);
-        blocking(move || Ok(at.lstatat(dir(fd)?, &name)?.into())).await
+        let folder = dir(fd)?;
+        blocking(move || Ok(at.lstatat(folder.as_fd(), &name)?.into())).await
     }
 
     async fn readdir(&self, path: &Path) -> io::Result<Vec<String>> {
@@ -72,7 +73,8 @@ impl<A: AtFs + 'static> TransferFs for AtTransferFs<A> {
             return NodeTransferFs.readdir(path).await;
         };
         let at = Arc::clone(&self.at);
-        blocking(move || at.list(dir(entry.fd)?)).await
+        let folder = dir(entry.fd)?;
+        blocking(move || at.list(folder.as_fd())).await
     }
 
     async fn readlink(&self, path: &Path) -> io::Result<PathBuf> {
@@ -80,11 +82,11 @@ impl<A: AtFs + 'static> TransferFs for AtTransferFs<A> {
             return NodeTransferFs.readlink(path).await;
         };
         let at = Arc::clone(&self.at);
+        let folder = dir(entry.fd)?;
         blocking(move || {
-            let fd = dir(entry.fd)?;
             let target = match &entry.name {
-                None => at.path_of(fd)?,
-                Some(name) => at.readlinkat(fd, name)?,
+                None => at.path_of(folder.as_fd())?,
+                Some(name) => at.readlinkat(folder.as_fd(), name)?,
             };
             Ok(PathBuf::from(target))
         })
@@ -96,7 +98,8 @@ impl<A: AtFs + 'static> TransferFs for AtTransferFs<A> {
             return NodeTransferFs.mkdir(path).await;
         };
         let at = Arc::clone(&self.at);
-        blocking(move || at.mkdirat(dir(fd)?, &name)).await
+        let folder = dir(fd)?;
+        blocking(move || at.mkdirat(folder.as_fd(), &name)).await
     }
 
     async fn symlink(&self, target: &Path, path: &Path) -> io::Result<()> {
@@ -105,7 +108,8 @@ impl<A: AtFs + 'static> TransferFs for AtTransferFs<A> {
         };
         let at = Arc::clone(&self.at);
         let target = target.to_string_lossy().into_owned();
-        blocking(move || at.symlinkat(&target, dir(fd)?, &name)).await
+        let folder = dir(fd)?;
+        blocking(move || at.symlinkat(&target, folder.as_fd(), &name)).await
     }
 
     async fn open(&self, path: &Path, flags: i32, mode: u32) -> io::Result<OpenFile> {
@@ -113,9 +117,10 @@ impl<A: AtFs + 'static> TransferFs for AtTransferFs<A> {
             return NodeTransferFs.open(path, flags, mode).await;
         };
         let at = Arc::clone(&self.at);
+        let folder = dir(fd)?;
         blocking(move || {
             let opened = at.openat(
-                dir(fd)?,
+                folder.as_fd(),
                 &name,
                 OFlags::from_bits_retain(flags.cast_unsigned()),
                 Mode::from_bits_truncate(mode),
@@ -130,8 +135,17 @@ impl<A: AtFs + 'static> TransferFs for AtTransferFs<A> {
             return NodeTransferFs.rename(from, to).await;
         };
         let at = Arc::clone(&self.at);
-        blocking(move || at.renameat(dir(source.fd)?, &source.name, dir(target.fd)?, &target.name))
-            .await
+        let source_dir = dir(source.fd)?;
+        let target_dir = dir(target.fd)?;
+        blocking(move || {
+            at.renameat(
+                source_dir.as_fd(),
+                &source.name,
+                target_dir.as_fd(),
+                &target.name,
+            )
+        })
+        .await
     }
 
     async fn rmdir(&self, path: &Path) -> io::Result<()> {
@@ -139,7 +153,8 @@ impl<A: AtFs + 'static> TransferFs for AtTransferFs<A> {
             return NodeTransferFs.rmdir(path).await;
         };
         let at = Arc::clone(&self.at);
-        blocking(move || at.unlinkat(dir(fd)?, &name, true)).await
+        let folder = dir(fd)?;
+        blocking(move || at.unlinkat(folder.as_fd(), &name, true)).await
     }
 
     async fn unlink(&self, path: &Path) -> io::Result<()> {
@@ -147,6 +162,7 @@ impl<A: AtFs + 'static> TransferFs for AtTransferFs<A> {
             return NodeTransferFs.unlink(path).await;
         };
         let at = Arc::clone(&self.at);
-        blocking(move || at.unlinkat(dir(fd)?, &name, false)).await
+        let folder = dir(fd)?;
+        blocking(move || at.unlinkat(folder.as_fd(), &name, false)).await
     }
 }

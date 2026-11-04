@@ -5439,6 +5439,9 @@ dependencies = [
 [[package]]
 name = "ostia-fd"
 version = "0.0.0"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "ostia-files"

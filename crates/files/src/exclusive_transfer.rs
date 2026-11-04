@@ -1,5 +1,6 @@
 use std::fs::{self, File, Metadata};
 use std::io;
+use std::os::fd::OwnedFd;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, symlink};
 use std::path::{Path, PathBuf};
 
@@ -147,9 +148,15 @@ fn claim_target<A: FolderAnchor>(
     Ok(None)
 }
 
-fn copy_and_flush(input: &mut File, output: &mut File) -> io::Result<()> {
-    io::copy(input, output)?;
-    output.sync_all()
+fn close_file(file: File) -> io::Result<()> {
+    ostia_fd::close_fd(OwnedFd::from(file))
+}
+
+fn copy_and_close(mut input: File, mut output: File) -> io::Result<()> {
+    let copied = io::copy(&mut input, &mut output).map(|_| ());
+    let closed_output = close_file(output);
+    let closed_input = close_file(input);
+    closed_output.and(closed_input).and(copied)
 }
 
 fn fill<A: FolderAnchor>(
@@ -159,12 +166,9 @@ fn fill<A: FolderAnchor>(
 ) -> Result<()> {
     match claim {
         Claim::Link => Ok(()),
-        Claim::File {
-            mut input,
-            mut output,
-        } => {
+        Claim::File { input, output } => {
             let from = path_of(source);
-            copy_and_flush(&mut input, &mut output).map_err(|error| io_failure(&from, error))
+            copy_and_close(input, output).map_err(|error| io_failure(&from, error))
         }
         Claim::Folder { expected } => {
             let to = target.anchor.at(target.name)?;
@@ -263,13 +267,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reports_a_failure_of_the_final_flush_of_the_output() {
+    fn closes_the_output_without_flushing_it_to_the_disk() {
         let dir = tempfile::TempDir::new().unwrap();
         let path = dir.path().join("empty");
         File::create(&path).unwrap();
-        let mut input = File::open(&path).unwrap();
+        let input = File::open(&path).unwrap();
         let (_reader, writer) = pipe().unwrap();
-        let mut output = File::from(std::os::fd::OwnedFd::from(writer));
-        assert!(copy_and_flush(&mut input, &mut output).is_err());
+        let output = File::from(OwnedFd::from(writer));
+        assert!(copy_and_close(input, output).is_ok());
     }
 }

@@ -3,8 +3,10 @@
 use std::fs::File;
 use std::io;
 use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd};
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::mpsc::{Receiver, Sender};
 
 use ostia_files::at_fs::{AtFs, EntryStat};
 use ostia_files::at_transfer_fs::{AtTransferFs, FD_DIR};
@@ -20,6 +22,17 @@ struct FakeAt {
     log: Arc<Mutex<Vec<String>>>,
     open_target: Arc<PathBuf>,
     fail: bool,
+    hold: Option<Arc<Hold>>,
+}
+
+struct Hold {
+    entered: Mutex<Sender<()>>,
+    release: Mutex<Receiver<()>>,
+    seen: Mutex<Option<io::Result<u64>>>,
+}
+
+fn ino_of(dir: BorrowedFd<'_>) -> io::Result<u64> {
+    Ok(File::from(dir.try_clone_to_owned()?).metadata()?.ino())
 }
 
 impl FakeAt {
@@ -28,6 +41,7 @@ impl FakeAt {
             log: Arc::new(Mutex::new(Vec::new())),
             open_target: Arc::new(open_target.to_path_buf()),
             fail: false,
+            hold: None,
         }
     }
 
@@ -53,9 +67,14 @@ impl AtFs for FakeAt {
         flags: OFlags,
         mode: Mode,
     ) -> io::Result<OwnedFd> {
+        if let Some(hold) = &self.hold {
+            hold.entered.lock().send(()).unwrap();
+            hold.release.lock().recv().unwrap();
+            *hold.seen.lock() = Some(ino_of(dir));
+        }
         self.record(format!(
             "openat {} {name} {} {:o}",
-            dir.as_raw_fd(),
+            ino_of(dir)?,
             flags.bits(),
             mode.bits()
         ))?;
@@ -67,7 +86,7 @@ impl AtFs for FakeAt {
     }
 
     fn lstatat(&self, dir: BorrowedFd<'_>, name: &str) -> io::Result<EntryStat> {
-        self.record(format!("lstatat {} {name}", dir.as_raw_fd()))?;
+        self.record(format!("lstatat {} {name}", ino_of(dir)?))?;
         Ok(EntryStat {
             dev: 11,
             ino: 22,
@@ -77,15 +96,15 @@ impl AtFs for FakeAt {
     }
 
     fn mkdirat(&self, dir: BorrowedFd<'_>, name: &str) -> io::Result<()> {
-        self.record(format!("mkdirat {} {name}", dir.as_raw_fd()))
+        self.record(format!("mkdirat {} {name}", ino_of(dir)?))
     }
 
     fn symlinkat(&self, target: &str, dir: BorrowedFd<'_>, name: &str) -> io::Result<()> {
-        self.record(format!("symlinkat {target} {} {name}", dir.as_raw_fd()))
+        self.record(format!("symlinkat {target} {} {name}", ino_of(dir)?))
     }
 
     fn readlinkat(&self, dir: BorrowedFd<'_>, name: &str) -> io::Result<String> {
-        self.record(format!("readlinkat {} {name}", dir.as_raw_fd()))?;
+        self.record(format!("readlinkat {} {name}", ino_of(dir)?))?;
         Ok("link-target".to_owned())
     }
 
@@ -98,22 +117,22 @@ impl AtFs for FakeAt {
     ) -> io::Result<()> {
         self.record(format!(
             "renameat {} {from} {} {to}",
-            from_dir.as_raw_fd(),
-            to_dir.as_raw_fd()
+            ino_of(from_dir)?,
+            ino_of(to_dir)?
         ))
     }
 
     fn unlinkat(&self, dir: BorrowedFd<'_>, name: &str, folder: bool) -> io::Result<()> {
-        self.record(format!("unlinkat {} {name} {folder}", dir.as_raw_fd()))
+        self.record(format!("unlinkat {} {name} {folder}", ino_of(dir)?))
     }
 
     fn list(&self, dir: BorrowedFd<'_>) -> io::Result<Vec<String>> {
-        self.record(format!("list {}", dir.as_raw_fd()))?;
+        self.record(format!("list {}", ino_of(dir)?))?;
         Ok(vec!["one".to_owned(), "two".to_owned()])
     }
 
     fn path_of(&self, fd: BorrowedFd<'_>) -> io::Result<String> {
-        self.record(format!("path_of {}", fd.as_raw_fd()))?;
+        self.record(format!("path_of {}", ino_of(fd)?))?;
         Ok("/the/folder".to_owned())
     }
 }
@@ -141,6 +160,10 @@ impl Fixture {
         self.dir.as_raw_fd()
     }
 
+    fn ino(&self) -> u64 {
+        self.dir.metadata().unwrap().ino()
+    }
+
     fn at(&self, name: &str) -> PathBuf {
         PathBuf::from(format!("{FD_DIR}/{}/{name}", self.fd()))
     }
@@ -159,7 +182,7 @@ fn names_the_fd_folder_as_dev_fd() {
 async fn lstat_of_an_fd_relative_name_goes_to_lstatat_and_keeps_the_stat() {
     let fx = Fixture::new();
     let stat = fx.fs().lstat(&fx.at("entry")).await.unwrap();
-    assert_eq!(fx.fake.calls(), [format!("lstatat {} entry", fx.fd())]);
+    assert_eq!(fx.fake.calls(), [format!("lstatat {} entry", fx.ino())]);
     assert_eq!((stat.dev, stat.ino, stat.uid), (11, 22, 33));
     assert_eq!(stat.mode, S_IFDIR | 0o755);
     assert!(stat.is_directory());
@@ -183,7 +206,7 @@ async fn readdir_of_an_fd_lists_that_folder_through_the_seam() {
     let fx = Fixture::new();
     let names = fx.fs().readdir(&fx.bare()).await.unwrap();
     assert_eq!(names, ["one", "two"]);
-    assert_eq!(fx.fake.calls(), [format!("list {}", fx.fd())]);
+    assert_eq!(fx.fake.calls(), [format!("list {}", fx.ino())]);
 }
 
 #[tokio::test]
@@ -191,7 +214,7 @@ async fn readdir_of_an_fd_with_a_name_still_lists_the_fd_folder_as_ts_does() {
     let fx = Fixture::new();
     let names = fx.fs().readdir(&fx.at("ignored")).await.unwrap();
     assert_eq!(names, ["one", "two"]);
-    assert_eq!(fx.fake.calls(), [format!("list {}", fx.fd())]);
+    assert_eq!(fx.fake.calls(), [format!("list {}", fx.ino())]);
 }
 
 #[tokio::test]
@@ -207,7 +230,7 @@ async fn readlink_of_a_bare_fd_asks_for_the_path_of_the_fd() {
     let fx = Fixture::new();
     let path = fx.fs().readlink(&fx.bare()).await.unwrap();
     assert_eq!(path, Path::new("/the/folder"));
-    assert_eq!(fx.fake.calls(), [format!("path_of {}", fx.fd())]);
+    assert_eq!(fx.fake.calls(), [format!("path_of {}", fx.ino())]);
 }
 
 #[tokio::test]
@@ -215,7 +238,7 @@ async fn readlink_of_an_fd_relative_name_goes_to_readlinkat() {
     let fx = Fixture::new();
     let path = fx.fs().readlink(&fx.at("link")).await.unwrap();
     assert_eq!(path, Path::new("link-target"));
-    assert_eq!(fx.fake.calls(), [format!("readlinkat {} link", fx.fd())]);
+    assert_eq!(fx.fake.calls(), [format!("readlinkat {} link", fx.ino())]);
 }
 
 #[tokio::test]
@@ -229,8 +252,8 @@ async fn mkdir_and_symlink_of_an_fd_relative_name_go_to_the_seam() {
     assert_eq!(
         fx.fake.calls(),
         [
-            format!("mkdirat {} made", fx.fd()),
-            format!("symlinkat ../there {} ln", fx.fd()),
+            format!("mkdirat {} made", fx.ino()),
+            format!("symlinkat ../there {} ln", fx.ino()),
         ]
     );
 }
@@ -253,8 +276,8 @@ async fn rmdir_removes_a_folder_and_unlink_removes_a_non_folder_through_unlinkat
     assert_eq!(
         fx.fake.calls(),
         [
-            format!("unlinkat {} old-dir true", fx.fd()),
-            format!("unlinkat {} old-file false", fx.fd()),
+            format!("unlinkat {} old-dir true", fx.ino()),
+            format!("unlinkat {} old-file false", fx.ino()),
         ]
     );
 }
@@ -266,7 +289,7 @@ async fn open_of_an_fd_relative_name_passes_flags_and_mode_to_openat_and_wraps_t
     let mut file = fx.fs().open(&fx.at("data"), flags, 0o600).await.unwrap();
     assert_eq!(
         fx.fake.calls(),
-        [format!("openat {} data {flags} 600", fx.fd())]
+        [format!("openat {} data {flags} 600", fx.ino())]
     );
     assert_eq!(file.read_to_end().await.unwrap(), b"hello");
     file.write_all(b"!").await.unwrap();
@@ -296,7 +319,7 @@ async fn rename_between_two_fd_relative_names_goes_to_renameat() {
     fx.fs().rename(&fx.at("from"), &fx.at("to")).await.unwrap();
     assert_eq!(
         fx.fake.calls(),
-        [format!("renameat {} from {} to", fx.fd(), fx.fd())]
+        [format!("renameat {} from {} to", fx.ino(), fx.ino())]
     );
 }
 
@@ -345,8 +368,8 @@ async fn reads_leading_zeros_in_the_fd_number_and_an_empty_name_after_a_trailing
     assert_eq!(
         fx.fake.calls(),
         [
-            format!("lstatat {} name", fx.fd()),
-            format!("lstatat {} ", fx.fd()),
+            format!("lstatat {} name", fx.ino()),
+            format!("lstatat {} ", fx.ino()),
         ]
     );
 }
@@ -368,4 +391,30 @@ async fn passes_an_error_from_the_seam_on_unchanged() {
         .map(|_| ())
         .unwrap_err();
     assert_eq!(error.raw_os_error(), Some(libc::EBADF));
+}
+
+#[tokio::test]
+async fn keeps_the_folder_open_for_a_job_after_the_caller_closes_its_descriptor() {
+    let mut fx = Fixture::new();
+    let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let hold = Arc::new(Hold {
+        entered: Mutex::new(entered_tx),
+        release: Mutex::new(release_rx),
+        seen: Mutex::new(None),
+    });
+    fx.fake.hold = Some(Arc::clone(&hold));
+    let expected = fx.ino();
+    let path = fx.at("data");
+    let fs = fx.fs();
+    let job = tokio::spawn(async move { fs.open(&path, libc::O_RDONLY, 0).await.map(|_| ()) });
+    tokio::task::spawn_blocking(move || entered_rx.recv().unwrap())
+        .await
+        .unwrap();
+    let Fixture { dir, .. } = fx;
+    drop(dir);
+    release_tx.send(()).unwrap();
+    job.await.unwrap().unwrap();
+    let seen = hold.seen.lock().take().unwrap();
+    assert_eq!(seen.unwrap(), expected);
 }

@@ -116,7 +116,14 @@ async fn reports_once_when_the_watch_ends_and_says_nothing_for_a_quiet_session()
         let _ = quiet_sink.send(paths);
     });
     quiet.baseline_taken().await;
-    quiet.end();
+    quiet.end().unwrap().await.unwrap();
+    assert_eq!(
+        tokio::time::timeout(Duration::from_millis(50), reports.recv())
+            .await
+            .ok()
+            .flatten(),
+        None
+    );
     let busy = watch_left_behind(dir.path().to_path_buf(), move |paths| {
         let _ = sink.send(paths);
     });

@@ -496,3 +496,15 @@ fn accepts_white_space_between_a_closing_quote_and_the_delimiter() {
         ])
     );
 }
+
+#[test]
+fn refuses_white_space_after_a_closing_quote_at_the_end_of_the_file() {
+    assert_eq!(
+        password_rows_from_csv("url,username,password\nhttps://a.test,me,\"pw\" "),
+        None
+    );
+    assert_eq!(
+        password_rows_from_csv("url,username,password\nhttps://a.test,me,\"pw\""),
+        Some(vec![input("https://a.test", "me", "pw")])
+    );
+}

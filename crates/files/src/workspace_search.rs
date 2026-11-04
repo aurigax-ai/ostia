@@ -267,8 +267,10 @@ struct SlotGuard {
 impl Drop for SlotGuard {
     fn drop(&mut self) {
         let mut state = self.inner.state.lock();
-        if state.running.get(&self.slot).map(|(id, _)| *id) == Some(self.id) {
-            state.running.remove(&self.slot);
+        if state.running.get(&self.slot).map(|(id, _)| *id) == Some(self.id)
+            && let Some((_, token)) = state.running.remove(&self.slot)
+        {
+            token.cancel();
         }
     }
 }
