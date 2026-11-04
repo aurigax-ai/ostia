@@ -36,7 +36,7 @@ pub fn with_default_product_name(text: &str) -> String {
     with_product_name(text, PRODUCT_DISPLAY_NAME)
 }
 
-fn placeholder_text(value: &Value) -> Option<String> {
+pub(crate) fn placeholder_text(value: &Value) -> Option<String> {
     match value {
         Value::String(text) => Some(text.clone()),
         Value::Number(number) => number.as_f64().map(js_number_text),
