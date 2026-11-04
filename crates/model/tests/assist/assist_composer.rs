@@ -274,6 +274,6 @@ fn runs_a_request_from_a_thread_that_has_no_runtime() {
     latest.run(Duration::from_millis(1), move |_signal| async move {
         *counter.lock().unwrap() += 1;
     });
-    runtime.block_on(tokio::time::sleep(Duration::from_millis(50)));
+    runtime.block_on(async { tokio::time::sleep(Duration::from_millis(50)).await });
     assert_eq!(*ran.lock().unwrap(), 1);
 }
