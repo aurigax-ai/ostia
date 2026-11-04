@@ -18,6 +18,12 @@ string_enum!(ViewFilter {
 pub const VIEW_FILTERS: &[&str] = ViewFilter::ALL;
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ViewFormat {
+    pub now: f64,
+    pub locale: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Binding {
     pub path: Vec<String>,
     pub filters: Vec<ViewFilter>,
@@ -36,7 +42,7 @@ static BINDING: LazyLock<Regex> = LazyLock::new(|| static_regex(r"\{\{([^{}]*)\}
 
 const DANGEROUS_SEGMENTS: [&str; 3] = ["__proto__", "prototype", "constructor"];
 
-fn is_dangerous_segment(segment: &str) -> bool {
+pub fn is_dangerous_segment(segment: &str) -> bool {
     DANGEROUS_SEGMENTS.contains(&segment)
 }
 
