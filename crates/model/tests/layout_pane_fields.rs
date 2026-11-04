@@ -424,7 +424,7 @@ fn stays_when_the_same_agent_stores_a_new_session_and_drops_when_another_agent_s
     let other_agent = set_pane_resume(&kept, root.id(), &stored(ResumableAgent::Codex, "c", None));
     let other_pane = found(&other_agent, root.id());
     assert!(!other_pane.keep_awake);
-    let resume = &other_pane.resume.as_ref().unwrap().resume;
+    let resume = &other_pane.resume.as_ref().unwrap();
     assert_eq!(resume.agent, ResumableAgent::Codex);
     assert_eq!(resume.id, "c");
 }
