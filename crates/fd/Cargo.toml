@@ -6,6 +6,9 @@ rust-version.workspace = true
 license-file.workspace = true
 publish.workspace = true
 
+[dependencies]
+libc.workspace = true
+
 [lints.clippy]
 await_holding_lock = "deny"
 await_holding_refcell_ref = "deny"

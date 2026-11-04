@@ -72,7 +72,7 @@ async fn hands_the_request_to_the_check_that_was_set_and_returns_its_result() {
         let seen = Arc::clone(&seen);
         Arc::new(move |request| {
             seen.lock().push(request);
-            async { granted() }.boxed()
+            async { Ok(granted()) }.boxed()
         })
     });
     let result = confirm
@@ -93,9 +93,9 @@ async fn hands_the_request_to_the_check_that_was_set_and_returns_its_result() {
 #[tokio::test]
 async fn a_later_check_replaces_the_earlier_one() {
     let confirm = ScriptTokenConfirm::new();
-    confirm.set_user_presence_check(Arc::new(|_| async { granted() }.boxed()));
+    confirm.set_user_presence_check(Arc::new(|_| async { Ok(granted()) }.boxed()));
     confirm.set_user_presence_check(Arc::new(|_| {
-        async { refused(PresenceFailure::Cancelled, "closed") }.boxed()
+        async { Ok(refused(PresenceFailure::Cancelled, "closed")) }.boxed()
     }));
     let result = confirm
         .check_user_presence(request(PresenceAction::Generate, "ci"))
@@ -134,7 +134,7 @@ async fn names_the_failure_code_the_action_and_the_token_in_the_refusal() {
     for (code, prefix, action, word) in rows {
         let confirm = ScriptTokenConfirm::new();
         confirm.set_user_presence_check(Arc::new(move |_| {
-            async move { refused(code, "the detail") }.boxed()
+            async move { Ok(refused(code, "the detail")) }.boxed()
         }));
         let error = confirm
             .confirm_user_presence(request(action, "my token"))
@@ -148,6 +148,28 @@ async fn names_the_failure_code_the_action_and_the_token_in_the_refusal() {
             "{prefix}"
         );
     }
+}
+
+#[tokio::test]
+async fn reports_an_error_of_the_check_as_presence_failed_with_its_message() {
+    let confirm = ScriptTokenConfirm::new();
+    confirm.set_user_presence_check(Arc::new(|_| {
+        async { Err("LAContext died".to_owned()) }.boxed()
+    }));
+    assert_eq!(
+        confirm
+            .check_user_presence(request(PresenceAction::Generate, "x"))
+            .await,
+        refused(PresenceFailure::Failed, "LAContext died")
+    );
+    let error = confirm
+        .confirm_user_presence(request(PresenceAction::Generate, "x"))
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.message,
+        "presence-failed: could not confirm it is you to generate the script token \"x\" (LAContext died)"
+    );
 }
 
 #[test]

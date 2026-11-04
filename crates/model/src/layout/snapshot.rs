@@ -146,7 +146,7 @@ fn to_pane(node: &SnapshotPane) -> PaneNode {
         && let Some(resume) = &node.resume
     {
         pane.resume_pending = true;
-        pane.spawn_dir = resume.resume.cwd.clone().filter(|cwd| !cwd.is_empty());
+        pane.spawn_dir = resume.cwd.clone().filter(|cwd| !cwd.is_empty());
     }
     pane
 }

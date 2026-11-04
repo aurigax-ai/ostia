@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use ostia_approvals::asks::{ApprovalRequest, QuestionRequest};
 use ostia_base::js::utf16_len;
+use ostia_contract::approvals::ApprovalRequest;
+use ostia_contract::questions::QuestionRequest;
 
 use crate::layout::tree::find_pane;
 use crate::layout::types::LayoutNode;

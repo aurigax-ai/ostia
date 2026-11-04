@@ -4,7 +4,7 @@ use ostia_contract::agent_launch::{
     AGENT_ARGS_SEPARATOR, TypedLaunch, captured_args, leads_with_flag, looks_secret, resume_flags,
     typed_launch, typed_launch_of,
 };
-use ostia_contract::agent_resume::{ResumableAgent, parse_agent_resume};
+use ostia_contract::agent_resume::{ResumableAgent, parse_stored_resume};
 use ostia_contract::app_env::app_env;
 use serde_json::{Map, Value, json};
 
@@ -824,7 +824,7 @@ fn serializes_a_typed_launch_without_empty_parts_and_with_env_as_an_object() {
 
 #[test]
 fn keeps_the_typed_launch_of_a_stored_resume_after_filtering_it_again() {
-    let resume = parse_agent_resume(&json!({
+    let resume = parse_stored_resume(&json!({
         "agent": "claude",
         "id": "abc",
         "typed": {
@@ -851,7 +851,7 @@ fn leaves_the_typed_launch_out_of_a_stored_resume_that_has_nothing_to_keep() {
         json!({}),
         json!({ "args": ["--model", "opus"], "env": { "GH_TOKEN": "x" } }),
     ] {
-        let resume = parse_agent_resume(&json!({
+        let resume = parse_stored_resume(&json!({
             "agent": "claude",
             "id": "abc",
             "typed": typed,
@@ -864,4 +864,13 @@ fn leaves_the_typed_launch_out_of_a_stored_resume_that_has_nothing_to_keep() {
             "typed {typed}"
         );
     }
+}
+
+#[test]
+fn reads_a_backslash_escaped_astral_character_as_unreadable_like_the_ts_does() {
+    assert_eq!(typed_launch(Claude, "claude --agent \\\u{1F600}"), None);
+    assert_eq!(
+        typed_launch(Claude, "claude --agent \\x"),
+        Some(launch(&["--agent", "x"], &[]))
+    );
 }

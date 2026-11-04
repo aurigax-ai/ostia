@@ -93,10 +93,16 @@ pub fn parse_agent_resume(raw: &Value) -> Option<AgentResume> {
             .filter(|cwd| is_resume_cwd(cwd))
             .map(str::to_owned),
         args: resume_args(agent, record.get("args")),
-        typed: record
-            .get("typed")
-            .and_then(|typed| typed_launch_of(agent, typed)),
+        typed: None,
     })
+}
+
+pub fn parse_stored_resume(raw: &Value) -> Option<AgentResume> {
+    let mut resume = parse_agent_resume(raw)?;
+    resume.typed = raw
+        .get("typed")
+        .and_then(|typed| typed_launch_of(resume.agent, typed));
+    Some(resume)
 }
 
 pub fn can_fork(agent: ResumableAgent) -> bool {

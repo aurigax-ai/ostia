@@ -14,7 +14,6 @@ use ostia_model::layout::tree::{
     create_pane, set_split_tab_name, split_of, split_pane, tab_id_of, tabs_of,
 };
 use ostia_model::layout::types::{Direction, LayoutNode, PaneNode, SurfaceKind, TabNode};
-use ostia_workspaces::stored_resume::StoredResume;
 use ostia_workspaces::workspace_snapshot::model::{
     AppSnapshot, LeftPanel, SnapshotGroup, SnapshotNode, SnapshotPane, SnapshotSplit,
     SnapshotWorkspace, SurfaceKind as SnapshotKind, WorkspaceKind,
@@ -165,15 +164,12 @@ fn restored_pane(node: &LayoutNode) -> Arc<PaneNode> {
     }
 }
 
-fn resume_of(id: &str, cwd: Option<&str>) -> StoredResume {
-    StoredResume {
-        resume: AgentResume {
-            agent: ResumableAgent::Claude,
-            id: id.to_owned(),
-            cwd: cwd.map(str::to_owned),
-            args: Vec::new(),
-            typed: None,
-        },
+fn resume_of(id: &str, cwd: Option<&str>) -> AgentResume {
+    AgentResume {
+        agent: ResumableAgent::Claude,
+        id: id.to_owned(),
+        cwd: cwd.map(str::to_owned),
+        args: Vec::new(),
         typed: None,
     }
 }
@@ -728,7 +724,7 @@ fn restores_a_running_agents_pane_in_the_folder_its_session_moved_to() {
     );
     let restored = restored_pane(&restored_root(&snapshot, &mut ids, "w1"));
     assert_eq!(
-        restored.resume.as_ref().unwrap().resume.cwd,
+        restored.resume.as_ref().unwrap().cwd,
         Some("/w/tree/wt1".to_owned())
     );
     assert!(restored.resume_pending);

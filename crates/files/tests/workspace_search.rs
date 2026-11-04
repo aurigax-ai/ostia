@@ -622,3 +622,61 @@ async fn reports_a_missing_ripgrep_binary_without_panicking() {
     let outcome = search.run(1, &fx.ask("needle", json!({}))).await;
     assert!(failed_with(&outcome, SearchError::RgMissing));
 }
+
+#[tokio::test]
+async fn stops_ripgrep_when_the_caller_drops_the_search() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Duration;
+
+    let fx = Fixture::new();
+    let pid_file = fx.home.path().join("rg.pid");
+    let script = fx.home.path().join("slow-rg");
+    fs::write(
+        &script,
+        format!(
+            "#!/bin/sh\necho $$ > {}\nexec sleep 30\n",
+            pid_file.display()
+        ),
+    )
+    .unwrap();
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+    let search = WorkspaceSearch::new(
+        script,
+        vec![fx.home.path().to_string_lossy().into_owned()],
+        host(fx.home.path()),
+    );
+    let mut running = Box::pin(search.run(7, &fx.ask("needle", json!({ "linesOnly": true }))));
+    let pid = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            tokio::select! {
+                _ = &mut running => panic!("search ended early"),
+                () = tokio::time::sleep(Duration::from_millis(20)) => {}
+            }
+            if let Ok(text) = fs::read_to_string(&pid_file)
+                && let Ok(pid) = text.trim().parse::<u32>()
+            {
+                return pid;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    drop(running);
+    let gone = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let state = fs::read_to_string(format!("/proc/{pid}/stat")).ok();
+            if state.is_none_or(|stat| {
+                stat.rsplit(')')
+                    .next()
+                    .unwrap_or("")
+                    .trim_start()
+                    .starts_with('Z')
+            }) {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await;
+    assert!(gone.is_ok());
+}

@@ -125,3 +125,20 @@ async fn rename_moves_a_file_and_rmdir_and_unlink_remove_only_their_own_kind() {
     write(&tmp.path().join("full/x"), "");
     assert!(fs.rmdir(&tmp.path().join("full")).await.is_err());
 }
+
+#[tokio::test]
+async fn open_marks_the_descriptor_close_on_exec() {
+    const O_CLOEXEC_OCTAL: u64 = 0o2_000_000;
+    let tmp = dir();
+    let path = tmp.path().join("f");
+    write(&path, "x");
+    let file = NodeTransferFs.open(&path, libc::O_RDONLY, 0).await.unwrap();
+    let info =
+        std::fs::read_to_string(format!("/proc/self/fdinfo/{}", file.fd().unwrap())).unwrap();
+    let flags = info
+        .lines()
+        .find_map(|line| line.strip_prefix("flags:"))
+        .unwrap()
+        .trim();
+    assert_ne!(u64::from_str_radix(flags, 8).unwrap() & O_CLOEXEC_OCTAL, 0);
+}

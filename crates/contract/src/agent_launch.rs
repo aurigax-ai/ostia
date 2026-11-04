@@ -500,7 +500,11 @@ fn read_word(line: &[char], start: usize) -> Option<(Word, usize)> {
             if at + 1 >= line.len() {
                 return None;
             }
-            text.push(line[at + 1]);
+            let escaped = line[at + 1];
+            if escaped.len_utf16() > 1 {
+                safe = false;
+            }
+            text.push(escaped);
             at += 2;
         } else {
             if !is_unquoted_safe(ch) {

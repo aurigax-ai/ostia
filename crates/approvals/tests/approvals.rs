@@ -47,6 +47,7 @@ fn with_kind(kind: ApprovalKind) -> ApprovalAsk {
 }
 
 type Published = Arc<Mutex<Vec<(String, ApprovalState)>>>;
+type Hook = Arc<Mutex<Option<Arc<dyn Fn() + Send + Sync>>>>;
 type Calls = Arc<Mutex<Vec<(String, Capability)>>>;
 
 struct Rig {
@@ -57,6 +58,7 @@ struct Rig {
     reveals: Arc<Mutex<Vec<String>>>,
     always_calls: Arc<Mutex<Vec<Vec<Capability>>>>,
     always_result: Arc<AtomicBool>,
+    during_always: Hook,
     mode: Arc<Mutex<ApprovalMode>>,
     opened: Arc<Mutex<Vec<String>>>,
     settled: Arc<Mutex<Vec<(String, ApprovalOutcome)>>>,
@@ -69,6 +71,7 @@ fn setup(mode: ApprovalMode, window_open: bool) -> Rig {
     let reveals: Arc<Mutex<Vec<String>>> = Arc::default();
     let always_calls: Arc<Mutex<Vec<Vec<Capability>>>> = Arc::default();
     let always_result = Arc::new(AtomicBool::new(true));
+    let during_always: Hook = Arc::default();
     let current_mode = Arc::new(Mutex::new(mode));
     let opened: Arc<Mutex<Vec<String>>> = Arc::default();
     let settled: Arc<Mutex<Vec<(String, ApprovalOutcome)>>> = Arc::default();
@@ -95,8 +98,13 @@ fn setup(mode: ApprovalMode, window_open: bool) -> Rig {
         always: Box::new({
             let always_calls = Arc::clone(&always_calls);
             let always_result = Arc::clone(&always_result);
+            let during_always = Arc::clone(&during_always);
             move |caps| {
                 always_calls.lock().push(caps.to_vec());
+                let hook = during_always.lock().clone();
+                if let Some(hook) = hook {
+                    hook();
+                }
                 always_result.load(Ordering::SeqCst)
             }
         }),
@@ -123,6 +131,7 @@ fn setup(mode: ApprovalMode, window_open: bool) -> Rig {
         reveals,
         always_calls,
         always_result,
+        during_always,
         mode: current_mode,
         opened,
         settled,
@@ -250,6 +259,54 @@ async fn always_allow_saves_the_caps_as_a_standing_grant_and_lets_the_request_th
     let record = rig.approvals.state_for("7").history[0].clone();
     assert_eq!(record.outcome, ALWAYS);
     assert!(!record.revocable);
+}
+
+#[tokio::test(start_paused = true)]
+async fn settles_the_card_as_always_when_the_agent_is_forgotten_while_the_grant_is_saved() {
+    let rig = setup(ApprovalMode::Ask, true);
+    let outcome = rig.request(ask()).await;
+    let id = rig.pending_id("7");
+    let approvals = rig.approvals.clone();
+    *rig.during_always.lock() = Some(Arc::new(move || {
+        approvals.forget(&ExternalId::new("ext-1"));
+    }));
+
+    assert!(rig.answer("7", &id, "always"));
+
+    assert_eq!(outcome.await.unwrap(), ALWAYS);
+    assert_eq!(rig.approvals.state_for("7").history[0].outcome, ALWAYS);
+    assert_eq!(rig.approvals.state_for("7").history.len(), 1);
+}
+
+#[tokio::test(start_paused = true)]
+async fn lets_the_card_time_out_when_the_timer_fires_while_the_grant_fails() {
+    let rig = setup(ApprovalMode::Ask, true);
+    rig.always_result.store(false, Ordering::SeqCst);
+    let outcome = rig.request(ask()).await;
+    let id = rig.pending_id("7");
+    let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+    let (go_tx, go_rx) = std::sync::mpsc::channel();
+    let (entered_tx, go_rx) = (Mutex::new(entered_tx), Mutex::new(go_rx));
+    *rig.during_always.lock() = Some(Arc::new(move || {
+        entered_tx.lock().send(()).unwrap();
+        go_rx.lock().recv().unwrap();
+    }));
+    let approvals = rig.approvals.clone();
+    let answering = {
+        let id = id.clone();
+        tokio::task::spawn_blocking(move || approvals.answer("7", &id, &json!("always")))
+    };
+    tokio::task::spawn_blocking(move || entered_rx.recv().unwrap())
+        .await
+        .unwrap();
+    tokio::time::advance(Duration::from_millis(6000)).await;
+    for _ in 0..5 {
+        tokio::task::yield_now().await;
+    }
+    go_tx.send(()).unwrap();
+
+    assert!(!answering.await.unwrap());
+    assert_eq!(outcome.await.unwrap(), ApprovalOutcome::Timeout);
 }
 
 #[tokio::test(start_paused = true)]

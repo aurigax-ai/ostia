@@ -178,7 +178,7 @@ impl TransferFs for NodeTransferFs {
         blocking(move || {
             let fd = rustix::fs::open(
                 &path,
-                OFlags::from_bits_retain(flags.cast_unsigned()),
+                OFlags::from_bits_retain(flags.cast_unsigned()) | OFlags::CLOEXEC,
                 Mode::from_bits_truncate(mode),
             )?;
             Ok(OpenFile::from_owned(fd))
