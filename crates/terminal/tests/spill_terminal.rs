@@ -4,7 +4,7 @@ mod history_support;
 
 use std::sync::Arc;
 
-use history_support::{mark, numbered};
+use history_support::{mark, numbered, strip_vt};
 use ostia_terminal::history_spill::{SPILL_BATCH, SpillSink};
 use ostia_terminal::spill_terminal::SpillTerminal;
 use parking_lot::Mutex;
@@ -89,4 +89,31 @@ fn keeps_its_size_for_a_resize_below_one_and_flushes_the_sink_once_on_close() {
     let recorded = sink.recorded.lock();
     assert_eq!(recorded.lines.len(), 5);
     assert_eq!(recorded.flushes, 1);
+}
+
+#[test]
+fn keeps_the_frontier_when_a_wrapped_line_crosses_the_scrollback_edge() {
+    let sink = Arc::new(RecordingSink::default());
+    let mut spill = SpillTerminal::new(10, 5, sink.clone(), 0).unwrap();
+    spill.write(numbered(0, 400).as_bytes());
+    spill.write(format!("{}\r\n", "x".repeat(10 * 200)).as_bytes());
+    spill.write(numbered(400, 300).as_bytes());
+    spill.close();
+    let mut expected: Vec<String> = (0..400).map(|i| format!("out {i}")).collect();
+    expected.push("x".repeat(10 * 200));
+    expected.extend((400..700).map(|i| format!("out {i}")));
+    let recorded = sink.recorded.lock();
+    let plain: Vec<String> = recorded.lines.iter().map(|line| strip_vt(line)).collect();
+    assert_eq!(plain, expected);
+}
+
+#[test]
+fn wipes_the_history_on_a_scrollback_clear_that_follows_an_unterminated_string() {
+    for opener in ["\x1b]0;title", "\x1bPq", "\x1b_apc"] {
+        let sink = Arc::new(RecordingSink::default());
+        let mut spill = SpillTerminal::new(80, 24, sink.clone(), 0).unwrap();
+        spill.write(numbered(0, 5).as_bytes());
+        spill.write(format!("{opener}\x1b[3J").as_bytes());
+        assert_eq!(sink.recorded.lock().wipes, 1, "{opener:?}");
+    }
 }

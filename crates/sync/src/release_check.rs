@@ -34,7 +34,7 @@ use crate::install_replace::InstallReplacer;
 use crate::update_run::UpdateRunner;
 
 const RELEASE_CHECK_STARTUP_DELAY: Duration = Duration::from_secs(5);
-pub const RELEASE_CHECK_INTERVAL_MS: i64 = 60 * 60 * 1000;
+pub const RELEASE_CHECK_INTERVAL_MS: i64 = 24 * 60 * 60 * 1000;
 pub const RELEASE_CHECK_RETRY_MS: i64 = 60 * 60 * 1000;
 const RELEASE_CHECK_TICK: Duration = Duration::from_secs(60);
 const RELEASE_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);

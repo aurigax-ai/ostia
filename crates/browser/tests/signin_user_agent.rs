@@ -658,3 +658,15 @@ async fn forgets_the_device_agent_when_the_guest_is_destroyed() {
         REWRITTEN
     );
 }
+
+#[test]
+fn never_writes_undefined_for_a_chrome_major_that_is_not_a_number() {
+    let metadata = electron_agent_metadata(&AgentHost {
+        chrome_version: "beta.1".to_owned(),
+        ..host()
+    });
+    let value = serde_json::to_value(&metadata).unwrap();
+    assert!(!value.to_string().contains("undefined"));
+    assert_eq!(metadata.brands[0].brand, "Not A(Brand");
+    assert_eq!(metadata.brands[0].version, "8");
+}

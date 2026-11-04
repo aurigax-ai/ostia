@@ -124,19 +124,28 @@ fn grease_index(seed: f64, offset: f64, modulus: f64) -> Option<usize> {
     (index >= 0.0 && index.fract() == 0.0).then_some(index as usize)
 }
 
+fn grease_seed(major: &str) -> f64 {
+    let seed = js_number(major);
+    if seed.is_finite() && seed >= 0.0 && seed.fract() == 0.0 {
+        seed
+    } else {
+        0.0
+    }
+}
+
 pub fn electron_agent_metadata(host: &AgentHost) -> UserAgentMetadata {
     let major = host.chrome_version.split('.').next().unwrap_or("");
-    let seed = js_number(major);
+    let seed = grease_seed(major);
     let first = grease_index(seed, 0.0, 11.0).and_then(|index| GREASE_CHARS.get(index));
     let second = grease_index(seed, 1.0, 11.0).and_then(|index| GREASE_CHARS.get(index));
     let version = grease_index(seed, 0.0, 3.0).and_then(|index| GREASE_VERSIONS.get(index));
     let grease = UserAgentBrand {
         brand: format!(
             "Not{}A{}Brand",
-            first.unwrap_or(&"undefined"),
-            second.unwrap_or(&"undefined")
+            first.copied().unwrap_or_default(),
+            second.copied().unwrap_or_default()
         ),
-        version: (*version.unwrap_or(&"undefined")).to_owned(),
+        version: version.copied().unwrap_or_default().to_owned(),
     };
     let platform = match host.platform.as_str() {
         "darwin" => "macOS",

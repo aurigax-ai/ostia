@@ -1,8 +1,8 @@
 use std::fmt;
 use std::fs::File;
 use std::future::Future;
-use std::io;
-use std::os::unix::fs::PermissionsExt;
+use std::io::{self, Read, Seek, SeekFrom};
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -34,14 +34,17 @@ use parking_lot::Mutex;
 use regex::Regex;
 use rustix::fs::{Access, access};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use tokio::process::Command;
 use tokio::time::Instant;
 use url::Url;
 
+use crate::archive_layout::ArchiveLayout;
 use crate::install_cleanup::remove_tree_force;
 use crate::install_method::dirname;
 
 pub const UPDATE_ARCHIVE_MAX_BYTES: u64 = 1024 * 1024 * 1024;
+pub const UPDATE_UNPACKED_MAX_BYTES: u64 = 4 * 1024 * 1024 * 1024;
 pub const CHECKSUMS_MAX_BYTES: u64 = 64 * 1024;
 pub const CHECKSUMS_FILE: &str = "SHA256SUMS";
 const UPDATE_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
@@ -85,7 +88,7 @@ impl std::error::Error for ReplaceError {}
 pub type ProgressFn = Arc<dyn Fn(ReplaceProgress) + Send + Sync>;
 pub type InstallingFn = Arc<dyn Fn() + Send + Sync>;
 pub type ReplaceFuture = Pin<Box<dyn Future<Output = Result<(), ReplaceError>> + Send>>;
-pub type RunTar = Arc<dyn Fn(Vec<String>) -> ReplaceFuture + Send + Sync>;
+pub type RunTar = Arc<dyn Fn(Vec<String>, File) -> ReplaceFuture + Send + Sync>;
 pub type ReplaceFn = Arc<dyn Fn(ReplaceJob) -> ReplaceFuture + Send + Sync>;
 
 pub(crate) fn suffixed(path: &Path, suffix: &str) -> PathBuf {
@@ -303,33 +306,59 @@ fn kind_of(entry_type: tar::EntryType) -> ArchiveEntryKind {
     }
 }
 
-fn scan_archive(file: &Path) -> Result<(), ReplaceError> {
+fn scan_archive(file: &File, max_unpacked: u64) -> Result<(), ReplaceError> {
     let bad = || ReplaceError::new(ReplaceFailure::BadArchive);
-    let file = File::open(file).map_err(|_| bad())?;
-    let mut archive = tar::Archive::new(MultiGzDecoder::new(file));
+    let mut file = file;
+    file.seek(SeekFrom::Start(0)).map_err(|_| bad())?;
+    let mut archive = tar::Archive::new(MultiGzDecoder::new(file).take(max_unpacked));
+    let mut layout = ArchiveLayout::default();
     for entry in archive.entries().map_err(|_| bad())? {
         let entry = entry.map_err(|_| bad())?;
         let path = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
         let linkpath = entry
             .link_name_bytes()
             .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
-        let problem = entry_problem(&ArchiveEntry {
+        let kind = kind_of(entry.header().entry_type());
+        let item = ArchiveEntry {
             path: &path,
-            kind: kind_of(entry.header().entry_type()),
+            kind,
             linkpath: linkpath.as_deref(),
-        });
-        if problem {
+        };
+        if entry_problem(&item) || escapes_through_links(&mut layout, &item) {
             return Err(bad());
         }
+    }
+    let mut rest = archive.into_inner();
+    io::copy(&mut rest, &mut io::sink()).map_err(|_| bad())?;
+    if rest.limit() == 0 {
+        return Err(bad());
     }
     Ok(())
 }
 
-pub async fn check_archive(file: &Path) -> Result<(), ReplaceError> {
-    let file = file.to_path_buf();
-    tokio::task::spawn_blocking(move || scan_archive(&file))
+fn escapes_through_links(layout: &mut ArchiveLayout, entry: &ArchiveEntry<'_>) -> bool {
+    let Some(inside) = stripped_entry(entry.path) else {
+        return false;
+    };
+    if layout.parent_inside(&inside).is_none() {
+        return true;
+    }
+    let linkpath = entry.linkpath.unwrap_or("");
+    match entry.kind {
+        ArchiveEntryKind::SymbolicLink => !layout.add_symlink(&inside, linkpath),
+        ArchiveEntryKind::Link => {
+            stripped_entry(linkpath).is_none_or(|target| !layout.hardlink_inside(&target))
+        }
+        _ => false,
+    }
+}
+
+pub async fn check_archive(file: &File, max_unpacked: u64) -> Result<(), ReplaceError> {
+    let bad = || ReplaceError::new(ReplaceFailure::BadArchive);
+    let file = file.try_clone().map_err(|_| bad())?;
+    tokio::task::spawn_blocking(move || scan_archive(&file, max_unpacked))
         .await
-        .unwrap_or_else(|_| Err(ReplaceError::new(ReplaceFailure::BadArchive)))
+        .unwrap_or_else(|_| Err(bad()))
 }
 
 async fn check_extracted(dir: &Path, version: &str) -> Result<(), ReplaceError> {
@@ -430,13 +459,50 @@ pub(crate) async fn download_to(job: DownloadJob<'_>) -> Result<String, ReplaceE
     .await
 }
 
-pub async fn run_tar(args: Vec<String>) -> Result<(), ReplaceError> {
+async fn take_archive(path: &Path) -> Result<File, ReplaceError> {
+    let failed = || ReplaceError::new(ReplaceFailure::ExtractFailed);
+    let path = path.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits().cast_signed())
+            .open(&path)?;
+        std::fs::remove_file(&path)?;
+        Ok(file)
+    })
+    .await
+    .map_err(|_| failed())?
+    .map_err(|_: io::Error| failed())
+}
+
+async fn archive_hash(file: &mut File) -> Result<String, ReplaceError> {
+    let failed = || ReplaceError::new(ReplaceFailure::ExtractFailed);
+    let mut reader = file.try_clone().map_err(|_| failed())?;
+    let hash = tokio::task::spawn_blocking(move || {
+        reader.seek(SeekFrom::Start(0))?;
+        let mut hasher = Sha256::new();
+        let mut buffer = vec![0_u8; 64 * 1024];
+        loop {
+            let read = reader.read(&mut buffer)?;
+            if read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..read]);
+        }
+        Ok(hex::encode(hasher.finalize()))
+    })
+    .await
+    .map_err(|_| failed())?;
+    hash.map_err(|_: io::Error| failed())
+}
+
+pub async fn run_tar(args: Vec<String>, input: File) -> Result<(), ReplaceError> {
     let mut command = Command::new("tar");
     command
         .args(&args)
         .env_clear()
         .envs(Host::current().child_env())
-        .stdin(Stdio::null())
+        .stdin(Stdio::from(input))
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .kill_on_drop(true);
@@ -516,7 +582,7 @@ async fn replace_install_until(
         let sums = fetch_text(&sums_url, &base, CHECKSUMS_MAX_BYTES, deadline).await?;
         let expected = checksum_for(&sums, &asset)
             .ok_or_else(|| ReplaceError::new(ReplaceFailure::NoChecksum))?;
-        let actual = download_to(DownloadJob {
+        download_to(DownloadJob {
             url: &archive_url,
             base: &base,
             file: file.clone(),
@@ -525,21 +591,28 @@ async fn replace_install_until(
             on_progress,
         })
         .await?;
-        if actual != expected {
+        let mut archive = take_archive(&file).await?;
+        if archive_hash(&mut archive).await? != expected {
             return Err(ReplaceError::new(ReplaceFailure::ChecksumMismatch));
         }
         on_installing();
-        check_archive(&file).await?;
+        check_archive(&archive, UPDATE_UNPACKED_MAX_BYTES).await?;
         let mut folder = tokio::fs::DirBuilder::new();
         folder.mode(0o755);
         folder.create(&staged).await.map_err(|_| extract_failed())?;
-        tar(vec![
-            "-xzf".to_owned(),
-            file.to_string_lossy().into_owned(),
-            "--strip-components=1".to_owned(),
-            "-C".to_owned(),
-            staged.to_string_lossy().into_owned(),
-        ])
+        archive
+            .seek(SeekFrom::Start(0))
+            .map_err(|_| extract_failed())?;
+        tar(
+            vec![
+                "-xzf".to_owned(),
+                "-".to_owned(),
+                "--strip-components=1".to_owned(),
+                "-C".to_owned(),
+                staged.to_string_lossy().into_owned(),
+            ],
+            archive,
+        )
         .await?;
         check_extracted(&staged, &version).await?;
         swap_install(&app_dir).await
