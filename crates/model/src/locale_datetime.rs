@@ -1,11 +1,15 @@
 use chrono::{Datelike, NaiveDate, NaiveTime, Timelike};
-use icu_calendar::{Date, Iso};
+use icu_calendar::{Date, Gregorian, Iso};
 use icu_datetime::fieldsets::{E, T, YMDE};
-use icu_datetime::input::Time;
-use icu_datetime::options::Alignment;
+use icu_datetime::input::{DateTime, Time};
+use icu_datetime::pattern::{DateTimePattern, FixedCalendarDateTimeNames};
 use icu_datetime::preferences::HourCycle;
-use icu_datetime::{DateTimeFormatter, DateTimeFormatterPreferences, NoCalendarFormatter};
+use icu_datetime::{
+    DateTimeFormatter, DateTimeFormatterPreferences, FixedCalendarDateTimeFormatter,
+    NoCalendarFormatter,
+};
 use icu_locale_core::Locale;
+use writeable::TryWriteable;
 
 const NARROW_NO_BREAK_SPACE: char = '\u{202f}';
 
@@ -57,13 +61,59 @@ fn pad_leading_hour(text: &str) -> String {
     }
 }
 
+fn abbreviate_pattern(pattern: &str) -> String {
+    let mut out = String::new();
+    let mut quoted = false;
+    let mut chars = pattern.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\'' {
+            quoted = !quoted;
+            out.push(c);
+            continue;
+        }
+        if quoted || !c.is_ascii_alphabetic() {
+            out.push(c);
+            continue;
+        }
+        let mut run = 1;
+        while chars.next_if_eq(&c).is_some() {
+            run += 1;
+        }
+        match c {
+            'E' | 'e' | 'c' => out.push_str("EEE"),
+            'M' | 'L' => out.push_str("MMM"),
+            'd' => out.push_str("dd"),
+            _ => out.extend(std::iter::repeat_n(c, run)),
+        }
+    }
+    out
+}
+
 pub fn medium_date(locale: &str, date: NaiveDate) -> Option<String> {
-    let formatter = DateTimeFormatter::try_new(
-        preferences(locale, Clock::Locale),
-        YMDE::medium().with_alignment(Alignment::Column),
+    let prefs = preferences(locale, Clock::Locale);
+    let day = Date::try_new_gregorian(
+        date.year(),
+        u8::try_from(date.month()).ok()?,
+        u8::try_from(date.day()).ok()?,
     )
     .ok()?;
-    Some(formatter.format(&icu_date(date)?).to_string())
+    let long = FixedCalendarDateTimeFormatter::<Gregorian, _>::try_new(prefs, YMDE::long()).ok()?;
+    let pattern: DateTimePattern = abbreviate_pattern(&long.format(&day).pattern().to_string())
+        .parse()
+        .ok()?;
+    let mut names = FixedCalendarDateTimeNames::<Gregorian>::try_new(prefs).ok()?;
+    let formatter = names.include_for_pattern(&pattern).ok()?;
+    let input = DateTime {
+        date: day,
+        time: Time::try_new(0, 0, 0, 0).ok()?,
+    };
+    Some(
+        formatter
+            .format(&input)
+            .try_write_to_string()
+            .ok()?
+            .into_owned(),
+    )
 }
 
 pub fn weekday_name(locale: &str, date: NaiveDate) -> Option<String> {
