@@ -1,0 +1,141 @@
+{
+ "uiFallback": "\"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+ "codeFallback": {
+  "mac": "\"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", \"PingFang TC\", monospace",
+  "other": "\"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+ },
+ "terminalFallback": {
+  "mac": "\"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", \"PingFang TC\", monospace",
+  "other": "\"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+ },
+ "stacks": [
+  {
+   "family": "MesloLGS NF",
+   "ui": "\"MesloLGS NF\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"MesloLGS NF\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"MesloLGS NF\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  },
+  {
+   "family": "Inter Variable",
+   "ui": "\"Inter Variable\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"Inter Variable\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"Inter Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  },
+  {
+   "family": "Evil\"; } * {",
+   "ui": "\"Evil  *\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"Evil  *\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"Evil  *\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  },
+  {
+   "family": "  ",
+   "ui": "\"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  },
+  {
+   "family": "",
+   "ui": "\"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  },
+  {
+   "family": "a\\b<c>d{e}f;g",
+   "ui": "\"abcdefg\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"abcdefg\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"abcdefg\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  },
+  {
+   "family": "  Fira Code  ",
+   "ui": "\"Fira Code\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"Fira Code\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"Fira Code\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  },
+  {
+   "family": "日本語 Mono",
+   "ui": "\"日本語 Mono\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"日本語 Mono\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"日本語 Mono\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  },
+  {
+   "family": "Tab\tName",
+   "ui": "\"Tab\tName\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"Tab\tName\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"Tab\tName\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  },
+  {
+   "family": " Nbsp ",
+   "ui": "\"Nbsp\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"Nbsp\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"Nbsp\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  },
+  {
+   "family": "﻿Bom",
+   "ui": "\"Bom\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+   "code": "\"Bom\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+   "terminal": "\"Bom\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace"
+  }
+ ],
+ "variables": [
+  {
+   "fonts": {
+    "ui": {
+     "family": "Inter Variable",
+     "size": 14,
+     "weight": 500
+    },
+    "editor": {
+     "family": "Bitstream Vera Sans Mono",
+     "size": 14,
+     "weight": 500
+    }
+   },
+   "variables": {
+    "--font-ui": "\"Inter Variable\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+    "--font-code": "\"Bitstream Vera Sans Mono\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+    "--font-ui-size": "14px",
+    "--font-ui-weight": "500"
+   }
+  },
+  {
+   "fonts": {
+    "ui": {
+     "family": "Geist Variable",
+     "size": 14,
+     "weight": 400
+    },
+    "editor": {
+     "family": "Geist Mono Variable",
+     "size": 13,
+     "weight": 400
+    }
+   },
+   "variables": {
+    "--font-ui": "\"Geist Variable\", \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+    "--font-code": "\"Geist Mono Variable\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+    "--font-ui-size": "14px",
+    "--font-ui-weight": "400"
+   }
+  },
+  {
+   "fonts": {
+    "ui": {
+     "family": "",
+     "size": 12.5,
+     "weight": 700
+    },
+    "editor": {
+     "family": "x\"y",
+     "size": 9,
+     "weight": 100
+    }
+   },
+   "variables": {
+    "--font-ui": "\"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"PingFang TC\", \"Microsoft JhengHei\", \"Hiragino Sans\", \"Noto Sans CJK TC\", \"Noto Sans TC\", sans-serif",
+    "--font-code": "\"xy\", \"Geist Mono Variable\", \"Hack Nerd Font Mono\", \"DejaVu Sans Mono\", SFMono-Regular, Menlo, Consolas, \"Sarasa Mono TC\", \"Noto Sans Mono CJK TC\", monospace",
+    "--font-ui-size": "12.5px",
+    "--font-ui-weight": "700"
+   }
+  }
+ ]
+}
