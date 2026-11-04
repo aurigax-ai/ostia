@@ -1,0 +1,8 @@
+{
+  "other/one": {
+    "path": "/bin/sh",
+    "args": [
+      "-x"
+    ]
+  }
+}
