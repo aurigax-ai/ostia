@@ -52,7 +52,11 @@ fn weekday_name(weekday: Weekday, chinese: bool) -> &'static str {
 }
 
 fn clock_text(hour: u32, minute: u32, chinese: bool) -> String {
-    let twelve = if hour % 12 == 0 { 12 } else { hour % 12 };
+    let twelve = if hour.is_multiple_of(12) {
+        12
+    } else {
+        hour % 12
+    };
     if chinese {
         let period = if hour < 12 { "上午" } else { "下午" };
         return format!("{period}{twelve}:{minute:02}");

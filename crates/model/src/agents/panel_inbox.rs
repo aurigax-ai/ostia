@@ -19,27 +19,28 @@ pub struct InboxApproval {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InboxItem {
+    pub item: NeedsYouItem,
+    pub place: Option<PaneWhere>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InboxCard {
-    Item {
-        item: NeedsYouItem,
-        place: Option<PaneWhere>,
-    },
-    Note {
-        note: InboxNote,
-    },
+    Item(Box<InboxItem>),
+    Note { note: InboxNote },
 }
 
 impl InboxCard {
     pub fn id(&self) -> &str {
         match self {
-            Self::Item { item, .. } => item.id(),
+            Self::Item(entry) => entry.item.id(),
             Self::Note { note } => &note.id,
         }
     }
 
     pub fn at(&self) -> i64 {
         match self {
-            Self::Item { item, .. } => item.at(),
+            Self::Item(entry) => entry.item.at(),
             Self::Note { note } => note.at,
         }
     }
@@ -48,14 +49,10 @@ impl InboxCard {
 pub fn card_pane(card: &InboxCard) -> Option<&str> {
     match card {
         InboxCard::Note { note } => note.pane_id.as_deref(),
-        InboxCard::Item {
-            item: NeedsYouItem::Question { question, .. },
-            ..
-        } => Some(&question.pane_id),
-        InboxCard::Item {
-            item: NeedsYouItem::Approval { approval },
-            ..
-        } => Some(&approval.pane_id),
+        InboxCard::Item(entry) => match &entry.item {
+            NeedsYouItem::Question { question, .. } => Some(&question.pane_id),
+            NeedsYouItem::Approval { approval } => Some(&approval.pane_id),
+        },
     }
 }
 
@@ -103,7 +100,7 @@ pub fn inbox_cards(input: &InboxInput) -> Vec<InboxCard> {
                 input.workspace_id,
                 &approval_workspaces,
             )
-            .then_some(InboxCard::Item { item, place })
+            .then(|| InboxCard::Item(Box::new(InboxItem { item, place })))
         })
         .collect();
     cards.extend(
@@ -121,7 +118,7 @@ pub fn waiting_count(cards: &[InboxCard]) -> usize {
         .iter()
         .filter(|card| match card {
             InboxCard::Note { .. } => true,
-            InboxCard::Item { item, .. } => match item {
+            InboxCard::Item(entry) => match &entry.item {
                 NeedsYouItem::Approval { .. } => true,
                 NeedsYouItem::Question { sent, .. } => !sent,
             },
