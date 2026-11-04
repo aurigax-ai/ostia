@@ -62,8 +62,12 @@ fn repo(home: &Path, name: &str) -> PathBuf {
 }
 
 fn worktree(home: &Path, main: &Path, name: &str) -> PathBuf {
+    worktree_of(home, &main.join(".git"), name)
+}
+
+fn worktree_of(home: &Path, common_dir: &Path, name: &str) -> PathBuf {
     let dir = home.join(name);
-    let git_dir = main.join(".git").join("worktrees").join(name);
+    let git_dir = common_dir.join("worktrees").join(name);
     fs::create_dir_all(&git_dir).unwrap();
     fs::create_dir_all(&dir).unwrap();
     fs::write(git_dir.join("commondir"), "../..\n").unwrap();
@@ -414,4 +418,62 @@ fn keeps_the_git_dir_of_a_checkout_that_names_its_work_tree_in_its_config() {
     )
     .unwrap();
     assert_eq!(t.key(&dir), Some(format!("git:{}", git_dir.display())));
+}
+
+#[test]
+fn keeps_the_git_dir_of_a_separate_git_dir_checkout_that_git_leaves_without_a_back_pointer() {
+    let t = Tree::new();
+    let dir = t.home.join("separate-plain");
+    let git_dir = t.home.join("separate-plain-git");
+    fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&git_dir).unwrap();
+    fs::write(dir.join(".git"), format!("gitdir: {}\n", git_dir.display())).unwrap();
+    fs::write(
+        git_dir.join("config"),
+        "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n",
+    )
+    .unwrap();
+    assert_eq!(t.key(&dir), Some(format!("git:{}", git_dir.display())));
+}
+
+#[test]
+fn a_separate_git_dir_checkout_inside_another_repository_keeps_its_own_key() {
+    let t = Tree::new();
+    let dir = t.terminal.join("vendor-checkout");
+    let git_dir = t.home.join("vendor-git");
+    fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&git_dir).unwrap();
+    fs::write(dir.join(".git"), format!("gitdir: {}\n", git_dir.display())).unwrap();
+    assert_eq!(t.key(&dir), Some(format!("git:{}", git_dir.display())));
+}
+
+#[test]
+fn a_worktree_of_a_separate_git_dir_checkout_shares_its_key() {
+    let t = Tree::new();
+    let dir = t.home.join("separate-main");
+    let git_dir = t.home.join("separate-main-git");
+    fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(git_dir.join("worktrees")).unwrap();
+    fs::write(dir.join(".git"), format!("gitdir: {}\n", git_dir.display())).unwrap();
+    let linked = worktree_of(&t.home, &git_dir, "separate-linked");
+    assert_eq!(t.key(&linked), t.key(&dir));
+    assert_eq!(t.key(&dir), Some(format!("git:{}", git_dir.display())));
+}
+
+#[test]
+fn ignores_a_dot_git_symlink_to_another_repository_git_dir() {
+    let t = Tree::new();
+    let dir = t.home.join("linked-dir");
+    fs::create_dir_all(&dir).unwrap();
+    std::os::unix::fs::symlink(t.terminal.join(".git"), dir.join(".git")).unwrap();
+    assert_eq!(t.key(&dir), Some(format!("dir:{}", dir.display())));
+}
+
+#[test]
+fn ignores_a_dot_git_symlink_to_the_git_file_of_a_real_worktree() {
+    let t = Tree::new();
+    let dir = t.home.join("linked-file");
+    fs::create_dir_all(&dir).unwrap();
+    std::os::unix::fs::symlink(t.terminal_workers.join(".git"), dir.join(".git")).unwrap();
+    assert_eq!(t.key(&dir), Some(format!("dir:{}", dir.display())));
 }

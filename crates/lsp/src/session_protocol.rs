@@ -266,7 +266,10 @@ impl SessionProtocol {
     }
 
     pub fn forget(&self, id: &str) {
-        self.inner.state.lock().sessions.remove(id);
+        let removed = self.inner.state.lock().sessions.remove(id);
+        if let Some(unwatch) = removed.and_then(|session| session.unwatch) {
+            unwatch();
+        }
     }
 
     pub fn mark_stopping(&self, id: &str, reason: LspStopReason) {
@@ -591,14 +594,13 @@ impl SessionProtocol {
         let Some(unwatch) = watch_tree(Path::new(&root), sink) else {
             return;
         };
-        let rejected = self.with_session(id, |session| {
-            if session.unwatch.is_some() {
-                return Some(unwatch);
+        let mut spare = Some(unwatch);
+        self.with_session(id, |session| {
+            if session.unwatch.is_none() && session.stopping.is_none() {
+                session.unwatch = spare.take();
             }
-            session.unwatch = Some(unwatch);
-            None
         });
-        if let Some(Some(extra)) = rejected {
+        if let Some(extra) = spare {
             extra();
         }
     }

@@ -4,7 +4,12 @@ const MAX_LINK_HOPS: usize = 40;
 
 #[derive(Default)]
 pub(crate) struct ArchiveLayout {
-    links: HashMap<Vec<String>, Vec<String>>,
+    links: HashMap<Vec<String>, ArchiveLink>,
+}
+
+struct ArchiveLink {
+    parent: Vec<String>,
+    raw: String,
 }
 
 fn components(path: &str) -> impl Iterator<Item = &str> {
@@ -23,12 +28,16 @@ impl ArchiveLayout {
                 continue;
             }
             stack.push(part);
-            if let Some(target) = self.links.get(&stack) {
+            if let Some(link) = self.links.get(&stack) {
                 hops += 1;
                 if hops > MAX_LINK_HOPS {
                     return None;
                 }
-                stack.clone_from(target);
+                stack.clone_from(&link.parent);
+                let target_parts: Vec<&str> = components(&link.raw).collect();
+                for target_part in target_parts.into_iter().rev() {
+                    pending.push_front(target_part.to_owned());
+                }
             }
         }
         Some(stack)
@@ -47,12 +56,18 @@ impl ArchiveLayout {
         let Some(name) = components(inside).last() else {
             return false;
         };
-        let Some(target) = self.resolve(parent.clone(), linkpath) else {
+        if self.resolve(parent.clone(), linkpath).is_none() {
             return false;
-        };
-        let mut at = parent;
+        }
+        let mut at = parent.clone();
         at.push(name.to_owned());
-        self.links.insert(at, target);
+        self.links.insert(
+            at,
+            ArchiveLink {
+                parent,
+                raw: linkpath.to_owned(),
+            },
+        );
         true
     }
 

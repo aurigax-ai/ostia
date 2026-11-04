@@ -103,6 +103,7 @@ fn object(value: Value) -> Map<String, Value> {
 
 type Post = (String, String, Option<Value>);
 type Exit = (String, Option<i32>, Option<String>);
+type WatchHook = Arc<Mutex<Option<Box<dyn FnOnce() + Send>>>>;
 
 struct Rig {
     _dir: TempDir,
@@ -117,6 +118,7 @@ struct Rig {
     watches: Arc<Mutex<Vec<PathBuf>>>,
     unwatched: Arc<AtomicU32>,
     sink: Arc<Mutex<Option<TreeSink>>>,
+    inside_watch: WatchHook,
 }
 
 fn rig_with(watching: bool) -> Rig {
@@ -131,6 +133,7 @@ fn rig_with(watching: bool) -> Rig {
     let watches = Arc::new(Mutex::new(Vec::new()));
     let unwatched = Arc::new(AtomicU32::new(0));
     let sink: Arc<Mutex<Option<TreeSink>>> = Arc::new(Mutex::new(None));
+    let inside_watch: WatchHook = Arc::new(Mutex::new(None));
     let deps = SessionProtocolDeps {
         record: {
             let records = records.clone();
@@ -161,8 +164,13 @@ fn rig_with(watching: bool) -> Rig {
             let watches = watches.clone();
             let unwatched = unwatched.clone();
             let sink = sink.clone();
+            let inside_watch = inside_watch.clone();
             let watch: ostia_lsp::session_protocol::WatchTree = Arc::new(move |root, on_change| {
                 watches.lock().unwrap().push(root.to_path_buf());
+                let hook = inside_watch.lock().unwrap().take();
+                if let Some(hook) = hook {
+                    hook();
+                }
                 *sink.lock().unwrap() = Some(on_change);
                 let unwatched = unwatched.clone();
                 let unwatch: Unwatch = Box::new(move || {
@@ -200,6 +208,7 @@ fn rig_with(watching: bool) -> Rig {
         watches,
         unwatched,
         sink,
+        inside_watch,
     }
 }
 
@@ -1225,6 +1234,56 @@ async fn stop_watching_calls_the_unwatch_once() {
         .on_server_message(&id, &watch_registration("w1", "**/*.gleam"));
     rig.protocol.stop_watching(&id);
     rig.protocol.stop_watching(&id);
+    assert_eq!(rig.unwatched.load(Ordering::SeqCst), 1);
+    assert!(!rig.protocol.snapshot(&id).unwrap().watching);
+}
+
+#[tokio::test]
+async fn starts_no_watcher_for_a_registration_that_arrives_after_the_session_is_forgotten() {
+    let rig = rig();
+    let id = rig.attach_capturing();
+    rig.protocol.forget(&id);
+    rig.protocol
+        .on_server_message(&id, &watch_registration("w1", "**/*.gleam"));
+    assert!(rig.watches.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn forgetting_a_session_stops_the_watcher_it_holds() {
+    let rig = rig();
+    let id = rig.attach_capturing();
+    rig.protocol
+        .on_server_message(&id, &watch_registration("w1", "**/*.gleam"));
+    rig.protocol.forget(&id);
+    assert_eq!(rig.unwatched.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn stops_a_watcher_that_starts_while_its_session_is_forgotten() {
+    let rig = rig();
+    let id = rig.attach_capturing();
+    let protocol = rig.protocol.clone();
+    let session = id.clone();
+    *rig.inside_watch.lock().unwrap() = Some(Box::new(move || {
+        protocol.stop_watching(&session);
+        protocol.forget(&session);
+    }));
+    rig.protocol
+        .on_server_message(&id, &watch_registration("w1", "**/*.gleam"));
+    assert_eq!(rig.unwatched.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn stops_a_watcher_that_starts_while_its_session_is_stopping() {
+    let rig = rig();
+    let id = rig.attach_capturing();
+    let protocol = rig.protocol.clone();
+    let session = id.clone();
+    *rig.inside_watch.lock().unwrap() = Some(Box::new(move || {
+        protocol.mark_stopping(&session, LspStopReason::Idle);
+    }));
+    rig.protocol
+        .on_server_message(&id, &watch_registration("w1", "**/*.gleam"));
     assert_eq!(rig.unwatched.load(Ordering::SeqCst), 1);
     assert!(!rig.protocol.snapshot(&id).unwrap().watching);
 }

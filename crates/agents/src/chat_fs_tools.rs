@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::fs::{self, File, OpenOptions};
-use std::io::{ErrorKind, Read, Write};
+use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
@@ -178,6 +178,18 @@ fn open_unsaved(dirty: Option<&Value>, real: &Path, roots: &[&str], host: &Host)
     })
 }
 
+fn open_regular(path: &Path) -> std::io::Result<File> {
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)?;
+    if file.metadata()?.is_file() {
+        Ok(file)
+    } else {
+        Err(ErrorKind::InvalidInput.into())
+    }
+}
+
 fn looks_binary(buf: &[u8]) -> bool {
     buf[..buf.len().min(BINARY_SNIFF)].contains(&0)
 }
@@ -209,13 +221,21 @@ pub fn read_tool(req: &Value, roots: &[&str], host: &Host) -> Value {
     if !info.is_file() {
         return fail("not-a-file", Some(&at.path));
     }
-    if info.len() > CHAT_READ_FILE_MAX as u64 {
-        return fail("too-large", Some(&at.path));
-    }
-    let buf = match fs::read(&at.path) {
-        Ok(buf) => buf,
+    let mut file = match open_regular(&at.real) {
+        Ok(file) => file,
         Err(err) => return io_fail(&err, &at.path),
     };
+    match file.metadata() {
+        Ok(opened) if opened.len() > CHAT_READ_FILE_MAX as u64 => {
+            return fail("too-large", Some(&at.path));
+        }
+        Ok(_) => {}
+        Err(err) => return io_fail(&err, &at.path),
+    }
+    let mut buf = Vec::new();
+    if let Err(err) = file.read_to_end(&mut buf) {
+        return io_fail(&err, &at.path);
+    }
     if looks_binary(&buf) {
         return fail("binary", Some(&at.path));
     }
@@ -338,7 +358,7 @@ struct SearchMatch {
 }
 
 fn search_file(file: &Path, needle: &str, out: &mut Vec<SearchMatch>) -> std::io::Result<()> {
-    let mut handle = File::open(file)?;
+    let mut handle = open_regular(file)?;
     let info = handle.metadata()?;
     if info.len() > CHAT_SEARCH_FILE_MAX as u64 {
         return Ok(());
@@ -458,34 +478,60 @@ pub fn search_tool(req: &Value, roots: &[&str], host: &Host) -> Value {
 }
 
 enum Existing {
-    Text { text: String, version: String },
+    Text {
+        text: String,
+        version: String,
+        file: File,
+    },
     Missing,
     Refused(Value),
 }
 
-fn existing_text(path: &Path) -> Existing {
-    let info = match fs::symlink_metadata(path) {
-        Ok(info) => info,
-        Err(err) if err.kind() == ErrorKind::NotFound => return Existing::Missing,
-        Err(_) => return Existing::Refused(fail("failed", Some(path))),
-    };
-    if info.file_type().is_symlink() || !info.is_file() {
-        return Existing::Refused(fail("not-a-file", Some(path)));
+fn open_existing(path: &Path, for_write: bool) -> std::io::Result<File> {
+    let file = OpenOptions::new()
+        .read(true)
+        .write(for_write)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)?;
+    if file.metadata()?.is_file() {
+        Ok(file)
+    } else {
+        Err(ErrorKind::InvalidInput.into())
     }
-    if info.len() > CHAT_WRITE_MAX as u64 {
-        return Existing::Refused(fail("too-large", Some(path)));
-    }
-    let buf = match fs::read(path) {
-        Ok(buf) => buf,
+}
+
+fn existing_text(path: &Path, for_write: bool) -> Existing {
+    let mut file = match open_existing(path, for_write) {
+        Ok(file) => file,
         Err(err) if err.kind() == ErrorKind::NotFound => return Existing::Missing,
-        Err(_) => return Existing::Refused(fail("failed", Some(path))),
+        Err(_) => {
+            return Existing::Refused(match fs::symlink_metadata(path) {
+                Ok(info) if !info.is_file() => fail("not-a-file", Some(path)),
+                _ => fail("failed", Some(path)),
+            });
+        }
     };
+    match file.metadata() {
+        Ok(info) if info.len() > CHAT_WRITE_MAX as u64 => {
+            return Existing::Refused(fail("too-large", Some(path)));
+        }
+        Ok(_) => {}
+        Err(_) => return Existing::Refused(fail("failed", Some(path))),
+    }
+    let mut buf = Vec::new();
+    if file.read_to_end(&mut buf).is_err() {
+        return Existing::Refused(fail("failed", Some(path)));
+    }
     if looks_binary(&buf) {
         return Existing::Refused(fail("binary", Some(path)));
     }
     let version = version_of(&buf);
     match String::from_utf8(buf) {
-        Ok(text) => Existing::Text { text, version },
+        Ok(text) => Existing::Text {
+            text,
+            version,
+            file,
+        },
         Err(_) => Existing::Refused(fail("binary", Some(path))),
     }
 }
@@ -507,7 +553,7 @@ pub fn preview_tool(req: &Value, roots: &[&str], host: &Host) -> Value {
         Ok(at) => at,
         Err(failure) => return failure,
     };
-    let current = existing_text(&at.path);
+    let current = existing_text(&at.path, false);
     if let Existing::Refused(failure) = current {
         return failure;
     }
@@ -568,10 +614,10 @@ pub fn plan_edit_tool(req: &Value, roots: &[&str], host: &Host) -> Value {
         Ok(at) => at,
         Err(failure) => return failure,
     };
-    let (before, version) = match existing_text(&at.path) {
+    let (before, version) = match existing_text(&at.path, false) {
         Existing::Refused(failure) => return failure,
         Existing::Missing => return fail("not-found", Some(&at.path)),
-        Existing::Text { text, version } => (text, version),
+        Existing::Text { text, version, .. } => (text, version),
     };
     let after = match apply_edits(&before, &edits) {
         Ok(after) => after,
@@ -616,15 +662,27 @@ fn writable(req: &Value, roots: &[&str], host: &Host) -> Result<Located, Value> 
     Ok(at)
 }
 
-fn write_content(path: &Path, content: &str, create: bool) -> std::io::Result<()> {
-    let mut options = OpenOptions::new();
-    options.write(true).custom_flags(libc::O_NOFOLLOW);
-    if create {
-        options.create_new(true);
-    } else {
-        options.create(true).truncate(true);
+fn create_content(path: &Path, content: &str) -> std::io::Result<()> {
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)?
+        .write_all(content.as_bytes())
+}
+
+fn rewrite_content(file: &mut File, content: &str) -> std::io::Result<()> {
+    file.set_len(0)?;
+    file.seek(SeekFrom::Start(0))?;
+    file.write_all(content.as_bytes())
+}
+
+fn store_content(current: Existing, path: &Path, content: &str) -> std::io::Result<()> {
+    match current {
+        Existing::Text { mut file, .. } => rewrite_content(&mut file, content),
+        Existing::Missing => create_content(path, content),
+        Existing::Refused(_) => Err(ErrorKind::InvalidInput.into()),
     }
-    options.open(path)?.write_all(content.as_bytes())
 }
 
 pub fn write_tool(req: &Value, roots: &[&str], host: &Host) -> Value {
@@ -636,7 +694,7 @@ pub fn write_tool(req: &Value, roots: &[&str], host: &Host) -> Value {
         Ok(at) => at,
         Err(failure) => return failure,
     };
-    let current = existing_text(&at.path);
+    let current = existing_text(&at.path, true);
     if let Existing::Refused(failure) = current {
         return failure;
     }
@@ -654,7 +712,7 @@ pub fn write_tool(req: &Value, roots: &[&str], host: &Host) -> Value {
         Ok(false) => return fail("not-allowed", Some(&at.path)),
         Err(_) => return fail("failed", Some(&at.path)),
     }
-    if write_content(&at.path, content, created).is_err() {
+    if store_content(current, &at.path, content).is_err() {
         return fail("failed", Some(&at.path));
     }
     json!({
@@ -680,7 +738,7 @@ pub fn restore_tool(req: &Value, roots: &[&str], host: &Host) -> Value {
     if open_unsaved(req.get("dirty"), &at.real, roots, host) {
         return fail("unsaved", Some(&at.path));
     }
-    let current = existing_text(&at.path);
+    let current = existing_text(&at.path, content.is_some());
     if let Existing::Refused(failure) = current {
         return failure;
     }
@@ -715,9 +773,12 @@ pub fn restore_tool(req: &Value, roots: &[&str], host: &Host) -> Value {
         Ok(false) => return fail("not-allowed", Some(&at.path)),
         Err(_) => return fail("failed", Some(&at.path)),
     }
-    let create = matches!(current, Existing::Missing);
-    if write_content(&at.path, content, create).is_err() {
+    if store_content(current, &at.path, content).is_err() {
         return fail("failed", Some(&at.path));
     }
     done
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod handle_tests;

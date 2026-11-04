@@ -932,6 +932,24 @@ async fn refuses_a_symlink_that_escapes_only_after_an_earlier_symlink_is_followe
 }
 
 #[tokio::test]
+async fn refuses_a_link_chain_that_a_later_symlink_entry_redirects() {
+    let mut builder = tar::Builder::new(Vec::new());
+    symlink_entry(&mut builder, "top/p/r/s/x", "a/b");
+    symlink_entry(&mut builder, "top/p/r/s/a", "../..");
+    symlink_entry(&mut builder, "top/p/r/s/l", "x/../../..");
+    let root = TempDir::new().unwrap();
+    let file = root.path().join("redirected.tar.gz");
+    fs::write(&file, gzip_member(&builder.into_inner().unwrap())).unwrap();
+    assert_eq!(
+        check_archive(&fs::File::open(&file).unwrap(), UPDATE_UNPACKED_MAX_BYTES)
+            .await
+            .unwrap_err()
+            .reason(),
+        ReplaceFailure::BadArchive
+    );
+}
+
+#[tokio::test]
 async fn refuses_an_archive_that_unpacks_to_more_than_the_cap() {
     let mut builder = tar::Builder::new(Vec::new());
     let mut header = tar::Header::new_gnu();

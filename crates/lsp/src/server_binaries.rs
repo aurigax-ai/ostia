@@ -401,7 +401,6 @@ impl ServerBinaries {
         if let Some(state) = &record.fetching {
             return state.done.clone();
         }
-        record.fetch_failure = None;
         let deps = self.deps.clone();
         let ext_id = source.ext_id.clone();
         let server_id = source.server.id.clone();

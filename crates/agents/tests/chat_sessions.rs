@@ -437,3 +437,34 @@ fn reduces_a_raw_session_to_what_the_ts_normalizer_keeps() {
     assert_eq!(got["edits"].as_array().unwrap().len(), 1);
     assert_eq!(got["edits"][0]["seq"], json!(2));
 }
+
+#[test]
+fn keeps_an_oversized_tool_part_by_clipping_its_strings_instead_of_dropping_it() {
+    let dir = TempDir::new().unwrap();
+    let store = store_in(dir.path());
+    let big = "x".repeat(100_000);
+    let tool = json!({
+        "type": "dynamic-tool",
+        "toolName": "read_file",
+        "toolCallId": "t1",
+        "state": "output-available",
+        "input": {"path": "/p/a"},
+        "output": {"text": big},
+    });
+    store
+        .save(&session(
+            "a",
+            1,
+            vec![
+                msg(1, "user", "read it"),
+                json!({"id": "m2", "role": "assistant", "parts": [tool]}),
+            ],
+        ))
+        .unwrap();
+    let got = store.get("a").unwrap();
+    let part = &got["messages"][1]["parts"][0];
+    assert_eq!(part["state"], json!("output-available"));
+    let text = part["output"]["text"].as_str().unwrap();
+    assert!(text.chars().count() < big.len());
+    assert!(text.ends_with("…[truncated]"));
+}

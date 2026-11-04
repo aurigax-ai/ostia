@@ -1081,7 +1081,7 @@ async fn starts_the_fetch_at_the_call_and_shares_one_fetch_between_callers() {
 }
 
 #[tokio::test]
-async fn clears_the_old_failure_when_a_new_fetch_starts() {
+async fn a_fetch_from_the_human_clears_the_old_failure() {
     let src = source("ext", "ls", download_run("tool", "1.0.0"));
     let key = key_of(&src);
     let rig = rig(vec![src]);

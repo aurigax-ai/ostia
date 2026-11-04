@@ -89,16 +89,31 @@ fn labels_each_scheme_light_or_dark_by_its_background() {
     }
 }
 
+fn built_in_ostia_themes() -> Vec<(String, Appearance, String)> {
+    let source = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../ui/src/theme_data.rs"),
+    )
+    .unwrap();
+    let pattern = static_regex(
+        r#"id: "([^"]+)",\s*name: "[^"]*",\s*appearance: Appearance::(Dark|Light),\s*color_scheme: "([^"]+)""#,
+    );
+    pattern
+        .captures_iter(&source)
+        .map(|found| {
+            let appearance = if &found[2] == "Light" {
+                Appearance::Light
+            } else {
+                Appearance::Dark
+            };
+            (found[1].to_owned(), appearance, found[3].to_owned())
+        })
+        .collect()
+}
+
 #[test]
 fn bundles_a_scheme_of_the_same_appearance_with_every_built_in_ostia_theme() {
-    let themes = [
-        ("adeberry", Appearance::Dark, "adeberry"),
-        ("one-dark-vivid", Appearance::Dark, "one-dark-vivid"),
-        ("instrument-night", Appearance::Dark, "instrument-night"),
-        ("dracula", Appearance::Dark, "dracula"),
-        ("oxocarbon", Appearance::Dark, "oxocarbon"),
-        ("ostia-light", Appearance::Light, "ostia-light"),
-    ];
+    let themes = built_in_ostia_themes();
+    assert!(themes.len() >= 6, "{themes:?}");
     let schemes = builtin_color_schemes();
     for (theme_id, appearance, color_scheme) in themes {
         let scheme = schemes

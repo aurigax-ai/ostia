@@ -109,7 +109,7 @@ fn real_or(path: &Path) -> PathBuf {
 }
 
 fn read_trimmed(path: &Path) -> Option<String> {
-    match read_regular_file(&fs::canonicalize(path).ok()?, GIT_FILE_MAX) {
+    match read_regular_file(path, GIT_FILE_MAX) {
         RegularFileRead::Ok(bytes) => Some(js_trim(&String::from_utf8_lossy(&bytes)).to_owned()),
         _ => None,
     }
@@ -123,39 +123,51 @@ fn resolve_from(base: &Path, raw: &str) -> PathBuf {
     }
 }
 
+fn configured_work_tree(git_dir: &Path) -> Option<String> {
+    let config = read_trimmed(&node_path::join(git_dir, "config"))?;
+    config.lines().find_map(|line| {
+        let (key, value) = line.split_once('=')?;
+        (js_trim(key) == "worktree").then(|| js_trim(value).to_owned())
+    })
+}
+
+fn inside_a_checkout_git_dir(git_dir: &Path) -> bool {
+    git_dir
+        .ancestors()
+        .any(|part| part.file_name().is_some_and(|name| name == ".git"))
+}
+
 fn points_back(git_dir: &Path, dot_git: &Path) -> bool {
-    let dot_git = real_or(dot_git);
     if let Some(back) = read_trimmed(&node_path::join(git_dir, "gitdir")) {
         return real_or(&resolve_from(git_dir, &back)) == dot_git;
     }
-    let Some(config) = read_trimmed(&node_path::join(git_dir, "config")) else {
-        return false;
-    };
-    let Some(work_tree) = config.lines().find_map(|line| {
-        let (key, value) = line.split_once('=')?;
-        (js_trim(key) == "worktree").then(|| js_trim(value).to_owned())
-    }) else {
-        return false;
-    };
-    dot_git
-        .parent()
-        .is_some_and(|dir| real_or(&resolve_from(git_dir, &work_tree)) == dir)
+    if let Some(work_tree) = configured_work_tree(git_dir) {
+        return dot_git
+            .parent()
+            .is_some_and(|dir| real_or(&resolve_from(git_dir, &work_tree)) == dir);
+    }
+    fs::symlink_metadata(git_dir).is_ok_and(|meta| meta.is_dir())
+        && !inside_a_checkout_git_dir(git_dir)
 }
 
 fn common_git_dir(dot_git: &Path) -> Option<PathBuf> {
-    if fs::metadata(dot_git).ok()?.is_dir() {
+    let kind = fs::symlink_metadata(dot_git).ok()?;
+    if kind.is_dir() {
         return Some(real_or(dot_git));
+    }
+    if !kind.is_file() {
+        return None;
     }
     let line = read_trimmed(dot_git)?;
     let raw = js_trim(line.strip_prefix("gitdir:")?);
     let parent = dot_git.parent().unwrap_or_else(|| Path::new("/"));
-    let git_dir = resolve_from(parent, raw);
+    let git_dir = real_or(&resolve_from(parent, raw));
     if !points_back(&git_dir, dot_git) {
         return None;
     }
     match read_trimmed(&node_path::join(&git_dir, "commondir")) {
         Some(common) => Some(real_or(&resolve_from(&git_dir, &common))),
-        None => Some(real_or(&git_dir)),
+        None => Some(git_dir),
     }
 }
 
