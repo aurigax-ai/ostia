@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 
 use serde_json::{Map, Value};
 
@@ -76,7 +75,7 @@ pub fn configuration_section<'a>(settings: &'a Value, section: Option<&str>) -> 
 }
 
 pub fn document_language_id(
-    ids: Option<&HashMap<String, String>>,
+    ids: Option<&[(String, String)]>,
     path: &str,
     language: &str,
 ) -> String {
@@ -87,18 +86,21 @@ pub fn document_language_id(
         .rsplit_once('/')
         .map_or(path, |(_, name)| name)
         .to_lowercase();
-    let best = ids
-        .keys()
-        .filter(|key| key.starts_with('.') && name.ends_with(&key.to_lowercase()))
-        .max_by(|left, right| {
-            utf16_len(left)
-                .cmp(&utf16_len(right))
-                .then_with(|| right.cmp(left))
-        });
+    let mut best: Option<&(String, String)> = None;
+    for entry in ids {
+        let (key, _) = entry;
+        if !key.starts_with('.') || !name.ends_with(&key.to_lowercase()) {
+            continue;
+        }
+        if best.is_none_or(|(held, _)| utf16_len(key) > utf16_len(held)) {
+            best = Some(entry);
+        }
+    }
     match best {
-        Some(key) => ids[key].clone(),
+        Some((_, id)) => id.clone(),
         None => ids
-            .get(language)
-            .map_or_else(|| language.to_owned(), Clone::clone),
+            .iter()
+            .find(|(key, _)| key == language)
+            .map_or_else(|| language.to_owned(), |(_, id)| id.clone()),
     }
 }

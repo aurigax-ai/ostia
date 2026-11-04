@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 
 use ostia_base::js::{js_trim, utf16_len};
 use serde_json::{Map, Value};
@@ -339,7 +338,7 @@ fn parse_languages(raw: Option<&Value>, place: &str) -> Result<Vec<String>, Stri
 fn parse_document_language_ids(
     raw: Option<&Value>,
     place: &str,
-) -> Result<Option<HashMap<String, String>>, String> {
+) -> Result<Option<Vec<(String, String)>>, String> {
     let Some(raw) = raw else {
         return Ok(None);
     };
@@ -351,7 +350,7 @@ fn parse_document_language_ids(
             "{place}.documentLanguageIds has more than {MAX_DOCUMENT_LANGUAGE_IDS} keys"
         ));
     }
-    let mut out = HashMap::new();
+    let mut out = Vec::new();
     for (key, value) in entries {
         let valid_key = if key.starts_with('.') {
             LANGUAGE_SERVER_SUFFIX_PATTERN.is_match(key)
@@ -367,7 +366,7 @@ fn parse_document_language_ids(
             .as_str()
             .filter(|id| LANGUAGE_SERVER_DOCUMENT_ID_PATTERN.is_match(id))
             .ok_or_else(|| format!("{place}.documentLanguageIds.{key} must be a language id"))?;
-        out.insert(key.clone(), id.to_owned());
+        out.push((key.clone(), id.to_owned()));
     }
     Ok(Some(out))
 }

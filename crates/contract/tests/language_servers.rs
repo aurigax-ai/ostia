@@ -1,7 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::collections::HashMap;
-
 use ostia_contract::capabilities::Capability;
 use ostia_contract::language_server_config::{
     configuration_section, document_language_id, overlay_settings, substitute_json,
@@ -690,7 +688,7 @@ fn answers_a_configuration_section_by_own_properties_only() {
     );
 }
 
-fn language_ids(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+fn language_ids(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
     pairs
         .iter()
         .map(|(key, id)| ((*key).to_owned(), (*id).to_owned()))
@@ -701,22 +699,36 @@ fn language_ids(pairs: &[(&str, &str)]) -> HashMap<String, String> {
 fn names_a_document_by_file_suffix_first_then_by_editor_language() {
     let ids = language_ids(&[("typescript", "typescript"), (".tsx", "typescriptreact")]);
     assert_eq!(
-        document_language_id(Some(&ids), "/p/App.TSX", "typescript"),
+        document_language_id(Some(ids.as_slice()), "/p/App.TSX", "typescript"),
         "typescriptreact"
     );
     assert_eq!(
-        document_language_id(Some(&ids), "/p/app.ts", "typescript"),
+        document_language_id(Some(ids.as_slice()), "/p/app.ts", "typescript"),
         "typescript"
     );
     assert_eq!(
         document_language_id(
-            Some(&language_ids(&[("shell", "shellscript")])),
+            Some(language_ids(&[("shell", "shellscript")]).as_slice()),
             "/p/a.sh",
             "shell"
         ),
         "shellscript"
     );
     assert_eq!(document_language_id(None, "/p/a.go", "go"), "go");
+}
+
+#[test]
+fn breaks_a_tie_between_suffixes_of_the_same_length_by_manifest_order() {
+    let first = language_ids(&[(".ts", "typescript"), (".TS", "tsx-upper")]);
+    assert_eq!(
+        document_language_id(Some(first.as_slice()), "a.ts", "ts"),
+        "typescript"
+    );
+    let reversed = language_ids(&[(".TS", "tsx-upper"), (".ts", "typescript")]);
+    assert_eq!(
+        document_language_id(Some(reversed.as_slice()), "a.ts", "ts"),
+        "tsx-upper"
+    );
 }
 
 #[test]

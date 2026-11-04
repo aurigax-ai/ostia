@@ -434,6 +434,34 @@ fn accepts_a_grammar_whose_rules_all_start_with_a_regular_expression_that_compil
 }
 
 #[test]
+fn accepts_the_rules_a_javascript_regular_expression_accepts() {
+    for rule in [
+        "(?=\\()",
+        "(['\"])\\1",
+        "[^]",
+        "{",
+        "\\z",
+        "[[:alpha:]]",
+        "(?<n>x)\\k<n>",
+    ] {
+        let grammar = json!({"tokenizer": {"root": [[rule, "x"]]}});
+        assert_eq!(
+            validate_monarch_grammar(&grammar).unwrap(),
+            grammar,
+            "{rule}"
+        );
+    }
+}
+
+#[test]
+fn refuses_the_rules_a_javascript_regular_expression_refuses() {
+    for rule in ["(?i)select", "(?P<n>x)", "a{2,1}", "(?<=a"] {
+        let grammar = json!({"tokenizer": {"root": [[rule, "x"]]}});
+        assert!(validate_monarch_grammar(&grammar).is_err(), "{rule}");
+    }
+}
+
+#[test]
 fn drops_prototype_keys_and_anything_that_is_not_plain_data() {
     let dirty: Value = serde_json::from_str(
         r#"{"__proto__":{"x":1},"constructor":"x","tokenizer":{"root":[["a","b"]],"prototype":[]}}"#,

@@ -207,6 +207,20 @@ fn formats_the_date_and_both_clocks_in_the_ui_locale() {
 }
 
 #[test]
+fn formats_the_date_and_the_twelve_hour_clock_with_the_locale_it_is_given() {
+    let mut german = inputs();
+    german.locale = "de".to_owned();
+    let chips = resolve_prompt_chips(&ids(&["date", "time12", "time24"]), &german, &[]);
+    assert_eq!(chips[0].text, "Mi., 30. Sept. 2026");
+    assert_eq!(chips[1].text, "02:05 PM");
+    assert_eq!(chips[2].text, "14:05");
+    let mut japanese = inputs();
+    japanese.locale = "ja".to_owned();
+    let chips = resolve_prompt_chips(&ids(&["time12"]), &japanese, &[]);
+    assert_eq!(chips[0].text, "午後02:05");
+}
+
+#[test]
 fn places_an_extension_chip_by_its_extension_chip_id_when_it_has_a_value() {
     let mut branch = shown("branch", "main", SidebarTone::Ok);
     branch.command = Some("branches".to_owned());

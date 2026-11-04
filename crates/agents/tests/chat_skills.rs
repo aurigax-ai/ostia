@@ -277,3 +277,62 @@ fn refuses_a_name_that_is_not_text_or_not_a_skill_name() {
         );
     }
 }
+
+#[test]
+fn reads_yaml_words_such_as_no_and_off_as_text() {
+    assert_eq!(
+        parse_skill_text("---\nname: no\ndescription: off\n---\n", "x"),
+        parsed("no", "off", "")
+    );
+    assert_eq!(
+        parse_skill_text("---\nname: yes\ndescription: Says on\n---\n", "x"),
+        parsed("yes", "Says on", "")
+    );
+}
+
+#[test]
+fn reads_block_and_multi_line_descriptions_and_refuses_broken_front_matter() {
+    assert_eq!(
+        parse_skill_text("---\nname: a\ndescription: >\n  one\n  two\n---\n", "x")
+            .map(|s| s.description),
+        Some("one two".to_owned())
+    );
+    assert_eq!(
+        parse_skill_text("---\nname: a\ndescription: one\n  two\n---\n", "x")
+            .map(|s| s.description),
+        Some("one two".to_owned())
+    );
+    assert_eq!(
+        parse_skill_text("---\nname: a\nname: b\ndescription: c\n---\n", "x"),
+        None
+    );
+    assert_eq!(
+        parse_skill_text("---\nname: a\ndescription: b: c\n---\n", "x"),
+        None
+    );
+    assert_eq!(
+        parse_skill_text("---\nname: a\ndescription: \"b\n---\n", "x"),
+        None
+    );
+}
+
+#[test]
+fn takes_the_fallback_name_from_the_last_segment_of_the_folder_path_as_given() {
+    let root = TempDir::new().unwrap();
+    fs::create_dir_all(root.path().join("sub")).unwrap();
+    fs::write(
+        root.path().join("SKILL.md"),
+        "---\nname: deploy\ndescription: ships\n---\n",
+    )
+    .unwrap();
+    assert_eq!(
+        names(&list_skills(&[root.path().join("sub").join("..")])),
+        ["deploy"]
+    );
+    fs::write(
+        root.path().join("sub").join("SKILL.md"),
+        "---\ndescription: ships\n---\n",
+    )
+    .unwrap();
+    assert!(list_skills(&[root.path().join("sub").join(".")]).is_empty());
+}

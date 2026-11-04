@@ -107,3 +107,21 @@ fn rounds_a_percent_just_below_half_down() {
         ["Session 0%"]
     );
 }
+
+#[test]
+fn names_the_reset_day_and_hour_in_the_locale_it_is_given() {
+    let week = usage(None, Some(window(18.2, NOW + 4 * DAY)), NOW);
+    assert_eq!(
+        usage_line_parts(&week, NOW, "zh-TW", UTC, &strings())[2],
+        "resets 週二"
+    );
+    assert_eq!(
+        usage_line_parts(&week, NOW, "de", UTC, &strings())[2],
+        "resets Di"
+    );
+    let soon = usage(None, Some(window(90.0, NOW + 3 * 60 * MIN)), NOW);
+    assert_eq!(
+        usage_line_parts(&soon, NOW, "de", UTC, &strings())[2],
+        "resets 15:00"
+    );
+}

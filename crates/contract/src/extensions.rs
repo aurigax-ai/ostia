@@ -35,7 +35,7 @@ pub enum ExtensionIcon {
     Refresh,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtensionCommandContribution {
     pub id: String,
@@ -80,13 +80,13 @@ pub struct PanelToolbarAction {
     pub title: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct PanelToolbarContribution {
     pub tabs: Vec<PanelToolbarTab>,
     pub actions: Vec<PanelToolbarAction>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct PanelToolbarState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tab: Option<String>,
@@ -100,7 +100,7 @@ pub struct PanelToolbarState {
     pub hidden: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PanelToolbarEntry {
     pub ext_id: String,
@@ -112,7 +112,7 @@ pub const INBOX_ITEMS_MAX: usize = 50;
 pub const INBOX_TEXT_MAX: usize = 500;
 pub const INBOX_ACTION_EVENT: &str = "inbox.action";
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InboxItem {
     pub id: String,
@@ -122,7 +122,7 @@ pub struct InboxItem {
     pub at: Number,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InboxEntry {
     pub ext_id: String,
@@ -144,7 +144,7 @@ pub struct InboxActionEvent {
     pub action: InboxAction,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ExtensionPanelContribution {
     pub title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -323,7 +323,7 @@ pub enum SidebarKind {
     Live,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtensionSidebarItem {
     pub ext_id: String,
@@ -794,7 +794,7 @@ pub enum WireRuntimeResult {
 
 pub const DIFF_TEXT_MAX: usize = 5 * 1024 * 1024;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct DiffContent {
     pub title: String,
     pub original: String,
@@ -817,7 +817,7 @@ pub enum TerminalPlace {
     Vertical,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenTerminalOptions {
     pub command: Vec<String>,
@@ -864,7 +864,7 @@ pub const AGENT_OFFER_TEXT_MAX: usize = 2000;
 pub const AGENT_OFFER_LABEL_MAX: usize = 120;
 pub const AGENT_PROMPT_MAX: usize = 16_000;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentOfferOptions {
     pub workspace_id: String,
@@ -889,7 +889,7 @@ pub enum AgentOfferResult {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunAgentOptions {
     pub workspace_id: String,

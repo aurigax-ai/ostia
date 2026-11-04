@@ -1,11 +1,14 @@
-use chrono::{DateTime, Datelike, FixedOffset, Timelike, Weekday};
+use chrono::{DateTime, FixedOffset};
 use ostia_base::js::js_round;
 use ostia_contract::claude_accounts::{AccountUsage, UsageWindow, percent_now};
 use ostia_contract::dict::fmt;
 use serde_json::json;
 
+use crate::locale_datetime::{Clock, HourDigits, clock_text, weekday_name};
+
 const WEEK_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+const INVALID_DATE: &str = "Invalid Date";
 const STALE_AFTER_MS: i64 = 30 * 60 * 1000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,57 +28,20 @@ pub fn weekly_pace(weekly: &UsageWindow, now: i64) -> i64 {
     share.clamp(0.0, 100.0) as i64
 }
 
-fn is_chinese(locale: &str) -> bool {
-    locale == "zh" || locale.starts_with("zh-")
-}
-
-fn weekday_name(weekday: Weekday, chinese: bool) -> &'static str {
-    match (weekday, chinese) {
-        (Weekday::Mon, false) => "Mon",
-        (Weekday::Tue, false) => "Tue",
-        (Weekday::Wed, false) => "Wed",
-        (Weekday::Thu, false) => "Thu",
-        (Weekday::Fri, false) => "Fri",
-        (Weekday::Sat, false) => "Sat",
-        (Weekday::Sun, false) => "Sun",
-        (Weekday::Mon, true) => "週一",
-        (Weekday::Tue, true) => "週二",
-        (Weekday::Wed, true) => "週三",
-        (Weekday::Thu, true) => "週四",
-        (Weekday::Fri, true) => "週五",
-        (Weekday::Sat, true) => "週六",
-        (Weekday::Sun, true) => "週日",
-    }
-}
-
-fn clock_text(hour: u32, minute: u32, chinese: bool) -> String {
-    let twelve = if hour.is_multiple_of(12) {
-        12
-    } else {
-        hour % 12
-    };
-    if chinese {
-        let period = if hour < 12 { "上午" } else { "下午" };
-        return format!("{period}{twelve}:{minute:02}");
-    }
-    let period = if hour < 12 { "AM" } else { "PM" };
-    format!("{twelve}:{minute:02} {period}")
-}
-
 fn reset_when(resets_at: i64, now: i64, locale: &str, utc_offset_seconds: i32) -> String {
     let (Some(offset), Some(instant)) = (
         FixedOffset::east_opt(utc_offset_seconds),
         DateTime::from_timestamp_millis(resets_at),
     ) else {
-        return "Invalid Date".to_owned();
+        return INVALID_DATE.to_owned();
     };
     let local = instant.with_timezone(&offset);
-    let chinese = is_chinese(locale);
-    if resets_at - now < DAY_MS {
-        clock_text(local.hour(), local.minute(), chinese)
+    let text = if resets_at - now < DAY_MS {
+        clock_text(locale, local.time(), Clock::Locale, HourDigits::Numeric)
     } else {
-        weekday_name(local.weekday(), chinese).to_owned()
-    }
+        weekday_name(locale, local.date_naive())
+    };
+    text.unwrap_or_else(|| INVALID_DATE.to_owned())
 }
 
 pub fn usage_line_parts(

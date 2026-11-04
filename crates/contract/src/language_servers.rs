@@ -224,7 +224,7 @@ pub struct LanguageServerContribution {
     pub name: String,
     pub languages: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub document_language_ids: Option<HashMap<String, String>>,
+    pub document_language_ids: Option<Vec<(String, String)>>,
     pub run: LanguageServerRun,
     pub root_markers: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

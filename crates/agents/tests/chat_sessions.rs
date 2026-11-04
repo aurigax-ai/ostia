@@ -182,7 +182,7 @@ fn trims_the_oldest_turns_of_a_session_over_its_cap_and_marks_it_trimmed() {
 }
 
 #[test]
-fn finds_how_many_turns_to_drop_without_measuring_the_session_once_per_turn() {
+fn trims_a_long_session_to_the_cap_and_starts_it_on_a_user_turn() {
     let dir = TempDir::new().unwrap();
     let store = store_with(dir.path(), |o| o.session_max_bytes = 20_000);
     let messages: Vec<Value> = (0..400)

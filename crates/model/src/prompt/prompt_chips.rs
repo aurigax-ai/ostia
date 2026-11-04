@@ -1,4 +1,4 @@
-use chrono::{NaiveDateTime, Timelike};
+use chrono::NaiveDateTime;
 use ostia_base::js::non_empty;
 use ostia_contract::extensions::SidebarTone;
 use ostia_contract::prompt_settings::{CoreChipId, PromptSettings, PromptStyle, separator_text};
@@ -6,6 +6,7 @@ use ostia_contract::pty_api::{
     OstiaPromptSpawn, PromptContext, PromptContextRequest, PromptSeparator,
 };
 
+use crate::locale_datetime::{Clock, HourDigits, clock_text, medium_date};
 use crate::terminal::blocks_store::CommandBlock;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -73,7 +74,6 @@ pub struct CoreChipInputs {
 }
 
 const CLOCK_CHIPS: [&str; 3] = ["date", "time12", "time24"];
-const NARROW_NO_BREAK_SPACE: char = '\u{202f}';
 
 pub fn contributed_chip_id(ext_id: &str, id: &str) -> String {
     format!("{ext_id}.{id}")
@@ -148,25 +148,12 @@ fn plain(text: Option<&str>, tooltip: Option<&str>) -> Option<ChipValue> {
     })
 }
 
-fn date_text(now: &NaiveDateTime) -> String {
-    now.format("%a, %b %d, %Y").to_string()
+fn date_text(now: &NaiveDateTime, locale: &str) -> Option<String> {
+    medium_date(locale, now.date())
 }
 
-fn time12_text(now: &NaiveDateTime) -> String {
-    let hour = match now.hour() % 12 {
-        0 => 12,
-        other => other,
-    };
-    let meridiem = if now.hour() < 12 { "AM" } else { "PM" };
-    format!(
-        "{hour:02}:{:02}{NARROW_NO_BREAK_SPACE}{meridiem}",
-        now.minute()
-    )
-}
-
-fn time24_text(now: &NaiveDateTime) -> String {
-    let hour = if now.hour() == 0 { 24 } else { now.hour() };
-    format!("{hour:02}:{:02}", now.minute())
+fn clock_chip_text(now: &NaiveDateTime, locale: &str, clock: Clock) -> Option<String> {
+    clock_text(locale, now.time(), clock, HourDigits::TwoDigit)
 }
 
 fn core_chip_value(id: CoreChipId, inputs: &CoreChipInputs) -> Option<ChipValue> {
@@ -185,9 +172,15 @@ fn core_chip_value(id: CoreChipId, inputs: &CoreChipInputs) -> Option<ChipValue>
         CoreChipId::Conda => plain(context.and_then(|c| c.conda_env.as_deref()), None),
         CoreChipId::Node => plain(context.and_then(|c| c.node_version.as_deref()), None),
         CoreChipId::Kube => plain(context.and_then(|c| c.kube_context.as_deref()), None),
-        CoreChipId::Date => plain(Some(&date_text(&inputs.now)), None),
-        CoreChipId::Time12 => plain(Some(&time12_text(&inputs.now)), None),
-        CoreChipId::Time24 => plain(Some(&time24_text(&inputs.now)), None),
+        CoreChipId::Date => plain(date_text(&inputs.now, &inputs.locale).as_deref(), None),
+        CoreChipId::Time12 => plain(
+            clock_chip_text(&inputs.now, &inputs.locale, Clock::Twelve).as_deref(),
+            None,
+        ),
+        CoreChipId::Time24 => plain(
+            clock_chip_text(&inputs.now, &inputs.locale, Clock::TwentyFour).as_deref(),
+            None,
+        ),
         CoreChipId::ExitCode => {
             let last = inputs.last_command?;
             Some(ChipValue {

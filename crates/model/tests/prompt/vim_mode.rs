@@ -258,3 +258,9 @@ fn keeps_the_caret_on_a_character_of_its_line() {
     assert_eq!(clamp_normal("ab\n\ncd", 3), 3);
     assert_eq!(clamp_normal("", 5), 0);
 }
+
+#[test]
+fn moves_vertically_from_the_first_caret_under_a_leading_newline_without_overflow() {
+    assert_eq!(run("j", "\nab", 0), result("\nab", 0, VimMode::Normal));
+    assert_eq!(run("k", "\nab", 0), result("\nab", 0, VimMode::Normal));
+}

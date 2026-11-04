@@ -274,7 +274,7 @@ fn repeat(count: usize, pos: usize, step: impl Fn(usize) -> usize) -> usize {
 
 fn vertical_target(text: &[u16], caret: usize, down: bool, count: usize) -> usize {
     let mut pos = caret;
-    let column = caret - line_start(text, caret);
+    let column = caret as i64 - line_start(text, caret) as i64;
     for _ in 0..count {
         if down {
             let end = line_end(text, pos);
@@ -291,7 +291,8 @@ fn vertical_target(text: &[u16], caret: usize, down: bool, count: usize) -> usiz
         }
     }
     let start = line_start(text, pos);
-    (start + column).min(last_column(text, start))
+    let wanted = usize::try_from(start as i64 + column).unwrap_or(0);
+    wanted.min(last_column(text, start))
 }
 
 fn motion_target(text: &[u16], caret: usize, motion: VimMotion, count: usize) -> usize {

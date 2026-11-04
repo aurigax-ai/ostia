@@ -344,7 +344,8 @@ pub fn parse_editor_languages(
 }
 
 fn compiles(source: &str) -> bool {
-    utf16_len(source) <= GRAMMAR_REGEX_MAX && Regex::new(&AT_NAME.replace_all(source, "x")).is_ok()
+    utf16_len(source) <= GRAMMAR_REGEX_MAX
+        && regress::Regex::new(&AT_NAME.replace_all(source, "x")).is_ok()
 }
 
 fn rule_regex(rule: &Value) -> Option<&Value> {

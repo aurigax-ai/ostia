@@ -5,6 +5,7 @@ pub mod git;
 pub mod ids;
 pub mod keyboard;
 pub mod layout;
+pub mod locale_datetime;
 pub mod panes;
 pub mod platform;
 pub mod prompt;

@@ -8,6 +8,8 @@ use ostia_contract::utf16_prefix::utf16_prefix;
 use regex::Regex;
 use serde_json::Value;
 
+use crate::skill_front_matter;
+
 pub const SKILL_DESCRIPTION_MAX: usize = 1024;
 pub const SKILL_FILE_MAX: usize = 256 * 1024;
 pub const SKILLS_MAX: usize = 128;
@@ -51,25 +53,15 @@ struct FoundSkill {
     path: PathBuf,
 }
 
-fn parse_front_matter(meta: &str) -> Option<serde_json::Map<String, Value>> {
-    let options = serde_saphyr::options! {
-        budget: serde_saphyr::budget! { max_aliases: 0 },
-    };
-    match serde_saphyr::from_str_with_options::<Value>(meta, options) {
-        Ok(Value::Object(fields)) => Some(fields),
-        _ => None,
-    }
-}
-
 pub fn parse_skill_text(text: &str, fallback_name: &str) -> Option<ParsedSkill> {
     let captures = FRONT_MATTER.captures(text)?;
     let whole = captures.get(0)?;
-    let fields = parse_front_matter(captures.get(1)?.as_str())?;
-    let name = match fields.get("name").and_then(Value::as_str) {
+    let fields = skill_front_matter::parse(captures.get(1)?.as_str())?;
+    let name = match fields.name.as_deref() {
         Some(name) => js_trim(name).to_owned(),
         None => fallback_name.to_owned(),
     };
-    let description = match fields.get("description").and_then(Value::as_str) {
+    let description = match fields.description.as_deref() {
         Some(description) => {
             let folded = SPACE_RUN.replace_all(description, " ");
             utf16_prefix(js_trim(&folded), SKILL_DESCRIPTION_MAX).to_owned()
@@ -90,6 +82,12 @@ fn is_real_dir(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok_and(|info| info.is_dir())
 }
 
+fn basename(dir: &Path) -> String {
+    let text = dir.to_string_lossy();
+    let trimmed = text.trim_end_matches('/');
+    trimmed.rsplit('/').next().unwrap_or("").to_owned()
+}
+
 fn read_skill_file(dir: &Path) -> Option<ParsedSkill> {
     let file = dir.join(SKILL_FILE);
     let info = fs::symlink_metadata(&file).ok()?;
@@ -97,8 +95,7 @@ fn read_skill_file(dir: &Path) -> Option<ParsedSkill> {
         return None;
     }
     let bytes = fs::read(&file).ok()?;
-    let fallback = dir.file_name()?.to_string_lossy();
-    parse_skill_text(&String::from_utf8_lossy(&bytes), &fallback)
+    parse_skill_text(&String::from_utf8_lossy(&bytes), &basename(dir))
 }
 
 fn skill_dirs(folder: &Path) -> Vec<PathBuf> {
