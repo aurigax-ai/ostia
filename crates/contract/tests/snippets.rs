@@ -660,6 +660,6 @@ fn cuts_a_file_stem_at_sixty_characters_and_drops_a_trailing_dash() {
     let before_dash = format!("{}-{}", "a".repeat(58), "b".repeat(10));
     assert_eq!(
         snippet_file_stem(&before_dash),
-        format!("{}-bb", "a".repeat(58))
+        format!("{}-b", "a".repeat(58))
     );
 }
