@@ -39,6 +39,17 @@ pub enum PresenceFailure {
     Unavailable,
 }
 
+impl PresenceFailure {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Cancelled => "cancelled",
+            Self::Failed => "failed",
+            Self::Timeout => "timeout",
+            Self::Unavailable => "unavailable",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PresenceHint {
     PolkitAgent,

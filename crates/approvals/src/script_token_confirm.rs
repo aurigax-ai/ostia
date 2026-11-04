@@ -89,7 +89,7 @@ impl ScriptTokenConfirm {
         let checking = self.check_user_presence(request);
         async move {
             match checking.await {
-                PresenceResult::Granted { .. } => Ok(()),
+                PresenceResult::Allowed { .. } => Ok(()),
                 PresenceResult::Refused { code, detail, .. } => Err(fail(format!(
                     "presence-{}: could not confirm it is you to {what} ({detail})",
                     code.name()

@@ -13,7 +13,7 @@ use ostia_contract::script_tokens::ScriptTokenScope;
 use parking_lot::Mutex;
 
 fn granted() -> PresenceResult {
-    PresenceResult::Granted {
+    PresenceResult::Allowed {
         via: PresenceVia::Confirm,
     }
 }
