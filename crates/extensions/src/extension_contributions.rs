@@ -148,7 +148,11 @@ impl<H: ExtensionContributionsHost> ExtensionContributions<H> {
                     .contributes
                     .completions
                     .filter(|text| !text.is_empty())?;
-                Some(dir_text(&node_path::join(&runtime.dir, &relative)))
+                let mut joined = dir_text(&node_path::join(&runtime.dir, &relative));
+                if relative.ends_with('/') && !joined.ends_with('/') {
+                    joined.push('/');
+                }
+                Some(joined)
             })
             .collect()
     }
