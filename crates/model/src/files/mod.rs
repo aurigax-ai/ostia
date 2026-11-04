@@ -1,4 +1,14 @@
+pub mod archive_problems;
+pub mod breadcrumb;
+pub mod disk_reload;
+pub mod editor_positions;
+pub mod editor_save;
 pub mod file_tree;
 pub mod home_dir;
 pub mod mermaid_image;
 pub mod pdf_text;
+pub mod pending_saves;
+pub mod portable_styles;
+pub mod remote_file_sync;
+pub mod text_match;
+pub mod viewer_choice;
