@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use ostia_contract::agent_resume::AgentResume;
 use ostia_contract::archive_paths::is_archive_path;
 use ostia_contract::remote_folders::is_remote_path;
 use ostia_workspaces::browser_device::BrowserDevice;
-use ostia_workspaces::stored_resume::{ResumeFailure, StoredResume};
+use ostia_workspaces::stored_resume::ResumeFailure;
 
 use super::tree::{all_panes, find_pane, same_nodes, same_tabs};
 use super::types::{
@@ -194,7 +195,7 @@ pub fn set_default_pane_titles(root: &LayoutNode, title: &str) -> LayoutNode {
     map_panes(root, |pane| with_default_title(pane, title))
 }
 
-pub fn set_pane_resume(root: &LayoutNode, pane_id: &str, resume: &StoredResume) -> LayoutNode {
+pub fn set_pane_resume(root: &LayoutNode, pane_id: &str, resume: &AgentResume) -> LayoutNode {
     map_pane(root, pane_id, |pane| {
         if pane.resume.as_ref() == Some(resume) && pane.resume_failed.is_none() {
             return pane.clone();
@@ -205,7 +206,7 @@ pub fn set_pane_resume(root: &LayoutNode, pane_id: &str, resume: &StoredResume) 
             let same_agent = next
                 .resume
                 .as_ref()
-                .is_some_and(|old| old.resume.agent == resume.resume.agent);
+                .is_some_and(|old| old.agent == resume.agent);
             if !same_agent {
                 next.keep_awake = false;
             }
@@ -217,13 +218,15 @@ pub fn set_pane_resume(root: &LayoutNode, pane_id: &str, resume: &StoredResume) 
 pub fn fail_pane_resume(
     root: &LayoutNode,
     pane_id: &str,
-    resume: &StoredResume,
+    resume: &AgentResume,
     exit_code: i64,
 ) -> LayoutNode {
     map_pane(root, pane_id, |pane| {
-        let Some(failed) = pane.resume.as_ref().filter(|current| {
-            current.resume.agent == resume.resume.agent && current.resume.id == resume.resume.id
-        }) else {
+        let Some(failed) = pane
+            .resume
+            .as_ref()
+            .filter(|current| current.agent == resume.agent && current.id == resume.id)
+        else {
             return pane.clone();
         };
         edited(pane, |next| {
@@ -259,7 +262,7 @@ pub fn set_pane_hibernated(root: &LayoutNode, pane_id: &str, hibernated: bool) -
             } else if let Some(cwd) = next
                 .resume
                 .as_ref()
-                .and_then(|resume| resume.resume.cwd.as_ref())
+                .and_then(|resume| resume.cwd.as_ref())
                 .filter(|cwd| !cwd.is_empty())
             {
                 next.spawn_dir = Some(cwd.clone());

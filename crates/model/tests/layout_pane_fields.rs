@@ -14,7 +14,6 @@ use ostia_model::layout::pane_fields::{
 use ostia_model::layout::tree::{create_pane, find_pane, split_of, tabs_of};
 use ostia_model::layout::types::{Direction, LayoutNode, PaneNode, SurfaceKind, TabNode};
 use ostia_workspaces::browser_device::{BrowserDevice, DeviceZoom};
-use ostia_workspaces::stored_resume::StoredResume;
 
 fn pane_of(ids: &mut IdMint, kind: SurfaceKind) -> LayoutNode {
     create_pane(ids, kind, None, None).into()
@@ -56,15 +55,12 @@ fn tab(node: &LayoutNode) -> TabNode {
     node.clone().into_tab().unwrap()
 }
 
-fn stored(agent: ResumableAgent, id: &str, cwd: Option<&str>) -> StoredResume {
-    StoredResume {
-        resume: AgentResume {
-            agent,
-            id: id.to_owned(),
-            cwd: cwd.map(str::to_owned),
-            args: Vec::new(),
-            typed: None,
-        },
+fn stored(agent: ResumableAgent, id: &str, cwd: Option<&str>) -> AgentResume {
+    AgentResume {
+        agent,
+        id: id.to_owned(),
+        cwd: cwd.map(str::to_owned),
+        args: Vec::new(),
         typed: None,
     }
 }
@@ -424,11 +420,11 @@ fn stays_when_the_same_agent_stores_a_new_session_and_drops_when_another_agent_s
     let same_agent = set_pane_resume(&kept, root.id(), &stored(ResumableAgent::Claude, "b", None));
     let same_pane = found(&same_agent, root.id());
     assert!(same_pane.keep_awake);
-    assert_eq!(same_pane.resume.as_ref().unwrap().resume.id, "b");
+    assert_eq!(same_pane.resume.as_ref().unwrap().id, "b");
     let other_agent = set_pane_resume(&kept, root.id(), &stored(ResumableAgent::Codex, "c", None));
     let other_pane = found(&other_agent, root.id());
     assert!(!other_pane.keep_awake);
-    let resume = &other_pane.resume.as_ref().unwrap().resume;
+    let resume = &other_pane.resume.as_ref().unwrap();
     assert_eq!(resume.agent, ResumableAgent::Codex);
     assert_eq!(resume.id, "c");
 }
@@ -488,7 +484,7 @@ fn wakes_in_the_folder_the_session_moved_to_after_the_token_was_refreshed() {
     let awake = set_pane_hibernated(&asleep, root.id(), false);
     let pane = found(&awake, root.id());
     assert_eq!(
-        pane.resume.as_ref().unwrap().resume.cwd.as_deref(),
+        pane.resume.as_ref().unwrap().cwd.as_deref(),
         Some("/w/t/wt1")
     );
     assert_eq!(pane.spawn_dir.as_deref(), Some("/w/t/wt1"));

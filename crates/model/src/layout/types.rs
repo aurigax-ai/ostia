@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
+use ostia_contract::agent_resume::AgentResume;
 use ostia_workspaces::browser_device::BrowserDevice;
-use ostia_workspaces::stored_resume::{ResumeFailure, StoredResume};
+use ostia_workspaces::stored_resume::ResumeFailure;
 
 pub use ostia_workspaces::PanePlacementZone as DropZone;
 pub use ostia_workspaces::workspace_snapshot::model::{PanePlacement, SplitDirection as Direction};
@@ -41,7 +42,7 @@ pub struct PaneNode {
     pub view_name: Option<String>,
     pub browser_profile: Option<BrowserProfile>,
     pub browser_device: Option<BrowserDevice>,
-    pub resume: Option<StoredResume>,
+    pub resume: Option<AgentResume>,
     pub hibernated: bool,
     pub keep_awake: bool,
     pub resume_pending: bool,

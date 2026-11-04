@@ -2,9 +2,10 @@ use serde::{Serialize, Serializer};
 
 use crate::PanePlacementZone;
 use crate::browser_device::BrowserDevice;
-use crate::stored_resume::{ResumeFailure, StoredResume};
+use crate::stored_resume::ResumeFailure;
 use crate::workspace_text::WorkspaceGroupColor;
 use ostia_base::js::JsNumber;
+use ostia_contract::agent_resume::AgentResume;
 
 pub fn is_false(value: &bool) -> bool {
     !*value
@@ -155,7 +156,7 @@ pub struct SnapshotPane {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub view_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub resume: Option<StoredResume>,
+    pub resume: Option<AgentResume>,
     #[serde(skip_serializing_if = "is_false")]
     pub agent_running: bool,
     #[serde(skip_serializing_if = "is_false")]

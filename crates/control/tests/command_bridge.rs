@@ -603,3 +603,17 @@ async fn open_terminal_in_window_gives_each_request_its_own_id() {
         .collect();
     assert_eq!(ids, ["term-1", "term-2"]);
 }
+
+#[test]
+fn builds_the_exec_and_open_terminal_futures_on_a_thread_with_no_runtime() {
+    let fx = fixture();
+    let exec = fx
+        .bridge
+        .exec_command(target(Some("w2")), "pane.list", None, false, None);
+    let open = fx
+        .bridge
+        .open_terminal_in_window(terminal_request(Some("w1"), None));
+    assert_eq!(fx.windows.commands.lock().len(), 1);
+    assert_eq!(fx.windows.terminals.lock().len(), 1);
+    drop((exec, open));
+}

@@ -53,6 +53,44 @@ pub struct QuestionContent {
     pub timeout_ms: Option<u64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PermissionAgent {
+    Claude,
+    Codex,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PermissionInfo {
+    pub agent: PermissionAgent,
+    pub tool: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionSource {
+    pub extension: String,
+    pub workspace_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionRequest {
+    pub id: String,
+    pub pane_id: String,
+    pub question: String,
+    pub context: String,
+    pub choices: Vec<String>,
+    pub mode: QuestionMode,
+    pub at: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permission: Option<PermissionInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<QuestionSource>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct QuestionReply {
     pub choices: Vec<usize>,

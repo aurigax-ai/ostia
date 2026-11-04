@@ -14,7 +14,6 @@ base64.workspace = true
 futures-util.workspace = true
 globset.workspace = true
 icu_collator.workspace = true
-ostia-approvals.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-terminal.workspace = true
@@ -29,5 +28,4 @@ url.workspace = true
 [dev-dependencies]
 base64 = { workspace = true }
 futures-util = { workspace = true }
-ostia-approvals = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }
