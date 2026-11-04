@@ -59,7 +59,7 @@ fn errors_of(result: McpDraftResult) -> Vec<McpDraftField> {
 
 fn server_of(result: McpDraftResult) -> McpServerSettings {
     match result {
-        McpDraftResult::Valid { server, .. } => server,
+        McpDraftResult::Valid { server, .. } => *server,
         McpDraftResult::Invalid { errors } => panic!("{errors:?}"),
     }
 }
@@ -97,7 +97,7 @@ fn builds_a_command_server_from_a_program_and_quoted_arguments() {
     assert_eq!(
         res,
         McpDraftResult::Valid {
-            server: McpServerSettings {
+            server: Box::new(McpServerSettings {
                 name: "fs".to_owned(),
                 enabled: true,
                 command: Some(strings(&["npx", "-y", "@scope/server fs"])),
@@ -105,7 +105,7 @@ fn builds_a_command_server_from_a_program_and_quoted_arguments() {
                 env: IndexMap::new(),
                 secrets: Vec::new(),
                 disabled_tools: Vec::new(),
-            },
+            }),
             secret_values: IndexMap::new(),
             removed_secrets: Vec::new(),
         }
@@ -203,7 +203,7 @@ fn keeps_the_name_switch_and_disabled_tools_when_editing_and_reports_removed_sec
     assert_eq!(
         res,
         McpDraftResult::Valid {
-            server: McpServerSettings {
+            server: Box::new(McpServerSettings {
                 name: "github".to_owned(),
                 enabled: false,
                 command: Some(strings(&["npx", "-y", "other"])),
@@ -211,7 +211,7 @@ fn keeps_the_name_switch_and_disabled_tools_when_editing_and_reports_removed_sec
                 env: map(&[("API_HOST", "x")]),
                 secrets: Vec::new(),
                 disabled_tools: strings(&["delete_repo"]),
-            },
+            }),
             secret_values: IndexMap::new(),
             removed_secrets: strings(&["GITHUB_TOKEN"]),
         }

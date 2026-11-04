@@ -75,7 +75,7 @@ pub enum McpDraftField {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum McpDraftResult {
     Valid {
-        server: McpServerSettings,
+        server: Box<McpServerSettings>,
         secret_values: IndexMap<String, String>,
         removed_secrets: Vec<String>,
     },
@@ -241,7 +241,7 @@ pub fn server_from_draft(
         Target::Url(url) => (None, Some(url)),
         Target::None => (None, None),
     };
-    let server = McpServerSettings {
+    let server = Box::new(McpServerSettings {
         name,
         enabled: original.is_none_or(|o| o.enabled),
         command,
@@ -251,7 +251,7 @@ pub fn server_from_draft(
         disabled_tools: original
             .map(|o| o.disabled_tools.clone())
             .unwrap_or_default(),
-    };
+    });
     let removed_secrets = original
         .map(|o| {
             o.secrets
