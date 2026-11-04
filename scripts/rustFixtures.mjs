@@ -42,6 +42,10 @@ export { checkCode } from './src/main/gateway/pairCheck'
 export { createChatSessionStore } from './src/main/chat/chatSessions'
 export { ChatToolGrants } from './src/main/chat/chatToolGrants'
 export { diffLines, diffWordsWithSpace } from 'diff'
+export { BUILTIN_COLOR_SCHEMES } from './src/renderer/lib/colorSchemes/builtinColorSchemes'
+export * as uiFonts from './src/renderer/lib/theme/uiFonts'
+export * as browserEditorSettings from './src/renderer/lib/settings/browserEditorSettings'
+export * as agentSchema from './src/renderer/lib/settings/agentSchema'
 `
 
 const rawPlugin = {
@@ -111,6 +115,10 @@ const {
   ChatToolGrants,
   diffLines,
   diffWordsWithSpace,
+  BUILTIN_COLOR_SCHEMES,
+  uiFonts,
+  browserEditorSettings,
+  agentSchema,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -991,3 +999,158 @@ writeFileSync(
     ),
   ])}\n`,
 )
+
+writeFileSync(join(out, 'color-schemes.json'), `${JSON.stringify(BUILTIN_COLOR_SCHEMES, null, 1)}\n`)
+
+const FONT_FAMILIES = [
+  'MesloLGS NF',
+  'Inter Variable',
+  'Evil"; } * {',
+  '  ',
+  '',
+  'a\\b<c>d{e}f;g',
+  '  Fira Code  ',
+  '日本語 Mono',
+  'Tab\tName',
+  '\u00a0Nbsp\u00a0',
+  '\ufeffBom',
+]
+const FONT_SETTINGS = [
+  { ui: { family: 'Inter Variable', size: 14, weight: 500 }, editor: { family: 'Bitstream Vera Sans Mono', size: 14, weight: 500 } },
+  { ui: { family: 'Geist Variable', size: 14, weight: 400 }, editor: { family: 'Geist Mono Variable', size: 13, weight: 400 } },
+  { ui: { family: '', size: 12.5, weight: 700 }, editor: { family: 'x"y', size: 9, weight: 100 } },
+]
+writeFileSync(
+  join(out, 'ui-fonts.json'),
+  `${JSON.stringify(
+    {
+      uiFallback: uiFonts.UI_FONT_FALLBACK,
+      codeFallback: { mac: uiFonts.codeFontFallback(true), other: uiFonts.codeFontFallback(false) },
+      terminalFallback: {
+        mac: uiFonts.terminalFontFallback(true),
+        other: uiFonts.terminalFontFallback(false),
+      },
+      stacks: FONT_FAMILIES.map((family) => ({
+        family,
+        ui: uiFonts.uiFontStack(family),
+        code: uiFonts.codeFontStack(family),
+        terminal: uiFonts.terminalFontStack(family),
+      })),
+      variables: FONT_SETTINGS.map((fonts) => ({ fonts, variables: uiFonts.uiFontVariables(fonts) })),
+    },
+    null,
+    1,
+  )}\n`,
+)
+
+const SEARCH_ENGINE_NAMES = browserEditorSettings.SEARCH_ENGINES
+const SEARCH_QUERIES = ['a b&c', 'x y', '', '日本語 🙂', "it's (ok)!*~-._", '100% {query}', 'a/b?c=d#e']
+const CUSTOM_TEMPLATES = [
+  '',
+  'https://s.test/?term={query}',
+  'ftp://s.test/{query}',
+  '{query}{query}',
+  'http://127.0.0.1:8080/{query}',
+  'https://example.com/s?q=',
+  'javascript:alert({query})',
+  'file:///tmp/{query}',
+  'https://[bad/{query}',
+  'HTTPS://Example.com/{query}',
+  'https://u:p@h.test/{query}',
+  'https://h.test/{query}/{query}',
+  ' https://h.test/{query}',
+  'https://h.test/ {query}',
+  'mailto:{query}',
+  'data:text/plain,{query}',
+  'http:/h.test/{query}',
+  'https:h.test/{query}',
+]
+const searchRows = []
+for (const engine of SEARCH_ENGINE_NAMES) {
+  for (const customSearchUrl of CUSTOM_TEMPLATES) {
+    for (const query of SEARCH_QUERIES) {
+      const settings = { searchEngine: engine, customSearchUrl, defaultZoom: 100, attachCaptureImage: true }
+      let url
+      try {
+        url = browserEditorSettings.searchUrl(settings, query)
+      } catch {
+        url = null
+      }
+      searchRows.push({ searchEngine: engine, customSearchUrl, query, url })
+    }
+  }
+}
+const ZOOM_INPUTS = [10, 49.5, 50, 50.5, 99.5, 100.5, 125.4, 125.5, 299.5, 300, 300.4, 999, -5, -0.4, 0, 1e308, 2.5, 3.5]
+const PARSE_BROWSER_INPUTS = [
+  null,
+  [],
+  'x',
+  1,
+  {},
+  { searchEngine: 'kagi', defaultZoom: 500, attachCaptureImage: false },
+  { searchEngine: 'nope', defaultZoom: 'big', attachCaptureImage: 1 },
+  { searchEngine: 'custom', customSearchUrl: 'https://s.test/{query}', defaultZoom: 49.5 },
+  { customSearchUrl: 5, defaultZoom: 1e308 },
+  { customSearchUrl: '', defaultZoom: -3, searchEngine: ['google'] },
+  { searchEngine: 'DuckDuckGo', defaultZoom: 150.5 },
+  { defaultZoom: null, attachCaptureImage: null },
+  { extra: true, searchEngine: 'bing' },
+]
+const PARSE_EDITOR_INPUTS = [
+  undefined,
+  null,
+  [],
+  'x',
+  {},
+  { tabSize: 3, wordWrap: 'bounded', autoSave: 'always' },
+  {
+    wordWrap: 'on',
+    lineNumbers: 'relative',
+    tabSize: 8,
+    insertSpaces: false,
+    autoSave: 'afterDelay',
+    formatOnSave: true,
+    openFilesIn: 'split',
+    theme: 'rose-pine',
+    diffLayout: 'inline',
+    diffIgnoreWhitespace: true,
+  },
+  { tabSize: '4', lineNumbers: 'RELATIVE', insertSpaces: 'no', formatOnSave: 1, diffIgnoreWhitespace: 'yes' },
+  { tabSize: 4.0, theme: '  ', diffLayout: 'sideBySide' },
+  { theme: 'x'.repeat(80) },
+  { theme: 'x'.repeat(81) },
+  { theme: ' padded ' },
+  { theme: null, openFilesIn: ['tab'] },
+  { autoSave: 'onFocusChange', lineNumbers: 'off', wordWrap: 'off', tabSize: 2 },
+]
+writeFileSync(
+  join(out, 'browser-editor-settings.json'),
+  `${JSON.stringify(
+    {
+      browserDefaults: browserEditorSettings.DEFAULT_BROWSER_SETTINGS,
+      editorDefaults: browserEditorSettings.DEFAULT_EDITOR_SETTINGS,
+      searchUrls: searchRows,
+      validTemplates: CUSTOM_TEMPLATES.map((template) => ({
+        template,
+        valid: browserEditorSettings.isValidSearchTemplate(template),
+      })),
+      zoom: ZOOM_INPUTS.map((input) => ({ input, output: browserEditorSettings.clampZoom(input) })),
+      zoomNonFinite: ['NaN', 'Infinity', '-Infinity'].map((input) => ({
+        input,
+        output: browserEditorSettings.clampZoom(Number(input)),
+      })),
+      browser: PARSE_BROWSER_INPUTS.map((input) => ({
+        input,
+        output: browserEditorSettings.parseBrowserSettings(input),
+      })),
+      editor: PARSE_EDITOR_INPUTS.map((input) => ({
+        input: input === undefined ? null : input,
+        output: browserEditorSettings.parseEditorSettings(input),
+      })),
+    },
+    null,
+    1,
+  )}\n`,
+)
+
+writeFileSync(join(out, 'agent-schema.json'), `${JSON.stringify(agentSchema, null, 1)}\n`)

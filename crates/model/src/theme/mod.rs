@@ -5,3 +5,4 @@ pub mod panel_font_faces;
 pub mod preview_theme;
 pub mod theme_choice;
 pub mod types;
+pub mod ui_fonts;

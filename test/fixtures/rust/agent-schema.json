@@ -1,0 +1,445 @@
+{
+ "actionsSchema": {
+  "type": "array",
+  "maxItems": 50,
+  "description": "Buttons and menu entries that run a palette command. Each also becomes a palette command \"action.<id>\" you can bind in keybindings. An action whose command needs a permission beyond the defaults asks before its first run.",
+  "items": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "title",
+    "command"
+   ],
+   "properties": {
+    "id": {
+     "type": "string",
+     "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+     "description": "Stable id, a-z 0-9 -."
+    },
+    "title": {
+     "type": "string",
+     "maxLength": 60,
+     "description": "Label and tooltip."
+    },
+    "command": {
+     "type": "string",
+     "description": "A palette command id (see ostia commands), e.g. \"pane.split\"."
+    },
+    "args": {
+     "type": "object",
+     "description": "Arguments for the command. Strings may use {cwd} (the pane folder) and {file} (the file an editor pane shows)."
+    },
+    "icon": {
+     "type": "string",
+     "enum": [
+      "lightning",
+      "play",
+      "terminal",
+      "globe",
+      "folder",
+      "file",
+      "git-branch",
+      "bug",
+      "rocket",
+      "sparkle",
+      "robot",
+      "code",
+      "book",
+      "gear",
+      "wrench",
+      "refresh",
+      "search",
+      "database",
+      "package",
+      "flask",
+      "eye",
+      "link",
+      "chat",
+      "checklist",
+      "broom"
+     ],
+     "description": "Icon. Default: lightning."
+    },
+    "in": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "enum": [
+       "paneHeader",
+       "tabMenu"
+      ]
+     },
+     "description": "Where it shows besides the palette: \"paneHeader\" (a button in each pane header), \"tabMenu\" (the pane tab right-click menu)."
+    },
+    "paneKinds": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "enum": [
+       "terminal",
+       "editor",
+       "browser",
+       "git",
+       "diff",
+       "view"
+      ]
+     },
+     "description": "Only show it on these pane kinds. Default: all."
+    }
+   }
+  }
+ },
+ "agentHostSchema": {
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+   "providers": {
+    "type": "array",
+    "description": "Models the Agent can use that you run yourself, through an OpenAI-compatible HTTP server (llama.cpp, vLLM, Ollama). Each entry is a key-less http(s) URL without credentials. Only you can change this; ostia settings set refuses it.",
+    "items": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "id",
+      "baseUrl",
+      "models"
+     ],
+     "properties": {
+      "id": {
+       "type": "string",
+       "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+      },
+      "name": {
+       "type": "string"
+      },
+      "baseUrl": {
+       "type": "string",
+       "description": "For example http://127.0.0.1:8080/v1"
+      },
+      "models": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "minItems": 1
+      }
+     }
+    }
+   }
+  }
+ },
+ "agentsSchema": {
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+   "autoResume": {
+    "type": "boolean",
+    "description": "Resume an agent session that was running when Ostia quit, at its pane's first idle prompt once the pane is visible. Only you can change this; ostia settings set refuses it. Default: false."
+   },
+   "trustWorkspaceFolders": {
+    "type": "boolean",
+    "description": "When Ostia resumes or starts Claude in a workspace folder, mark that folder trusted in Claude's own config (~/.claude.json) so Claude does not ask. This trusts the folder for Claude outside Ostia too. Never your home folder, scratch or sandboxed workspaces. Turning it off does not remove trust already given. Only you can change this; ostia settings set refuses it. Default: false."
+   },
+   "finishedHibernateMinutes": {
+    "type": "number",
+    "minimum": 0,
+    "maximum": 1440,
+    "description": "Minutes a worker agent that another agent started with ostia agent run may stay finished before Ostia hibernates its terminal. 0 turns it off. A kept-awake pane is never hibernated. Only you can change this; ostia settings set refuses it. Default: 10."
+   },
+   "hooks": {
+    "type": "object",
+    "additionalProperties": false,
+    "description": "Ostia’s integration for each agent CLI in new terminals. Turn one off if it clashes with your own hooks; that agent then runs untouched and reports no attention state or resume token on its own. Only you can change this, in Settings; agents cannot.",
+    "properties": {
+     "claude": {
+      "type": "boolean",
+      "description": "Run claude with the Ostia plugin (CLI skill, resume token, attention hooks). Default: true."
+     },
+     "codex": {
+      "type": "boolean",
+      "description": "Run interactive codex sessions with Ostia’s hooks (resume token, attention state, CLI context). Default: true."
+     },
+     "agy": {
+      "type": "boolean",
+      "description": "Install Ostia’s agy plugin (start signal, resume token, attention state). The plugin does nothing outside an Ostia pane. Default: true."
+     }
+    }
+   },
+   "hibernation": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "enabled": {
+      "type": "boolean",
+      "description": "Stop the shell of an idle, hidden agent terminal to save memory once more than maxLiveTerminals agents run. Only panes whose agent stored a resume token are hibernated; the scrollback is kept and Resume starts a fresh shell that runs the agent’s resume command. Default: false."
+     },
+     "idleSeconds": {
+      "type": "number",
+      "minimum": 5,
+      "maximum": 86400,
+      "description": "Seconds without output or input before an agent terminal may hibernate. Default: 600."
+     },
+     "maxLiveTerminals": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 64,
+      "description": "Agent terminals kept running before idle hidden ones hibernate. Default: 6."
+     }
+    }
+   }
+  }
+ },
+ "approvalsSchema": {
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+   "mode": {
+    "type": "string",
+    "enum": [
+     "ask",
+     "allow"
+    ],
+    "description": "When an agent needs a capability it lacks: \"ask\" holds the request and asks you in the pane (Allow once / Allow for this pane / Deny); \"allow\" lets it through and records it in the permission inbox. Destructive actions always ask. Only you can change this; agents cannot, and it never syncs. Default: ask."
+   }
+  }
+ },
+ "assistantSchema": {
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+   "chatHistory": {
+    "type": "boolean",
+    "description": "Save assistant chat sessions on this computer (never synced), so a chat pane reopens its last session and you can search, rename, export or delete past ones. Terminal output you add as context is stored only as the text that was sent. Off keeps chats in memory until Ostia quits. Only you can change this; ostia settings set refuses it. Default: true."
+   },
+   "mcpServers": {
+    "type": "array",
+    "description": "MCP servers the assistant chat can call tools from. Each one runs a program from an argv (never a shell) or connects to an http(s) URL. Every tool call asks you in the chat first. Tokens go in Settings → Assistant (stored encrypted, never here). Only you can change this; ostia settings set refuses it.",
+    "items": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "name"
+     ],
+     "properties": {
+      "name": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$"
+      },
+      "enabled": {
+       "type": "boolean"
+      },
+      "command": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "minItems": 1
+      },
+      "url": {
+       "type": "string"
+      },
+      "env": {
+       "type": "object",
+       "additionalProperties": {
+        "type": "string"
+       }
+      },
+      "secrets": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "description": "Names of environment variables (stdio) or headers (http) whose values are stored encrypted."
+      },
+      "disabledTools": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "skillFolders": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Absolute paths of skill folders (a folder with a SKILL.md, or a folder of them). The chat model sees each skill name and description and loads one when it needs it."
+   }
+  }
+ },
+ "capabilitiesSchema": {
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+   "grants": {
+    "type": "array",
+    "items": {
+     "type": "string",
+     "enum": [
+      "send-other-pane",
+      "type-other-pane",
+      "read-other-pane",
+      "kill-pane",
+      "all-workspaces",
+      "shell",
+      "destructive",
+      "phone",
+      "gateway",
+      "browse",
+      "settings-write",
+      "credentials"
+     ]
+    },
+    "description": "Elevated capabilities pre-granted to every pane (pane-scoped defaults already cover the rest). Human-edited only; restart Ostia to apply."
+   }
+  }
+ },
+ "managerSchema": {
+  "type": "object",
+  "additionalProperties": false,
+  "description": "The manager: one agent you start with `ostia <agent>` from a terminal outside Ostia. Only you can change this (Settings → Manager); agents cannot set it.",
+  "properties": {
+   "agents": {
+    "type": "object",
+    "description": "Presets for `ostia <name>` and for the workers the manager starts: a name mapped to the program and its arguments. claude and codex are built in; a preset with the same name replaces them.",
+    "additionalProperties": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1
+    }
+   },
+   "skills": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Absolute paths of skill folders (each with a SKILL.md) the manager gets besides its own guide. Workers never get these."
+   },
+   "allowInput": {
+    "type": "boolean",
+    "description": "Let the manager type into other panes, for example to answer a worker's permission prompt. Default: false."
+   },
+   "limits": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "maxWorkers": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64,
+      "description": "Default: 8."
+     },
+     "spawnsPer10Min": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 200,
+      "description": "Default: 20."
+     },
+     "busPerMinute": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 600,
+      "description": "Default: 60."
+     }
+    }
+   }
+  }
+ },
+ "playbooksSchema": {
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Slash commands you turn on for agents (Settings → Playbooks). A change reaches terminals opened afterwards. Your own playbooks and your edits sync with your other settings; which playbooks are on, and which texts you accepted on this computer, never do. Only you can change this, in Settings; agents cannot.",
+  "properties": {
+   "enabled": {
+    "type": "object",
+    "description": "Playbook name → on or off, on this computer only. A playbook not listed uses its default.",
+    "additionalProperties": {
+     "type": "boolean"
+    }
+   },
+   "accepted": {
+    "type": "object",
+    "description": "Playbook name → the text you accepted on this computer, only. A synced edit or own playbook whose text differs is not used until you accept it.",
+    "additionalProperties": {
+     "type": "string",
+     "maxLength": 8000
+    }
+   },
+   "edits": {
+    "type": "object",
+    "description": "Built-in playbook name → your edited text and the default it started from.",
+    "additionalProperties": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "text": {
+       "type": "string",
+       "maxLength": 8000
+      },
+      "from": {
+       "type": "string",
+       "description": "Hash of the default text you edited."
+      }
+     }
+    }
+   },
+   "own": {
+    "type": "object",
+    "description": "Your own playbooks by command name, at most 24.",
+    "additionalProperties": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "description": {
+       "type": "string",
+       "maxLength": 120
+      },
+      "text": {
+       "type": "string",
+       "maxLength": 8000
+      }
+     }
+    }
+   }
+  }
+ },
+ "privacySchema": {
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Only you can change this (Settings → Privacy); agents cannot set it.",
+  "properties": {
+   "redaction": {
+    "type": "object",
+    "additionalProperties": false,
+    "description": "Secret redaction. Text that leaves Ostia for an AI provider, or that it writes to disk (saved scrollback, the notification log, selection and pick reports), has detected secrets replaced with [redacted:<kind>]. The live terminal, the clipboard and your files are never changed.",
+    "properties": {
+     "enabled": {
+      "type": "boolean",
+      "description": "Default: true."
+     },
+     "patterns": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+       "type": "string",
+       "maxLength": 200
+      },
+      "description": "Your own patterns: regular expressions matched on one line at a time. No lookaround or backreferences, no repeated group that itself repeats or branches, at most one open-ended repeat (* + {n,}). A pattern that breaks a rule is ignored."
+     }
+    }
+   }
+  }
+ },
+ "trustedActionsSchema": {
+  "type": "array",
+  "items": {
+   "type": "string"
+  },
+  "description": "Actions you chose \"Run and trust\" for. Only you can change this; it never syncs."
+ }
+}

@@ -34,13 +34,16 @@ pub const ACTION_ICONS: [&str; 25] = [
     "broom",
 ];
 
-const PANE_KINDS: [&str; 6] = ["terminal", "editor", "browser", "git", "diff", "view"];
+pub(crate) const PANE_KINDS: [&str; 6] = ["terminal", "editor", "browser", "git", "diff", "view"];
+
+pub(crate) const ACTION_PLACES: [&str; 2] = ["paneHeader", "tabMenu"];
 
 pub const ACTION_TITLE_MAX: usize = 60;
 pub const ACTIONS_MAX: usize = 50;
 const ACTION_ARGS_MAX: usize = 4096;
 
-static ACTION_ID: LazyLock<Regex> = LazyLock::new(|| static_regex(r"^[a-z0-9][a-z0-9-]{0,39}$"));
+pub(crate) static ACTION_ID: LazyLock<Regex> =
+    LazyLock::new(|| static_regex(r"^[a-z0-9][a-z0-9-]{0,39}$"));
 static COMMAND_ID: LazyLock<Regex> =
     LazyLock::new(|| static_regex(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"));
 static CONTEXT_PLACEHOLDER: LazyLock<Regex> = LazyLock::new(|| static_regex(r"\{(cwd|file)\}"));

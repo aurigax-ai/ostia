@@ -1,0 +1,4366 @@
+{
+ "browserDefaults": {
+  "searchEngine": "google",
+  "customSearchUrl": "",
+  "defaultZoom": 100,
+  "attachCaptureImage": true
+ },
+ "editorDefaults": {
+  "wordWrap": "off",
+  "lineNumbers": "on",
+  "tabSize": 2,
+  "insertSpaces": true,
+  "autoSave": "off",
+  "formatOnSave": false,
+  "openFilesIn": "tab",
+  "theme": "match",
+  "diffLayout": "auto",
+  "diffIgnoreWhitespace": false
+ },
+ "searchUrls": [
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "{query}{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "{query}{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "{query}{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "{query}{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "{query}{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "{query}{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "{query}{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "mailto:{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "mailto:{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "mailto:{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "mailto:{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "mailto:{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "mailto:{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "mailto:{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "google",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "{query}{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "{query}{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "{query}{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "{query}{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "{query}{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "{query}{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "{query}{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "mailto:{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "mailto:{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "mailto:{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "mailto:{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "mailto:{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "mailto:{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "mailto:{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "a b&c",
+   "url": "https://duckduckgo.com/?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "x y",
+   "url": "https://duckduckgo.com/?q=x%20y"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "",
+   "url": "https://duckduckgo.com/?q="
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://duckduckgo.com/?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://duckduckgo.com/?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "duckduckgo",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://duckduckgo.com/?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "{query}{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "{query}{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "{query}{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "{query}{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "{query}{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "{query}{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "{query}{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "mailto:{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "mailto:{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "mailto:{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "mailto:{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "mailto:{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "mailto:{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "mailto:{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.bing.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "x y",
+   "url": "https://www.bing.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "",
+   "url": "https://www.bing.com/search?q="
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.bing.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.bing.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.bing.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "bing",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.bing.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "{query}{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "{query}{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "{query}{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "{query}{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "{query}{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "{query}{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "{query}{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "mailto:{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "mailto:{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "mailto:{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "mailto:{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "mailto:{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "mailto:{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "mailto:{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "a b&c",
+   "url": "https://kagi.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "x y",
+   "url": "https://kagi.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "",
+   "url": "https://kagi.com/search?q="
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://kagi.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://kagi.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://kagi.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "kagi",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://kagi.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "a b&c",
+   "url": "https://s.test/?term=a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "x y",
+   "url": "https://s.test/?term=x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "",
+   "url": "https://s.test/?term="
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "日本語 🙂",
+   "url": "https://s.test/?term=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://s.test/?term=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "100% {query}",
+   "url": "https://s.test/?term=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://s.test/?term={query}",
+   "query": "a/b?c=d#e",
+   "url": "https://s.test/?term=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "ftp://s.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "{query}{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "{query}{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "{query}{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "{query}{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "{query}{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "{query}{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "{query}{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "a b&c",
+   "url": "http://127.0.0.1:8080/a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "x y",
+   "url": "http://127.0.0.1:8080/x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "",
+   "url": "http://127.0.0.1:8080/"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "日本語 🙂",
+   "url": "http://127.0.0.1:8080/%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "http://127.0.0.1:8080/it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "100% {query}",
+   "url": "http://127.0.0.1:8080/100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http://127.0.0.1:8080/{query}",
+   "query": "a/b?c=d#e",
+   "url": "http://127.0.0.1:8080/a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://example.com/s?q=",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "javascript:alert({query})",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "file:///tmp/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://[bad/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "a b&c",
+   "url": "HTTPS://Example.com/a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "x y",
+   "url": "HTTPS://Example.com/x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "",
+   "url": "HTTPS://Example.com/"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "日本語 🙂",
+   "url": "HTTPS://Example.com/%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "HTTPS://Example.com/it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "100% {query}",
+   "url": "HTTPS://Example.com/100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "HTTPS://Example.com/{query}",
+   "query": "a/b?c=d#e",
+   "url": "HTTPS://Example.com/a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "a b&c",
+   "url": "https://u:p@h.test/a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "x y",
+   "url": "https://u:p@h.test/x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "",
+   "url": "https://u:p@h.test/"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https://u:p@h.test/%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://u:p@h.test/it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "100% {query}",
+   "url": "https://u:p@h.test/100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://u:p@h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://u:p@h.test/a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "a b&c",
+   "url": "https://h.test/a%20b%26c/a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "x y",
+   "url": "https://h.test/x%20y/x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "",
+   "url": "https://h.test//"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "日本語 🙂",
+   "url": "https://h.test/%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82/%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://h.test/it's%20(ok)!*~-._/it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "100% {query}",
+   "url": "https://h.test/100%25%20%7Bquery%7D/100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/{query}/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://h.test/a%2Fb%3Fc%3Dd%23e/a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "a b&c",
+   "url": " https://h.test/a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "x y",
+   "url": " https://h.test/x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "",
+   "url": " https://h.test/"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "日本語 🙂",
+   "url": " https://h.test/%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": " https://h.test/it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "100% {query}",
+   "url": " https://h.test/100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": " https://h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": " https://h.test/a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "a b&c",
+   "url": "https://h.test/ a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "x y",
+   "url": "https://h.test/ x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "",
+   "url": "https://h.test/ "
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "日本語 🙂",
+   "url": "https://h.test/ %E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://h.test/ it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "100% {query}",
+   "url": "https://h.test/ 100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https://h.test/ {query}",
+   "query": "a/b?c=d#e",
+   "url": "https://h.test/ a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "mailto:{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "mailto:{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "mailto:{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "mailto:{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "mailto:{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "mailto:{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "mailto:{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "a b&c",
+   "url": "https://www.google.com/search?q=a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "x y",
+   "url": "https://www.google.com/search?q=x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "",
+   "url": "https://www.google.com/search?q="
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "日本語 🙂",
+   "url": "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https://www.google.com/search?q=it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "100% {query}",
+   "url": "https://www.google.com/search?q=100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "data:text/plain,{query}",
+   "query": "a/b?c=d#e",
+   "url": "https://www.google.com/search?q=a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "a b&c",
+   "url": "http:/h.test/a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "x y",
+   "url": "http:/h.test/x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "",
+   "url": "http:/h.test/"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "http:/h.test/%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "http:/h.test/it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "100% {query}",
+   "url": "http:/h.test/100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "http:/h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "http:/h.test/a%2Fb%3Fc%3Dd%23e"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "a b&c",
+   "url": "https:h.test/a%20b%26c"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "x y",
+   "url": "https:h.test/x%20y"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "",
+   "url": "https:h.test/"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "日本語 🙂",
+   "url": "https:h.test/%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%99%82"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "it's (ok)!*~-._",
+   "url": "https:h.test/it's%20(ok)!*~-._"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "100% {query}",
+   "url": "https:h.test/100%25%20%7Bquery%7D"
+  },
+  {
+   "searchEngine": "custom",
+   "customSearchUrl": "https:h.test/{query}",
+   "query": "a/b?c=d#e",
+   "url": "https:h.test/a%2Fb%3Fc%3Dd%23e"
+  }
+ ],
+ "validTemplates": [
+  {
+   "template": "",
+   "valid": false
+  },
+  {
+   "template": "https://s.test/?term={query}",
+   "valid": true
+  },
+  {
+   "template": "ftp://s.test/{query}",
+   "valid": false
+  },
+  {
+   "template": "{query}{query}",
+   "valid": false
+  },
+  {
+   "template": "http://127.0.0.1:8080/{query}",
+   "valid": true
+  },
+  {
+   "template": "https://example.com/s?q=",
+   "valid": false
+  },
+  {
+   "template": "javascript:alert({query})",
+   "valid": false
+  },
+  {
+   "template": "file:///tmp/{query}",
+   "valid": false
+  },
+  {
+   "template": "https://[bad/{query}",
+   "valid": false
+  },
+  {
+   "template": "HTTPS://Example.com/{query}",
+   "valid": true
+  },
+  {
+   "template": "https://u:p@h.test/{query}",
+   "valid": true
+  },
+  {
+   "template": "https://h.test/{query}/{query}",
+   "valid": true
+  },
+  {
+   "template": " https://h.test/{query}",
+   "valid": true
+  },
+  {
+   "template": "https://h.test/ {query}",
+   "valid": true
+  },
+  {
+   "template": "mailto:{query}",
+   "valid": false
+  },
+  {
+   "template": "data:text/plain,{query}",
+   "valid": false
+  },
+  {
+   "template": "http:/h.test/{query}",
+   "valid": true
+  },
+  {
+   "template": "https:h.test/{query}",
+   "valid": true
+  }
+ ],
+ "zoom": [
+  {
+   "input": 10,
+   "output": 50
+  },
+  {
+   "input": 49.5,
+   "output": 50
+  },
+  {
+   "input": 50,
+   "output": 50
+  },
+  {
+   "input": 50.5,
+   "output": 51
+  },
+  {
+   "input": 99.5,
+   "output": 100
+  },
+  {
+   "input": 100.5,
+   "output": 101
+  },
+  {
+   "input": 125.4,
+   "output": 125
+  },
+  {
+   "input": 125.5,
+   "output": 126
+  },
+  {
+   "input": 299.5,
+   "output": 300
+  },
+  {
+   "input": 300,
+   "output": 300
+  },
+  {
+   "input": 300.4,
+   "output": 300
+  },
+  {
+   "input": 999,
+   "output": 300
+  },
+  {
+   "input": -5,
+   "output": 50
+  },
+  {
+   "input": -0.4,
+   "output": 50
+  },
+  {
+   "input": 0,
+   "output": 50
+  },
+  {
+   "input": 1e+308,
+   "output": 300
+  },
+  {
+   "input": 2.5,
+   "output": 50
+  },
+  {
+   "input": 3.5,
+   "output": 50
+  }
+ ],
+ "zoomNonFinite": [
+  {
+   "input": "NaN",
+   "output": 100
+  },
+  {
+   "input": "Infinity",
+   "output": 100
+  },
+  {
+   "input": "-Infinity",
+   "output": 100
+  }
+ ],
+ "browser": [
+  {
+   "input": null,
+   "output": {
+    "searchEngine": "google",
+    "customSearchUrl": "",
+    "defaultZoom": 100,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": [],
+   "output": {
+    "searchEngine": "google",
+    "customSearchUrl": "",
+    "defaultZoom": 100,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": "x",
+   "output": {
+    "searchEngine": "google",
+    "customSearchUrl": "",
+    "defaultZoom": 100,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": 1,
+   "output": {
+    "searchEngine": "google",
+    "customSearchUrl": "",
+    "defaultZoom": 100,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": {},
+   "output": {
+    "searchEngine": "google",
+    "customSearchUrl": "",
+    "defaultZoom": 100,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": {
+    "searchEngine": "kagi",
+    "defaultZoom": 500,
+    "attachCaptureImage": false
+   },
+   "output": {
+    "searchEngine": "kagi",
+    "customSearchUrl": "",
+    "defaultZoom": 300,
+    "attachCaptureImage": false
+   }
+  },
+  {
+   "input": {
+    "searchEngine": "nope",
+    "defaultZoom": "big",
+    "attachCaptureImage": 1
+   },
+   "output": {
+    "searchEngine": "google",
+    "customSearchUrl": "",
+    "defaultZoom": 100,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": {
+    "searchEngine": "custom",
+    "customSearchUrl": "https://s.test/{query}",
+    "defaultZoom": 49.5
+   },
+   "output": {
+    "searchEngine": "custom",
+    "customSearchUrl": "https://s.test/{query}",
+    "defaultZoom": 50,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": {
+    "customSearchUrl": 5,
+    "defaultZoom": 1e+308
+   },
+   "output": {
+    "searchEngine": "google",
+    "customSearchUrl": "",
+    "defaultZoom": 300,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": {
+    "customSearchUrl": "",
+    "defaultZoom": -3,
+    "searchEngine": [
+     "google"
+    ]
+   },
+   "output": {
+    "searchEngine": "google",
+    "customSearchUrl": "",
+    "defaultZoom": 50,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": {
+    "searchEngine": "DuckDuckGo",
+    "defaultZoom": 150.5
+   },
+   "output": {
+    "searchEngine": "google",
+    "customSearchUrl": "",
+    "defaultZoom": 151,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": {
+    "defaultZoom": null,
+    "attachCaptureImage": null
+   },
+   "output": {
+    "searchEngine": "google",
+    "customSearchUrl": "",
+    "defaultZoom": 100,
+    "attachCaptureImage": true
+   }
+  },
+  {
+   "input": {
+    "extra": true,
+    "searchEngine": "bing"
+   },
+   "output": {
+    "searchEngine": "bing",
+    "customSearchUrl": "",
+    "defaultZoom": 100,
+    "attachCaptureImage": true
+   }
+  }
+ ],
+ "editor": [
+  {
+   "input": null,
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": null,
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": [],
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": "x",
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": {},
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": {
+    "tabSize": 3,
+    "wordWrap": "bounded",
+    "autoSave": "always"
+   },
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": {
+    "wordWrap": "on",
+    "lineNumbers": "relative",
+    "tabSize": 8,
+    "insertSpaces": false,
+    "autoSave": "afterDelay",
+    "formatOnSave": true,
+    "openFilesIn": "split",
+    "theme": "rose-pine",
+    "diffLayout": "inline",
+    "diffIgnoreWhitespace": true
+   },
+   "output": {
+    "wordWrap": "on",
+    "lineNumbers": "relative",
+    "tabSize": 8,
+    "insertSpaces": false,
+    "autoSave": "afterDelay",
+    "formatOnSave": true,
+    "openFilesIn": "split",
+    "theme": "rose-pine",
+    "diffLayout": "inline",
+    "diffIgnoreWhitespace": true
+   }
+  },
+  {
+   "input": {
+    "tabSize": "4",
+    "lineNumbers": "RELATIVE",
+    "insertSpaces": "no",
+    "formatOnSave": 1,
+    "diffIgnoreWhitespace": "yes"
+   },
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": {
+    "tabSize": 4,
+    "theme": "  ",
+    "diffLayout": "sideBySide"
+   },
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 4,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "sideBySide",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": {
+    "theme": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": {
+    "theme": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": {
+    "theme": " padded "
+   },
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "padded",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": {
+    "theme": null,
+    "openFilesIn": [
+     "tab"
+    ]
+   },
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "on",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "off",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  },
+  {
+   "input": {
+    "autoSave": "onFocusChange",
+    "lineNumbers": "off",
+    "wordWrap": "off",
+    "tabSize": 2
+   },
+   "output": {
+    "wordWrap": "off",
+    "lineNumbers": "off",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "autoSave": "onFocusChange",
+    "formatOnSave": false,
+    "openFilesIn": "tab",
+    "theme": "match",
+    "diffLayout": "auto",
+    "diffIgnoreWhitespace": false
+   }
+  }
+ ]
+}

@@ -1,0 +1,28 @@
+pub mod builtin_color_schemes;
+
+mod adeberry;
+mod catppuccin_frappe;
+mod catppuccin_latte;
+mod catppuccin_macchiato;
+mod catppuccin_mocha;
+mod dracula;
+mod everforest_dark;
+mod everforest_light;
+mod github_dark;
+mod github_light;
+mod gruvbox_dark;
+mod gruvbox_light;
+mod instrument_night;
+mod kanagawa_wave;
+mod monokai_classic;
+mod nord;
+mod one_dark_vivid;
+mod one_half_light;
+mod ostia_light;
+mod oxocarbon;
+mod rose_ostia;
+mod rose_ostia_dawn;
+mod solarized_dark;
+mod solarized_light;
+mod tokyo_night;
+mod tokyo_night_day;
