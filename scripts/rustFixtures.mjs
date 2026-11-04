@@ -37,6 +37,8 @@ export * as agyIntegration from './src/main/terminal/agyIntegration'
 export * as gatewayDevices from './src/main/gateway/devices'
 export * as gatewayPairing from './src/main/gateway/pairing'
 export { checkCode } from './src/main/gateway/pairCheck'
+export { createChatSessionStore } from './src/main/chat/chatSessions'
+export { ChatToolGrants } from './src/main/chat/chatToolGrants'
 `
 
 const rawPlugin = {
@@ -100,6 +102,8 @@ const {
   gatewayDevices,
   gatewayPairing,
   checkCode,
+  createChatSessionStore,
+  ChatToolGrants,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -562,6 +566,81 @@ grantsKept.admit(join(grantsOutside, 'app.log'), grantsHuman)
 writeFileSync(join(out, 'open-file-grants-before.json'), withRootMarker(readFileSync(grantsFile)))
 grantsKept.admit(join(grantsOutside, 'other.log'), grantsHuman)
 writeFileSync(join(out, 'open-file-grants-after.json'), withRootMarker(readFileSync(grantsFile)))
+
+const chatBase = mkdtempSync(join(work, 'chat-'))
+const CHAT_SESSION_INPUT = {
+  id: 'chat-1',
+  workspaceId: 'w1',
+  title: '  Deploy   notes ',
+  createdAt: 1700000000000,
+  updatedAt: 1700000005000.5,
+  model: 'fake · big',
+  modelRef: { extId: 'assistant', provider: 'openai', model: 'gpt' },
+  messageCount: 99,
+  extra: 'dropped',
+  messages: [
+    {
+      id: 'm1',
+      role: 'user',
+      parts: [{ type: 'text', text: 'list é 日本語 😀 "q" \\ \t' }, { type: 'bogus!' }],
+      metadata: {
+        createdAt: 1,
+        model: ' m ',
+        stopped: true,
+        context: [{ kind: 'output', label: 'Output', text: 'ls' }],
+      },
+    },
+    { id: 'm0', role: 'system', parts: [], extra: 1 },
+    { id: 'bad', role: 'nobody', parts: [] },
+    {
+      id: 'm2',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'dynamic-tool',
+          toolName: 'edit_file',
+          toolCallId: 'e1',
+          state: 'output-available',
+          input: { path: '/home/u/p/a.ts' },
+          output: { added: 1, removed: 1 },
+        },
+        { type: 'reasoning', text: 'thinking' },
+        { type: 'text', text: 'done' },
+      ],
+    },
+  ],
+  edits: [
+    {
+      toolCallId: 'e1',
+      path: '/home/u/p/a.ts',
+      root: '/home/u/p',
+      existed: true,
+      outside: false,
+      symlink: false,
+      auto: true,
+      state: 'applied',
+      version: 'a'.repeat(64),
+      seq: 2.7,
+      decisions: ['accepted', 'rejected', 'bogus'],
+      before: 'old',
+      after: 'new',
+    },
+    { toolCallId: 'orphan', path: '/x', root: '/', state: 'applied', version: null, seq: 1 },
+  ],
+}
+writeFileSync(join(out, 'chat-session-input.json'), JSON.stringify(CHAT_SESSION_INPUT))
+createChatSessionStore({ dir: join(chatBase, 'sessions') }).save(CHAT_SESSION_INPUT)
+writeFileSync(
+  join(out, 'chat-session-saved.json'),
+  readFileSync(join(chatBase, 'sessions', 'chat-1.json')),
+)
+const chatGrantsFile = join(chatBase, 'data', 'chat-tool-grants.json')
+const chatGrants = new ChatToolGrants(chatGrantsFile)
+chatGrants.add('open_file')
+chatGrants.add('read-outside')
+writeFileSync(join(out, 'chat-tool-grants-before.json'), readFileSync(chatGrantsFile))
+chatGrants.add('mcp__fake__echo')
+writeFileSync(join(out, 'chat-tool-grants-after.json'), readFileSync(chatGrantsFile))
 
 const toHex = (bytes) => Buffer.from(bytes).toString('hex')
 const SELECTION_META = {

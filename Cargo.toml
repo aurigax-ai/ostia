@@ -27,6 +27,7 @@ ostia-fd = { path = "crates/fd" }
 ostia-control = { path = "crates/control" }
 ostia-model = { path = "crates/model" }
 ostia-park = { path = "crates/park" }
+ostia-privacy = { path = "crates/privacy" }
 ostia-rpc = { path = "crates/rpc" }
 ostia-testkit = { path = "crates/testkit" }
 ostia-testscript = { path = "crates/testscript" }
