@@ -665,7 +665,7 @@ async fn notes_a_spawn_failure_with_secrets_removed_and_the_text_cut_to_the_log_
     let run = bundled_run();
     let message = format!(
         "spawn failed password=hunter2 {}",
-        "x".repeat(2 * LSP_LOG_LINE_MAX)
+        "ab ".repeat(LSP_LOG_LINE_MAX)
     );
     *run.fakes.spawn_error.lock().unwrap() = Some(message.clone());
     assert_eq!(start_server(run.start(false)).await, None);
