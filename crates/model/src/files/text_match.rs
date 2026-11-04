@@ -49,6 +49,7 @@ fn class_escape(letter: char, in_class: bool) -> Option<String> {
         ('d', true) => DIGITS.to_owned(),
         ('w', true) => WORD.to_owned(),
         ('s', true) => space.to_owned(),
+        ('b', true) => r"\x08".to_owned(),
         ('b', false) => ASCII_WORD_BOUNDARY.to_owned(),
         ('B', false) => ASCII_NOT_WORD_BOUNDARY.to_owned(),
         _ => return None,

@@ -7,7 +7,6 @@ use ostia_model::ids::IdMint;
 use ostia_model::layout::tree::create_pane;
 use ostia_model::layout::types::{PaneNode, SurfaceKind};
 use ostia_model::terminal::blocks_store::{CommandBlock, LineAnchor};
-use ostia_workspaces::stored_resume::StoredResume;
 
 fn running(command: &str) -> CommandBlock {
     CommandBlock {
@@ -28,15 +27,12 @@ fn running(command: &str) -> CommandBlock {
     }
 }
 
-fn resume_of(agent: ResumableAgent, id: &str) -> StoredResume {
-    StoredResume {
-        resume: AgentResume {
-            agent,
-            id: id.to_owned(),
-            cwd: None,
-            args: Vec::new(),
-            typed: None,
-        },
+fn resume_of(agent: ResumableAgent, id: &str) -> AgentResume {
+    AgentResume {
+        agent,
+        id: id.to_owned(),
+        cwd: None,
+        args: Vec::new(),
         typed: None,
     }
 }

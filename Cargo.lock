@@ -5609,6 +5609,7 @@ dependencies = [
  "tokio",
  "unicode-segmentation",
  "uuid",
+ "x509-parser",
 ]
 
 [[package]]

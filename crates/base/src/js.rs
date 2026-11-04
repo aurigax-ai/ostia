@@ -52,6 +52,15 @@ pub fn js_trim(text: &str) -> &str {
     text.trim_matches(is_js_space)
 }
 
+pub fn js_round(value: f64) -> f64 {
+    let floor = value.floor();
+    if value - floor >= 0.5 {
+        floor + 1.0
+    } else {
+        floor
+    }
+}
+
 pub fn utf16_len(text: &str) -> usize {
     text.encode_utf16().count()
 }

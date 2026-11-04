@@ -1,8 +1,7 @@
 use std::sync::LazyLock;
 
 use ostia_base::js::{js_trim, static_regex};
-use ostia_contract::agent_resume::ResumableAgent;
-use ostia_workspaces::stored_resume::StoredResume;
+use ostia_contract::agent_resume::{AgentResume, ResumableAgent};
 use regex::Regex;
 
 use crate::attention::{AttentionState, PaneAttention};
@@ -13,7 +12,7 @@ use crate::terminal::blocks_store::CommandBlock;
 pub struct AgentSession {
     pub agent: ResumableAgent,
     pub title: Option<String>,
-    pub resume: Option<StoredResume>,
+    pub resume: Option<AgentResume>,
     pub command: String,
     pub cwd: Option<String>,
     pub started_at: i64,
@@ -62,7 +61,7 @@ pub fn agent_session(
         resume: pane
             .resume
             .as_ref()
-            .filter(|stored| stored.resume.agent == agent)
+            .filter(|stored| stored.agent == agent)
             .cloned(),
         command: running.command.clone(),
         cwd: running.cwd.clone(),

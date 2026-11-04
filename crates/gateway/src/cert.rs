@@ -9,12 +9,13 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use ostia_base::error::io_error;
 use ostia_base::{Error, Host, Result};
-use parking_lot::Mutex;
 use rcgen::{CertificateParams, DistinguishedName, DnType, KeyPair, PKCS_RSA_SHA256};
 use rustls_pki_types::CertificateDer;
 use rustls_pki_types::pem::PemObject;
 use sha2::{Digest, Sha256};
 use time::{Duration, OffsetDateTime};
+use tokio::sync::OnceCell;
+use x509_parser::parse_x509_certificate;
 
 const CERT_LIFETIME_MS: i64 = 10 * 365 * 24 * 60 * 60 * 1000;
 const COMMON_NAME: &str = "ostia-gateway";
@@ -41,7 +42,7 @@ impl fmt::Debug for GatewayCert {
 #[derive(Clone)]
 pub struct GatewayCerts {
     host: Host,
-    cached: Arc<Mutex<Option<GatewayCert>>>,
+    cached: Arc<OnceCell<GatewayCert>>,
 }
 
 fn invalid(path: &Path, reason: impl ToString) -> Error {
@@ -55,6 +56,7 @@ fn fingerprint_of(path: &Path, cert_pem: &str) -> Result<String> {
     let der = CertificateDer::from_pem_slice(cert_pem.as_bytes())
         .map_err(|source| invalid(path, source))?;
     let bytes: &[u8] = der.as_ref();
+    parse_x509_certificate(bytes).map_err(|source| invalid(path, source))?;
     Ok(format!(
         "sha256/{}",
         STANDARD.encode(Sha256::digest(bytes).as_slice())
@@ -126,18 +128,20 @@ impl GatewayCerts {
     pub fn for_host(host: Host) -> Self {
         Self {
             host,
-            cached: Arc::new(Mutex::new(None)),
+            cached: Arc::new(OnceCell::new()),
         }
     }
 
-    pub fn get(&self) -> Result<GatewayCert> {
-        let mut cached = self.cached.lock();
-        if let Some(found) = cached.as_ref() {
-            return Ok(found.clone());
-        }
-        let made = load_or_make(&self.host.app_data_dir().join("gateway"))?;
-        *cached = Some(made.clone());
-        Ok(made)
+    pub async fn get(&self) -> Result<GatewayCert> {
+        let dir = self.host.app_data_dir().join("gateway");
+        self.cached
+            .get_or_try_init(|| async move {
+                tokio::task::spawn_blocking(move || load_or_make(&dir))
+                    .await
+                    .map_err(|error| Error::Task(error.to_string()))?
+            })
+            .await
+            .cloned()
     }
 
     pub fn get_in(&self, dir: &Path) -> Result<GatewayCert> {

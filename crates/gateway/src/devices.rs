@@ -77,7 +77,8 @@ pub struct Device {
     pub device_id: String,
     pub name: String,
     pub pubkey: String,
-    pub token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
     pub caps: Vec<String>,
     pub created_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -258,8 +259,7 @@ fn text_of(entry: &Entries, key: &str) -> Option<String> {
     entry.get(key).and_then(Value::as_str).map(str::to_owned)
 }
 
-fn device_from(entry: &Entries) -> Option<Device> {
-    let token = text_of(entry, "token")?;
+fn device_from(entry: &Entries) -> Device {
     let caps = entry
         .get("caps")
         .and_then(Value::as_array)
@@ -268,24 +268,24 @@ fn device_from(entry: &Entries) -> Option<Device> {
                 .filter_map(|cap| cap.as_str().map(str::to_owned))
                 .collect()
         });
-    Some(Device {
+    Device {
         device_id: text_of(entry, "deviceId").unwrap_or_default(),
         name: text_of(entry, "name").unwrap_or_default(),
         pubkey: text_of(entry, "pubkey").unwrap_or_default(),
-        token,
+        token: text_of(entry, "token"),
         caps,
         created_at: text_of(entry, "createdAt").unwrap_or_default(),
         last_seen_at: text_of(entry, "lastSeenAt"),
         install_id: text_of(entry, "installId"),
         push: clean_push(entry.get("push")),
-    })
+    }
 }
 
 fn devices_of(store: &Entries) -> Vec<Device> {
     store
         .values()
         .filter_map(Value::as_object)
-        .filter_map(device_from)
+        .map(device_from)
         .collect()
 }
 
@@ -423,7 +423,10 @@ impl DeviceStore {
     pub fn verify_token(&self, token: &str) -> Option<Device> {
         let mut found = None;
         for device in devices_of(&self.load()) {
-            if same_bytes(device.token.as_bytes(), token.as_bytes()) {
+            let Some(stored) = device.token.as_deref() else {
+                continue;
+            };
+            if same_bytes(stored.as_bytes(), token.as_bytes()) {
                 found = Some(device);
             }
         }
@@ -438,7 +441,7 @@ impl DeviceStore {
         self.load()
             .get(device_id)
             .and_then(Value::as_object)
-            .and_then(device_from)
+            .map(device_from)
     }
 
     pub fn revoke(&self, device_id: &str) -> Result<bool> {
@@ -476,7 +479,7 @@ impl DeviceStore {
         let Some(entry) = entry_mut(&mut store, device_id) else {
             return Ok(GatewaySetCapResult::Refused(SetCapError::NotFound));
         };
-        let mut next: Vec<String> = device_from(entry).map_or_else(Vec::new, |device| device.caps);
+        let mut next: Vec<String> = device_from(entry).caps;
         if granted {
             if cap == "destructive" && !next.iter().any(|held| held == "command") {
                 return Ok(GatewaySetCapResult::Refused(SetCapError::RequiresCommand));

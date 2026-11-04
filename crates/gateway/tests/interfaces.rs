@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use ostia_gateway::interfaces::{InterfaceAddress, bind_addresses_of};
+use nix::net::if_::InterfaceFlags;
+use ostia_gateway::interfaces::{InterfaceAddress, bind_addresses_of, is_usable};
 use serde_json::{Value, json};
 
 fn info(address: &str, internal: bool) -> InterfaceAddress {
@@ -45,4 +46,14 @@ fn tsn_c43_lists_loopback_first_then_each_ipv4_of_this_machine_once() {
 fn tsn_c44_never_lists_0_0_0_0() {
     let ifaces = [interface("any", vec![info("0.0.0.0", false)])];
     assert_eq!(listed(&ifaces), json!([]));
+}
+
+#[test]
+fn skips_an_interface_that_is_up_but_not_running() {
+    assert!(is_usable(
+        InterfaceFlags::IFF_UP | InterfaceFlags::IFF_RUNNING
+    ));
+    assert!(!is_usable(InterfaceFlags::IFF_UP));
+    assert!(!is_usable(InterfaceFlags::IFF_RUNNING));
+    assert!(!is_usable(InterfaceFlags::empty()));
 }

@@ -813,3 +813,20 @@ fn reads_a_file_the_ts_store_wrote_and_writes_the_same_bytes_as_the_ts_store() {
         fs::read(fixture("gateway-devices-after.json")).unwrap()
     );
 }
+
+#[test]
+fn lists_an_entry_that_has_no_token_and_never_lets_it_authenticate() {
+    let (_dir, file) = file_in();
+    fs::write(
+        &file,
+        r#"{"dev_a":{"deviceId":"dev_a","name":"x","caps":[]}}"#,
+    )
+    .unwrap();
+    let store = DeviceStore::new(file);
+    let listed = store.list();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].device_id, "dev_a");
+    assert_eq!(listed[0].token, None);
+    assert!(store.get("dev_a").is_some());
+    assert!(store.verify_token("").is_none());
+}

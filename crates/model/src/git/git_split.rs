@@ -1,4 +1,4 @@
-use ostia_base::js::js_number_text;
+use ostia_base::js::{js_number_text, js_round};
 
 const SPLIT_KEY_STEP: f64 = 16.0;
 const SPLIT_PAGE_STEP: f64 = 64.0;
@@ -23,15 +23,6 @@ fn js_min(a: f64, b: f64) -> f64 {
         f64::NAN
     } else {
         a.min(b)
-    }
-}
-
-fn js_round(value: f64) -> f64 {
-    let floor = value.floor();
-    if value - floor >= 0.5 {
-        floor + 1.0
-    } else {
-        floor
     }
 }
 

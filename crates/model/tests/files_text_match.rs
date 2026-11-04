@@ -193,3 +193,24 @@ fn one_matcher_gives_the_same_answer_for_each_line() {
     assert!(matcher.find_all("xyz").is_empty());
     assert!(matcher.find_all("").is_empty());
 }
+
+#[test]
+fn a_backspace_escape_inside_a_class_matches_the_backspace_character() {
+    let regex = MatchOptions {
+        regex: true,
+        ..OPTS
+    };
+    let matcher = text_matcher(r"[\b]", &regex).unwrap();
+    assert_eq!(matcher.find_all("a\u{8}b"), [(1, 2)]);
+    assert_eq!(matcher.find_all("ab"), []);
+}
+
+#[test]
+fn refuses_the_javascript_patterns_the_regex_crate_cannot_run() {
+    let regex = MatchOptions {
+        regex: true,
+        ..OPTS
+    };
+    assert!(text_matcher("foo(?=bar)", &regex).is_none());
+    assert!(text_matcher(r"(a)\1", &regex).is_none());
+}

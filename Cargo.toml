@@ -81,6 +81,7 @@ unicode-segmentation = "1"
 url = "2"
 uuid = { version = "1", features = ["v4"] }
 writeable = "0.6"
+x509-parser = "0.18"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -43,6 +43,10 @@ pub fn bind_addresses_of(ifaces: &[(String, Vec<InterfaceAddress>)]) -> Vec<Gate
     loopback.into_iter().chain(other).collect()
 }
 
+pub fn is_usable(flags: InterfaceFlags) -> bool {
+    flags.contains(InterfaceFlags::IFF_UP | InterfaceFlags::IFF_RUNNING)
+}
+
 fn system_interfaces() -> Vec<(String, Vec<InterfaceAddress>)> {
     let Ok(entries) = getifaddrs() else {
         return Vec::new();
@@ -50,6 +54,9 @@ fn system_interfaces() -> Vec<(String, Vec<InterfaceAddress>)> {
     let mut order: Vec<String> = Vec::new();
     let mut by_name: BTreeMap<String, Vec<InterfaceAddress>> = BTreeMap::new();
     for entry in entries {
+        if !is_usable(entry.flags) {
+            continue;
+        }
         let Some(address) = entry.address else {
             continue;
         };

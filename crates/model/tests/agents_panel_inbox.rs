@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use ostia_approvals::asks::{ApprovalRequest, QuestionRequest};
+use ostia_contract::approvals::ApprovalRequest;
+use ostia_contract::questions::{QuestionMode, QuestionRequest};
 use ostia_model::agents::needs_you::{NeedsYouItem, PaneWhere};
 use ostia_model::agents::panel_inbox::{
     InboxApproval, InboxCard, InboxInput, InboxNote, card_pane, inbox_cards, waiting_count,
@@ -13,9 +14,11 @@ fn question(id: &str, pane_id: &str, at: i64) -> QuestionRequest {
         question: id.to_owned(),
         context: String::new(),
         choices: Vec::new(),
+        mode: QuestionMode::Text,
         at,
+        expires_at: None,
         permission: None,
-        source_workspace: None,
+        source: None,
     }
 }
 
@@ -24,7 +27,9 @@ fn approval(id: &str, workspace_id: &str, at: i64) -> InboxApproval {
         approval: ApprovalRequest {
             id: id.to_owned(),
             kind: None,
+            subject: None,
             pane_id: "pa".to_owned(),
+            workspace_id: workspace_id.to_owned(),
             caps: Vec::new(),
             action: id.to_owned(),
             detail: String::new(),

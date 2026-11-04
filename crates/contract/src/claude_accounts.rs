@@ -1,3 +1,5 @@
+use ostia_base::js::js_round;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UsageWindow {
     pub percent: f64,
@@ -16,5 +18,5 @@ pub fn percent_now(window: Option<&UsageWindow>, now: i64) -> Option<i64> {
     if window.resets_at <= now {
         return Some(0);
     }
-    Some((window.percent + 0.5).floor() as i64)
+    Some(js_round(window.percent) as i64)
 }

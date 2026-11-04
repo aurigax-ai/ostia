@@ -167,11 +167,11 @@ fn refuses_a_stored_certificate_that_is_not_a_certificate_and_leaves_the_files_a
     assert_eq!(fs::read(gateway.join("key.pem")).unwrap(), key_before);
 }
 
-#[test]
-fn keeps_the_certificate_of_the_app_folder_in_memory_after_the_first_call() {
+#[tokio::test]
+async fn keeps_the_certificate_of_the_app_folder_in_memory_after_the_first_call() {
     let dir = TempDir::new().unwrap();
     let certs = GatewayCerts::for_host(host_in(&dir));
-    let first = certs.get().unwrap();
+    let first = certs.get().await.unwrap();
     assert!(
         dir.path()
             .join("ostia-rs")
@@ -180,7 +180,7 @@ fn keeps_the_certificate_of_the_app_folder_in_memory_after_the_first_call() {
             .exists()
     );
     fs::remove_dir_all(dir.path().join("ostia-rs").join("gateway")).unwrap();
-    let second = certs.get().unwrap();
+    let second = certs.get().await.unwrap();
     assert_eq!(second, first);
     assert!(!dir.path().join("ostia-rs").join("gateway").exists());
 }
@@ -196,11 +196,36 @@ fn does_not_keep_the_certificate_of_a_folder_it_was_given() {
     assert_ne!(second.fingerprint, first.fingerprint);
 }
 
-#[test]
-fn does_not_let_a_folder_it_was_given_fill_the_memory_of_the_app_folder() {
+#[tokio::test]
+async fn does_not_let_a_folder_it_was_given_fill_the_memory_of_the_app_folder() {
     let dir = TempDir::new().unwrap();
     let certs = GatewayCerts::for_host(host_in(&dir));
     let other = certs.get_in(&dir.path().join("elsewhere")).unwrap();
-    let app = certs.get().unwrap();
+    let app = certs.get().await.unwrap();
     assert_ne!(app.fingerprint, other.fingerprint);
+}
+
+#[test]
+fn refuses_a_stored_certificate_whose_envelope_is_right_but_whose_bytes_are_not_x509() {
+    let dir = TempDir::new().unwrap();
+    made(&dir);
+    let gateway = dir.path().join("gateway");
+    fs::write(
+        gateway.join("cert.pem"),
+        "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n",
+    )
+    .unwrap();
+    assert!(
+        GatewayCerts::for_host(host_in(&dir))
+            .get_in(&gateway)
+            .is_err()
+    );
+}
+
+#[tokio::test]
+async fn makes_one_pair_when_two_callers_ask_at_once() {
+    let dir = TempDir::new().unwrap();
+    let certs = GatewayCerts::for_host(host_in(&dir));
+    let (first, second) = tokio::join!(certs.get(), certs.get());
+    assert_eq!(first.unwrap(), second.unwrap());
 }

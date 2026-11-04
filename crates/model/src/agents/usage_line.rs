@@ -1,4 +1,5 @@
 use chrono::{DateTime, Datelike, FixedOffset, Timelike, Weekday};
+use ostia_base::js::js_round;
 use ostia_contract::claude_accounts::{AccountUsage, UsageWindow, percent_now};
 use ostia_contract::dict::fmt;
 use serde_json::json;
@@ -15,16 +16,12 @@ pub struct UsageLineStrings {
     pub usage_resets: String,
 }
 
-fn round_half_up(value: f64) -> f64 {
-    (value + 0.5).floor()
-}
-
 pub fn weekly_pace(weekly: &UsageWindow, now: i64) -> i64 {
     if weekly.resets_at <= now {
         return 0;
     }
     let elapsed = WEEK_MS - (weekly.resets_at - now);
-    let share = round_half_up(elapsed as f64 / WEEK_MS as f64 * 100.0);
+    let share = js_round(elapsed as f64 / WEEK_MS as f64 * 100.0);
     share.clamp(0.0, 100.0) as i64
 }
 

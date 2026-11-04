@@ -94,3 +94,16 @@ fn marks_an_answer_older_than_half_an_hour() {
     assert!(!is_stale(&usage(None, None, NOW - 30 * MIN), NOW));
     assert!(is_stale(&usage(None, None, NOW - 31 * MIN), NOW));
 }
+
+#[test]
+fn rounds_a_percent_just_below_half_down() {
+    let usage = usage(
+        Some(window(0.499_999_999_999_999_94, NOW + 60 * MIN)),
+        None,
+        NOW,
+    );
+    assert_eq!(
+        usage_line_parts(&usage, NOW, "en", UTC, &strings()),
+        ["Session 0%"]
+    );
+}

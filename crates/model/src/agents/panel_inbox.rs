@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use ostia_approvals::asks::{ApprovalRequest, QuestionRequest};
+use ostia_contract::approvals::ApprovalRequest;
+use ostia_contract::questions::QuestionRequest;
 
 use crate::agents::needs_you::{NeedsYouItem, PaneWhere, needs_you_items};
 
