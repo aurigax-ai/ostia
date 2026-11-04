@@ -134,7 +134,7 @@ fn reads_a_folder_of_skills_and_a_single_skill_folder() {
         names(&list_skills(&folders)),
         vec!["deploy", "review", "single"]
     );
-    let loaded = load_skill(&[folder.clone()], &json!("review"));
+    let loaded = load_skill(std::slice::from_ref(&folder), &json!("review"));
     assert_eq!(
         loaded,
         SkillLoadResult::Loaded {
@@ -144,7 +144,7 @@ fn reads_a_folder_of_skills_and_a_single_skill_folder() {
         }
     );
     assert_eq!(
-        load_skill(&[folder.clone()], &json!("nope")),
+        load_skill(std::slice::from_ref(&folder), &json!("nope")),
         failed("unknown-skill")
     );
     assert_eq!(load_skill(&[folder], &json!("../x")), failed("invalid"));
@@ -171,9 +171,12 @@ fn skips_symlinked_skill_folders_and_files_and_oversized_files() {
         &"x".repeat(SKILL_FILE_MAX),
     );
     skill(&folder.join("ok"), "ok", "Fine", "Do the thing.");
-    assert_eq!(names(&list_skills(&[folder.clone()])), vec!["ok"]);
     assert_eq!(
-        load_skill(&[folder.clone()], &json!("linked")),
+        names(&list_skills(std::slice::from_ref(&folder))),
+        vec!["ok"]
+    );
+    assert_eq!(
+        load_skill(std::slice::from_ref(&folder), &json!("linked")),
         failed("unknown-skill")
     );
     let linked_folder = base.path().join("linked-root");
@@ -187,7 +190,7 @@ fn lists_the_name_description_and_path_of_each_skill() {
     let folder = base.path().join("skills");
     skill(&folder.join("deploy"), "deploy", "Ship the app", "Body.");
     assert_eq!(
-        list_skills(&[folder.clone()]),
+        list_skills(std::slice::from_ref(&folder)),
         vec![SkillSummary {
             name: "deploy".to_owned(),
             description: "Ship the app".to_owned(),
@@ -268,7 +271,7 @@ fn refuses_a_name_that_is_not_text_or_not_a_skill_name() {
     ];
     for name in cases {
         assert_eq!(
-            load_skill(&[folder.clone()], &name),
+            load_skill(std::slice::from_ref(&folder), &name),
             failed("invalid"),
             "{name}"
         );
