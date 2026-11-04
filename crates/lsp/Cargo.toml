@@ -25,11 +25,14 @@ tokio-util.workspace = true
 workspace = true
 
 [dev-dependencies]
+flate2.workspace = true
 futures-util.workspace = true
+hex.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
 ostia-diagnostics.workspace = true
 ostia-files.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
