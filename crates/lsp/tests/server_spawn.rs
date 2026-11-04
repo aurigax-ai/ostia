@@ -696,7 +696,7 @@ async fn wraps_the_command_in_the_sandbox_and_runs_the_shell_with_the_sandbox_en
             run.ext, run.ext
         )
     );
-    assert_eq!(wraps[0].2, [run.ext.clone()]);
+    assert_eq!(wraps[0].2, std::slice::from_ref(&run.ext));
     let spawned = run.spawned();
     assert_eq!(spawned[0].command, "/bin/sh");
     assert_eq!(spawned[0].args, ["-c", "wrapped-command"]);
