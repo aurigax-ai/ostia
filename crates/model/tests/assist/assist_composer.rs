@@ -5,6 +5,7 @@ use ostia_model::assist::assist_composer::{
     ComposerMode, ComposerState, DiffPart, LatestRequest, composer_mode_for, natural_command_query,
     word_diff,
 };
+use tokio::runtime::Handle;
 
 fn base() -> ComposerState {
     ComposerState {
@@ -166,7 +167,7 @@ fn counts_offsets_in_utf16_units_like_the_corrected_text_in_the_editor() {
 
 #[tokio::test(start_paused = true)]
 async fn aborts_the_previous_request_and_only_runs_the_latest_after_the_delay() {
-    let latest = LatestRequest::new();
+    let latest = LatestRequest::new(Handle::current());
     let seen = Arc::new(Mutex::new(Vec::new()));
     for value in ["first", "second"] {
         let seen = Arc::clone(&seen);
@@ -185,7 +186,7 @@ async fn aborts_the_previous_request_and_only_runs_the_latest_after_the_delay() 
 
 #[tokio::test(start_paused = true)]
 async fn runs_nothing_after_cancel_and_nothing_before_the_delay() {
-    let latest = LatestRequest::new();
+    let latest = LatestRequest::new(Handle::current());
     let ran = Arc::new(Mutex::new(0));
     let counter = Arc::clone(&ran);
     latest.run(Duration::from_millis(100), move |_signal| async move {
@@ -202,7 +203,7 @@ async fn runs_nothing_after_cancel_and_nothing_before_the_delay() {
 
 #[tokio::test(start_paused = true)]
 async fn cancel_aborts_the_signal_of_a_request_that_already_started() {
-    let latest = LatestRequest::new();
+    let latest = LatestRequest::new(Handle::current());
     let seen = Arc::new(Mutex::new(Vec::new()));
     let sink = Arc::clone(&seen);
     latest.run(Duration::from_millis(10), move |signal| async move {
@@ -250,4 +251,29 @@ fn counts_the_js_whitespace_set_after_the_hash() {
         Some("find it".to_owned())
     );
     assert_eq!(natural_command_query("#\u{85}find it"), None);
+}
+
+#[test]
+fn counts_a_leading_astral_character_as_one_unit_of_the_first_match_like_js() {
+    assert_eq!(
+        natural_command_query("# \u{1F600}x"),
+        Some("\u{1F600}x".to_owned())
+    );
+    assert_eq!(natural_command_query("# \u{1F600}"), None);
+}
+
+#[test]
+fn runs_a_request_from_a_thread_that_has_no_runtime() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .build()
+        .unwrap();
+    let latest = LatestRequest::new(runtime.handle().clone());
+    let ran = Arc::new(Mutex::new(0));
+    let counter = Arc::clone(&ran);
+    latest.run(Duration::from_millis(1), move |_signal| async move {
+        *counter.lock().unwrap() += 1;
+    });
+    runtime.block_on(tokio::time::sleep(Duration::from_millis(50)));
+    assert_eq!(*ran.lock().unwrap(), 1);
 }

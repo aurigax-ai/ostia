@@ -1,3 +1,4 @@
+use ostia_base::Result;
 use ostia_contract::language_servers::{
     LanguageServerInfo, LanguageServerOverrideProblem, LanguageServerOverrideResult,
 };
@@ -10,28 +11,28 @@ pub trait ServerCatalog {
 
 pub fn choose_server_program(
     catalog: &dyn ServerCatalog,
-    set_override: &dyn Fn(&str, &Value) -> Option<LanguageServerOverrideProblem>,
+    set_override: &dyn Fn(&str, &Value) -> Result<Option<LanguageServerOverrideProblem>>,
     key: &Value,
     raw: &Value,
-) -> LanguageServerOverrideResult {
+) -> Result<LanguageServerOverrideResult> {
     let listed = key
         .as_str()
         .filter(|key| catalog.servers().iter().any(|server| server.key == *key));
     let Some(key) = listed else {
-        return LanguageServerOverrideResult {
+        return Ok(LanguageServerOverrideResult {
             servers: catalog.servers(),
             problem: Some(LanguageServerOverrideProblem::UnknownServer),
-        };
+        });
     };
-    if let Some(problem) = set_override(key, raw) {
-        return LanguageServerOverrideResult {
+    if let Some(problem) = set_override(key, raw)? {
+        return Ok(LanguageServerOverrideResult {
             servers: catalog.servers(),
             problem: Some(problem),
-        };
+        });
     }
     catalog.refresh();
-    LanguageServerOverrideResult {
+    Ok(LanguageServerOverrideResult {
         servers: catalog.servers(),
         problem: None,
-    }
+    })
 }

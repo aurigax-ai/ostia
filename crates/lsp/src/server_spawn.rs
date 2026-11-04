@@ -79,8 +79,13 @@ pub struct AttachRequest {
     pub source: LanguageServerSource,
     pub pane: PaneRef,
     pub root: String,
-    pub proc: Child,
+    pub proc: Result<Child, SpawnFailure>,
     pub sandboxed: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SpawnFailure {
+    pub text: String,
 }
 
 pub trait ServerBinaries: Send + Sync {
@@ -179,11 +184,9 @@ pub fn exists_on_disk(path: &str) -> bool {
 }
 
 fn dirname(path: &str) -> String {
-    match Path::new(path).parent() {
-        None => "/".to_owned(),
-        Some(parent) if parent.as_os_str().is_empty() => ".".to_owned(),
-        Some(parent) => parent.to_string_lossy().into_owned(),
-    }
+    node_path::dirname(Path::new(path))
+        .to_string_lossy()
+        .into_owned()
 }
 
 fn joined(dir: &str, name: &str) -> String {
@@ -270,6 +273,15 @@ fn default_spawn(request: SpawnRequest) -> std::io::Result<Child> {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
+}
+
+fn failure_text(command: &str, error: &std::io::Error) -> String {
+    let text = match error.kind() {
+        std::io::ErrorKind::NotFound => format!("spawn {command} ENOENT"),
+        std::io::ErrorKind::PermissionDenied => format!("spawn {command} EACCES"),
+        _ => error.to_string(),
+    };
+    cut_to_units(&redact_secrets(&text), LSP_LOG_LINE_MAX)
 }
 
 fn cut_to_units(text: &str, max: usize) -> String {
@@ -448,23 +460,26 @@ async fn run_server(request: ServerStart) -> Option<String> {
         env: spawn_env,
     };
     let spawned = match &deps.spawn {
-        Some(spawn) => spawn(spawn_request),
-        None => default_spawn(spawn_request),
+        Some(spawn) => spawn(spawn_request.clone()),
+        None => default_spawn(spawn_request.clone()),
     };
     let proc = match spawned {
-        Ok(proc) => proc,
-        Err(error) => {
+        Ok(proc) => Ok(proc),
+        Err(error) if error.kind() == std::io::ErrorKind::InvalidInput => {
             (request.note)(
                 key,
                 LspLogEntry {
                     at: (request.now)(),
                     event: LspLogEvent::SpawnFailed {
-                        text: cut_to_units(&redact_secrets(&error.to_string()), LSP_LOG_LINE_MAX),
+                        text: failure_text(&spawn_request.command, &error),
                     },
                 },
             );
             return None;
         }
+        Err(error) => Err(SpawnFailure {
+            text: failure_text(&spawn_request.command, &error),
+        }),
     };
     let session = request.protocol.attach(AttachRequest {
         slot_key: request.slot_key.clone(),

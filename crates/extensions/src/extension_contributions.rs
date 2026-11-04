@@ -287,7 +287,12 @@ impl<H: ExtensionContributionsHost> ExtensionContributions<H> {
             return Ok(());
         }
         let record = self.host.record(ext_id);
-        let mut servers_off = record.servers_off.clone();
+        let mut servers_off: Vec<String> = Vec::new();
+        for off in &record.servers_off {
+            if !servers_off.contains(off) {
+                servers_off.push(off.clone());
+            }
+        }
         if enabled {
             servers_off.retain(|off| off != server);
         } else if !servers_off.iter().any(|off| off == server) {

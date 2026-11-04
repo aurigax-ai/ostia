@@ -3,7 +3,7 @@ use std::fmt;
 use std::sync::{Arc, Weak};
 
 use futures_util::future::BoxFuture;
-use ostia_base::js::{js_number, js_number_text, utf16_len};
+use ostia_base::js::{js_to_number, utf16_len};
 use ostia_contract::PRODUCT_DISPLAY_NAME;
 use ostia_contract::agent_resume::{AgentResume, parse_agent_resume};
 use ostia_contract::manager_settings::{
@@ -148,32 +148,7 @@ pub fn parse_open_request(raw: &Value) -> Result<ManagerOpenRequest, ManagerErro
 }
 
 fn value_number(value: Option<&Value>) -> f64 {
-    match value {
-        None => f64::NAN,
-        Some(Value::Null) => 0.0,
-        Some(Value::Bool(flag)) => f64::from(u8::from(*flag)),
-        Some(Value::Number(number)) => number.as_f64().unwrap_or(f64::NAN),
-        Some(Value::String(text)) => js_number(text),
-        Some(Value::Array(items)) => js_number(&array_text(items)),
-        Some(Value::Object(_)) => f64::NAN,
-    }
-}
-
-fn array_text(items: &[Value]) -> String {
-    items
-        .iter()
-        .map(|item| match item {
-            Value::Null => String::new(),
-            Value::Bool(flag) => flag.to_string(),
-            Value::Number(number) => number
-                .as_f64()
-                .map_or_else(|| "NaN".to_owned(), js_number_text),
-            Value::String(text) => text.clone(),
-            Value::Array(inner) => array_text(inner),
-            Value::Object(_) => "[object Object]".to_owned(),
-        })
-        .collect::<Vec<_>>()
-        .join(",")
+    value.map_or(f64::NAN, js_to_number)
 }
 
 fn clamp_dim(value: Option<&Value>, fallback: u32) -> u32 {

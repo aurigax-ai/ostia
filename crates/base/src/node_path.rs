@@ -53,3 +53,29 @@ pub fn resolve(path: &Path, cwd: &Path) -> PathBuf {
         normalize(&cwd.join(path))
     }
 }
+
+pub fn dirname(path: &Path) -> PathBuf {
+    let bytes = path.as_os_str().as_bytes();
+    if bytes.is_empty() {
+        return PathBuf::from(".");
+    }
+    let has_root = bytes[0] == b'/';
+    let mut end = None;
+    let mut matched_slash = true;
+    for index in (1..bytes.len()).rev() {
+        if bytes[index] == b'/' {
+            if !matched_slash {
+                end = Some(index);
+                break;
+            }
+        } else {
+            matched_slash = false;
+        }
+    }
+    match end {
+        None if has_root => PathBuf::from("/"),
+        None => PathBuf::from("."),
+        Some(1) if has_root => PathBuf::from("//"),
+        Some(end) => PathBuf::from(OsStr::from_bytes(&bytes[..end])),
+    }
+}

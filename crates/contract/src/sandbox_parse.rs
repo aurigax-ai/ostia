@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use ostia_base::js::{js_number, js_number_text, static_regex};
+use ostia_base::js::{js_to_number, static_regex};
 use regex::Regex;
 use serde_json::{Map, Value, json};
 
@@ -47,34 +47,6 @@ fn is_falsy(value: &Value) -> bool {
         Value::String(text) => text.is_empty(),
         Value::Array(_) | Value::Object(_) => false,
     }
-}
-
-pub fn js_to_number(value: &Value) -> f64 {
-    match value {
-        Value::Null => 0.0,
-        Value::Bool(flag) => f64::from(u8::from(*flag)),
-        Value::Number(number) => number.as_f64().unwrap_or(f64::NAN),
-        Value::String(text) => js_number(text),
-        Value::Array(items) => js_number(&array_text(items)),
-        Value::Object(_) => f64::NAN,
-    }
-}
-
-fn array_text(items: &[Value]) -> String {
-    items
-        .iter()
-        .map(|item| match item {
-            Value::Null => String::new(),
-            Value::Bool(flag) => flag.to_string(),
-            Value::Number(number) => number
-                .as_f64()
-                .map_or_else(|| "NaN".to_owned(), js_number_text),
-            Value::String(text) => text.clone(),
-            Value::Array(inner) => array_text(inner),
-            Value::Object(_) => "[object Object]".to_owned(),
-        })
-        .collect::<Vec<_>>()
-        .join(",")
 }
 
 fn cooldown_days(value: &Value) -> Option<i64> {

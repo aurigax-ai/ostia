@@ -1,9 +1,7 @@
-use ostia_base::js::{JsNumber, locale_compare, utf16_len};
+use ostia_base::js::{JsNumber, js_to_number, locale_compare, utf16_len};
 use serde::Serialize;
 use serde::ser::{SerializeMap, Serializer};
 use serde_json::{Map, Value};
-
-use crate::sandbox_parse::js_to_number;
 
 const STORAGE_KEY_MAX: usize = 4096;
 const DOMAIN_MAX: usize = 255;

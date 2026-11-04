@@ -570,6 +570,23 @@ fn turning_a_server_off_twice_lists_it_once() {
 }
 
 #[test]
+fn a_stored_duplicate_in_the_off_list_is_written_once() {
+    let (mut host, _fixture) =
+        host_of(vec![runtime("a", server_contributes(&["pyright", "ruff"]))]);
+    host.records.insert(
+        "a".to_owned(),
+        record(true, Some(&[]), &[], &["pyright", "pyright"]),
+    );
+    let store = host.store.clone();
+    let contributions = ExtensionContributions::new(host);
+    contributions
+        .set_language_server_enabled("a", "ruff", false)
+        .unwrap();
+    let after = store.get("a").unwrap();
+    assert_eq!(after.servers_off, ["pyright", "ruff"]);
+}
+
+#[test]
 fn an_extension_that_was_never_approved_gets_an_empty_approval_list() {
     let (mut host, _fixture) = host_of(vec![runtime("a", server_contributes(&["pyright"]))]);
     host.records

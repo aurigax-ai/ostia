@@ -1,6 +1,5 @@
-use ostia_base::js::js_trim;
+use ostia_base::js::{js_to_number, js_trim};
 use ostia_contract::file_links::find_file_links;
-use ostia_contract::sandbox_parse::js_to_number;
 use serde_json::{Map, Value, json};
 use url::Url;
 
@@ -12,11 +11,11 @@ const FILE_LINK_PATH: &str = "data-ostia-path";
 const FILE_LINK_LINE: &str = "data-ostia-line";
 const FILE_LINK_COLUMN: &str = "data-ostia-column";
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FileLinkTarget {
     pub path: String,
-    pub line: Option<u64>,
-    pub column: Option<u64>,
+    pub line: Option<f64>,
+    pub column: Option<f64>,
 }
 
 fn text_node(value: String) -> Value {
@@ -98,9 +97,9 @@ pub fn rehype_file_links(tree: &mut Value) {
     walk(tree);
 }
 
-fn positive(value: Option<&Value>) -> Option<u64> {
+fn positive(value: Option<&Value>) -> Option<f64> {
     let number = value.map_or(f64::NAN, js_to_number);
-    (number > 0.0).then_some(number as u64)
+    (number > 0.0).then_some(number)
 }
 
 pub fn file_link_of(props: &Map<String, Value>) -> Option<FileLinkTarget> {
@@ -123,8 +122,11 @@ pub fn whole_file_link(text: &str) -> Option<FileLinkTarget> {
         .find(|m| m.start == 0 && m.end == length)?;
     Some(FileLinkTarget {
         path: found.path,
-        line: found.line.filter(|line| *line > 0),
-        column: found.column.filter(|column| *column > 0),
+        line: found.line.filter(|line| *line > 0).map(|line| line as f64),
+        column: found
+            .column
+            .filter(|column| *column > 0)
+            .map(|column| column as f64),
     })
 }
 

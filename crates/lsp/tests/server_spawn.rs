@@ -130,6 +130,16 @@ fn finds_the_server_root_from_the_nearest_marker_inside_the_workspace() {
 }
 
 #[test]
+fn takes_the_folder_of_an_empty_or_dotted_file_path_like_node() {
+    let exists = |_: &str| false;
+    assert_eq!(find_server_root("", &[], None, &[], &exists), ".");
+    assert_eq!(
+        find_server_root("/w/./a.go", &[], None, &[], &exists),
+        "/w/."
+    );
+}
+
+#[test]
 fn falls_back_to_the_workspace_folder_when_no_marker_is_found_up_to_it() {
     let present: HashSet<&str> = ["/w/go.mod"].into();
     let exists = |path: &str| present.contains(path);
@@ -280,7 +290,7 @@ struct Fakes {
     binary: Mutex<Option<ServerBinary>>,
     unreadable: Mutex<HashSet<String>>,
     wrap_result: Mutex<Result<String, String>>,
-    spawn_error: Mutex<Option<String>>,
+    spawn_error: Mutex<Option<(std::io::ErrorKind, String)>>,
     slot: Mutex<SlotState>,
     source: Mutex<Option<LanguageServerSource>>,
     record: Arc<Mutex<ServerRecord>>,
@@ -448,8 +458,10 @@ impl Run {
                 spawn: Some(Arc::new(
                     move |request: SpawnRequest| -> std::io::Result<Child> {
                         spawn_fakes.spawned.lock().unwrap().push(request);
-                        if let Some(message) = spawn_fakes.spawn_error.lock().unwrap().clone() {
-                            return Err(std::io::Error::other(message));
+                        if let Some((kind, message)) =
+                            spawn_fakes.spawn_error.lock().unwrap().clone()
+                        {
+                            return Err(std::io::Error::new(kind, message));
                         }
                         Command::new("true").spawn()
                     },
@@ -667,7 +679,8 @@ async fn notes_a_spawn_failure_with_secrets_removed_and_the_text_cut_to_the_log_
         "spawn failed password=hunter2 {}",
         "ab ".repeat(LSP_LOG_LINE_MAX)
     );
-    *run.fakes.spawn_error.lock().unwrap() = Some(message.clone());
+    *run.fakes.spawn_error.lock().unwrap() =
+        Some((std::io::ErrorKind::InvalidInput, message.clone()));
     assert_eq!(start_server(run.start(false)).await, None);
     let notes = run.fakes.notes.lock().unwrap();
     assert_eq!(notes.len(), 1);
@@ -680,6 +693,22 @@ async fn notes_a_spawn_failure_with_secrets_removed_and_the_text_cut_to_the_log_
     assert!(redacted.starts_with(text.as_str()));
     assert!(run.fakes.attached.lock().unwrap().is_empty());
     assert_eq!(run.changed(), 0);
+}
+
+#[tokio::test]
+async fn attaches_a_failed_spawn_so_the_exit_and_backoff_path_runs_like_node() {
+    let run = bundled_run();
+    *run.fakes.spawn_error.lock().unwrap() =
+        Some((std::io::ErrorKind::NotFound, "gone".to_owned()));
+    assert!(start_server(run.start(false)).await.is_some());
+    let attached = run.fakes.attached.lock().unwrap();
+    assert_eq!(attached.len(), 1);
+    let Err(failure) = &attached[0].proc else {
+        panic!("expected a failed spawn");
+    };
+    assert_eq!(failure.text, "spawn /opt/ostia/node ENOENT");
+    assert!(run.fakes.notes.lock().unwrap().is_empty());
+    assert_eq!(run.changed(), 1);
 }
 
 #[tokio::test]

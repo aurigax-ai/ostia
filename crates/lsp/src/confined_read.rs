@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use ostia_base::node_path::resolve;
+use ostia_base::node_path::{normal_parts, resolve};
 use ostia_base::path_guard::is_inside_path;
 use ostia_base::regular_file::{RegularFileRead, read_regular_file};
 
@@ -9,7 +9,12 @@ pub fn is_inside_dir(dir: &Path, path: &Path) -> bool {
     let cwd = std::env::current_dir().unwrap_or_default();
     let root = resolve(dir, &cwd);
     let target = resolve(path, &root);
-    target != root && is_inside_path(&root, &target)
+    if target == root || !is_inside_path(&root, &target) {
+        return false;
+    }
+    normal_parts(&target)
+        .get(normal_parts(&root).len())
+        .is_some_and(|first| !first.as_encoded_bytes().starts_with(b".."))
 }
 
 pub fn read_confined(root: &Path, path: &Path, max_bytes: u64) -> Result<Vec<u8>, String> {

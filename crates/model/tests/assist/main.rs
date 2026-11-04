@@ -8,3 +8,4 @@ mod chat_links;
 mod chat_tool_permissions;
 mod chat_tool_specs;
 mod mcp_server_form;
+mod text_diff;

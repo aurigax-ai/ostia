@@ -168,3 +168,26 @@ fn reports_a_grammar_that_the_contract_refuses_with_the_file_name_in_front() {
         ["a: empty.json: tokenizer must have 1-200 states"]
     );
 }
+
+#[test]
+fn refuses_a_child_whose_name_starts_with_two_dots_like_node() {
+    let (_root, dir) = extension_in();
+    fs::write(dir.join("..grammar.json"), grammar().to_string()).unwrap();
+    assert_eq!(
+        read(&dir, "..grammar.json"),
+        Err("outside the extension".to_owned())
+    );
+}
+
+#[test]
+fn refuses_a_file_reached_through_a_linked_folder_that_leaves_the_extension() {
+    let (root, dir) = extension_in();
+    let outside = root.path().join("outside");
+    fs::create_dir(&outside).unwrap();
+    fs::write(outside.join("x.json"), grammar().to_string()).unwrap();
+    symlink(&outside, dir.join("sub")).unwrap();
+    assert_eq!(
+        read(&dir, "sub/x.json"),
+        Err("outside the extension".to_owned())
+    );
+}

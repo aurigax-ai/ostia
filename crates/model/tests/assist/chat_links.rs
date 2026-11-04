@@ -33,11 +33,11 @@ fn as_props(node: &Value) -> Map<String, Value> {
     props
 }
 
-fn target(path: &str, line: Option<u64>, column: Option<u64>) -> FileLinkTarget {
+fn target(path: &str, line: Option<u32>, column: Option<u32>) -> FileLinkTarget {
     FileLinkTarget {
         path: path.to_owned(),
-        line,
-        column,
+        line: line.map(f64::from),
+        column: column.map(f64::from),
     }
 }
 
@@ -204,4 +204,19 @@ fn knows_a_web_url_by_its_http_or_https_protocol() {
     assert!(!is_web_url("javascript:alert(1)"));
     assert!(!is_web_url("src/a.ts"));
     assert!(!is_web_url(""));
+}
+
+#[test]
+fn keeps_a_fractional_or_infinite_line_like_js_number() {
+    let with = |line: Value| {
+        file_link_of(&props(&[
+            ("data-ostia-path", json!("a.ts")),
+            ("data-ostia-line", line),
+        ]))
+        .unwrap()
+        .line
+    };
+    assert_eq!(with(json!("1.5")), Some(1.5));
+    assert_eq!(with(json!("1e400")), Some(f64::INFINITY));
+    assert_eq!(with(json!("Infinity")), Some(f64::INFINITY));
 }

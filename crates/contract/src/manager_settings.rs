@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::ops::RangeInclusive;
 use std::sync::LazyLock;
 
-use ostia_base::js::{js_number, js_number_text, static_regex, utf16_len};
+use ostia_base::js::{js_to_number, static_regex, utf16_len};
 use regex::Regex;
 use serde_json::{Map, Value};
 
@@ -92,34 +92,8 @@ pub fn is_skill_path(value: &Value) -> bool {
     })
 }
 
-fn array_text(items: &[Value]) -> String {
-    items
-        .iter()
-        .map(|item| match item {
-            Value::Null => String::new(),
-            Value::String(text) => text.clone(),
-            Value::Bool(flag) => flag.to_string(),
-            Value::Number(number) => js_number_text(number.as_f64().unwrap_or(f64::NAN)),
-            Value::Array(inner) => array_text(inner),
-            Value::Object(_) => "[object Object]".to_owned(),
-        })
-        .collect::<Vec<_>>()
-        .join(",")
-}
-
-fn js_to_number(value: Option<&Value>) -> f64 {
-    match value {
-        None | Some(Value::Object(_)) => f64::NAN,
-        Some(Value::Null) | Some(Value::Bool(false)) => 0.0,
-        Some(Value::Bool(true)) => 1.0,
-        Some(Value::Number(number)) => number.as_f64().unwrap_or(f64::NAN),
-        Some(Value::String(text)) => js_number(text),
-        Some(Value::Array(items)) => js_number(&array_text(items)),
-    }
-}
-
 fn clamp_limit(bounds: &RangeInclusive<u32>, default: u32, value: Option<&Value>) -> u32 {
-    let number = js_to_number(value);
+    let number = value.map_or(f64::NAN, js_to_number);
     if !number.is_finite() {
         return default;
     }

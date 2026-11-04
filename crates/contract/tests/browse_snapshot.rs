@@ -493,3 +493,28 @@ fn lists_only_interactive_refs_with_the_interactive_filter() {
         ["e5", "e8", "e9", "e10"]
     );
 }
+
+#[test]
+fn prints_a_fractional_or_huge_level_as_js_prints_it() {
+    let root = nodes(json!([
+        node("heading", "a", json!({"level": 2.5})),
+        node("heading", "b", json!({"level": 1e20})),
+    ]));
+    assert_eq!(
+        lines(&root, json!({})),
+        vec![
+            "- heading \"a\" [level=2.5]".to_owned(),
+            "- heading \"b\" [level=100000000000000000000]".to_owned(),
+        ]
+    );
+}
+
+#[test]
+fn takes_a_fractional_depth_as_the_limit() {
+    let root = nodes(json!([node(
+        "list",
+        "l",
+        json!({"children": [node("listitem", "i", json!({"children": [node("link", "k", json!({}))]}))]})
+    )]));
+    assert_eq!(lines(&root, json!({"depth": 1.5})).len(), 2);
+}

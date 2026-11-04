@@ -41,6 +41,7 @@ export * as gatewayPairing from './src/main/gateway/pairing'
 export { checkCode } from './src/main/gateway/pairCheck'
 export { createChatSessionStore } from './src/main/chat/chatSessions'
 export { ChatToolGrants } from './src/main/chat/chatToolGrants'
+export { diffLines, diffWordsWithSpace } from 'diff'
 `
 
 const rawPlugin = {
@@ -108,6 +109,8 @@ const {
   checkCode,
   createChatSessionStore,
   ChatToolGrants,
+  diffLines,
+  diffWordsWithSpace,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -916,3 +919,75 @@ writeFileSync(
   readFileSync(gatewayPairing.pairAuditLogPath()),
 )
 rmSync(gatewayDir, { recursive: true, force: true })
+
+const longRun = (word, count) => Array.from({ length: count }, () => word).join(' ')
+const LINE_CASES = [
+  ['', ''],
+  ['', 'a\n'],
+  ['a\n', ''],
+  ['a\nb\nc\n', 'a\nb\nc\n'],
+  ['a\nb\nc\n', 'a\nX\nb\nc\n'],
+  ['a\nb\nc\n', 'a\nc\n'],
+  ['a\nb\nc\n', 'a\nB\nc\n'],
+  ['a\nb\na\n', 'b\na\nb\n'],
+  ['a\nb', 'a\nb\n'],
+  ['a\r\nb\r\n', 'a\nb\n'],
+  ['one\n\n\ntwo\n', 'one\n\ntwo\n\nthree\n'],
+  ['é\n日本語\n😀\n', 'é\n日本\n😀 x\n'],
+  ['x\ny\nz\n', 'p\nq\nr\n'],
+  ['a\nb\nc\nd\ne\nf\n', 'f\ne\nd\nc\nb\na\n'],
+  [
+    Array.from({ length: 400 }, (_, i) => `line ${i}`).join('\n'),
+    Array.from({ length: 400 }, (_, i) => (i === 200 ? 'changed' : `line ${i}`)).join('\n'),
+  ],
+  [
+    Array.from({ length: 120 }, (_, i) => `l${i % 7}`).join('\n'),
+    Array.from({ length: 120 }, (_, i) => `l${(i * 3) % 7}`).join('\n'),
+  ],
+]
+const WORD_CASES = [
+  ['', '', undefined],
+  ['', 'hello', undefined],
+  ['hello', '', undefined],
+  ['a b c', 'a b c', undefined],
+  ['a b c', 'a X b c', undefined],
+  ['a b c', 'a c', undefined],
+  ['a b c', 'a B c', undefined],
+  ['a b a', 'b a b', undefined],
+  ['the quick  brown fox', 'the quick brown  fox', undefined],
+  ['a\tb\nc', 'a b\nc', undefined],
+  ['foo-bar baz_qux', 'foo bar baz-qux', undefined],
+  ['é日本語 😀 x', 'é日本 😀 y x', undefined],
+  ['naïve café', 'naive cafe', undefined],
+  ['a b', 'c d', undefined],
+  ['  lead', 'lead  ', undefined],
+  ['x', 'y', 0],
+  ['a b c d e f g', 'g f e d c b a', 3],
+  [longRun('word', 300), `${longRun('word', 150)} extra ${longRun('word', 150)}`, undefined],
+  [longRun('ab', 200), longRun('ba', 200), 600],
+  [longRun('alpha beta', 80), longRun('beta alpha', 80), 2],
+]
+const diffRow = (mode, before, after, maxEdits, changes) => ({
+  mode,
+  before,
+  after,
+  maxEdits: maxEdits ?? null,
+  changes: changes
+    ? changes.map(({ added, removed, value }) => ({ added: !!added, removed: !!removed, value }))
+    : null,
+})
+writeFileSync(
+  join(out, 'text-diff.json'),
+  `${JSON.stringify([
+    ...LINE_CASES.map(([before, after]) => diffRow('lines', before, after, null, diffLines(before, after))),
+    ...WORD_CASES.map(([before, after, maxEdits]) =>
+      diffRow(
+        'words',
+        before,
+        after,
+        maxEdits,
+        diffWordsWithSpace(before, after, maxEdits === undefined ? {} : { maxEditLength: maxEdits }),
+      ),
+    ),
+  ])}\n`,
+)

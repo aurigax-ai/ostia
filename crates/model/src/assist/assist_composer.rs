@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use ostia_base::js::{is_js_space, js_trim, utf16_len};
 use parking_lot::Mutex;
+use tokio::runtime::Handle;
 
 use super::text_diff::diff_words_with_space;
 
@@ -102,14 +103,17 @@ impl AbortSignal {
     }
 }
 
-#[derive(Default)]
 pub struct LatestRequest {
+    runtime: Handle,
     current: Mutex<Option<AbortSignal>>,
 }
 
 impl LatestRequest {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(runtime: Handle) -> Self {
+        Self {
+            runtime,
+            current: Mutex::new(None),
+        }
     }
 
     pub fn run<F, Fut>(&self, delay: Duration, request: F)
@@ -121,9 +125,8 @@ impl LatestRequest {
         if let Some(previous) = self.current.lock().replace(signal.clone()) {
             previous.abort();
         }
-        let timer = tokio::time::sleep(delay);
-        tokio::spawn(async move {
-            timer.await;
+        self.runtime.spawn(async move {
+            tokio::time::sleep(delay).await;
             if !signal.is_cancelled() {
                 request(signal).await;
             }
@@ -143,9 +146,7 @@ pub fn natural_command_query(draft: &str) -> Option<String> {
     if body.len() == rest.len() {
         return None;
     }
-    let mut chars = body.chars();
-    chars.next()?;
-    if utf16_len(chars.as_str()) < 2 {
+    if utf16_len(body) < 3 {
         return None;
     }
     Some(js_trim(body).to_owned())

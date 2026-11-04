@@ -331,7 +331,7 @@ fn refuses_a_server_that_is_not_listed_and_never_stores_it() {
     let stored = Cell::new(0);
     let set_override = |_: &str, _: &Value| {
         stored.set(stored.get() + 1);
-        None
+        Ok(None)
     };
     assert_eq!(
         choose_server_program(
@@ -339,14 +339,17 @@ fn refuses_a_server_that_is_not_listed_and_never_stores_it() {
             &set_override,
             &json!("ext/other"),
             &json!({"path": path_of(&s.program)})
-        ),
+        )
+        .unwrap(),
         LanguageServerOverrideResult {
             servers: servers.listed.clone(),
             problem: Some(UnknownServer),
         }
     );
     assert_eq!(
-        choose_server_program(&servers, &set_override, &json!(7), &Value::Null).problem,
+        choose_server_program(&servers, &set_override, &json!(7), &Value::Null)
+            .unwrap()
+            .problem,
         Some(UnknownServer)
     );
     assert_eq!(stored.get(), 0);
@@ -358,14 +361,15 @@ fn stores_a_valid_choice_restarts_what_changed_and_reports_a_refusal_without_ref
     let s = setup();
     let overrides = ServerOverrides::new(s.file.clone());
     let servers = catalog();
-    let set_override = |key: &str, raw: &Value| overrides.choose(key, raw).unwrap();
+    let set_override = |key: &str, raw: &Value| overrides.choose(key, raw);
     assert_eq!(
         choose_server_program(
             &servers,
             &set_override,
             &json!("ext/ls"),
             &json!({"path": path_of(&s.tmp.join("absent"))})
-        ),
+        )
+        .unwrap(),
         LanguageServerOverrideResult {
             servers: servers.listed.clone(),
             problem: Some(Missing),
@@ -378,7 +382,8 @@ fn stores_a_valid_choice_restarts_what_changed_and_reports_a_refusal_without_ref
             &set_override,
             &json!("ext/ls"),
             &json!({"path": path_of(&s.program), "args": []})
-        ),
+        )
+        .unwrap(),
         LanguageServerOverrideResult {
             servers: servers.listed.clone(),
             problem: None,
@@ -386,4 +391,23 @@ fn stores_a_valid_choice_restarts_what_changed_and_reports_a_refusal_without_ref
     );
     assert_eq!(servers.refreshed.get(), 1);
     assert_eq!(overrides.get("ext/ls").unwrap().path, path_of(&s.program));
+}
+
+#[test]
+fn fails_the_call_when_the_choice_cannot_be_saved_and_does_not_refresh() {
+    let servers = catalog();
+    let set_override =
+        |_: &str, _: &Value| -> ostia_base::Result<Option<LanguageServerOverrideProblem>> {
+            Err(ostia_base::Error::Task("disk full".to_owned()))
+        };
+    assert!(
+        choose_server_program(
+            &servers,
+            &set_override,
+            &json!("ext/ls"),
+            &json!({"path": "/x"})
+        )
+        .is_err()
+    );
+    assert_eq!(servers.refreshed.get(), 0);
 }

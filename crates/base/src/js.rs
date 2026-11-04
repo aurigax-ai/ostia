@@ -5,6 +5,7 @@ use icu_collator::options::CollatorOptions;
 use icu_collator::{CollatorBorrowed, CollatorPreferences};
 use regex::Regex;
 use serde::{Serialize, Serializer};
+use serde_json::Value;
 
 #[allow(clippy::expect_used)]
 static COLLATOR: LazyLock<CollatorBorrowed<'static>> = LazyLock::new(|| {
@@ -208,6 +209,34 @@ pub fn js_number(text: &str) -> f64 {
         return f64::NAN;
     }
     text.parse().unwrap_or(f64::NAN)
+}
+
+pub fn js_to_number(value: &Value) -> f64 {
+    match value {
+        Value::Null => 0.0,
+        Value::Bool(flag) => f64::from(u8::from(*flag)),
+        Value::Number(number) => number.as_f64().unwrap_or(f64::NAN),
+        Value::String(text) => js_number(text),
+        Value::Array(items) => js_number(&array_text(items)),
+        Value::Object(_) => f64::NAN,
+    }
+}
+
+fn array_text(items: &[Value]) -> String {
+    items
+        .iter()
+        .map(|item| match item {
+            Value::Null => String::new(),
+            Value::Bool(flag) => flag.to_string(),
+            Value::Number(number) => number
+                .as_f64()
+                .map_or_else(|| "NaN".to_owned(), js_number_text),
+            Value::String(text) => text.clone(),
+            Value::Array(inner) => array_text(inner),
+            Value::Object(_) => "[object Object]".to_owned(),
+        })
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

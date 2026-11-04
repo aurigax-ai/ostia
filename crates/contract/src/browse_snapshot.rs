@@ -1,4 +1,4 @@
-use ostia_base::js::non_empty;
+use ostia_base::js::{js_number_text, non_empty};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
@@ -24,7 +24,7 @@ pub struct SnapshotNode {
     #[serde(default)]
     pub interactive: Option<bool>,
     #[serde(default)]
-    pub level: Option<i64>,
+    pub level: Option<f64>,
     #[serde(default)]
     pub checked: Option<Checked>,
     #[serde(default)]
@@ -40,14 +40,14 @@ pub struct SnapshotNode {
     pub children: Vec<SnapshotNode>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 pub struct SnapshotOptions {
     #[serde(default)]
     pub interactive: bool,
     #[serde(default)]
     pub compact: bool,
     #[serde(default)]
-    pub depth: Option<i64>,
+    pub depth: Option<f64>,
     #[serde(default)]
     pub urls: bool,
 }
@@ -116,7 +116,7 @@ fn attrs_of(node: &SnapshotNode) -> String {
         parts.push(format!("[ref={node_ref}]"));
     }
     if let Some(level) = node.level {
-        parts.push(format!("[level={level}]"));
+        parts.push(format!("[level={}]", js_number_text(level)));
     }
     match node.checked {
         Some(Checked::Mixed(_)) => parts.push("[checked=mixed]".to_owned()),
@@ -160,14 +160,14 @@ fn line_for(node: &SnapshotNode) -> String {
 
 struct Walk<'a> {
     options: &'a SnapshotOptions,
-    max_depth: usize,
+    max_depth: f64,
     lines: Vec<String>,
     refs: Map<String, Value>,
 }
 
 impl Walk<'_> {
     fn visit(&mut self, list: &[SnapshotNode], depth: usize) {
-        if depth >= self.max_depth {
+        if depth as f64 >= self.max_depth {
             return;
         }
         let indent = "  ".repeat(depth);
@@ -199,8 +199,8 @@ pub fn format_snapshot(root: &[SnapshotNode], options: &SnapshotOptions) -> Form
         nodes = compact_nodes(nodes);
     }
     let max_depth = match options.depth {
-        Some(depth) if depth > 0 => usize::try_from(depth).unwrap_or(usize::MAX),
-        _ => usize::MAX,
+        Some(depth) if depth > 0.0 => depth,
+        _ => f64::INFINITY,
     };
     let mut walk = Walk {
         options,
