@@ -27,6 +27,7 @@ ostia-fd = { path = "crates/fd" }
 ostia-control = { path = "crates/control" }
 ostia-model = { path = "crates/model" }
 ostia-park = { path = "crates/park" }
+ostia-privacy = { path = "crates/privacy" }
 ostia-rpc = { path = "crates/rpc" }
 ostia-testkit = { path = "crates/testkit" }
 ostia-testscript = { path = "crates/testscript" }
@@ -64,6 +65,7 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 rustix = { version = "1", features = ["fs", "process", "system", "termios"] }
 rustls-pki-types = "1"
 serde = { version = "1", features = ["derive"] }
+serde-saphyr = "1.3"
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.11"
 subtle = "2"
