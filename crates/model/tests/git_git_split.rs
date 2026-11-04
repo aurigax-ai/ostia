@@ -144,8 +144,8 @@ fn the_basis_clamps_the_share_between_the_two_minimums() {
 #[test]
 fn the_basis_writes_the_percent_as_javascript_does() {
     assert_eq!(
-        split_basis(0.3, 100.0, 100.0),
-        "clamp(100px, 30.000000000000004%, calc(100% - 100px))"
+        split_basis(0.29, 100.0, 100.0),
+        "clamp(100px, 28.999999999999996%, calc(100% - 100px))"
     );
     assert_eq!(
         split_basis(0.0, 0.0, 0.0),
