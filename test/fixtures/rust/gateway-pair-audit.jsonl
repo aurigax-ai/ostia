@@ -1,0 +1,7 @@
+{"ts":"2023-11-14T22:13:20.000Z","ip":"127.0.0.1","outcome":"ok","via":"this-computer"}
+{"ts":"2023-11-14T22:13:20.000Z","ip":"::ffff:127.0.0.1","outcome":"invalid-code","via":"this-computer"}
+{"ts":"2023-11-14T22:13:20.000Z","ip":"::1","outcome":"bad-request","via":"this-computer"}
+{"ts":"2023-11-14T22:13:20.000Z","ip":"203.0.113.9","outcome":"rate-limited"}
+{"ts":"2023-11-14T22:13:20.000Z","ip":"203.0.113.9","outcome":"ok","via":"relay"}
+{"ts":"2023-11-14T22:13:20.000Z","ip":"127.0.0.1","outcome":"ok","via":"relay"}
+{"ts":"2023-11-14T22:13:20.000Z","ip":"127.evil","outcome":"ok","via":"this-computer"}

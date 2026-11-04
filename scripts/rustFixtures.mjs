@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -33,6 +34,9 @@ export { ExtensionStore } from './src/main/extensions/extensionStore'
 export { ExtensionLaunches } from './src/main/extensions/extensionLaunches'
 export * as claudeIntegration from './src/main/terminal/claudeIntegration'
 export * as agyIntegration from './src/main/terminal/agyIntegration'
+export * as gatewayDevices from './src/main/gateway/devices'
+export * as gatewayPairing from './src/main/gateway/pairing'
+export { checkCode } from './src/main/gateway/pairCheck'
 `
 
 const rawPlugin = {
@@ -93,6 +97,9 @@ const {
   ExtensionLaunches,
   claudeIntegration,
   agyIntegration,
+  gatewayDevices,
+  gatewayPairing,
+  checkCode,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -698,3 +705,84 @@ for (const name of ['git.json', 'tar.json']) {
   writeFileSync(join(out, 'completion-specs', name), readFileSync(join(figDir, name)))
 }
 rmSync(figDir, { recursive: true, force: true })
+
+const gatewayDir = mkdtempSync(join(tmpdir(), 'rust-gateway-'))
+process.env.XDG_DATA_HOME = gatewayDir
+const GATEWAY_NOW = 1700000000000
+function atFixedTime(run) {
+  globalThis.Date = class extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) super(GATEWAY_NOW)
+      else super(...args)
+    }
+    static now() {
+      return GATEWAY_NOW
+    }
+  }
+  try {
+    run()
+  } finally {
+    globalThis.Date = RealDate
+  }
+}
+const devicesFile = join(gatewayDir, 'ostia', 'gateway-devices.json')
+const pushOn = (platform) => ({ enabled: true, handle: 'h'.repeat(26), platform })
+const named = {}
+atFixedTime(() => {
+  const add = (name, extra = {}) => {
+    named[name] = gatewayDevices.registerDevice({ name, pubkey: `pk-${name}`, ...extra }).deviceId
+    return named[name]
+  }
+  gatewayDevices.touchDevice(add('Desk', { installId: 'd'.repeat(20) }))
+  gatewayDevices.setDevicePush(add('Pixel'), pushOn('fcm'))
+  const tab = add('Tab')
+  gatewayDevices.setDevicePush(tab, pushOn('apns'))
+  gatewayDevices.touchDevice(tab)
+  gatewayDevices.setDeviceCap(add('Old'), 'input', true)
+  add('Plain')
+})
+const stored = JSON.parse(readFileSync(devicesFile, 'utf8'))
+stored[named.Old].caps = ['input', 'board.read', 'read', 'read', 'notify']
+stored[named.Plain].push = { enabled: true, handle: 'bad handle!', platform: 'fcm' }
+writeFileSync(devicesFile, JSON.stringify(stored, null, 2))
+writeFileSync(join(out, 'gateway-devices-before.json'), readFileSync(devicesFile))
+atFixedTime(() => {
+  gatewayDevices.setDevicePush(named.Desk, pushOn('fcm'))
+  gatewayDevices.touchDevice(named.Pixel)
+  gatewayDevices.setDevicePush(named.Tab, { enabled: false })
+  gatewayDevices.setDevicePush(named.Tab, pushOn('apns'))
+  gatewayDevices.setDeviceName(named.Plain, '  Renamed  ')
+  gatewayDevices.setDeviceCap(named.Old, 'command', true)
+})
+writeFileSync(join(out, 'gateway-devices-after.json'), readFileSync(devicesFile))
+
+const digestOf = (text) => createHash('sha256').update(text).digest()
+const checkRows = Array.from({ length: 300 }, (_, i) => {
+  const fingerprint = i % 7 === 0 ? `sha256/é${i}日本` : `sha256/${digestOf(`fp${i}`).toString('base64')}`
+  const pubkey = i % 5 === 0 ? `ключ${i}` : digestOf(`pk${i}`).toString('base64')
+  const phone = digestOf(`phone${i}`)
+  const desktop = digestOf(`desktop${i}`)
+  return {
+    fingerprint,
+    pubkey,
+    phone: phone.toString('hex'),
+    desktop: desktop.toString('hex'),
+    code: checkCode(fingerprint, pubkey, phone, desktop),
+  }
+})
+writeFileSync(join(out, 'gateway-pair-check.json'), `${JSON.stringify(checkRows)}\n`)
+
+atFixedTime(() => {
+  gatewayPairing.auditPairAttempt('127.0.0.1', 'ok')
+  gatewayPairing.auditPairAttempt('::ffff:127.0.0.1', 'invalid-code')
+  gatewayPairing.auditPairAttempt('::1', 'bad-request')
+  gatewayPairing.auditPairAttempt('203.0.113.9', 'rate-limited')
+  gatewayPairing.auditPairAttempt('203.0.113.9', 'ok', 'relay')
+  gatewayPairing.auditPairAttempt('127.0.0.1', 'ok', 'relay')
+  gatewayPairing.auditPairAttempt('127.evil', 'ok')
+})
+writeFileSync(
+  join(out, 'gateway-pair-audit.jsonl'),
+  readFileSync(gatewayPairing.pairAuditLogPath()),
+)
+rmSync(gatewayDir, { recursive: true, force: true })
