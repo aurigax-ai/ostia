@@ -47,6 +47,7 @@ fn with_kind(kind: ApprovalKind) -> ApprovalAsk {
 }
 
 type Published = Arc<Mutex<Vec<(String, ApprovalState)>>>;
+type Hook = Arc<Mutex<Option<Arc<dyn Fn() + Send + Sync>>>>;
 type Calls = Arc<Mutex<Vec<(String, Capability)>>>;
 
 struct Rig {
@@ -57,7 +58,7 @@ struct Rig {
     reveals: Arc<Mutex<Vec<String>>>,
     always_calls: Arc<Mutex<Vec<Vec<Capability>>>>,
     always_result: Arc<AtomicBool>,
-    during_always: Arc<Mutex<Option<Arc<dyn Fn() + Send + Sync>>>>,
+    during_always: Hook,
     mode: Arc<Mutex<ApprovalMode>>,
     opened: Arc<Mutex<Vec<String>>>,
     settled: Arc<Mutex<Vec<(String, ApprovalOutcome)>>>,
@@ -70,7 +71,7 @@ fn setup(mode: ApprovalMode, window_open: bool) -> Rig {
     let reveals: Arc<Mutex<Vec<String>>> = Arc::default();
     let always_calls: Arc<Mutex<Vec<Vec<Capability>>>> = Arc::default();
     let always_result = Arc::new(AtomicBool::new(true));
-    let during_always: Arc<Mutex<Option<Arc<dyn Fn() + Send + Sync>>>> = Arc::default();
+    let during_always: Hook = Arc::default();
     let current_mode = Arc::new(Mutex::new(mode));
     let opened: Arc<Mutex<Vec<String>>> = Arc::default();
     let settled: Arc<Mutex<Vec<(String, ApprovalOutcome)>>> = Arc::default();
