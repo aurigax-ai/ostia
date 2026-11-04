@@ -67,6 +67,7 @@ pub mod osc7;
 pub mod pane_banner_text;
 pub mod pane_status;
 pub mod pick;
+pub mod prompt_settings;
 pub mod proto_guard;
 pub mod pty_api;
 pub mod question_text;
