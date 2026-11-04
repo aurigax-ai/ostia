@@ -11,6 +11,7 @@ chrono.workspace = true
 fixed_decimal.workspace = true
 icu_experimental.workspace = true
 icu_locale_core.workspace = true
+indexmap.workspace = true
 ostia-base.workspace = true
 parking_lot.workspace = true
 percent-encoding.workspace = true

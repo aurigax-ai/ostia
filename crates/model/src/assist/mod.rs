@@ -1,0 +1,9 @@
+pub mod assist_composer;
+pub mod assist_providers;
+pub mod caret_point;
+pub mod chat_hunks;
+pub mod chat_links;
+pub mod chat_tool_permissions;
+pub mod chat_tool_specs;
+pub mod mcp_server_form;
+pub mod text_diff;

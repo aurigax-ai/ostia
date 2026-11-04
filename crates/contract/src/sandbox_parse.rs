@@ -49,7 +49,7 @@ fn is_falsy(value: &Value) -> bool {
     }
 }
 
-pub(crate) fn js_to_number(value: &Value) -> f64 {
+pub fn js_to_number(value: &Value) -> f64 {
     match value {
         Value::Null => 0.0,
         Value::Bool(flag) => f64::from(u8::from(*flag)),
