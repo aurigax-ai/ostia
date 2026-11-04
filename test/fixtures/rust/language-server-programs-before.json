@@ -1,0 +1,19 @@
+{
+  "ext/ls": {
+    "path": "/bin/sh",
+    "args": [
+      "--stdio",
+      "--log=é"
+    ]
+  },
+  "ext/two": {
+    "path": "/bin/sh",
+    "args": []
+  },
+  "other/one": {
+    "path": "/bin/sh",
+    "args": [
+      "-x"
+    ]
+  }
+}

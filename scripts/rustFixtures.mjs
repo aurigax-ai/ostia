@@ -12,6 +12,7 @@ const work = mkdtempSync(join(tmpdir(), 'rust-fixtures-'))
 
 const ENTRY = `
 export { ParkedStore } from './src/main/park/parkedStore'
+export { ServerOverrides } from './src/main/lsp/serverOverrides'
 export { SandboxStore } from './src/main/sandbox/store'
 export { ViewStateStore } from './src/main/git/viewState'
 export { saveJson, saveJsonAsync } from './src/main/platform/jsonStore'
@@ -71,6 +72,7 @@ await build({
 })
 const {
   ParkedStore,
+  ServerOverrides,
   SandboxStore,
   saveJson,
   saveJsonAsync,
@@ -277,6 +279,14 @@ store.park({ workspaceId: 'w2', resume: { agent: 'agy', id: 's3' }, title: 'thir
 writeFileSync(join(out, 'parked-sessions-before.json'), readFileSync(parked))
 store.remove(gone.record.id)
 writeFileSync(join(out, 'parked-sessions-after.json'), readFileSync(parked))
+const overridesFile = join(work, 'language-server-programs.json')
+const overrides = new ServerOverrides(overridesFile)
+overrides.choose('ext/ls', { path: '/bin/sh', args: ['--stdio', '--log=é'] })
+overrides.choose('ext/two', { path: '/bin/sh' })
+overrides.choose('other/one', { path: '/bin/sh', args: ['-x'] })
+writeFileSync(join(out, 'language-server-programs-before.json'), readFileSync(overridesFile))
+overrides.forgetExtension('ext')
+writeFileSync(join(out, 'language-server-programs-after.json'), readFileSync(overridesFile))
 const extensionsFile = join(work, 'extensions.json')
 const extensionStore = new ExtensionStore(extensionsFile)
 extensionStore.set('demo', {
