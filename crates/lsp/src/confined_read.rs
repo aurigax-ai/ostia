@@ -1,25 +1,15 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use ostia_base::node_path::{normal_parts, resolve};
-
-fn working_dir() -> PathBuf {
-    std::env::current_dir().unwrap_or_default()
-}
+use ostia_base::node_path::resolve;
+use ostia_base::path_guard::is_inside_path;
+use ostia_base::regular_file::{RegularFileRead, read_regular_file};
 
 pub fn is_inside_dir(dir: &Path, path: &Path) -> bool {
-    let cwd = working_dir();
+    let cwd = std::env::current_dir().unwrap_or_default();
     let root = resolve(dir, &cwd);
     let target = resolve(path, &root);
-    let root_parts = normal_parts(&root);
-    let target_parts = normal_parts(&target);
-    if target_parts.len() <= root_parts.len() || target_parts[..root_parts.len()] != root_parts[..]
-    {
-        return false;
-    }
-    !target_parts[root_parts.len()]
-        .to_string_lossy()
-        .starts_with("..")
+    target != root && is_inside_path(&root, &target)
 }
 
 pub fn read_confined(root: &Path, path: &Path, max_bytes: u64) -> Result<Vec<u8>, String> {
@@ -38,9 +28,14 @@ pub fn read_confined(root: &Path, path: &Path, max_bytes: u64) -> Result<Vec<u8>
     if meta.len() > max_bytes {
         return Err(format!("larger than {max_bytes} bytes"));
     }
-    let real = fs::canonicalize(path).map_err(|_| "unreadable".to_owned())?;
+    let real: PathBuf = fs::canonicalize(path).map_err(|_| "unreadable".to_owned())?;
     if !is_inside_dir(root, &real) {
         return Err("outside the extension".to_owned());
     }
-    fs::read(path).map_err(|_| "unreadable".to_owned())
+    match read_regular_file(&real, max_bytes) {
+        RegularFileRead::Ok(data) => Ok(data),
+        RegularFileRead::TooLarge => Err(format!("larger than {max_bytes} bytes")),
+        RegularFileRead::NotAFile => Err("not a file".to_owned()),
+        RegularFileRead::Unreadable | RegularFileRead::Moved => Err("unreadable".to_owned()),
+    }
 }

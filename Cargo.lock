@@ -5726,7 +5726,15 @@ dependencies = [
 name = "ostia-lsp"
 version = "0.0.0"
 dependencies = [
- "serde",
+ "futures-util",
+ "ostia-base",
+ "ostia-contract",
+ "ostia-diagnostics",
+ "parking_lot",
+ "rustix",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
