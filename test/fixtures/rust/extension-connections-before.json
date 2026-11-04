@@ -1,0 +1,91 @@
+{
+  "graphs": {
+    "z": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://z.example.test",
+        "auth": "bearer"
+      }
+    },
+    "api": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://api.example.test",
+        "auth": "bearer"
+      }
+    },
+    "apiary": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://apiary.example.test",
+        "auth": "bearer"
+      }
+    },
+    "a-b": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://a-b.example.test",
+        "auth": "bearer"
+      }
+    },
+    "ab": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://ab.example.test",
+        "auth": "bearer",
+        "header": "X-Key"
+      }
+    },
+    "a0": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://a0.example.test",
+        "auth": "bearer"
+      }
+    },
+    "c10": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://c10.example.test",
+        "auth": "bearer"
+      }
+    },
+    "c2": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://c2.example.test",
+        "auth": "bearer"
+      }
+    },
+    "x-1": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://x-1.example.test",
+        "auth": "bearer"
+      }
+    },
+    "x1": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://x1.example.test",
+        "auth": "bearer"
+      }
+    },
+    "x-a": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://x-a.example.test",
+        "auth": "bearer"
+      }
+    }
+  },
+  "other": {
+    "solo": {
+      "kind": "http",
+      "fields": {
+        "baseUrl": "https://solo.example.test",
+        "auth": "none"
+      }
+    }
+  }
+}
