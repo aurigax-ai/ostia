@@ -1,4 +1,3 @@
-
 use serde_json::{Map, Value};
 
 use crate::language_servers::{EXTENSION_DIR_PLACEHOLDER, ROOT_PLACEHOLDER};
