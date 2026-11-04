@@ -183,7 +183,7 @@ fn builds_a_url_server_whose_secrets_are_headers_and_ignores_blank_rows() {
     assert_eq!(server.name, "remote");
     assert_eq!(server.url.as_deref(), Some("https://example.com/mcp"));
     assert_eq!(server.command, None);
-    assert_eq!(server.env, IndexMap::new());
+    assert!(server.env.is_empty());
     assert_eq!(server.secrets, strings(&["Authorization"]));
     assert_eq!(secret_values, map(&[("Authorization", "Bearer t")]));
 }
@@ -230,7 +230,7 @@ fn keeps_a_saved_secret_without_a_new_value_and_sends_only_replaced_values() {
         panic!("expected a server")
     };
     assert_eq!(server.secrets, strings(&["GITHUB_TOKEN"]));
-    assert_eq!(secret_values, IndexMap::new());
+    assert!(secret_values.is_empty());
     edited.secrets[0].value = "new".to_owned();
     let McpDraftResult::Valid { secret_values, .. } =
         server_from_draft(&edited, Some(&github()), &strings(&["github"]))
