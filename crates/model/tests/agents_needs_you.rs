@@ -265,7 +265,11 @@ fn keeps_the_fields_the_inbox_filters_and_shows_on_each_item() {
         workspace_id: "w2".to_owned(),
         ..approval("a", 6)
     };
-    let items = needs_you_items(&[asked.clone()], &[], &[approved.clone()]);
+    let items = needs_you_items(
+        std::slice::from_ref(&asked),
+        &[],
+        std::slice::from_ref(&approved),
+    );
     assert_eq!(
         items,
         vec![
