@@ -32,6 +32,7 @@ export { ViewStore } from './src/main/workspaces/viewHost'
 export { OpenFileGrants } from './src/main/files/openFileGrants'
 export { ExtensionStore } from './src/main/extensions/extensionStore'
 export { ExtensionLaunches } from './src/main/extensions/extensionLaunches'
+export { ExtensionConnections } from './src/main/extensions/extensionConnections'
 export * as claudeIntegration from './src/main/terminal/claudeIntegration'
 export * as agyIntegration from './src/main/terminal/agyIntegration'
 export * as gatewayDevices from './src/main/gateway/devices'
@@ -97,6 +98,7 @@ const {
   OpenFileGrants,
   ExtensionStore,
   ExtensionLaunches,
+  ExtensionConnections,
   claudeIntegration,
   agyIntegration,
   gatewayDevices,
@@ -298,6 +300,45 @@ launches.set('beta', true)
 writeFileSync(join(out, 'extension-launches-before.json'), readFileSync(launchesFile))
 launches.set('activity', false)
 writeFileSync(join(out, 'extension-launches-after.json'), readFileSync(launchesFile))
+const connectionsFile = join(work, 'extension-connections.json')
+const connectionKinds = [
+  {
+    kind: 'http',
+    title: 'HTTP API',
+    fields: [
+      { key: 'baseUrl', title: 'Base URL', type: 'string', required: true },
+      { key: 'auth', title: 'Auth', type: 'enum', enum: ['none', 'bearer'], default: 'bearer' },
+      { key: 'header', title: 'Header', type: 'string' },
+    ],
+    secrets: [{ key: 'secret', title: 'Token' }],
+  },
+]
+const connections = new ExtensionConnections(connectionsFile, () => undefined)
+for (const name of ['z', 'api', 'apiary', 'a-b', 'ab', 'a0', 'c10', 'c2', 'x-1', 'x1', 'x-a']) {
+  connections.save('graphs', connectionKinds, {
+    name,
+    kind: 'http',
+    fields: { baseUrl: `https://${name}.example.test`, ...(name === 'ab' ? { header: 'X-Key' } : {}) },
+  })
+}
+connections.save('other', connectionKinds, {
+  name: 'solo',
+  kind: 'http',
+  fields: { baseUrl: 'https://solo.example.test', auth: 'none' },
+})
+writeFileSync(join(out, 'extension-connections-before.json'), readFileSync(connectionsFile))
+writeFileSync(
+  join(out, 'extension-connections-order.json'),
+  `${JSON.stringify(connections.names('graphs', connectionKinds).map((c) => c.name))}\n`,
+)
+connections.remove('graphs', 'a0')
+connections.save('graphs', connectionKinds, {
+  name: 'api',
+  kind: 'http',
+  fields: { baseUrl: 'https://api.changed.test', auth: 'none' },
+})
+connections.remove('other', 'solo')
+writeFileSync(join(out, 'extension-connections-after.json'), readFileSync(connectionsFile))
 const sandboxFile = join(work, 'sandboxes.json')
 const sandboxes = new SandboxStore(sandboxFile)
 sandboxes.set('w1', {
