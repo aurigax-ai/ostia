@@ -44,8 +44,12 @@ fn optional_short_drops_only_the_partial_surrogate_pair_and_keeps_the_rest() {
         Some("ab".to_owned())
     );
     assert_eq!(
-        optional_short(Some(&json!("ab😀cd")), 4),
+        optional_short(Some(&json!("ab😀cd")), 3),
         Some("ab".to_owned())
+    );
+    assert_eq!(
+        optional_short(Some(&json!("ab😀cd")), 4),
+        Some("ab😀".to_owned())
     );
     assert_eq!(optional_short(Some(&json!("😀")), 1), None);
 }
