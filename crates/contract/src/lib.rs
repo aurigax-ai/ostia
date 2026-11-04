@@ -16,6 +16,8 @@ pub mod approvals;
 pub mod archive_paths;
 pub mod argv;
 pub mod assist;
+pub mod assist_payloads;
+pub mod assist_reports;
 pub mod attention;
 pub mod boards_ports;
 pub mod browser_storage;
