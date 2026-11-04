@@ -29,6 +29,8 @@ use serde_json::{Value, json};
 use tempfile::TempDir;
 use tokio::sync::oneshot;
 
+type OverrideCheck = Arc<dyn Fn(&str) -> Option<LanguageServerOverrideProblem> + Send + Sync>;
+
 fn contribution(
     id: &str,
     run: LanguageServerRun,
@@ -244,9 +246,7 @@ impl Rig {
             }),
             managed: rig.managed.clone(),
             override_problem: with_override_check.then(|| {
-                let check: Arc<
-                    dyn Fn(&str) -> Option<LanguageServerOverrideProblem> + Send + Sync,
-                > = Arc::new(move |path| {
+                let check: OverrideCheck = Arc::new(move |path| {
                     problems
                         .override_problems
                         .lock()
