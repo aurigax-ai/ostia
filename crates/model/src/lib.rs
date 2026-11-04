@@ -1,6 +1,7 @@
 pub mod agents;
 pub mod assist;
 pub mod attention;
+pub mod color_schemes;
 pub mod files;
 pub mod git;
 pub mod ids;

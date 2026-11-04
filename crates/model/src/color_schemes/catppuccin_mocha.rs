@@ -1,0 +1,33 @@
+use crate::theme::types::{Appearance, ColorScheme, TerminalColors};
+
+pub(super) fn catppuccin_mocha() -> ColorScheme {
+    ColorScheme {
+        id: "catppuccin-mocha".to_owned(),
+        name: "Catppuccin Mocha".to_owned(),
+        appearance: Appearance::Dark,
+        colors: TerminalColors {
+            background: "#1e1e2e",
+            foreground: "#cdd6f4",
+            cursor: "#f5e0dc",
+            cursor_accent: "#1e1e2e",
+            selection_background: "#f5e0dc",
+            selection_foreground: Some("#1e1e2e"),
+            black: "#45475a",
+            red: "#f38ba8",
+            green: "#a6e3a1",
+            yellow: "#f9e2af",
+            blue: "#89b4fa",
+            magenta: "#f5c2e7",
+            cyan: "#94e2d5",
+            white: "#bac2de",
+            bright_black: "#585b70",
+            bright_red: "#f7aec2",
+            bright_green: "#c2ecbf",
+            bright_yellow: "#fcd682",
+            bright_blue: "#aeccfc",
+            bright_magenta: "#f398da",
+            bright_cyan: "#b1eae1",
+            bright_white: "#a6adc8",
+        },
+    }
+}
