@@ -692,7 +692,7 @@ async fn wraps_the_command_in_the_sandbox_and_runs_the_shell_with_the_sandbox_en
     assert_eq!(
         wraps[0].1,
         format!(
-            "/opt/ostia/node {}/dist/server.js --stdio --root=/w/proj {}/data",
+            "/opt/ostia/node {}/dist/server.js --stdio '--root=/w/proj' {}/data",
             run.ext, run.ext
         )
     );
