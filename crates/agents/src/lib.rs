@@ -7,6 +7,7 @@ pub mod assist_ipc;
 pub mod bundled_skills;
 pub mod bus_store;
 mod bus_text;
+pub mod chat_fs_tools;
 pub mod chat_sessions;
 pub mod chat_sessions_ipc;
 pub mod chat_skills;
