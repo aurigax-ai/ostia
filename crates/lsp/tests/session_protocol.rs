@@ -287,7 +287,11 @@ impl Rig {
             frames = parse_frames(&text);
             if frames.last() == Some(&sentinel) {
                 frames.pop();
-                return frames;
+                let start = frames
+                    .iter()
+                    .rposition(|frame| frame == &sentinel)
+                    .map_or(0, |at| at + 1);
+                return frames.split_off(start);
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
