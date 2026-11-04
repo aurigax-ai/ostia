@@ -644,8 +644,8 @@ fn keeps_an_empty_default_value_out_of_the_document_only_when_it_was_absent() {
 }
 
 #[test]
-fn folds_accents_and_collapses_runs_in_a_file_stem() {
-    assert_eq!(snippet_file_stem("Café Déjà Vu"), "cafe-deja-vu");
+fn turns_an_accent_mark_into_a_dash_and_collapses_runs_in_a_file_stem() {
+    assert_eq!(snippet_file_stem("Café Déjà Vu"), "cafe-de-ja-vu");
     assert_eq!(snippet_file_stem("  --a__b--  "), "a-b");
     assert_eq!(snippet_file_stem(""), "snippet");
     assert_eq!(snippet_file_stem("!!!"), "snippet");
@@ -660,6 +660,6 @@ fn cuts_a_file_stem_at_sixty_characters_and_drops_a_trailing_dash() {
     let before_dash = format!("{}-{}", "a".repeat(58), "b".repeat(10));
     assert_eq!(
         snippet_file_stem(&before_dash),
-        format!("{}-b", "a".repeat(58))
+        format!("{}-bb", "a".repeat(58))
     );
 }
