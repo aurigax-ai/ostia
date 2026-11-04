@@ -279,13 +279,16 @@ impl Rig {
 
     async fn written_before_sentinel(&self, id: &str) -> Vec<Value> {
         let sentinel = json!({"jsonrpc": "2.0", "method": "sentinel"});
+        let count = |frames: &[Value]| frames.iter().filter(|frame| *frame == &sentinel).count();
+        let before = count(&parse_frames(
+            &std::fs::read_to_string(&self.out).unwrap_or_default(),
+        ));
         self.protocol.write(id, &sentinel);
-        let out = self.out.clone();
         let mut frames = Vec::new();
         for _ in 0..500 {
-            let text = std::fs::read_to_string(&out).unwrap_or_default();
+            let text = std::fs::read_to_string(&self.out).unwrap_or_default();
             frames = parse_frames(&text);
-            if frames.last() == Some(&sentinel) {
+            if count(&frames) > before && frames.last() == Some(&sentinel) {
                 frames.pop();
                 let start = frames
                     .iter()
