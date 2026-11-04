@@ -25,3 +25,9 @@ pub fn shell_argv(setting: &str, fallback: &str) -> Vec<String> {
         _ => vec![fallback.to_owned()],
     }
 }
+
+pub fn shell_name(program: &str) -> &str {
+    program
+        .rfind(['/', '\\'])
+        .map_or(program, |index| &program[index + 1..])
+}

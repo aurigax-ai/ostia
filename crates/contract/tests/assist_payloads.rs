@@ -36,3 +36,16 @@ fn optional_short_clips_in_utf16_units() {
         Some("😀".to_owned())
     );
 }
+
+#[test]
+fn optional_short_drops_only_the_partial_surrogate_pair_and_keeps_the_rest() {
+    assert_eq!(
+        optional_short(Some(&json!("ab😀")), 3),
+        Some("ab".to_owned())
+    );
+    assert_eq!(
+        optional_short(Some(&json!("ab😀cd")), 4),
+        Some("ab".to_owned())
+    );
+    assert_eq!(optional_short(Some(&json!("😀")), 1), None);
+}
