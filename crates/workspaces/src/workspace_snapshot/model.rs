@@ -3,9 +3,9 @@ use serde::{Serialize, Serializer};
 use crate::PanePlacementZone;
 use crate::browser_device::BrowserDevice;
 use crate::stored_resume::ResumeFailure;
-use ostia_contract::agent_resume::AgentResume;
 use crate::workspace_text::WorkspaceGroupColor;
 use ostia_base::js::JsNumber;
+use ostia_contract::agent_resume::AgentResume;
 
 pub fn is_false(value: &bool) -> bool {
     !*value
