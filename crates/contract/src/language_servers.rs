@@ -371,13 +371,11 @@ pub struct LanguageServerInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requirement: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sandbox_problem: Option<LanguageServerSandboxProblem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sandbox_detail: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub binary: Option<LanguageServerBinary>,
+    #[serde(rename = "override", skip_serializing_if = "Option::is_none")]
+    pub override_info: Option<LanguageServerOverrideInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub managed_copy: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -392,8 +390,10 @@ pub struct LanguageServerInfo {
     pub failure_detail: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fetch_command: Option<String>,
-    #[serde(rename = "override", skip_serializing_if = "Option::is_none")]
-    pub override_info: Option<LanguageServerOverrideInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox_problem: Option<LanguageServerSandboxProblem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox_detail: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]

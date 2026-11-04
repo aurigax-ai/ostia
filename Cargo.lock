@@ -5728,14 +5728,19 @@ name = "ostia-lsp"
 version = "0.0.0"
 dependencies = [
  "futures-util",
+ "nix 0.31.3",
  "ostia-base",
  "ostia-contract",
  "ostia-diagnostics",
+ "ostia-files",
+ "ostia-rpc",
  "parking_lot",
  "rustix",
+ "serde",
  "serde_json",
  "tempfile",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
