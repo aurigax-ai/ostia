@@ -4,7 +4,7 @@ use ostia_contract::view_bindings::{
 };
 use serde_json::Value;
 
-use crate::locale_datetime::{Clock, HourDigits, clock_text, medium_date};
+use crate::locale_datetime::{Clock, HourDigits, clock_text, medium_date_without_weekday};
 
 pub use ostia_contract::view_bindings::truthy;
 
@@ -23,7 +23,7 @@ impl ViewDates for LocalDates {
 
     fn date(&self, ms: f64, locale: &str) -> String {
         local_clock(ms)
-            .and_then(|at| medium_date(locale, at.date_naive()))
+            .and_then(|at| medium_date_without_weekday(locale, at.date_naive()))
             .unwrap_or_default()
     }
 }

@@ -29,5 +29,9 @@ fn formats_a_number_as_a_local_time_and_a_medium_date() {
         "{time}"
     );
     assert!(date.starts_with("Jun "), "{date}");
+    assert!(
+        !date.contains("Mon") && !date.contains("Sun") && !date.contains("Tue"),
+        "{date}"
+    );
     assert!(date.ends_with(", 2026"), "{date}");
 }

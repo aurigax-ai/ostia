@@ -1,6 +1,6 @@
 use chrono::{Datelike, NaiveDate, NaiveTime, Timelike};
 use icu_calendar::{Date, Gregorian, Iso};
-use icu_datetime::fieldsets::{E, T, YMDE};
+use icu_datetime::fieldsets::{E, T, YMD, YMDE};
 use icu_datetime::input::{DateTime, Time};
 use icu_datetime::pattern::{DateTimePattern, FixedCalendarDateTimeNames};
 use icu_datetime::preferences::HourCycle;
@@ -114,6 +114,21 @@ pub fn medium_date(locale: &str, date: NaiveDate) -> Option<String> {
             .ok()?
             .into_owned(),
     )
+}
+
+pub fn medium_date_without_weekday(locale: &str, date: NaiveDate) -> Option<String> {
+    let day = Date::try_new_gregorian(
+        date.year(),
+        u8::try_from(date.month()).ok()?,
+        u8::try_from(date.day()).ok()?,
+    )
+    .ok()?;
+    let formatter = FixedCalendarDateTimeFormatter::<Gregorian, _>::try_new(
+        preferences(locale, Clock::Locale),
+        YMD::medium(),
+    )
+    .ok()?;
+    Some(formatter.format(&day).to_string())
 }
 
 pub fn weekday_name(locale: &str, date: NaiveDate) -> Option<String> {

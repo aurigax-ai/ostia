@@ -114,13 +114,13 @@ fn agent_pid(socket: &Path) -> Option<u32> {
         })
 }
 
-fn gone(pid: u32) -> bool {
+async fn gone(pid: u32) -> bool {
     let until = Instant::now() + Duration::from_secs(3);
     while Instant::now() < until {
         if !Path::new(&format!("/proc/{pid}")).exists() {
             return true;
         }
-        std::thread::sleep(Duration::from_millis(25));
+        tokio::time::sleep(Duration::from_millis(25)).await;
     }
     false
 }
@@ -144,7 +144,7 @@ async fn reaps_the_agent_process_on_stop() {
     let agent = start_ssh_agent(&socket, &[]).await.unwrap();
     let pid = agent_pid(&socket).unwrap();
     agent.stop();
-    assert!(gone(pid));
+    assert!(gone(pid).await);
 }
 
 #[tokio::test]
