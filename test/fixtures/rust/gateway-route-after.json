@@ -1,0 +1,23 @@
+{
+  "route": {
+    "bindAddress": "127.0.0.1",
+    "bindInterface": null,
+    "tailnet": false,
+    "phoneAddress": {
+      "host": "desk.example.com",
+      "port": 443
+    },
+    "relay": false
+  },
+  "discoverable": false,
+  "phoneWorkspace": {
+    "workspaceId": "ws-2"
+  },
+  "friendlyName": "brave-otter",
+  "unrelated": {
+    "kept": [
+      "as",
+      "is"
+    ]
+  }
+}

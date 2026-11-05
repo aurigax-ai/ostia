@@ -39,6 +39,9 @@ export * as agyIntegration from './src/main/terminal/agyIntegration'
 export * as gatewayDevices from './src/main/gateway/devices'
 export * as gatewayPairing from './src/main/gateway/pairing'
 export { checkCode } from './src/main/gateway/pairCheck'
+export * as gatewayRoute from './src/main/gateway/route'
+export { packFrames } from './src/main/gateway/streamFrames'
+export { rpcError, rpcResult } from './src/main/gateway/rpcFrames'
 export { createChatSessionStore } from './src/main/chat/chatSessions'
 export { ChatToolGrants } from './src/main/chat/chatToolGrants'
 export { chatMarkdown, normalizeChatSession } from './src/shared/assist/chatSessions'
@@ -112,6 +115,10 @@ const {
   gatewayDevices,
   gatewayPairing,
   checkCode,
+  gatewayRoute,
+  packFrames,
+  rpcError,
+  rpcResult,
   createChatSessionStore,
   ChatToolGrants,
   diffLines,
@@ -928,6 +935,93 @@ atFixedTime(() => {
 writeFileSync(
   join(out, 'gateway-pair-audit.jsonl'),
   readFileSync(gatewayPairing.pairAuditLogPath()),
+)
+const routeFile = join(gatewayDir, 'ostia', 'gateway-config.json')
+const LAN_ROUTE = {
+  bindAddress: '192.168.2.108',
+  bindInterface: 'wlan0',
+  tailnet: false,
+  phoneAddress: null,
+  relay: false,
+}
+gatewayRoute.saveRoute(LAN_ROUTE)
+gatewayRoute.saveDiscoverable(true)
+gatewayRoute.savePhoneWorkspaceRecord({ workspaceId: 'ws-é', nested: { a: [1, 2.5, null] } })
+const routeStored = JSON.parse(readFileSync(routeFile, 'utf8'))
+routeStored.friendlyName = 'brave-otter'
+routeStored.unrelated = { kept: ['as', 'is'] }
+writeFileSync(routeFile, JSON.stringify(routeStored, null, 2))
+writeFileSync(join(out, 'gateway-route-before.json'), readFileSync(routeFile))
+gatewayRoute.saveRoute({
+  bindAddress: '127.0.0.1',
+  bindInterface: null,
+  tailnet: false,
+  phoneAddress: { host: 'desk.example.com', port: 443 },
+  relay: false,
+})
+gatewayRoute.saveDiscoverable(false)
+gatewayRoute.savePhoneWorkspaceRecord({ workspaceId: 'ws-2' })
+writeFileSync(join(out, 'gateway-route-after.json'), readFileSync(routeFile))
+
+const frameEvents = [
+  { type: 'turn.started', turn: 'u1' },
+  { type: 'prompt', turn: 'u1', id: 'p', text: 'word '.repeat(300) },
+  {
+    type: 'tool.result',
+    turn: 'u1',
+    id: 'tu1',
+    output: `${'é€𝄞'.repeat(300)}\n"quoted"\t${'\\'.repeat(60)}`,
+    exitCode: 3,
+    isError: true,
+  },
+  { type: 'edit', turn: 'u1', id: 'e1', path: 'a.ts', change: 'update', diff: '+line\n'.repeat(300) },
+  {
+    type: 'plan',
+    turn: 'u1',
+    id: 'pl',
+    items: Array.from({ length: 40 }, (_, i) => ({ text: `step ${i} ${'y'.repeat(30)}`, status: 'pending' })),
+  },
+  { type: 'tool', turn: 'u1', id: 'tu', kind: 'other', name: 'X', target: 'p'.repeat(900), input: 'i'.repeat(1300) },
+  { type: 'live' },
+]
+const frameCases = [
+  { paneId: 'pane-1', firstSeq: 7, backfill: true, maxBytes: 2000 },
+  { paneId: 'pane-é', firstSeq: 1, backfill: false, maxBytes: 700 },
+]
+writeFileSync(
+  join(out, 'gateway-stream-frames.json'),
+  `${JSON.stringify(
+    {
+      events: frameEvents,
+      cases: frameCases.map((c) => ({
+        ...c,
+        frames: packFrames(c.paneId, c.firstSeq, c.backfill, frameEvents, c.maxBytes),
+      })),
+    },
+    null,
+    1,
+  )}\n`,
+)
+writeFileSync(
+  join(out, 'gateway-rpc-frames.json'),
+  `${JSON.stringify(
+    {
+      results: [
+        { id: 1, result: { ok: true } },
+        { id: 'abc', result: null },
+        { id: null, result: [1, 'é'] },
+      ].map((c) => ({ ...c, frame: rpcResult(c.id, c.result) })),
+      errors: [
+        { id: 1, code: -32602, message: 'bad-params' },
+        { id: null, code: -32700, message: 'parse error' },
+        { id: 'x', code: -32003, message: 'needs-elevation', data: { cap: 'notify' } },
+        { id: 2, code: -32603, message: 'e', data: null },
+      ].map((c) => ({ ...c, frame: rpcError(c.id, c.code, c.message, c.data) })),
+      errorNoId: rpcError(undefined, -32600, 'invalid'),
+    },
+    null,
+    1,
+  )}\n`,
 )
 rmSync(gatewayDir, { recursive: true, force: true })
 

@@ -1,0 +1,55 @@
+{
+ "results": [
+  {
+   "id": 1,
+   "result": {
+    "ok": true
+   },
+   "frame": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"ok\":true}}"
+  },
+  {
+   "id": "abc",
+   "result": null,
+   "frame": "{\"jsonrpc\":\"2.0\",\"id\":\"abc\",\"result\":null}"
+  },
+  {
+   "id": null,
+   "result": [
+    1,
+    "é"
+   ],
+   "frame": "{\"jsonrpc\":\"2.0\",\"id\":null,\"result\":[1,\"é\"]}"
+  }
+ ],
+ "errors": [
+  {
+   "id": 1,
+   "code": -32602,
+   "message": "bad-params",
+   "frame": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32602,\"message\":\"bad-params\"}}"
+  },
+  {
+   "id": null,
+   "code": -32700,
+   "message": "parse error",
+   "frame": "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32700,\"message\":\"parse error\"}}"
+  },
+  {
+   "id": "x",
+   "code": -32003,
+   "message": "needs-elevation",
+   "data": {
+    "cap": "notify"
+   },
+   "frame": "{\"jsonrpc\":\"2.0\",\"id\":\"x\",\"error\":{\"code\":-32003,\"message\":\"needs-elevation\",\"data\":{\"cap\":\"notify\"}}}"
+  },
+  {
+   "id": 2,
+   "code": -32603,
+   "message": "e",
+   "data": null,
+   "frame": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32603,\"message\":\"e\",\"data\":null}}"
+  }
+ ],
+ "errorNoId": "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32600,\"message\":\"invalid\"}}"
+}
