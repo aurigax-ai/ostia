@@ -1,12 +1,13 @@
 use ostia_base::Result;
 use ostia_base::js::{js_trim, utf16_len};
+use ostia_contract::chat_sessions::normalize_chat_session;
 use ostia_contract::utf16_prefix::utf16_prefix;
 use ostia_privacy::redaction::Redactor;
 use ostia_privacy::redaction_scan::SecretScan;
 use ostia_privacy::redaction_targets::redact_chat_session;
 use serde_json::Value;
 
-use crate::chat_sessions::{ChatSaveResult, ChatSessionStore, normalize_chat_session};
+use crate::chat_sessions::{ChatSaveResult, ChatSessionStore};
 
 pub const SAVE_FILE_MAX: usize = 5 * 1024 * 1024;
 
@@ -48,7 +49,7 @@ pub async fn save_redacted<S: SecretScan + Send + Sync>(
     let Some(session) = normalize_chat_session(raw) else {
         return store.save(raw);
     };
-    match redact_chat_session(&Value::Object(session), redactor).await {
+    match redact_chat_session(&session, redactor).await {
         Ok(redacted) => store.save(&redacted),
         Err(_) => Ok(ChatSaveResult::Failed {
             error: "redaction-failed".to_owned(),

@@ -27,6 +27,7 @@ pub mod browser_storage;
 pub mod build_info;
 pub mod capabilities;
 pub mod chat_edits;
+pub mod chat_sessions;
 pub mod chat_tools;
 pub mod chord_spec;
 pub mod claude_accounts;
