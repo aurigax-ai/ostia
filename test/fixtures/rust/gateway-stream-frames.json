@@ -1,0 +1,262 @@
+{
+ "events": [
+  {
+   "type": "turn.started",
+   "turn": "u1"
+  },
+  {
+   "type": "prompt",
+   "turn": "u1",
+   "id": "p",
+   "text": "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word "
+  },
+  {
+   "type": "tool.result",
+   "turn": "u1",
+   "id": "tu1",
+   "output": "é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞\n\"quoted\"\t\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\",
+   "exitCode": 3,
+   "isError": true
+  },
+  {
+   "type": "edit",
+   "turn": "u1",
+   "id": "e1",
+   "path": "a.ts",
+   "change": "update",
+   "diff": "+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n+line\n"
+  },
+  {
+   "type": "plan",
+   "turn": "u1",
+   "id": "pl",
+   "items": [
+    {
+     "text": "step 0 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 1 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 2 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 3 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 4 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 5 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 6 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 7 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 8 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 9 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 10 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 11 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 12 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 13 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 14 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 15 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 16 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 17 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 18 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 19 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 20 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 21 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 22 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 23 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 24 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 25 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 26 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 27 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 28 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 29 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 30 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 31 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 32 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 33 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 34 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 35 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 36 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 37 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 38 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    },
+    {
+     "text": "step 39 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+     "status": "pending"
+    }
+   ]
+  },
+  {
+   "type": "tool",
+   "turn": "u1",
+   "id": "tu",
+   "kind": "other",
+   "name": "X",
+   "target": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+   "input": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
+  },
+  {
+   "type": "live"
+  }
+ ],
+ "cases": [
+  {
+   "paneId": "pane-1",
+   "firstSeq": 7,
+   "backfill": true,
+   "maxBytes": 2000,
+   "frames": [
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-1\",\"seq\":7,\"backfill\":true,\"events\":[{\"type\":\"turn.started\",\"turn\":\"u1\"},{\"type\":\"prompt\",\"turn\":\"u1\",\"id\":\"p\",\"text\":\"word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word \"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-1\",\"seq\":8,\"backfill\":true,\"events\":[{\"type\":\"tool.result\",\"turn\":\"u1\",\"id\":\"tu1\",\"output\":\"é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€\",\"exitCode\":3,\"isError\":true}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-1\",\"seq\":9,\"backfill\":true,\"events\":[{\"type\":\"tool.result\",\"turn\":\"u1\",\"id\":\"tu1\",\"append\":true,\"output\":\"𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞\\n\\\"quoted\\\"\\t\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-1\",\"seq\":10,\"backfill\":true,\"events\":[{\"type\":\"edit\",\"turn\":\"u1\",\"id\":\"e1\",\"path\":\"a.ts\",\"change\":\"update\",\"diff\":\"+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-1\",\"seq\":11,\"backfill\":true,\"events\":[{\"type\":\"edit\",\"turn\":\"u1\",\"id\":\"e1\",\"append\":true,\"diff\":\"line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-1\",\"seq\":12,\"backfill\":true,\"events\":[{\"type\":\"plan\",\"turn\":\"u1\",\"id\":\"pl\",\"items\":[{\"text\":\"step 0 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 1 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 2 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 3 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 4 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 5 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 6 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 7 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 8 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 9 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 10 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 11 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 12 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 13 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 14 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 15 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 16 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 17 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 18 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 19 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 20 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 21 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 22 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 23 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 24 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 25 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"}]}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-1\",\"seq\":13,\"backfill\":true,\"events\":[{\"type\":\"plan\",\"turn\":\"u1\",\"id\":\"pl\",\"items\":[{\"text\":\"step 26 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 27 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 28 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 29 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 30 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 31 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 32 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 33 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 34 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 35 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 36 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 37 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 38 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 39 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"}],\"append\":true}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-1\",\"seq\":14,\"backfill\":true,\"events\":[{\"type\":\"tool\",\"turn\":\"u1\",\"id\":\"tu\",\"kind\":\"other\",\"name\":\"X\",\"target\":\"pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\",\"input\":\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-1\",\"seq\":15,\"backfill\":true,\"events\":[{\"type\":\"tool\",\"turn\":\"u1\",\"id\":\"tu\",\"append\":true,\"input\":\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\"},{\"type\":\"live\"}]}}}"
+   ]
+  },
+  {
+   "paneId": "pane-é",
+   "firstSeq": 1,
+   "backfill": false,
+   "maxBytes": 700,
+   "frames": [
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":1,\"events\":[{\"type\":\"turn.started\",\"turn\":\"u1\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":2,\"events\":[{\"type\":\"prompt\",\"turn\":\"u1\",\"id\":\"p\",\"text\":\"word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word \"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":3,\"events\":[{\"type\":\"prompt\",\"turn\":\"u1\",\"id\":\"p\",\"append\":true,\"text\":\"word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word w\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":4,\"events\":[{\"type\":\"prompt\",\"turn\":\"u1\",\"id\":\"p\",\"append\":true,\"text\":\"ord word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word \"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":5,\"events\":[{\"type\":\"tool.result\",\"turn\":\"u1\",\"id\":\"tu1\",\"output\":\"é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é\",\"exitCode\":3,\"isError\":true}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":6,\"events\":[{\"type\":\"tool.result\",\"turn\":\"u1\",\"id\":\"tu1\",\"append\":true,\"output\":\"€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":7,\"events\":[{\"type\":\"tool.result\",\"turn\":\"u1\",\"id\":\"tu1\",\"append\":true,\"output\":\"𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":8,\"events\":[{\"type\":\"tool.result\",\"turn\":\"u1\",\"id\":\"tu1\",\"append\":true,\"output\":\"€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":9,\"events\":[{\"type\":\"tool.result\",\"turn\":\"u1\",\"id\":\"tu1\",\"append\":true,\"output\":\"𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":10,\"events\":[{\"type\":\"tool.result\",\"turn\":\"u1\",\"id\":\"tu1\",\"append\":true,\"output\":\"€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞é€𝄞\\n\\\"quoted\\\"\\t\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":11,\"events\":[{\"type\":\"edit\",\"turn\":\"u1\",\"id\":\"e1\",\"path\":\"a.ts\",\"change\":\"update\",\"diff\":\"+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+lin\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":12,\"events\":[{\"type\":\"edit\",\"turn\":\"u1\",\"id\":\"e1\",\"append\":true,\"diff\":\"e\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":13,\"events\":[{\"type\":\"edit\",\"turn\":\"u1\",\"id\":\"e1\",\"append\":true,\"diff\":\"\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":14,\"events\":[{\"type\":\"edit\",\"turn\":\"u1\",\"id\":\"e1\",\"append\":true,\"diff\":\"\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":15,\"events\":[{\"type\":\"edit\",\"turn\":\"u1\",\"id\":\"e1\",\"append\":true,\"diff\":\"\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n+line\\n\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":16,\"events\":[{\"type\":\"plan\",\"turn\":\"u1\",\"id\":\"pl\",\"items\":[{\"text\":\"step 0 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 1 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 2 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 3 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 4 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 5 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 6 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"}]}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":17,\"events\":[{\"type\":\"plan\",\"turn\":\"u1\",\"id\":\"pl\",\"items\":[{\"text\":\"step 7 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 8 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 9 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 10 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 11 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 12 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 13 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"}],\"append\":true}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":18,\"events\":[{\"type\":\"plan\",\"turn\":\"u1\",\"id\":\"pl\",\"items\":[{\"text\":\"step 14 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 15 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 16 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 17 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 18 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 19 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 20 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"}],\"append\":true}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":19,\"events\":[{\"type\":\"plan\",\"turn\":\"u1\",\"id\":\"pl\",\"items\":[{\"text\":\"step 21 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 22 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 23 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 24 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 25 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 26 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 27 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"}],\"append\":true}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":20,\"events\":[{\"type\":\"plan\",\"turn\":\"u1\",\"id\":\"pl\",\"items\":[{\"text\":\"step 28 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 29 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 30 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 31 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 32 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 33 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 34 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"}],\"append\":true}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":21,\"events\":[{\"type\":\"plan\",\"turn\":\"u1\",\"id\":\"pl\",\"items\":[{\"text\":\"step 35 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 36 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 37 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 38 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"},{\"text\":\"step 39 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"status\":\"pending\"}],\"append\":true}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":22,\"events\":[{\"type\":\"tool\",\"turn\":\"u1\",\"id\":\"tu\",\"kind\":\"other\",\"name\":\"X\",\"target\":\"ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\",\"input\":\"\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":23,\"events\":[{\"type\":\"tool\",\"turn\":\"u1\",\"id\":\"tu\",\"append\":true,\"target\":\"ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":24,\"events\":[{\"type\":\"tool\",\"turn\":\"u1\",\"id\":\"tu\",\"append\":true,\"input\":\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":25,\"events\":[{\"type\":\"tool\",\"turn\":\"u1\",\"id\":\"tu\",\"append\":true,\"input\":\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\"}]}}}",
+    "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":{\"type\":\"agent.stream\",\"payload\":{\"paneId\":\"pane-é\",\"seq\":26,\"events\":[{\"type\":\"tool\",\"turn\":\"u1\",\"id\":\"tu\",\"append\":true,\"input\":\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\"},{\"type\":\"live\"}]}}}"
+   ]
+  }
+ ]
+}

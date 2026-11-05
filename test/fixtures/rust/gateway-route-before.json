@@ -1,0 +1,27 @@
+{
+  "route": {
+    "bindAddress": "192.168.2.108",
+    "bindInterface": "wlan0",
+    "tailnet": false,
+    "phoneAddress": null,
+    "relay": false
+  },
+  "discoverable": true,
+  "phoneWorkspace": {
+    "workspaceId": "ws-é",
+    "nested": {
+      "a": [
+        1,
+        2.5,
+        null
+      ]
+    }
+  },
+  "friendlyName": "brave-otter",
+  "unrelated": {
+    "kept": [
+      "as",
+      "is"
+    ]
+  }
+}
