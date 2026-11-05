@@ -5713,6 +5713,7 @@ dependencies = [
  "hex",
  "nix 0.31.3",
  "ostia-base",
+ "ostia-contract",
  "parking_lot",
  "rcgen",
  "regex",
