@@ -416,10 +416,13 @@ fn does_not_leak_the_item_scope_out_of_the_list() {
             { "type": "text", "text": "[x]" },
         ],
     }));
-    let NodeKind::Stack { children, .. } = &mut doc.root.kind else {
+    let NodeKind::Stack {
+        children: nodes, ..
+    } = &mut doc.root.kind
+    else {
         panic!("expected a stack");
     };
-    let NodeKind::Text { text, .. } = &mut children[1].kind else {
+    let NodeKind::Text { text, .. } = &mut nodes[1].kind else {
         panic!("expected a text");
     };
     *text = "[{{ws.name}}]".to_owned();
