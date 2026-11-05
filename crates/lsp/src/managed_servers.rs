@@ -476,7 +476,7 @@ impl ManagedServers {
         node_path::join(&self.server_dir(ext_id, server_id), version)
     }
 
-    fn asset_for(&self, run: &LanguageServerRun) -> Option<&LanguageServerAsset> {
+    fn asset_for<'a>(&self, run: &'a LanguageServerRun) -> Option<&'a LanguageServerAsset> {
         let LanguageServerRun::Download(download) = run else {
             return None;
         };
