@@ -391,9 +391,9 @@ impl FileWatches {
         let chained = {
             let mut state = inner.state.lock();
             let known = state.last_seen.get(&safe).cloned();
-            known.map(|previous| {
+            known.inspect(|previous| {
                 let Some(save) = save.take() else {
-                    return previous;
+                    return;
                 };
                 let waiting = previous.clone();
                 let saving = eager_option(&inner.runtime, async move {
@@ -413,7 +413,6 @@ impl FileWatches {
                     }
                 });
                 state.last_seen.insert(safe.clone(), saving);
-                previous
             })
         };
         let Some(previous) = chained else {
