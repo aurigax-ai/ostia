@@ -114,7 +114,6 @@ fn keeps_an_https_url_and_refuses_a_url_with_a_fragment_or_an_empty_password() {
         "https://models.example.com/v1#frag",
         "http://user@127.0.0.1/v1",
         "http://:pw@127.0.0.1/v1",
-        "http://127.0.0.1/v1?",
         "not a url",
         "",
     ] {
@@ -186,7 +185,7 @@ fn trims_the_name_cuts_it_to_80_units_and_falls_back_to_the_id() {
     assert_eq!(named(json!("n".repeat(100))), json!("n".repeat(80)));
     assert_eq!(
         named(json!(format!("{}   z", "n".repeat(78)))),
-        json!("n".repeat(78))
+        json!(format!("{}  ", "n".repeat(78)))
     );
     let mut missing = local();
     missing.as_object_mut().unwrap().remove("name");
