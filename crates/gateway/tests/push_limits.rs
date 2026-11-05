@@ -74,7 +74,7 @@ fn blocks_a_handle_for_the_seconds_it_is_told() {
     let (now, clock) = clock();
     let limits = PingLimits::new(clock);
     assert!(limits.permit("h"));
-    limits.block_for("h", 120);
+    limits.block_for("h", 120.0);
     tick(&now, 31 * SECOND);
     assert!(!limits.permit("h"));
     tick(&now, 88 * SECOND);
@@ -84,10 +84,32 @@ fn blocks_a_handle_for_the_seconds_it_is_told() {
 }
 
 #[test]
+fn keeps_the_fraction_of_a_second_in_a_block() {
+    let (now, clock) = clock();
+    let limits = PingLimits::new(clock);
+    assert!(limits.permit("h"));
+    limits.block_for("h", 40.5);
+    tick(&now, 40 * SECOND);
+    assert!(!limits.permit("h"));
+    tick(&now, SECOND);
+    assert!(limits.permit("h"));
+}
+
+#[test]
+fn a_huge_block_never_wraps_into_the_past() {
+    let (now, clock) = clock();
+    let limits = PingLimits::new(clock);
+    assert!(limits.permit("h"));
+    limits.block_for("h", 1e17);
+    tick(&now, 3_600 * SECOND);
+    assert!(!limits.permit("h"));
+}
+
+#[test]
 fn a_block_on_a_handle_that_never_pinged_does_nothing() {
     let (_now, clock) = clock();
     let limits = PingLimits::new(clock);
-    limits.block_for("h", 600);
+    limits.block_for("h", 600.0);
     assert!(limits.permit("h"));
 }
 

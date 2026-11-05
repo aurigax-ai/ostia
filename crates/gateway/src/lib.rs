@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 pub mod addresses;
 pub mod announce;
@@ -24,13 +24,13 @@ pub mod stream_frames;
 
 pub const LOOPBACK_ADDRESS: &str = "127.0.0.1";
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct GatewayPhoneAddress {
     pub host: String,
     pub port: u16,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GatewayRoute {
     pub bind_address: String,

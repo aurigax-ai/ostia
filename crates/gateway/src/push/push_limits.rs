@@ -13,7 +13,7 @@ const TICKET_WINDOW_MS: i64 = 600_000;
 struct PingState {
     last: i64,
     recent: Vec<i64>,
-    blocked_until: i64,
+    blocked_until: f64,
 }
 
 pub struct PingLimits {
@@ -35,7 +35,7 @@ impl PingLimits {
         let state = states.entry(handle.to_owned()).or_default();
         state.recent.retain(|at| now - at < HOUR_MS);
         let allowed = now - state.last >= PING_GAP_MS
-            && now >= state.blocked_until
+            && now as f64 >= state.blocked_until
             && state.recent.len() < PINGS_PER_HOUR;
         if allowed {
             state.last = now;
@@ -44,10 +44,10 @@ impl PingLimits {
         allowed
     }
 
-    pub fn block_for(&self, handle: &str, seconds: i64) {
+    pub fn block_for(&self, handle: &str, seconds: f64) {
         let now = (self.now)();
         if let Some(state) = self.states.lock().get_mut(handle) {
-            state.blocked_until = now + seconds * 1000;
+            state.blocked_until = now as f64 + seconds * 1000.0;
         }
     }
 

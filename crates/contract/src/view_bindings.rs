@@ -4,6 +4,7 @@ use ostia_base::js::{js_number_text, js_trim, static_regex, utf16_len};
 use regex::Regex;
 use serde_json::{Map, Value};
 
+use crate::proto_guard::is_dangerous_segment;
 use crate::relative_time::{RelativeStep, RelativeTimeFormat, RelativeUnit, format_relative};
 use crate::string_enum::{StringEnum, string_enum};
 
@@ -60,12 +61,6 @@ static SEGMENT: LazyLock<Regex> =
     LazyLock::new(|| static_regex(r"^(?:[A-Za-z_][A-Za-z0-9_]*|[0-9]{1,4})$"));
 static IDENTIFIER: LazyLock<Regex> = LazyLock::new(|| static_regex(r"^[A-Za-z_][A-Za-z0-9_]*$"));
 static BINDING: LazyLock<Regex> = LazyLock::new(|| static_regex(r"\{\{([^{}]*)\}\}"));
-
-const DANGEROUS_SEGMENTS: [&str; 3] = ["__proto__", "prototype", "constructor"];
-
-pub fn is_dangerous_segment(segment: &str) -> bool {
-    DANGEROUS_SEGMENTS.contains(&segment)
-}
 
 pub fn is_identifier(name: &str) -> bool {
     IDENTIFIER.is_match(name) && !is_dangerous_segment(name)
@@ -264,10 +259,18 @@ fn eval_binding(
     scope: &ViewScope,
     fmt: &ViewFormat,
     dates: &dyn ViewDates,
-) -> Value {
-    let mut value = lookup(scope, &binding.path).cloned().unwrap_or(Value::Null);
+) -> Option<Value> {
+    let mut value = lookup(scope, &binding.path).cloned();
     for filter in &binding.filters {
-        value = apply_filter(*filter, value, fmt, dates);
+        value = match (filter, value) {
+            (ViewFilter::Upper | ViewFilter::Lower, None) => None,
+            (_, found) => Some(apply_filter(
+                *filter,
+                found.unwrap_or(Value::Null),
+                fmt,
+                dates,
+            )),
+        };
     }
     value
 }
@@ -284,29 +287,38 @@ fn display_string(value: &Value) -> String {
     }
 }
 
+fn resolve_template(
+    template: &str,
+    scope: &ViewScope,
+    fmt: &ViewFormat,
+    dates: &dyn ViewDates,
+) -> Option<Value> {
+    let Ok(parts) = compile_template(template) else {
+        return Some(Value::String(String::new()));
+    };
+    if let [TemplatePart::Binding(binding)] = parts.as_slice() {
+        return eval_binding(binding, scope, fmt, dates);
+    }
+    Some(Value::String(
+        parts
+            .iter()
+            .map(|part| match part {
+                TemplatePart::Text(text) => text.clone(),
+                TemplatePart::Binding(binding) => {
+                    display_string(&eval_binding(binding, scope, fmt, dates).unwrap_or(Value::Null))
+                }
+            })
+            .collect(),
+    ))
+}
+
 pub fn resolve_value_with(
     template: &str,
     scope: &ViewScope,
     fmt: &ViewFormat,
     dates: &dyn ViewDates,
 ) -> Value {
-    let Ok(parts) = compile_template(template) else {
-        return Value::String(String::new());
-    };
-    if let [TemplatePart::Binding(binding)] = parts.as_slice() {
-        return eval_binding(binding, scope, fmt, dates);
-    }
-    Value::String(
-        parts
-            .iter()
-            .map(|part| match part {
-                TemplatePart::Text(text) => text.clone(),
-                TemplatePart::Binding(binding) => {
-                    display_string(&eval_binding(binding, scope, fmt, dates))
-                }
-            })
-            .collect(),
-    )
+    resolve_template(template, scope, fmt, dates).unwrap_or(Value::Null)
 }
 
 pub fn resolve_text_with(
@@ -318,27 +330,38 @@ pub fn resolve_text_with(
     display_string(&resolve_value_with(template, scope, fmt, dates))
 }
 
+fn resolve_arg(
+    value: &Value,
+    scope: &ViewScope,
+    fmt: &ViewFormat,
+    dates: &dyn ViewDates,
+) -> Option<Value> {
+    match value {
+        Value::String(template) => resolve_template(template, scope, fmt, dates),
+        Value::Array(items) => Some(Value::Array(
+            items
+                .iter()
+                .map(|item| resolve_arg(item, scope, fmt, dates).unwrap_or(Value::Null))
+                .collect(),
+        )),
+        Value::Object(map) => Some(Value::Object(
+            map.iter()
+                .filter_map(|(key, item)| {
+                    resolve_arg(item, scope, fmt, dates).map(|found| (key.clone(), found))
+                })
+                .collect(),
+        )),
+        other => Some(other.clone()),
+    }
+}
+
 pub fn resolve_args_with(
     value: &Value,
     scope: &ViewScope,
     fmt: &ViewFormat,
     dates: &dyn ViewDates,
 ) -> Value {
-    match value {
-        Value::String(template) => resolve_value_with(template, scope, fmt, dates),
-        Value::Array(items) => Value::Array(
-            items
-                .iter()
-                .map(|item| resolve_args_with(item, scope, fmt, dates))
-                .collect(),
-        ),
-        Value::Object(map) => Value::Object(
-            map.iter()
-                .map(|(key, item)| (key.clone(), resolve_args_with(item, scope, fmt, dates)))
-                .collect(),
-        ),
-        other => other.clone(),
-    }
+    resolve_arg(value, scope, fmt, dates).unwrap_or(Value::Null)
 }
 
 pub fn resolve_value(template: &str, scope: &ViewScope, fmt: &ViewFormat) -> Value {

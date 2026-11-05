@@ -252,6 +252,21 @@ fn refuses_an_event_it_cannot_split_rather_than_send_it_over_the_cap() {
 }
 
 #[test]
+fn refuses_a_tool_call_whose_name_alone_is_over_the_budget() {
+    let event = StreamEvent::Tool {
+        turn: "u1".to_owned(),
+        id: "tu".to_owned(),
+        kind: TurnStepKind::Other,
+        name: "n".repeat(5000),
+        target: None,
+        input: Some("x".to_owned()),
+        append: false,
+    };
+    let error = split_event(&event, 1000).unwrap_err();
+    assert_eq!(error, FrameTooLarge::new("event does not fit a frame"));
+}
+
+#[test]
 fn splits_a_multi_megabyte_output_in_linear_time() {
     let output = "a line of build output\n".repeat(250_000);
     let started = Instant::now();

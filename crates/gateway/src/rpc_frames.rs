@@ -1,7 +1,13 @@
 use serde_json::{Map, Value, json};
 
-pub fn rpc_result(id: &Value, result: &Value) -> String {
-    json!({"jsonrpc": "2.0", "id": id, "result": result}).to_string()
+pub fn rpc_result(id: Option<&Value>, result: &Value) -> String {
+    let mut frame = Map::new();
+    frame.insert("jsonrpc".to_owned(), json!("2.0"));
+    if let Some(id) = id {
+        frame.insert("id".to_owned(), id.clone());
+    }
+    frame.insert("result".to_owned(), result.clone());
+    Value::Object(frame).to_string()
 }
 
 pub fn rpc_error(id: &Value, code: i64, message: &str, data: Option<&Value>) -> String {

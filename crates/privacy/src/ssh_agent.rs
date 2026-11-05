@@ -24,12 +24,20 @@ pub enum SshAgentError {
 
 pub struct SshAgent {
     pub socket: PathBuf,
-    child: Mutex<Child>,
+    child: Mutex<Option<Child>>,
 }
 
 impl SshAgent {
     pub fn stop(&self) {
-        stop_child(&mut self.child.lock());
+        let Some(mut child) = self.child.lock().take() else {
+            return;
+        };
+        stop_child(&mut child);
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            runtime.spawn(async move {
+                let _ = child.wait().await;
+            });
+        }
     }
 }
 
@@ -46,11 +54,14 @@ fn stop_child(child: &mut Child) {
     }
 }
 
-async fn wait_for(path: &Path) -> bool {
+async fn wait_for(path: &Path, child: &mut Child) -> bool {
     let start = Instant::now();
     while start.elapsed() < SOCKET_WAIT {
         if path.exists() {
             return true;
+        }
+        if !matches!(child.try_wait(), Ok(None)) {
+            return false;
         }
         sleep(SOCKET_POLL).await;
     }
@@ -77,6 +88,7 @@ async fn add_keys(socket: &Path, keys: &[PathBuf]) -> Result<(), SshAgentError> 
 }
 
 pub async fn start_ssh_agent(socket: &Path, keys: &[PathBuf]) -> Result<SshAgent, SshAgentError> {
+    let _ = std::fs::remove_file(socket);
     let mut child = Command::new("ssh-agent")
         .arg("-D")
         .arg("-a")
@@ -84,9 +96,10 @@ pub async fn start_ssh_agent(socket: &Path, keys: &[PathBuf]) -> Result<SshAgent
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
+        .kill_on_drop(true)
         .spawn()
         .map_err(SshAgentError::Spawn)?;
-    if !wait_for(socket).await {
+    if !wait_for(socket, &mut child).await {
         stop_child(&mut child);
         return Err(SshAgentError::NotStarted);
     }
@@ -96,6 +109,6 @@ pub async fn start_ssh_agent(socket: &Path, keys: &[PathBuf]) -> Result<SshAgent
     }
     Ok(SshAgent {
         socket: socket.to_path_buf(),
-        child: Mutex::new(child),
+        child: Mutex::new(Some(child)),
     })
 }

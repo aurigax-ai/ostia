@@ -5849,6 +5849,7 @@ dependencies = [
 name = "ostia-privacy"
 version = "0.0.0"
 dependencies = [
+ "libc",
  "ostia-base",
  "ostia-contract",
  "ostia-sandbox",

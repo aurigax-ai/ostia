@@ -495,3 +495,64 @@ fn lists_only_file_granted_ssh_key_entries_as_ssh_keys() {
     assert!(by_env_only.ssh_keys.is_empty());
     assert_eq!(by_env_only.env["ID_ED25519"], KEY);
 }
+
+fn file_grant_setup() -> (Vec<SecretGrant>, Vec<SecretEntry>, HashMap<String, String>) {
+    (
+        vec![grant("host:ssh:id_ed25519", SecretGrantMode::File)],
+        list(),
+        values(),
+    )
+}
+
+#[test]
+fn refuses_to_write_through_a_symlink_planted_at_a_secret_file() {
+    let root = TempDir::new().unwrap();
+    let dir = root.path().join("secrets");
+    let victim = root.path().join("victim");
+    fs::write(&victim, "keep").unwrap();
+    let (grants, entries, vals) = file_grant_setup();
+    let result = prepare_secrets(PrepareSecretsInput {
+        grants: &grants,
+        list: &entries,
+        value: &|id| {
+            if !dir.join("id_ed25519").exists() {
+                std::os::unix::fs::symlink(&victim, dir.join("id_ed25519")).unwrap();
+            }
+            vals.get(id).cloned()
+        },
+        dir: &dir,
+    });
+    assert!(result.is_err());
+    assert_eq!(fs::read_to_string(&victim).unwrap(), "keep");
+}
+
+#[test]
+fn refuses_a_secret_file_that_already_exists() {
+    let root = TempDir::new().unwrap();
+    let dir = root.path().join("secrets");
+    let (grants, entries, vals) = file_grant_setup();
+    let result = prepare_secrets(PrepareSecretsInput {
+        grants: &grants,
+        list: &entries,
+        value: &|id| {
+            fs::write(dir.join("id_ed25519"), "planted").unwrap();
+            vals.get(id).cloned()
+        },
+        dir: &dir,
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn replaces_a_symlink_at_the_secrets_folder_with_a_real_folder() {
+    let root = TempDir::new().unwrap();
+    let dir = root.path().join("secrets");
+    let elsewhere = root.path().join("elsewhere");
+    fs::create_dir(&elsewhere).unwrap();
+    std::os::unix::fs::symlink(&elsewhere, &dir).unwrap();
+    let (grants, entries, vals) = file_grant_setup();
+    prepare(&grants, &entries, &vals, &dir);
+    assert!(fs::symlink_metadata(&dir).unwrap().is_dir());
+    assert!(!fs::symlink_metadata(&dir).unwrap().is_symlink());
+    assert!(fs::read_dir(&elsewhere).unwrap().next().is_none());
+}

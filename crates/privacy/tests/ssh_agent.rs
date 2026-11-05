@@ -94,5 +94,67 @@ async fn fails_with_ssh_agent_did_not_start_when_the_socket_never_appears() {
         error.to_string().contains("ssh-agent did not start"),
         "{error}"
     );
-    assert!(started.elapsed() >= Duration::from_secs(5));
+    assert!(started.elapsed() < Duration::from_secs(4));
+}
+
+fn agent_pid(socket: &Path) -> Option<u32> {
+    let needle = socket.to_string_lossy().into_owned();
+    std::fs::read_dir("/proc")
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| entry.file_name().to_str()?.parse::<u32>().ok())
+        .find(|pid| {
+            std::fs::read(format!("/proc/{pid}/cmdline"))
+                .map(|raw| {
+                    String::from_utf8_lossy(&raw)
+                        .replace('\0', " ")
+                        .contains(&needle)
+                })
+                .unwrap_or(false)
+        })
+}
+
+fn gone(pid: u32) -> bool {
+    let until = Instant::now() + Duration::from_secs(3);
+    while Instant::now() < until {
+        if !Path::new(&format!("/proc/{pid}")).exists() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    false
+}
+
+#[tokio::test]
+async fn kills_the_agent_when_the_start_future_is_dropped() {
+    let root = TempDir::new().unwrap();
+    let socket = root.path().join("agent.sock");
+    let started =
+        tokio::time::timeout(Duration::from_millis(1), start_ssh_agent(&socket, &[])).await;
+    assert!(started.is_err());
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert!(refuses_connections(&socket));
+    assert_eq!(agent_pid(&socket), None);
+}
+
+#[tokio::test]
+async fn reaps_the_agent_process_on_stop() {
+    let root = TempDir::new().unwrap();
+    let socket = root.path().join("agent.sock");
+    let agent = start_ssh_agent(&socket, &[]).await.unwrap();
+    let pid = agent_pid(&socket).unwrap();
+    agent.stop();
+    assert!(gone(pid));
+}
+
+#[tokio::test]
+async fn replaces_a_stale_socket_path_and_loads_the_keys_into_the_new_agent() {
+    let root = TempDir::new().unwrap();
+    let key = make_key(root.path(), "key");
+    let socket = root.path().join("agent.sock");
+    std::fs::write(&socket, "stale").unwrap();
+    let agent = start_ssh_agent(&socket, &[key]).await.unwrap();
+    let out = listed(&socket);
+    agent.stop();
+    assert_eq!(out.lines().count(), 1, "{out}");
 }

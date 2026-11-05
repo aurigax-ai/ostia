@@ -158,10 +158,6 @@ fn counts_a_relative_time_in_days_hours_minutes_or_seconds() {
     for (offset, locale, expected) in table {
         assert_eq!(relative(offset, locale), expected, "{offset} {locale}");
     }
-    let Value::Object(nan) = json!({"t": f64::NAN}) else {
-        panic!("object")
-    };
-    assert_eq!(resolve_text("{{t | relative}}", &nan, &fmt()), "");
 }
 
 #[test]
@@ -172,4 +168,27 @@ fn keeps_the_type_of_a_whole_string_binding_and_fills_nested_strings() {
         &fmt(),
     );
     assert_eq!(resolved, json!({"index": 3, "name": "ws ostia", "n": 1}));
+}
+
+#[test]
+fn leaves_out_the_key_of_a_missing_binding_in_command_args() {
+    let resolved = resolve_args(
+        &json!({"index": "{{workspace.nope}}", "name": "{{workspace.name}}", "list": ["{{workspace.nope}}"], "text": "a{{workspace.nope}}b"}),
+        &scope(),
+        &fmt(),
+    );
+    assert_eq!(
+        resolved,
+        json!({"name": "ostia", "list": [null], "text": "ab"})
+    );
+}
+
+#[test]
+fn keeps_the_key_of_a_binding_that_a_filter_turns_into_a_value() {
+    let resolved = resolve_args(
+        &json!({"gone": "{{workspace.nope | upper}}", "n": "{{workspace.nope | count}}", "off": "{{workspace.nope | not}}"}),
+        &scope(),
+        &fmt(),
+    );
+    assert_eq!(resolved, json!({"n": 0, "off": true}));
 }

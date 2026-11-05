@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs::{self, DirBuilder, OpenOptions};
 use std::io::{ErrorKind, Write};
-use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
 use ostia_base::error::io_error;
@@ -85,18 +85,32 @@ fn clear_dir(dir: &Path) -> Result<()> {
 }
 
 fn make_dir(dir: &Path) -> Result<()> {
+    if let Some(parent) = dir.parent() {
+        DirBuilder::new()
+            .recursive(true)
+            .mode(DIR_MODE)
+            .create(parent)
+            .map_err(io_error(parent))?;
+    }
     DirBuilder::new()
-        .recursive(true)
         .mode(DIR_MODE)
         .create(dir)
-        .map_err(io_error(dir))
+        .map_err(io_error(dir))?;
+    let meta = fs::symlink_metadata(dir).map_err(io_error(dir))?;
+    if !meta.is_dir() || meta.uid() != rustix::process::getuid().as_raw() {
+        return Err(io_error(dir)(std::io::Error::new(
+            ErrorKind::PermissionDenied,
+            "secrets folder is not a real folder owned by this user",
+        )));
+    }
+    Ok(())
 }
 
 fn write_secret(path: &Path, value: &str) -> Result<()> {
     let mut file = OpenOptions::new()
         .write(true)
-        .create(true)
-        .truncate(true)
+        .create_new(true)
+        .custom_flags(libc::O_NOFOLLOW)
         .mode(FILE_MODE)
         .open(path)
         .map_err(io_error(path))?;

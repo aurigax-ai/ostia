@@ -15,12 +15,16 @@ fn fixture() -> Value {
 #[test]
 fn writes_a_result_frame_with_the_version_id_and_result_in_that_order() {
     assert_eq!(
-        rpc_result(&json!(1), &json!({"ok": true})),
+        rpc_result(Some(&json!(1)), &json!({"ok": true})),
         r#"{"jsonrpc":"2.0","id":1,"result":{"ok":true}}"#
     );
     assert_eq!(
-        rpc_result(&json!("abc"), &Value::Null),
+        rpc_result(Some(&json!("abc")), &Value::Null),
         r#"{"jsonrpc":"2.0","id":"abc","result":null}"#
+    );
+    assert_eq!(
+        rpc_result(None, &json!(true)),
+        r#"{"jsonrpc":"2.0","result":true}"#
     );
 }
 
@@ -62,7 +66,7 @@ fn writes_the_same_bytes_as_the_ts_frames() {
     let fixture = fixture();
     for row in fixture["results"].as_array().unwrap() {
         assert_eq!(
-            rpc_result(&row["id"], &row["result"]),
+            rpc_result(row.get("id"), &row["result"]),
             row["frame"].as_str().unwrap(),
             "{row}"
         );

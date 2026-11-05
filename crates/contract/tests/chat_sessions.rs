@@ -257,6 +257,11 @@ fn names_a_tool_from_its_type_or_its_tool_name_and_labels_every_state() {
             "not run",
         ),
         (
+            json!({"type": "tool-read-file", "state": "constructor"}),
+            "read-file",
+            "not run",
+        ),
+        (
             json!({"type": "tool-read-file", "state": 4}),
             "read-file",
             "not run",
@@ -336,6 +341,20 @@ fn writes_an_error_text_only_when_it_is_a_string() {
         "{md}"
     );
     assert!(!md.contains("no\n```"), "{md}");
+}
+
+#[test]
+fn clips_before_a_surrogate_pair_that_the_limit_would_cut() {
+    let output = format!("x{}", "😀".repeat(2000));
+    let md = chat_markdown(&normalized(tool_session(vec![json!({
+        "type": "tool-a",
+        "toolCallId": "t1",
+        "state": "output-available",
+        "output": output,
+    })])));
+    let kept = format!("x{}", "😀".repeat(1999));
+    assert!(md.contains(&format!("{kept}…[truncated]\n```")), "{md}");
+    assert!(!md.contains('\u{FFFD}'));
 }
 
 #[test]
