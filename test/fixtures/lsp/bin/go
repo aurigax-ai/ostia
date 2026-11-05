@@ -1,6 +1,7 @@
 #!/bin/sh
 if [ -n "$FAKE_GO_LOG" ]; then
   {
+    printf 'argv0=%s\n' "$0"
     printf 'argv=%s\n' "$*"
     printf 'GOBIN=%s\n' "$GOBIN"
     printf 'GOFLAGS=[%s]\n' "$GOFLAGS"
@@ -16,6 +17,9 @@ case "$FAKE_GO_MODE" in
   hang)
     exec sleep 30 ;;
   empty)
+    exit 0 ;;
+  flood)
+    head -c 2000000 /dev/zero | tr '\0' x
     exit 0 ;;
 esac
 [ "$1" = "install" ] || { echo "fake go: only install is supported" >&2; exit 2; }

@@ -1,8 +1,8 @@
 use ostia_contract::view_bindings::ViewFormat;
 use ostia_contract::view_parse::{ViewParseResult, parse_view_text};
 use ostia_contract::views::{
-    VIEW_MAX_LIST_ITEMS, VIEW_MAX_RENDERED_NODES, ViewButtonVariant, ViewDoc, ViewGap, ViewIcon,
-    ViewIconTone, ViewJustify, ViewTextSize, ViewTone, ViewWeight,
+    NodeKind, VIEW_MAX_LIST_ITEMS, VIEW_MAX_RENDERED_NODES, ViewButtonVariant, ViewDoc, ViewGap,
+    ViewIcon, ViewIconTone, ViewJustify, ViewTextSize, ViewTone, ViewWeight,
 };
 use ostia_model::views::view_expand::{
     BudgetProblem, RenderKind, RenderNode, ViewActionTarget, expand_view,
@@ -409,26 +409,24 @@ fn hides_the_empty_text_when_the_list_has_items() {
 
 #[test]
 fn does_not_leak_the_item_scope_out_of_the_list() {
-    let text = json!({
-        "version": 1,
-        "title": "T",
-        "placement": "panel",
-        "root": {
-            "type": "stack",
-            "children": [
-                list_of(json!({ "type": "divider" }), json!({})),
-                { "type": "text", "text": "[{{ws.name}}]" },
-            ],
-        },
-    })
-    .to_string();
-    match parse_view_text(&text) {
-        ViewParseResult::Failed(problems) => {
-            assert_eq!(problems[0].path, "root.children[1].text");
-            assert!(problems[0].message.starts_with("unknown data source 'ws'"));
-        }
-        ViewParseResult::Ok(_) => panic!("the item scope must not reach outside the list"),
-    }
+    let mut doc = view(json!({
+        "type": "stack",
+        "children": [
+            list_of(json!({ "type": "text", "text": "{{ws.name}}" }), json!({})),
+            { "type": "text", "text": "[x]" },
+        ],
+    }));
+    let NodeKind::Stack { children, .. } = &mut doc.root.kind else {
+        panic!("expected a stack");
+    };
+    let NodeKind::Text { text, .. } = &mut children[1].kind else {
+        panic!("expected a text");
+    };
+    *text = "[{{ws.name}}]".to_owned();
+    let root = expanded(&doc, workspaces_of(1, |_| json!({ "name": "alpha" })));
+    let shown = children(&root);
+    assert_eq!(text_of(&list_items(&shown[0])[0]), "alpha");
+    assert_eq!(text_of(&shown[1]), "[]");
 }
 
 #[test]

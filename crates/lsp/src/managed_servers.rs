@@ -30,7 +30,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::Command;
 use url::Url;
 use uuid::Uuid;
-use zip::ZipArchive;
+use zip::{HasZipMetadata, ZipArchive};
 
 use crate::server_binaries::{FetchError, FetchHooks, ManagedServerFiles, ProgramFinder};
 
@@ -45,6 +45,7 @@ const OUTPUT_LINE_MAX: usize = 500;
 const SYMLINK_TYPE: u32 = 0o120_000;
 const FILE_TYPE_MASK: u32 = 0o170_000;
 const COPY_CHUNK: usize = 64 * 1024;
+const TAR_META_MAX_BYTES: u64 = 1024 * 1024;
 const GO_PROGRAM: &str = "go";
 
 pub type EnvSnapshot = Arc<dyn Fn() -> BTreeMap<String, String> + Send + Sync>;
@@ -280,16 +281,40 @@ fn open_tar(file: &Path) -> Result<tar::Archive<MultiGzDecoder<File>>, FetchErro
     Ok(tar::Archive::new(MultiGzDecoder::new(input)))
 }
 
+fn check_tar_headers(file: &Path) -> Result<(), FetchError> {
+    let mut raw = open_tar(file)?;
+    for entry in raw
+        .entries()
+        .map_err(|error| bad_archive_from(&error))?
+        .raw(true)
+    {
+        let entry = entry.map_err(|error| bad_archive_from(&error))?;
+        let kind = entry.header().entry_type();
+        let describes_another = kind.is_gnu_longname()
+            || kind.is_gnu_longlink()
+            || kind.is_pax_local_extensions()
+            || kind.is_pax_global_extensions();
+        if describes_another && entry.size() > TAR_META_MAX_BYTES {
+            return Err(bad_archive("an archive header is too large"));
+        }
+    }
+    Ok(())
+}
+
 fn unpack_tar(file: &Path, stage: &Path, budget: &mut Budget) -> Result<(), FetchError> {
+    check_tar_headers(file)?;
     let mut listing = open_tar(file)?;
     for entry in listing
         .entries()
         .map_err(|error| bad_archive_from(&error))?
     {
         let entry = entry.map_err(|error| bad_archive_from(&error))?;
+        let kind = entry.header().entry_type();
+        if kind.is_pax_global_extensions() {
+            continue;
+        }
         let name = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
         entry_target(stage, &name)?;
-        let kind = entry.header().entry_type();
         if kind.is_dir() {
             continue;
         }
@@ -304,9 +329,12 @@ fn unpack_tar(file: &Path, stage: &Path, budget: &mut Budget) -> Result<(), Fetc
         .map_err(|error| bad_archive_from(&error))?
     {
         let mut entry = entry.map_err(|error| bad_archive_from(&error))?;
+        let kind = entry.header().entry_type();
+        if kind.is_pax_global_extensions() {
+            continue;
+        }
         let name = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
         let target = entry_target(stage, &name)?;
-        let kind = entry.header().entry_type();
         if kind.is_dir() {
             fs::create_dir_all(&target).map_err(|error| bad_archive_from(&error))?;
             continue;
@@ -342,7 +370,7 @@ fn unpack_zip(file: &Path, stage: &Path, budget: &mut Budget) -> Result<(), Fetc
         if name.ends_with('/') {
             continue;
         }
-        let unix_mode = entry.unix_mode().unwrap_or(0);
+        let unix_mode = entry.get_metadata().external_attributes >> 16;
         if unix_mode & FILE_TYPE_MASK == SYMLINK_TYPE {
             return Err(bad_archive("it holds a link or special file"));
         }
@@ -456,6 +484,11 @@ fn spawn_code(error: &io::Error) -> &'static str {
     }
 }
 
+fn fetching(running: &HashMap<String, Pending>, key: &str) -> bool {
+    let prefix = format!("{key}@");
+    running.keys().any(|running| running.starts_with(&prefix))
+}
+
 impl ManagedServers {
     pub fn new(deps: ManagedServersDeps) -> Self {
         Self {
@@ -502,32 +535,25 @@ impl ManagedServers {
         self.asset_for(run).map(|asset| asset.executable.clone())
     }
 
-    fn fetching(&self, key: &str) -> bool {
-        let prefix = format!("{key}@");
-        self.running
-            .lock()
-            .keys()
-            .any(|running| running.starts_with(&prefix))
-    }
-
     pub fn forget_extension(&self, ext_id: &str) {
         discard(&node_path::join(&self.deps.dir, ext_id));
     }
 
     pub fn retain(&self, keep: &HashMap<String, String>) {
+        let running = self.running.lock();
         for ext_id in children(&self.deps.dir) {
             let ext_dir = self.deps.dir.join(&ext_id);
             for server_id in children(&ext_dir) {
                 let key = format!("{ext_id}/{server_id}");
                 let server_dir = ext_dir.join(&server_id);
                 let Some(version) = keep.get(&key) else {
-                    if !self.fetching(&key) {
+                    if !fetching(&running, &key) {
                         discard(&server_dir);
                     }
                     continue;
                 };
                 for name in children(&server_dir) {
-                    if name == *version || self.fetching(&key) {
+                    if name == *version || fetching(&running, &key) {
                         continue;
                     }
                     discard(&server_dir.join(name));

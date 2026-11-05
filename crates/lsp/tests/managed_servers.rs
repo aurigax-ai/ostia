@@ -252,6 +252,38 @@ fn make_tar(entries: &[TarEntry]) -> Vec<u8> {
     out
 }
 
+fn pax_record(key: &str, value: &str) -> Vec<u8> {
+    let base = key.len() + value.len() + 3;
+    let mut len = base;
+    loop {
+        let wanted = base + len.to_string().len();
+        if wanted == len {
+            break;
+        }
+        len = wanted;
+    }
+    format!("{len} {key}={value}\n").into_bytes()
+}
+
+fn tar_meta(name: &str, kind: u8, data: Vec<u8>) -> TarEntry {
+    TarEntry {
+        name: name.to_owned(),
+        data,
+        mode: 0o644,
+        kind,
+        link: None,
+    }
+}
+
+fn with_made_by(mut zip: Vec<u8>, system: u8) -> Vec<u8> {
+    let central = zip
+        .windows(4)
+        .position(|window| window == [0x50, 0x4b, 0x01, 0x02])
+        .unwrap();
+    zip[central + 5] = system;
+    zip
+}
+
 struct ZipEntry {
     name: String,
     data: Vec<u8>,
@@ -602,6 +634,30 @@ async fn unpacks_a_tar_gz_with_its_folders_and_executable_bits() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn unpacks_a_tar_gz_that_starts_with_a_pax_global_header() {
+    let area = area();
+    let body = gzip(&make_tar(&[
+        tar_meta(
+            "pax_global_header",
+            b'g',
+            pax_record("comment", "0123456789abcdef0123456789abcdef01234567"),
+        ),
+        tar_executable("bin/tool", b"#!/bin/sh\n"),
+    ]));
+    let server = serve_asset(&body).await;
+    let servers = servers(&area.dir, &server.base);
+    let run = download_run(
+        &body,
+        LanguageServerArchive::TarGz,
+        "bin/tool",
+        Extra::default(),
+    );
+    let path = fetch(&servers, "ext", "srv", &run).await.unwrap();
+    assert_ne!(mode_of(Path::new(&path)) & 0o111, 0);
+    assert_eq!(names(&area.dir.join("ext/srv/1.0.0")), vec![text("bin")]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn unpacks_a_zip_with_its_folders_and_executable_bits() {
     let area = area();
     let body = make_zip(&[
@@ -851,6 +907,28 @@ async fn refuses_an_archive_entry_that_leaves_the_folder_or_is_a_link() {
         (
             make_zip(&[zip_file("dir\\tool", b"x"), zip_file("tool", b"x")]),
             LanguageServerArchive::Zip,
+        ),
+        (
+            with_made_by(
+                make_zip(&[zip_with_mode("tool", b"/bin/sh", 0o120_777)]),
+                19,
+            ),
+            LanguageServerArchive::Zip,
+        ),
+        (
+            with_made_by(make_zip(&[zip_with_mode("tool", b"/bin/sh", 0o120_777)]), 0),
+            LanguageServerArchive::Zip,
+        ),
+        (
+            gzip(&make_tar(&[
+                tar_meta(
+                    "pax_header",
+                    b'x',
+                    pax_record("comment", &"a".repeat(2 * 1024 * 1024)),
+                ),
+                tar_file("tool", b"x"),
+            ])),
+            LanguageServerArchive::TarGz,
         ),
         (b"not an archive".to_vec(), LanguageServerArchive::Zip),
         (b"not gzip".to_vec(), LanguageServerArchive::Gz),
@@ -1292,21 +1370,6 @@ fn with_go(
     (servers, log)
 }
 
-fn script_go(area: &Area, body: &str) -> ManagedServers {
-    let bin = area.root.join("bin");
-    fs::create_dir_all(&bin).unwrap();
-    let script = bin.join("go");
-    fs::write(&script, format!("#!/bin/sh\n{body}\n")).unwrap();
-    fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
-    let script_text = script.to_string_lossy().into_owned();
-    let args_file = area.root.join("args.txt").to_string_lossy().into_owned();
-    managed(&area.dir, None, |deps| {
-        deps.find_program =
-            Arc::new(move |program: &str| (program == "go").then(|| script_text.clone()));
-        deps.env = Arc::new(move || BTreeMap::from([(text("ARGS_FILE"), args_file.clone())]));
-    })
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn runs_exactly_go_install_module_at_version_with_gobin_in_its_own_folder_and_goflags_cleared()
  {
@@ -1402,26 +1465,28 @@ async fn fails_when_go_wrote_no_binary_and_when_go_is_not_on_path() {
 #[tokio::test(flavor = "multi_thread")]
 async fn never_passes_more_than_the_two_fixed_arguments_or_a_shell() {
     let area = area();
-    let servers = script_go(
-        &area,
-        "printf '%s\\n' \"$0\" \"$@\" > \"$ARGS_FILE\"\n: > \"$GOBIN/gopher\"",
-    );
+    let (servers, log) = with_go(&area, "", |_| {});
     fetch(&servers, "ext", "gopher", &go_run()).await.unwrap();
-    let recorded = fs::read_to_string(area.root.join("args.txt")).unwrap();
+    let recorded: HashMap<String, String> = fs::read_to_string(&log)
+        .unwrap()
+        .lines()
+        .filter_map(|line| line.split_once('='))
+        .map(|(key, value)| (key.to_owned(), value.to_owned()))
+        .collect();
     assert_eq!(
-        recorded.lines().collect::<Vec<_>>(),
-        vec![
-            area.root.join("bin/go").to_string_lossy().as_ref(),
-            "install",
-            "example.org/x/tools/gopher@v1.2.3",
-        ]
+        recorded["argv0"],
+        fake_bin().join("go").to_string_lossy().as_ref()
+    );
+    assert_eq!(
+        recorded["argv"],
+        "install example.org/x/tools/gopher@v1.2.3"
     );
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn reports_a_go_install_that_prints_too_much() {
     let area = area();
-    let servers = script_go(&area, "head -c 2000000 /dev/zero | tr '\\0' x");
+    let (servers, _) = with_go(&area, "flood", |_| {});
     let error = fetch(&servers, "ext", "gopher", &go_run())
         .await
         .unwrap_err();

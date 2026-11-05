@@ -67,47 +67,126 @@ fn default_reconcile() -> Duration {
     }
 }
 
+type DirListeners = HashMap<PathBuf, Vec<(u64, DirListener)>>;
+
+struct SharedNotify {
+    watcher: Mutex<notify::RecommendedWatcher>,
+    listeners: Arc<Mutex<DirListeners>>,
+    next_id: AtomicU64,
+}
+
 struct NotifyWatch {
-    watcher: notify::RecommendedWatcher,
+    shared: Arc<SharedNotify>,
     dir: PathBuf,
+    id: u64,
+}
+
+fn route(listeners: &Mutex<DirListeners>, result: notify::Result<notify::Event>) {
+    match result {
+        Ok(event) => {
+            if matches!(event.kind, EventKind::Access(_)) {
+                return;
+            }
+            for path in event.paths {
+                let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+                    continue;
+                };
+                let targets: Vec<DirListener> = listeners
+                    .lock()
+                    .get(parent)
+                    .map(|entries| entries.iter().map(|(_, l)| Arc::clone(l)).collect())
+                    .unwrap_or_default();
+                for listener in targets {
+                    listener(DirEvent::Touched(name.to_string_lossy().into_owned()));
+                }
+            }
+        }
+        Err(_) => {
+            let targets: Vec<DirListener> = listeners
+                .lock()
+                .values()
+                .flat_map(|entries| entries.iter().map(|(_, l)| Arc::clone(l)))
+                .collect();
+            for listener in targets {
+                listener(DirEvent::Failed);
+            }
+        }
+    }
+}
+
+impl SharedNotify {
+    fn start() -> io::Result<Arc<Self>> {
+        let listeners = Arc::new(Mutex::new(DirListeners::new()));
+        let routed = Arc::clone(&listeners);
+        let watcher = notify::recommended_watcher(move |result: notify::Result<notify::Event>| {
+            route(&routed, result);
+        })
+        .map_err(io::Error::other)?;
+        Ok(Arc::new(Self {
+            watcher: Mutex::new(watcher),
+            listeners,
+            next_id: AtomicU64::new(0),
+        }))
+    }
+
+    fn add(self: &Arc<Self>, dir: &Path, listener: DirListener) -> io::Result<WatchHandle> {
+        let mut watcher = self.watcher.lock();
+        let known = self.listeners.lock().contains_key(dir);
+        if !known {
+            watcher
+                .watch(dir, RecursiveMode::NonRecursive)
+                .map_err(io::Error::other)?;
+        }
+        let id = self.next_id.fetch_add(1, Ordering::SeqCst);
+        self.listeners
+            .lock()
+            .entry(dir.to_path_buf())
+            .or_default()
+            .push((id, listener));
+        Ok(Box::new(NotifyWatch {
+            shared: Arc::clone(self),
+            dir: dir.to_path_buf(),
+            id,
+        }))
+    }
 }
 
 impl Drop for NotifyWatch {
     fn drop(&mut self) {
-        let _ = self.watcher.unwatch(&self.dir);
+        let mut watcher = self.shared.watcher.lock();
+        let emptied = {
+            let mut listeners = self.shared.listeners.lock();
+            let Some(entries) = listeners.get_mut(&self.dir) else {
+                return;
+            };
+            entries.retain(|(id, _)| *id != self.id);
+            let emptied = entries.is_empty();
+            if emptied {
+                listeners.remove(&self.dir);
+            }
+            emptied
+        };
+        if emptied {
+            let _ = watcher.unwatch(&self.dir);
+        }
     }
 }
 
 pub fn notify_watch_dir() -> WatchDir {
-    Arc::new(|dir: &Path, listener: DirListener| {
-        let watched = dir.to_path_buf();
-        let own = watched.clone();
-        let mut watcher = notify::recommended_watcher(
-            move |result: notify::Result<notify::Event>| match result {
-                Ok(event) => {
-                    if matches!(event.kind, EventKind::Access(_)) {
-                        return;
-                    }
-                    for path in event.paths {
-                        if path == own {
-                            continue;
-                        }
-                        if let Some(name) = path.file_name() {
-                            listener(DirEvent::Touched(name.to_string_lossy().into_owned()));
-                        }
-                    }
+    let shared: Mutex<Option<Arc<SharedNotify>>> = Mutex::new(None);
+    Arc::new(move |dir: &Path, listener: DirListener| {
+        let started = {
+            let mut slot = shared.lock();
+            match slot.as_ref() {
+                Some(started) => Arc::clone(started),
+                None => {
+                    let started = SharedNotify::start()?;
+                    *slot = Some(Arc::clone(&started));
+                    started
                 }
-                Err(_) => listener(DirEvent::Failed),
-            },
-        )
-        .map_err(io::Error::other)?;
-        watcher
-            .watch(&watched, RecursiveMode::NonRecursive)
-            .map_err(io::Error::other)?;
-        Ok(Box::new(NotifyWatch {
-            watcher,
-            dir: watched,
-        }) as WatchHandle)
+            }
+        };
+        started.add(dir, listener)
     })
 }
 
@@ -128,14 +207,6 @@ fn split(path: &str) -> Option<(String, String)> {
         path.parent()?.to_str()?.to_owned(),
         path.file_name()?.to_str()?.to_owned(),
     ))
-}
-
-fn eager<T: Clone + Send + Sync + 'static>(
-    runtime: &Handle,
-    future: impl Future<Output = T> + Send + 'static,
-) -> Shared<BoxFuture<'static, Option<T>>> {
-    let task = runtime.spawn(future);
-    async move { task.await.ok() }.boxed().shared()
 }
 
 fn eager_option<T: Clone + Send + Sync + 'static>(
@@ -281,42 +352,25 @@ impl FileWatches {
         let Some((dir, name)) = split(&safe) else {
             return false;
         };
-        let mut state = inner.state.lock();
-        if !state.dirs.contains_key(&dir) {
-            let weak = Arc::downgrade(inner);
-            let watched = dir.clone();
-            let listener: DirListener = Arc::new(move |event| {
-                let Some(inner) = weak.upgrade() else {
-                    return;
-                };
-                match event {
-                    DirEvent::Touched(name) => inner.touched(&watched, &name),
-                    DirEvent::Failed => inner.drop_dir(&watched, true),
-                }
-            });
-            let Ok(handle) = (inner.watch_dir)(Path::new(&dir), listener) else {
-                return false;
+        if inner.register(&dir, &name, owner, &safe) {
+            return true;
+        }
+        let weak = Arc::downgrade(inner);
+        let watched = dir.clone();
+        let listener: DirListener = Arc::new(move |event| {
+            let Some(inner) = weak.upgrade() else {
+                return;
             };
-            state.dirs.insert(
-                dir.clone(),
-                DirWatch {
-                    handle,
-                    files: IndexMap::new(),
-                },
-            );
-            inner.start_reconciling(&mut state);
-        }
-        if let Some(entry) = state.dirs.get_mut(&dir) {
-            entry
-                .files
-                .entry(name)
-                .or_default()
-                .insert(owner.to_owned());
-        }
-        state
-            .last_seen
-            .entry(safe.clone())
-            .or_insert_with(|| fingerprint_now(&inner.runtime, &safe));
+            match event {
+                DirEvent::Touched(name) => inner.touched(&watched, &name),
+                DirEvent::Failed => inner.drop_dir(&watched, true),
+            }
+        });
+        let Ok(handle) = (inner.watch_dir)(Path::new(&dir), listener) else {
+            return false;
+        };
+        let spare = inner.register_with(&dir, &name, owner, &safe, handle);
+        drop(spare);
         true
     }
 
@@ -328,33 +382,37 @@ impl FileWatches {
         save: impl FnOnce() -> SaveFuture + Send + 'static,
     ) -> io::Result<FileStamp> {
         let inner = &self.inner;
-        let safe = (inner.confine)(path);
-        let previous = safe
-            .as_ref()
-            .and_then(|safe| inner.state.lock().last_seen.get(safe).cloned());
-        let (Some(safe), Some(previous)) = (safe, previous) else {
+        let Some(safe) = (inner.confine)(path) else {
             return save().await;
         };
         let hash = digest(data);
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let waiting = previous.clone();
-        let saving = eager_option(&inner.runtime, async move {
-            waiting.clone().await;
-            match save().await {
-                Ok(stamp) => {
-                    let _ = sender.send(Ok(stamp));
-                    Some(Fingerprint {
-                        stamp,
-                        hash: Some(hash),
-                    })
+        let previous = {
+            let mut state = inner.state.lock();
+            let Some(previous) = state.last_seen.get(&safe).cloned() else {
+                drop(state);
+                return save().await;
+            };
+            let waiting = previous.clone();
+            let saving = eager_option(&inner.runtime, async move {
+                waiting.clone().await;
+                match save().await {
+                    Ok(stamp) => {
+                        let _ = sender.send(Ok(stamp));
+                        Some(Fingerprint {
+                            stamp,
+                            hash: Some(hash),
+                        })
+                    }
+                    Err(error) => {
+                        let _ = sender.send(Err(error));
+                        waiting.await
+                    }
                 }
-                Err(error) => {
-                    let _ = sender.send(Err(error));
-                    waiting.await
-                }
-            }
-        });
-        inner.state.lock().last_seen.insert(safe.clone(), saving);
+            });
+            state.last_seen.insert(safe.clone(), saving);
+            previous
+        };
         let stamp = receiver
             .await
             .map_err(|_| io::Error::other("save task ended"))??;
@@ -443,6 +501,55 @@ impl FileWatches {
 }
 
 impl FileInner {
+    fn register(self: &Arc<Self>, dir: &str, name: &str, owner: &str, safe: &str) -> bool {
+        let mut state = self.state.lock();
+        if !state.dirs.contains_key(dir) {
+            return false;
+        }
+        self.add_owner(&mut state, dir, name, owner, safe);
+        true
+    }
+
+    fn register_with(
+        self: &Arc<Self>,
+        dir: &str,
+        name: &str,
+        owner: &str,
+        safe: &str,
+        handle: WatchHandle,
+    ) -> Option<WatchHandle> {
+        let mut state = self.state.lock();
+        let spare = if state.dirs.contains_key(dir) {
+            Some(handle)
+        } else {
+            state.dirs.insert(
+                dir.to_owned(),
+                DirWatch {
+                    handle,
+                    files: IndexMap::new(),
+                },
+            );
+            self.start_reconciling(&mut state);
+            None
+        };
+        self.add_owner(&mut state, dir, name, owner, safe);
+        spare
+    }
+
+    fn add_owner(&self, state: &mut FileState, dir: &str, name: &str, owner: &str, safe: &str) {
+        if let Some(entry) = state.dirs.get_mut(dir) {
+            entry
+                .files
+                .entry(name.to_owned())
+                .or_default()
+                .insert(owner.to_owned());
+        }
+        state
+            .last_seen
+            .entry(safe.to_owned())
+            .or_insert_with(|| fingerprint_now(&self.runtime, safe));
+    }
+
     fn owners_of(&self, path: &str) -> Vec<String> {
         let Some((dir, name)) = split(path) else {
             return Vec::new();
@@ -554,38 +661,31 @@ impl FileInner {
         state.timers.insert(path, Timer { id, task });
     }
 
-    async fn check(&self, path: String) {
+    async fn check(self: Arc<Self>, path: String) {
         let step = {
             let mut state = self.state.lock();
             let Some(previous) = state.last_seen.get(&path).cloned() else {
                 return;
             };
             let target = path.clone();
-            let step = eager(&self.runtime, async move {
+            let inner = Arc::clone(&self);
+            let step = eager_option(&self.runtime, async move {
                 let before = previous.await;
-                let after = fingerprint_after(target, before.clone()).await;
-                (before, after)
+                let after = fingerprint_after(target.clone(), before.clone()).await;
+                let owners = inner.owners_of(&target);
+                if !owners.is_empty() && !same_content(&before, &after) {
+                    (inner.on_change)(FileChange {
+                        path: target,
+                        exists: after.is_some(),
+                        owners,
+                    });
+                }
+                after
             });
-            let last: LastSeen = step
-                .clone()
-                .map(|done| done.and_then(|(_, after)| after))
-                .boxed()
-                .shared();
-            state.last_seen.insert(path.clone(), last);
+            state.last_seen.insert(path, step.clone());
             step
         };
-        let Some((before, after)) = step.await else {
-            return;
-        };
-        let owners = self.owners_of(&path);
-        if owners.is_empty() || same_content(&before, &after) {
-            return;
-        }
-        (self.on_change)(FileChange {
-            path,
-            exists: after.is_some(),
-            owners,
-        });
+        step.await;
     }
 }
 
@@ -595,6 +695,33 @@ pub struct TreeWatchesDeps {
     pub max_dirs: Option<usize>,
     pub reconcile: Option<Duration>,
     pub watch_dir: Option<WatchDir>,
+}
+
+struct ScannedDir {
+    dir: String,
+    handle: WatchHandle,
+    files: Vec<String>,
+}
+
+enum Seen {
+    Gone,
+    File,
+    Dir(Vec<ScannedDir>),
+}
+
+enum Scanned {
+    File(String),
+    Subtree(Vec<ScannedDir>),
+}
+
+enum Listing {
+    NotDir,
+    Unreadable,
+    Entries(Vec<Scanned>),
+}
+
+fn discard(plans: Vec<ScannedDir>, released: &mut Vec<WatchHandle>) {
+    released.extend(plans.into_iter().map(|plan| plan.handle));
 }
 
 struct TreeDir {
@@ -624,6 +751,7 @@ struct TreeInner {
     watch_dir: WatchDir,
     runtime: Handle,
     state: Mutex<TreeState>,
+    delivery: Mutex<()>,
     next_id: AtomicU64,
 }
 
@@ -669,6 +797,7 @@ impl TreeWatches {
                 watch_dir: deps.watch_dir.unwrap_or_else(notify_watch_dir),
                 runtime: Handle::current(),
                 state: Mutex::new(TreeState::default()),
+                delivery: Mutex::new(()),
                 next_id: AtomicU64::new(0),
             }),
         }
@@ -678,31 +807,15 @@ impl TreeWatches {
         let inner = &self.inner;
         let safe = (inner.confine)(root)?;
         let listener_id = inner.next_id.fetch_add(1, Ordering::SeqCst);
-        let tree_id = {
-            let mut state = inner.state.lock();
-            if !state.trees.contains_key(&safe) {
+        let tree_id = match inner.subscribe(&safe, listener_id, &listener) {
+            Some(tree_id) => tree_id,
+            None => {
                 if !is_directory(&safe) {
                     return None;
                 }
-                let id = inner.next_id.fetch_add(1, Ordering::SeqCst);
-                let mut tree = TreeWatch {
-                    id,
-                    dirs: IndexMap::new(),
-                    listeners: Vec::new(),
-                    pending: IndexSet::new(),
-                    timer: None,
-                    reconciler: None,
-                };
-                inner.scan(&safe, &mut tree, &safe, None);
-                inner.start_reconciling(&safe, &mut tree);
-                state.trees.insert(safe.clone(), tree);
-                drop(state);
-                inner.subscribe(&safe, listener_id, listener)
-            } else {
-                drop(state);
-                inner.subscribe(&safe, listener_id, listener)
+                inner.open_tree(&safe, listener_id, listener)
             }
-        }?;
+        };
         let weak = Arc::downgrade(inner);
         Some(Box::new(move || {
             let Some(inner) = weak.upgrade() else {
@@ -755,11 +868,41 @@ impl TreeWatches {
 }
 
 impl TreeInner {
-    fn subscribe(&self, safe: &str, listener_id: u64, listener: TreeListener) -> Option<u64> {
+    fn subscribe(&self, safe: &str, listener_id: u64, listener: &TreeListener) -> Option<u64> {
         let mut state = self.state.lock();
         let tree = state.trees.get_mut(safe)?;
-        tree.listeners.push((listener_id, listener));
+        tree.listeners.push((listener_id, Arc::clone(listener)));
         Some(tree.id)
+    }
+
+    fn open_tree(self: &Arc<Self>, safe: &str, listener_id: u64, listener: TreeListener) -> u64 {
+        let id = self.next_id.fetch_add(1, Ordering::SeqCst);
+        let mut known = HashSet::new();
+        let plans = self.scan(safe, id, safe, &mut known);
+        let mut released = Vec::new();
+        let tree_id = {
+            let mut state = self.state.lock();
+            if let Some(tree) = state.trees.get_mut(safe) {
+                tree.listeners.push((listener_id, listener));
+                discard(plans, &mut released);
+                tree.id
+            } else {
+                let mut tree = TreeWatch {
+                    id,
+                    dirs: IndexMap::new(),
+                    listeners: vec![(listener_id, listener)],
+                    pending: IndexSet::new(),
+                    timer: None,
+                    reconciler: None,
+                };
+                self.adopt(&mut tree, plans, None, &mut released);
+                self.start_reconciling(safe, &mut tree);
+                state.trees.insert(safe.to_owned(), tree);
+                id
+            }
+        };
+        release(released, false);
+        tree_id
     }
 
     fn close_locked(&self, state: &mut TreeState, root: &str) -> Vec<WatchHandle> {
@@ -789,7 +932,11 @@ impl TreeInner {
                 let Some(inner) = weak.upgrade() else {
                     return;
                 };
-                if !inner.reconcile_tree(&root, id) {
+                let owner = root.clone();
+                let alive = tokio::task::spawn_blocking(move || inner.reconcile_tree(&owner, id))
+                    .await
+                    .unwrap_or(false);
+                if !alive {
                     return;
                 }
             }
@@ -799,19 +946,19 @@ impl TreeInner {
     fn scan(
         self: &Arc<Self>,
         root: &str,
-        tree: &mut TreeWatch,
+        id: u64,
         start: &str,
-        mut created: Option<&mut Vec<TreeChange>>,
-    ) {
+        known: &mut HashSet<String>,
+    ) -> Vec<ScannedDir> {
+        let mut found = Vec::new();
         let mut queue = VecDeque::from([start.to_owned()]);
         while let Some(dir) = queue.pop_front() {
-            if tree.dirs.contains_key(&dir) || tree.dirs.len() >= self.max_dirs {
+            if known.contains(&dir) || known.len() >= self.max_dirs {
                 continue;
             }
             let weak = Arc::downgrade(self);
             let watched = dir.clone();
             let owner = root.to_owned();
-            let id = tree.id;
             let listener: DirListener = Arc::new(move |event| {
                 let Some(inner) = weak.upgrade() else {
                     return;
@@ -826,27 +973,47 @@ impl TreeInner {
             let Ok(handle) = (self.watch_dir)(Path::new(&dir), listener) else {
                 continue;
             };
-            tree.dirs.insert(
-                dir.clone(),
-                TreeDir {
-                    handle,
-                    files: IndexSet::new(),
-                },
-            );
+            known.insert(dir.clone());
+            let mut files = Vec::new();
             for (name, is_dir) in entries_of(&dir).unwrap_or_default() {
-                if is_dir {
-                    if !skipped(&name) {
-                        queue.push_back(format!("{dir}/{name}"));
-                    }
-                    continue;
-                }
-                if let Some(found) = created.as_deref_mut() {
-                    found.push(change(format!("{dir}/{name}"), TreeChangeKind::Created));
-                }
-                if let Some(entry) = tree.dirs.get_mut(&dir) {
-                    entry.files.insert(name);
+                if !is_dir {
+                    files.push(name);
+                } else if !skipped(&name) {
+                    queue.push_back(format!("{dir}/{name}"));
                 }
             }
+            found.push(ScannedDir { dir, handle, files });
+        }
+        found
+    }
+
+    fn adopt(
+        &self,
+        tree: &mut TreeWatch,
+        plans: Vec<ScannedDir>,
+        mut created: Option<&mut Vec<TreeChange>>,
+        released: &mut Vec<WatchHandle>,
+    ) {
+        for plan in plans {
+            if tree.dirs.contains_key(&plan.dir) || tree.dirs.len() >= self.max_dirs {
+                released.push(plan.handle);
+                continue;
+            }
+            if let Some(found) = created.as_deref_mut() {
+                for name in &plan.files {
+                    found.push(change(
+                        format!("{}/{name}", plan.dir),
+                        TreeChangeKind::Created,
+                    ));
+                }
+            }
+            tree.dirs.insert(
+                plan.dir,
+                TreeDir {
+                    handle: plan.handle,
+                    files: plan.files.into_iter().collect(),
+                },
+            );
         }
     }
 
@@ -907,7 +1074,7 @@ impl TreeInner {
         tree.timer = Some(self.runtime.spawn(async move {
             tokio::time::sleep(debounce).await;
             if let Some(inner) = weak.upgrade() {
-                inner.flush(&owner, id);
+                let _ = tokio::task::spawn_blocking(move || inner.flush(&owner, id)).await;
             }
         }));
     }
@@ -922,9 +1089,8 @@ impl TreeInner {
     }
 
     fn flush(self: &Arc<Self>, root: &str, id: u64) {
-        let mut changes = Vec::new();
-        let mut released = Vec::new();
-        let listeners = {
+        let _delivery = self.delivery.lock();
+        let (pending, mut known) = {
             let mut state = self.state.lock();
             let Some(tree) = state.trees.get_mut(root) else {
                 return;
@@ -933,98 +1099,186 @@ impl TreeInner {
                 return;
             }
             tree.timer = None;
-            let pending = std::mem::take(&mut tree.pending);
-            for path in pending {
-                let Some((parent, name)) = split(&path) else {
-                    continue;
-                };
-                if !tree.dirs.contains_key(&parent) {
-                    continue;
+            (
+                std::mem::take(&mut tree.pending),
+                tree.dirs.keys().cloned().collect::<HashSet<String>>(),
+            )
+        };
+        let mut seen = Vec::new();
+        for path in pending {
+            let Some((parent, name)) = split(&path) else {
+                continue;
+            };
+            if !known.contains(&parent) {
+                continue;
+            }
+            let found = match fs::symlink_metadata(&path) {
+                Err(_) => Seen::Gone,
+                Ok(info) if info.is_dir() => Seen::Dir(if skipped(&name) {
+                    Vec::new()
+                } else {
+                    self.scan(root, id, &path, &mut known)
+                }),
+                Ok(_) => Seen::File,
+            };
+            seen.push((path, parent, name, found));
+        }
+        let mut changes = Vec::new();
+        let mut released = Vec::new();
+        let listeners = {
+            let mut state = self.state.lock();
+            match state.trees.get_mut(root).filter(|tree| tree.id == id) {
+                None => {
+                    for (.., found) in seen {
+                        if let Seen::Dir(plans) = found {
+                            discard(plans, &mut released);
+                        }
+                    }
+                    Vec::new()
                 }
-                match fs::symlink_metadata(&path) {
-                    Err(_) => {
-                        let removed = tree
-                            .dirs
-                            .get_mut(&parent)
-                            .is_some_and(|entry| entry.files.shift_remove(&name));
-                        if removed {
-                            changes.push(change(path.clone(), TreeChangeKind::Deleted));
-                        }
-                        changes.extend(Self::drop_tree_dir(tree, &path, &mut released));
-                    }
-                    Ok(info) if info.is_dir() => {
-                        if !skipped(&name) {
-                            self.scan(root, tree, &path, Some(&mut changes));
-                        }
-                    }
-                    Ok(_) => {
-                        let Some(entry) = tree.dirs.get_mut(&parent) else {
+                Some(tree) => {
+                    for (path, parent, name, found) in seen {
+                        if !tree.dirs.contains_key(&parent) {
+                            if let Seen::Dir(plans) = found {
+                                discard(plans, &mut released);
+                            }
                             continue;
-                        };
-                        let kind = if entry.files.contains(&name) {
-                            TreeChangeKind::Changed
-                        } else {
-                            TreeChangeKind::Created
-                        };
-                        changes.push(change(path.clone(), kind));
-                        entry.files.insert(name);
+                        }
+                        match found {
+                            Seen::Gone => {
+                                let removed = tree
+                                    .dirs
+                                    .get_mut(&parent)
+                                    .is_some_and(|entry| entry.files.shift_remove(&name));
+                                if removed {
+                                    changes.push(change(path.clone(), TreeChangeKind::Deleted));
+                                }
+                                changes.extend(Self::drop_tree_dir(tree, &path, &mut released));
+                            }
+                            Seen::Dir(plans) => {
+                                self.adopt(tree, plans, Some(&mut changes), &mut released);
+                            }
+                            Seen::File => {
+                                let Some(entry) = tree.dirs.get_mut(&parent) else {
+                                    continue;
+                                };
+                                let kind = if entry.files.contains(&name) {
+                                    TreeChangeKind::Changed
+                                } else {
+                                    TreeChangeKind::Created
+                                };
+                                changes.push(change(path.clone(), kind));
+                                entry.files.insert(name);
+                            }
+                        }
                     }
+                    tree.listeners.clone()
                 }
             }
-            tree.listeners.clone()
         };
         release(released, false);
         Self::deliver(&listeners, &changes);
     }
 
     fn reconcile_tree(self: &Arc<Self>, root: &str, id: u64) -> bool {
-        let mut changes = Vec::new();
-        let mut released = Vec::new();
-        let listeners = {
-            let mut state = self.state.lock();
-            let Some(tree) = state.trees.get_mut(root) else {
+        let _delivery = self.delivery.lock();
+        let dirs: Vec<String> = {
+            let state = self.state.lock();
+            let Some(tree) = state.trees.get(root) else {
                 return false;
             };
             if tree.id != id {
                 return false;
             }
-            let dirs: Vec<String> = tree.dirs.keys().cloned().collect();
-            for dir in dirs {
-                if !tree.dirs.contains_key(&dir) {
-                    continue;
-                }
-                if !is_directory(&dir) {
-                    changes.extend(Self::drop_tree_dir(tree, &dir, &mut released));
-                    continue;
-                }
-                let Some(entries) = entries_of(&dir) else {
-                    continue;
-                };
-                let mut names = HashSet::new();
-                for (name, is_dir) in entries {
-                    let path = format!("{dir}/{name}");
-                    if is_dir {
-                        if !skipped(&name) {
-                            self.scan(root, tree, &path, Some(&mut changes));
+            tree.dirs.keys().cloned().collect()
+        };
+        let mut known: HashSet<String> = dirs.iter().cloned().collect();
+        let mut listed = Vec::new();
+        for dir in dirs {
+            let listing = if !is_directory(&dir) {
+                Listing::NotDir
+            } else if let Some(entries) = entries_of(&dir) {
+                Listing::Entries(
+                    entries
+                        .into_iter()
+                        .filter_map(|(name, is_dir)| {
+                            if !is_dir {
+                                return Some(Scanned::File(name));
+                            }
+                            if skipped(&name) {
+                                return None;
+                            }
+                            let path = format!("{dir}/{name}");
+                            Some(Scanned::Subtree(self.scan(root, id, &path, &mut known)))
+                        })
+                        .collect(),
+                )
+            } else {
+                Listing::Unreadable
+            };
+            listed.push((dir, listing));
+        }
+        let mut changes = Vec::new();
+        let mut released = Vec::new();
+        let listeners = {
+            let mut state = self.state.lock();
+            let Some(tree) = state.trees.get_mut(root).filter(|tree| tree.id == id) else {
+                for (_, listing) in listed {
+                    if let Listing::Entries(entries) = listing {
+                        for entry in entries {
+                            if let Scanned::Subtree(plans) = entry {
+                                discard(plans, &mut released);
+                            }
                         }
+                    }
+                }
+                drop(state);
+                release(released, false);
+                return false;
+            };
+            for (dir, listing) in listed {
+                let entries = match listing {
+                    Listing::Entries(entries) => entries,
+                    Listing::NotDir if tree.dirs.contains_key(&dir) => {
+                        changes.extend(Self::drop_tree_dir(tree, &dir, &mut released));
                         continue;
                     }
-                    if let Some(known) = tree.dirs.get_mut(&dir)
-                        && known.files.insert(name.clone())
-                    {
-                        changes.push(change(path, TreeChangeKind::Created));
+                    Listing::NotDir | Listing::Unreadable => continue,
+                };
+                if !tree.dirs.contains_key(&dir) {
+                    for entry in entries {
+                        if let Scanned::Subtree(plans) = entry {
+                            discard(plans, &mut released);
+                        }
                     }
-                    names.insert(name);
+                    continue;
                 }
-                if let Some(known) = tree.dirs.get_mut(&dir) {
-                    let vanished: Vec<String> = known
+                let mut names = HashSet::new();
+                for entry in entries {
+                    match entry {
+                        Scanned::Subtree(plans) => {
+                            self.adopt(tree, plans, Some(&mut changes), &mut released);
+                        }
+                        Scanned::File(name) => {
+                            if let Some(entry) = tree.dirs.get_mut(&dir)
+                                && entry.files.insert(name.clone())
+                            {
+                                changes
+                                    .push(change(format!("{dir}/{name}"), TreeChangeKind::Created));
+                            }
+                            names.insert(name);
+                        }
+                    }
+                }
+                if let Some(entry) = tree.dirs.get_mut(&dir) {
+                    let vanished: Vec<String> = entry
                         .files
                         .iter()
                         .filter(|name| !names.contains(*name))
                         .cloned()
                         .collect();
                     for name in vanished {
-                        known.files.shift_remove(&name);
+                        entry.files.shift_remove(&name);
                         changes.push(change(format!("{dir}/{name}"), TreeChangeKind::Deleted));
                     }
                 }

@@ -9,10 +9,14 @@ fn strings(items: &[&str]) -> Vec<String> {
     items.iter().map(|item| (*item).to_owned()).collect()
 }
 
+const SHELL_PATH: &str = "/usr/bin:/bin";
+
 fn run(setting: &str, fallback: &str, script: &str) -> String {
     let argv = shell_argv(setting, fallback);
     let mut child = Command::new(&argv[0])
         .args(&argv[1..])
+        .env_clear()
+        .env("PATH", SHELL_PATH)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -124,4 +128,10 @@ fn names_a_shell_by_the_last_part_of_its_program_path() {
 fn is_empty_when_there_is_no_program_to_name() {
     assert_eq!(shell_name(""), "");
     assert_eq!(shell_name("/usr/bin/"), "");
+}
+
+#[test]
+fn runs_the_shell_with_only_the_environment_the_test_gives() {
+    let out = run("/bin/sh", "/bin/sh", "echo \"path=$PATH\"\n");
+    assert!(out.contains(&format!("path={SHELL_PATH}\n")), "{out}");
 }

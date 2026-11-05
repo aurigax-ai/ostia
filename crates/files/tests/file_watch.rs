@@ -5,6 +5,7 @@ use std::io;
 use std::os::unix::fs::{MetadataExt, symlink};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use futures_util::future::FutureExt;
@@ -1096,4 +1097,145 @@ async fn silent_kernel_loses_no_file_written_into_folders_as_they_are_being_made
         .filter(|c| c.kind == TreeChangeKind::Created)
         .count();
     assert_eq!(created, made.len());
+}
+
+fn slow_driven_watch(delay: Duration) -> (WatchDir, Emitters, Arc<AtomicBool>) {
+    let emitters: Emitters = Arc::new(Mutex::new(Vec::new()));
+    let slow = Arc::new(AtomicBool::new(false));
+    let seen = emitters.clone();
+    let flag = slow.clone();
+    let watch: WatchDir = Arc::new(move |_path: &Path, listener: DirListener| {
+        if flag.load(Ordering::SeqCst) {
+            std::thread::sleep(delay);
+        }
+        seen.lock().push(listener);
+        Ok(Box::new(()) as WatchHandle)
+    });
+    (watch, emitters, slow)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn scans_a_new_folder_without_holding_the_tree_state() {
+    let (watch, emitters, slow) = slow_driven_watch(Duration::from_millis(900));
+    let t = tree_with(None, None, Some(watch));
+    assert!(t.watches.watch(&t.root, t.listen()).is_some());
+    slow.store(true, Ordering::SeqCst);
+    let fresh = format!("{}/fresh", t.root);
+    fs::create_dir(&fresh).unwrap();
+    let root_listener = emitters.lock()[0].clone();
+    root_listener(DirEvent::Touched("fresh".to_owned()));
+    pause(250).await;
+    let started = Instant::now();
+    let watched = t.watches.watched_dirs(&t.root);
+    assert!(
+        started.elapsed() < Duration::from_millis(300),
+        "the tree state was held for {:?}",
+        started.elapsed()
+    );
+    assert!(!watched.contains(&fresh));
+    wait_for(
+        || {
+            t.watches
+                .watched_dirs(&t.root)
+                .contains(&fresh)
+                .then_some(())
+        },
+        POLL,
+    )
+    .await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn never_delivers_two_tree_batches_at_the_same_time() {
+    let (watch, emitters) = driven_watch();
+    let t = tree_with(None, Some(40), Some(watch));
+    let active = Arc::new(AtomicUsize::new(0));
+    let overlapped = Arc::new(AtomicBool::new(false));
+    let delivered = Arc::new(AtomicUsize::new(0));
+    let listener: TreeListener = {
+        let (active, overlapped, delivered) =
+            (active.clone(), overlapped.clone(), delivered.clone());
+        Arc::new(move |_: &[TreeChange]| {
+            if active.fetch_add(1, Ordering::SeqCst) > 0 {
+                overlapped.store(true, Ordering::SeqCst);
+            }
+            std::thread::sleep(Duration::from_millis(300));
+            active.fetch_sub(1, Ordering::SeqCst);
+            delivered.fetch_add(1, Ordering::SeqCst);
+        })
+    };
+    assert!(t.watches.watch(&t.root, listener).is_some());
+    fs::write(format!("{}/src/one.txt", t.root), "x").unwrap();
+    fs::write(format!("{}/src/two.txt", t.root), "x").unwrap();
+    let src_listener = emitters.lock()[1].clone();
+    src_listener(DirEvent::Touched("one.txt".to_owned()));
+    wait_for(
+        || (delivered.load(Ordering::SeqCst) >= 2).then_some(()),
+        POLL,
+    )
+    .await;
+    pause(400).await;
+    assert!(!overlapped.load(Ordering::SeqCst));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn never_refuses_a_tree_root_that_exists_while_other_threads_open_and_close_it() {
+    let (watch, _) = driven_watch();
+    let t = tree_with(None, None, Some(watch));
+    let refused = AtomicUsize::new(0);
+    std::thread::scope(|scope| {
+        for _ in 0..4 {
+            scope.spawn(|| {
+                for _ in 0..400 {
+                    match t.watches.watch(&t.root, no_listener()) {
+                        Some(stop) => stop(),
+                        None => {
+                            refused.fetch_add(1, Ordering::SeqCst);
+                        }
+                    }
+                }
+            });
+        }
+    });
+    assert_eq!(refused.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn never_runs_two_saves_of_one_file_at_the_same_time() {
+    let s = Arc::new(file_setup_with(30, None, Some(silent_watch())));
+    let file = format!("{}/a.txt", s.root);
+    fs::write(&file, "start").unwrap();
+    assert!(s.watches.watch("win-0", &file));
+    let active = Arc::new(AtomicUsize::new(0));
+    let overlapped = Arc::new(AtomicBool::new(false));
+    for round in 0..40 {
+        let barrier = Arc::new(tokio::sync::Barrier::new(8));
+        let mut tasks = Vec::new();
+        for writer in 0..8 {
+            let (s, file, barrier) = (s.clone(), file.clone(), barrier.clone());
+            let (active, overlapped) = (active.clone(), overlapped.clone());
+            tasks.push(tokio::spawn(async move {
+                barrier.wait().await;
+                let target = file.clone();
+                s.watches
+                    .write(&format!("win-{writer}"), &file, b"x", move || {
+                        async move {
+                            if active.fetch_add(1, Ordering::SeqCst) > 0 {
+                                overlapped.store(true, Ordering::SeqCst);
+                            }
+                            tokio::time::sleep(Duration::from_millis(3)).await;
+                            active.fetch_sub(1, Ordering::SeqCst);
+                            write_text(Path::new(&target), "x")
+                        }
+                        .boxed()
+                    })
+                    .await
+                    .unwrap();
+            }));
+        }
+        for task in tasks {
+            task.await.unwrap();
+        }
+        assert!(!overlapped.load(Ordering::SeqCst), "round {round}");
+    }
 }
