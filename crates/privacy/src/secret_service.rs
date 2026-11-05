@@ -72,14 +72,22 @@ pub enum SecretGetError {
 
 pub type AskFuture = Pin<Box<dyn Future<Output = ApprovalOutcome> + Send>>;
 
+pub type HomeFn = Box<dyn Fn() -> PathBuf + Send + Sync>;
+pub type EnvFn = Box<dyn Fn() -> HashMap<String, String> + Send + Sync>;
+pub type GhTokenFn = Box<dyn Fn() -> Option<String> + Send + Sync>;
+pub type VaultListFn = Box<dyn Fn(&str) -> Vec<VaultKey> + Send + Sync>;
+pub type VaultGetFn = Box<dyn Fn(&str, VaultScope, &str) -> Option<String> + Send + Sync>;
+pub type GrantedIdsFn = Box<dyn Fn(&str) -> Vec<String> + Send + Sync>;
+pub type AskFn = Box<dyn Fn(SecretAsk) -> AskFuture + Send + Sync>;
+
 pub struct SecretServiceDeps {
-    pub home: Box<dyn Fn() -> PathBuf + Send + Sync>,
-    pub env: Box<dyn Fn() -> HashMap<String, String> + Send + Sync>,
-    pub gh_token: Box<dyn Fn() -> Option<String> + Send + Sync>,
-    pub vault_list: Box<dyn Fn(&str) -> Vec<VaultKey> + Send + Sync>,
-    pub vault_get: Box<dyn Fn(&str, VaultScope, &str) -> Option<String> + Send + Sync>,
-    pub granted_ids: Box<dyn Fn(&str) -> Vec<String> + Send + Sync>,
-    pub ask: Box<dyn Fn(SecretAsk) -> AskFuture + Send + Sync>,
+    pub home: HomeFn,
+    pub env: EnvFn,
+    pub gh_token: GhTokenFn,
+    pub vault_list: VaultListFn,
+    pub vault_get: VaultGetFn,
+    pub granted_ids: GrantedIdsFn,
+    pub ask: AskFn,
 }
 
 fn looks_like_private_key(path: &Path) -> bool {
