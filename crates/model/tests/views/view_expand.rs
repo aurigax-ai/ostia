@@ -256,14 +256,14 @@ fn fills_every_default_of_the_container_and_text_nodes() {
         "type": "stack",
         "children": [
             { "type": "row", "children": [] },
-            { "type": "section", "title": "Hi {{who}}", "children": [] },
+            { "type": "section", "title": "Hi {{workspace.who}}", "children": [] },
             { "type": "text", "text": "t" },
             { "type": "badge", "text": "b" },
             { "type": "icon", "name": "bell" },
             { "type": "divider" },
         ],
     }));
-    let root = expanded(&doc, json!({ "who": "you" }));
+    let root = expanded(&doc, json!({ "workspace": { "who": "you" } }));
     let RenderKind::Stack { gap, .. } = &root.kind else {
         panic!("expected a stack");
     };
@@ -409,15 +409,26 @@ fn hides_the_empty_text_when_the_list_has_items() {
 
 #[test]
 fn does_not_leak_the_item_scope_out_of_the_list() {
-    let doc = view(json!({
-        "type": "stack",
-        "children": [
-            list_of(json!({ "type": "divider" }), json!({})),
-            { "type": "text", "text": "[{{ws.name}}]" },
-        ],
-    }));
-    let root = expanded(&doc, json!({ "workspaces": [{ "name": "a" }] }));
-    assert_eq!(text_of(&children(&root)[1]), "[]");
+    let text = json!({
+        "version": 1,
+        "title": "T",
+        "placement": "panel",
+        "root": {
+            "type": "stack",
+            "children": [
+                list_of(json!({ "type": "divider" }), json!({})),
+                { "type": "text", "text": "[{{ws.name}}]" },
+            ],
+        },
+    })
+    .to_string();
+    match parse_view_text(&text) {
+        ViewParseResult::Failed(problems) => {
+            assert_eq!(problems[0].path, "root.children[1].text");
+            assert!(problems[0].message.starts_with("unknown data source 'ws'"));
+        }
+        ViewParseResult::Ok(_) => panic!("the item scope must not reach outside the list"),
+    }
 }
 
 #[test]
@@ -435,20 +446,20 @@ fn skips_list_items_whose_if_binding_is_falsy() {
 fn turns_a_non_numeric_or_non_finite_progress_value_into_zero() {
     let table = [
         (
-            json!({ "type": "progress", "value": "{{v}}" }),
-            json!({ "v": "abc" }),
+            json!({ "type": "progress", "value": "{{workspace.v}}" }),
+            json!({ "workspace": { "v": "abc" } }),
         ),
         (
-            json!({ "type": "progress", "value": "{{v}}" }),
-            json!({ "v": null }),
+            json!({ "type": "progress", "value": "{{workspace.v}}" }),
+            json!({ "workspace": { "v": null } }),
         ),
         (
-            json!({ "type": "progress", "value": "{{v}}", "max": 0 }),
-            json!({ "v": 5 }),
+            json!({ "type": "progress", "value": "{{workspace.v}}", "max": 0 }),
+            json!({ "workspace": { "v": 5 } }),
         ),
         (
-            json!({ "type": "progress", "value": "{{v}}", "max": -3 }),
-            json!({ "v": 5 }),
+            json!({ "type": "progress", "value": "{{workspace.v}}", "max": -3 }),
+            json!({ "workspace": { "v": 5 } }),
         ),
     ];
     for (node, data) in table {
@@ -463,9 +474,15 @@ fn turns_a_non_numeric_or_non_finite_progress_value_into_zero() {
 
 #[test]
 fn reads_a_numeric_string_as_a_progress_value() {
-    let doc = view(json!({ "type": "progress", "value": "{{v}}" }));
-    assert_eq!(ratio_of(&expanded(&doc, json!({ "v": "40" }))), 0.4);
-    assert_eq!(ratio_of(&expanded(&doc, json!({ "v": -5 }))), 0.0);
+    let doc = view(json!({ "type": "progress", "value": "{{workspace.v}}" }));
+    assert_eq!(
+        ratio_of(&expanded(&doc, json!({ "workspace": { "v": "40" } }))),
+        0.4
+    );
+    assert_eq!(
+        ratio_of(&expanded(&doc, json!({ "workspace": { "v": -5 } }))),
+        0.0
+    );
 }
 
 #[test]
@@ -473,11 +490,11 @@ fn renders_kv_pairs_and_an_icon_label_with_their_bindings() {
     let doc = view(json!({
         "type": "stack",
         "children": [
-            { "type": "kv", "items": [{ "key": "{{k}}", "value": "{{v | upper}}" }] },
-            { "type": "icon", "name": "bell", "label": "{{k}}" },
+            { "type": "kv", "items": [{ "key": "{{workspace.k}}", "value": "{{workspace.v | upper}}" }] },
+            { "type": "icon", "name": "bell", "label": "{{workspace.k}}" },
         ],
     }));
-    let root = expanded(&doc, json!({ "k": "Name", "v": "abc" }));
+    let root = expanded(&doc, json!({ "workspace": { "k": "Name", "v": "abc" } }));
     let kids = children(&root);
     let RenderKind::Kv { items } = &kids[0].kind else {
         panic!("expected kv");
@@ -515,9 +532,9 @@ fn passes_open_url_through_when_it_resolves_to_https() {
     let doc = view(json!({
         "type": "button",
         "label": "b",
-        "action": { "openUrl": "https://example.com/{{p}}" },
+        "action": { "openUrl": "https://example.com/{{workspace.p}}" },
     }));
-    let root = expanded(&doc, json!({ "p": "x" }));
+    let root = expanded(&doc, json!({ "workspace": { "p": "x" } }));
     assert!(matches!(
         root.kind,
         RenderKind::Button {
