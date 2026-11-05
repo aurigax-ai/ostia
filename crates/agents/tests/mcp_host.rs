@@ -414,7 +414,7 @@ fn formats_every_kind_of_content_item() {
         ),
         (
             json!({"content": [{"type": "text", "text": 5}, "junk", null, {"type": 5}, {"type": "resource", "resource": "x"}]}),
-            Ok(""),
+            Ok("[text omitted]\n[resource omitted]"),
         ),
         (
             json!({"content": [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]}),

@@ -503,15 +503,20 @@ impl McpHost {
         self.emit();
     }
 
-    fn transport_for(&self, settings: &McpServerSettings) -> Result<McpClient, String> {
+    async fn connect_client(&self, settings: &McpServerSettings) -> Result<McpClient, String> {
+        let timeout = self.deps().connect_timeout;
         let secrets = server_secrets(settings, &*self.deps().secret);
         if mcp_transport_of(settings) == McpTransportKind::Http {
             let url = settings.url.as_deref().unwrap_or_default();
             let url = Url::parse(url).map_err(|err| format!("Invalid URL: {err}"))?;
-            return McpClient::start_http(HttpSpec {
-                url,
-                headers: secrets,
-            });
+            return McpClient::connect_http(
+                HttpSpec {
+                    url,
+                    headers: secrets,
+                },
+                timeout,
+            )
+            .await;
         }
         let [command, args @ ..] = settings.command.as_deref().unwrap_or_default() else {
             return Err("The server has no command".to_owned());
@@ -522,12 +527,16 @@ impl McpHost {
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect();
         env.extend(secrets);
-        McpClient::start_stdio(&StdioSpec {
-            command: command.clone(),
-            args: args.to_vec(),
-            env,
-            cwd: Host::current().home,
-        })
+        McpClient::connect_stdio(
+            &StdioSpec {
+                command: command.clone(),
+                args: args.to_vec(),
+                env,
+                cwd: Host::current().home,
+            },
+            timeout,
+        )
+        .await
     }
 
     async fn open(
@@ -536,11 +545,7 @@ impl McpHost {
         hooks: &OpenHooks,
     ) -> Result<Option<Connection>, String> {
         let timeout = self.deps().connect_timeout;
-        let client = Arc::new(self.transport_for(settings)?);
-        if let Err(message) = client.initialize(timeout).await {
-            client.close();
-            return Err(message);
-        }
+        let client = Arc::new(self.connect_client(settings).await?);
         if !(hooks.live)() {
             client.close();
             return Ok(None);
