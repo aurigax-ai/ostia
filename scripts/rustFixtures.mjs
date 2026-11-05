@@ -41,6 +41,7 @@ export * as gatewayPairing from './src/main/gateway/pairing'
 export { checkCode } from './src/main/gateway/pairCheck'
 export { createChatSessionStore } from './src/main/chat/chatSessions'
 export { ChatToolGrants } from './src/main/chat/chatToolGrants'
+export { chatMarkdown, normalizeChatSession } from './src/shared/assist/chatSessions'
 export { diffLines, diffWordsWithSpace } from 'diff'
 export { BUILTIN_COLOR_SCHEMES } from './src/renderer/lib/colorSchemes/builtinColorSchemes'
 export * as uiFonts from './src/renderer/lib/theme/uiFonts'
@@ -119,6 +120,8 @@ const {
   uiFonts,
   browserEditorSettings,
   agentSchema,
+  chatMarkdown,
+  normalizeChatSession,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -1154,3 +1157,150 @@ writeFileSync(
 )
 
 writeFileSync(join(out, 'agent-schema.json'), `${JSON.stringify(agentSchema, null, 1)}\n`)
+
+const emoji = '😀'
+const CHAT_MARKDOWN_INPUTS = [
+  { id: 'c1', title: ' A  b\n c ', createdAt: 1, updatedAt: 2, model: ' gpt ', messages: [] },
+  { id: 'c2', title: '', createdAt: 1, updatedAt: 2, messages: [] },
+  {
+    id: 'c3',
+    title: 'Plain',
+    createdAt: 1,
+    updatedAt: 2,
+    messages: [
+      { id: 's', role: 'system', parts: [{ type: 'text', text: 'hidden' }] },
+      {
+        id: 'u',
+        role: 'user',
+        parts: [
+          { type: 'step-start' },
+          { type: 'text', text: 'one ' },
+          { type: 'reasoning', text: 'secret thoughts' },
+          { type: 'text', text: 'two' },
+          { type: 'text', text: '   ' },
+        ],
+        metadata: {
+          context: [
+            { kind: 'output', label: 'Output', text: 'ls' },
+            { kind: 'output', label: 'Quoted', text: 'a ``` b' },
+          ],
+        },
+      },
+      { id: 'blank', role: 'assistant', parts: [{ type: 'text', text: ' \n ' }] },
+      { id: 'a', role: 'assistant', parts: [{ type: 'text', text: 'Done.\n\n' }] },
+    ],
+  },
+  {
+    id: 'c4',
+    title: 'Tools',
+    createdAt: 1,
+    updatedAt: 2,
+    messages: [
+      {
+        id: 'a',
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: 'before ' },
+          { type: 'text', text: 'tool' },
+          {
+            type: 'dynamic-tool',
+            toolName: 'read_file',
+            toolCallId: 't1',
+            state: 'output-available',
+            input: { path: '/p/a', nested: { list: [1, 2.5, null, true], empty: {}, none: [] } },
+            output: 'plain ``` text',
+          },
+          { type: 'text', text: 'between' },
+          {
+            type: 'dynamic-tool',
+            toolCallId: 't2',
+            state: 'output-available',
+            input: {},
+            output: { text: 'é 日本語', n: 3 },
+          },
+          {
+            type: 'tool-read-file',
+            toolCallId: 't3',
+            state: 'output-error',
+            input: { path: '/x' },
+            errorText: 'boom ``` bang',
+          },
+          { type: 'tool-write-file', toolCallId: 't4', state: 'output-denied', input: { a: 1 } },
+          { type: 'tool-list', toolCallId: 't5', state: 'input-streaming' },
+          { type: 'tool-list', toolCallId: 't6', state: 'output-error', errorText: 5 },
+          { type: 'tool-list', toolCallId: 't7' },
+          { type: 'tool-list', toolCallId: 't8', state: 'output-available', output: null },
+          { type: 'tool-list', toolCallId: 't9', state: 'output-available' },
+          { type: 'dynamic-tool', toolName: 7, toolCallId: 't10', state: 'bogus', input: [] },
+          { type: 'toolbox', text: 'not a tool' },
+          { type: 'text', text: 'after' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'c5',
+    title: 'Clip',
+    createdAt: 1,
+    updatedAt: 2,
+    messages: [
+      {
+        id: 'a',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'dynamic-tool',
+            toolName: 'big',
+            toolCallId: 'b1',
+            state: 'output-available',
+            input: { text: 'y'.repeat(5000) },
+            output: 'x'.repeat(4000),
+          },
+          {
+            type: 'dynamic-tool',
+            toolName: 'big',
+            toolCallId: 'b2',
+            state: 'output-available',
+            input: {},
+            output: 'x'.repeat(4001),
+          },
+          {
+            type: 'dynamic-tool',
+            toolName: 'wide',
+            toolCallId: 'b3',
+            state: 'output-available',
+            input: {},
+            output: emoji.repeat(2000),
+          },
+          {
+            type: 'dynamic-tool',
+            toolName: 'wide',
+            toolCallId: 'b4',
+            state: 'output-available',
+            input: {},
+            output: emoji.repeat(2001),
+          },
+          {
+            type: 'dynamic-tool',
+            toolName: 'bmp',
+            toolCallId: 'b5',
+            state: 'output-error',
+            input: {},
+            errorText: 'é'.repeat(4001),
+          },
+        ],
+      },
+    ],
+  },
+]
+writeFileSync(
+  join(out, 'chat-markdown.json'),
+  `${JSON.stringify(
+    CHAT_MARKDOWN_INPUTS.map((input) => ({
+      input,
+      markdown: chatMarkdown(normalizeChatSession(input)),
+    })),
+    null,
+    1,
+  )}\n`,
+)

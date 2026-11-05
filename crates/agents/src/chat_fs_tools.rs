@@ -130,6 +130,16 @@ fn flag(req: &Value, key: &str) -> bool {
     req.get(key) == Some(&Value::Bool(true))
 }
 
+fn truthy(req: &Value, key: &str) -> bool {
+    match req.get(key) {
+        None | Some(Value::Null) => false,
+        Some(Value::Bool(value)) => *value,
+        Some(Value::Number(number)) => number.as_f64().is_some_and(|value| value != 0.0),
+        Some(Value::String(text)) => !text.is_empty(),
+        Some(Value::Array(_) | Value::Object(_)) => true,
+    }
+}
+
 fn locate(req: &Value, roots: &[&str], host: &Host) -> Result<Located, Value> {
     let raw = match string_field(req, "path") {
         Some(raw) if !raw.is_empty() && utf16_len(raw) <= PATH_MAX => raw,
@@ -583,7 +593,7 @@ fn chat_edit_of(raw: &Value) -> Option<ChatEdit> {
     Some(ChatEdit {
         old_text: old_text.to_owned(),
         new_text: new_text.to_owned(),
-        replace_all: flag(raw, "replaceAll"),
+        replace_all: truthy(raw, "replaceAll"),
     })
 }
 
