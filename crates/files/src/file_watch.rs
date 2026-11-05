@@ -313,10 +313,10 @@ impl FileWatches {
                 .or_default()
                 .insert(owner.to_owned());
         }
-        if !state.last_seen.contains_key(&safe) {
-            let seen = fingerprint_now(&inner.runtime, &safe);
-            state.last_seen.insert(safe, seen);
-        }
+        state
+            .last_seen
+            .entry(safe.clone())
+            .or_insert_with(|| fingerprint_now(&inner.runtime, &safe));
         true
     }
 
@@ -481,10 +481,11 @@ impl FileInner {
                 .iter()
                 .flat_map(|(dir, entry)| {
                     let gone = !Path::new(dir).exists();
-                    entry.files.keys().filter_map(move |name| {
-                        (gone || !Path::new(&format!("{dir}/{name}")).exists())
-                            .then(|| (dir.clone(), name.clone()))
-                    })
+                    entry
+                        .files
+                        .keys()
+                        .filter(move |name| gone || !Path::new(&format!("{dir}/{name}")).exists())
+                        .map(move |name| (dir.clone(), name.clone()))
                 })
                 .collect()
         };
