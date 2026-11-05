@@ -21,6 +21,8 @@ pub struct Workspace {
     pub kind: WorkspaceKind,
     pub work_dir: String,
     pub state: WorkspaceLiveState,
+    pub project_dir: Option<String>,
+    pub description: Option<String>,
 }
 
 impl Orderable for Workspace {
@@ -115,6 +117,8 @@ impl WorkspacesStore {
                 kind,
                 work_dir: work_dir.to_owned(),
                 state: WorkspaceLiveState::Idle,
+                project_dir: None,
+                description: None,
             },
         );
         self.active_workspace_id = Some(id.clone());
