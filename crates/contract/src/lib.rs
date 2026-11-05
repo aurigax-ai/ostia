@@ -1,10 +1,12 @@
 pub mod act_then_confirm;
+pub mod agent_core_tools;
 pub mod agent_hooks;
 pub mod agent_issues;
 pub mod agent_launch;
 pub mod agent_plugins;
 pub mod agent_resume;
 pub mod agent_session_info;
+pub mod agent_settings;
 pub mod agent_skills;
 pub mod agent_stop;
 pub mod agent_stream;
