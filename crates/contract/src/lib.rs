@@ -101,6 +101,7 @@ pub mod sandbox_presets;
 pub mod script_tokens;
 pub mod scrollback_history;
 pub mod scrollbar;
+pub mod secrets;
 pub mod selection;
 pub mod shell_quote;
 pub mod snippets;
