@@ -387,31 +387,40 @@ impl FileWatches {
         };
         let hash = digest(data);
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let previous = {
+        let mut save = Some(save);
+        let chained = {
             let mut state = inner.state.lock();
-            let Some(previous) = state.last_seen.get(&safe).cloned() else {
-                drop(state);
-                return save().await;
+            let known = state.last_seen.get(&safe).cloned();
+            known.map(|previous| {
+                let Some(save) = save.take() else {
+                    return previous;
+                };
+                let waiting = previous.clone();
+                let saving = eager_option(&inner.runtime, async move {
+                    waiting.clone().await;
+                    match save().await {
+                        Ok(stamp) => {
+                            let _ = sender.send(Ok(stamp));
+                            Some(Fingerprint {
+                                stamp,
+                                hash: Some(hash),
+                            })
+                        }
+                        Err(error) => {
+                            let _ = sender.send(Err(error));
+                            waiting.await
+                        }
+                    }
+                });
+                state.last_seen.insert(safe.clone(), saving);
+                previous
+            })
+        };
+        let Some(previous) = chained else {
+            return match save.take() {
+                Some(save) => save().await,
+                None => Err(io::Error::other("save task ended")),
             };
-            let waiting = previous.clone();
-            let saving = eager_option(&inner.runtime, async move {
-                waiting.clone().await;
-                match save().await {
-                    Ok(stamp) => {
-                        let _ = sender.send(Ok(stamp));
-                        Some(Fingerprint {
-                            stamp,
-                            hash: Some(hash),
-                        })
-                    }
-                    Err(error) => {
-                        let _ = sender.send(Err(error));
-                        waiting.await
-                    }
-                }
-            });
-            state.last_seen.insert(safe.clone(), saving);
-            previous
         };
         let stamp = receiver
             .await
