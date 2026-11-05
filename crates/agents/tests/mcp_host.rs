@@ -44,7 +44,11 @@ fn server(overrides: Value) -> McpServerSettings {
         "disabledTools": [],
     });
     for (key, value) in overrides.as_object().unwrap() {
-        raw[key] = value.clone();
+        if value.is_null() {
+            raw.as_object_mut().unwrap().remove(key);
+        } else {
+            raw[key] = value.clone();
+        }
     }
     parse_mcp_server(&raw).unwrap()
 }
