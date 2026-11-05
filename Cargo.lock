@@ -5850,7 +5850,13 @@ version = "0.0.0"
 dependencies = [
  "ostia-base",
  "ostia-contract",
+ "ostia-sandbox",
+ "parking_lot",
+ "regex",
+ "rustix",
+ "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
 ]
