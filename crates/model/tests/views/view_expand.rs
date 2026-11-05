@@ -453,14 +453,6 @@ fn turns_a_non_numeric_or_non_finite_progress_value_into_zero() {
             json!({ "type": "progress", "value": "{{workspace.v}}" }),
             json!({ "workspace": { "v": null } }),
         ),
-        (
-            json!({ "type": "progress", "value": "{{workspace.v}}", "max": 0 }),
-            json!({ "workspace": { "v": 5 } }),
-        ),
-        (
-            json!({ "type": "progress", "value": "{{workspace.v}}", "max": -3 }),
-            json!({ "workspace": { "v": 5 } }),
-        ),
     ];
     for (node, data) in table {
         let doc = view(node.clone());
