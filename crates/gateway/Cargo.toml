@@ -12,6 +12,7 @@ chrono.workspace = true
 hex.workspace = true
 nix.workspace = true
 ostia-base.workspace = true
+ostia-contract.workspace = true
 parking_lot.workspace = true
 rcgen.workspace = true
 regex.workspace = true
