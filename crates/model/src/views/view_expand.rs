@@ -1,6 +1,6 @@
 use ostia_base::js::{js_number_text, js_to_number};
 use ostia_contract::json_located::{child_index_path, child_path};
-use ostia_contract::view_bindings::ViewFormat;
+use ostia_contract::view_bindings::{ViewFormat, ViewScope};
 use ostia_contract::views::{
     KvPair, NodeKind, ProgressValue, VIEW_MAX_LIST_ITEMS, VIEW_MAX_RENDERED_NODES, ViewAction,
     ViewButtonVariant, ViewDoc, ViewGap, ViewIcon, ViewIconTone, ViewJustify, ViewNode,
@@ -8,7 +8,7 @@ use ostia_contract::views::{
 };
 use serde_json::{Map, Value};
 
-use super::view_bindings::{ViewScope, resolve_args, resolve_text, resolve_value, truthy};
+use super::view_bindings::{resolve_args, resolve_text, resolve_value, truthy};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ViewActionTarget {

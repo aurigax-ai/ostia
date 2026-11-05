@@ -1,8 +1,10 @@
 use std::sync::LazyLock;
 
-use ostia_base::js::{js_trim, static_regex};
+use ostia_base::js::{js_number_text, js_trim, static_regex, utf16_len};
 use regex::Regex;
+use serde_json::{Map, Value};
 
+use crate::relative_time::{RelativeStep, RelativeTimeFormat, RelativeUnit, format_relative};
 use crate::string_enum::{StringEnum, string_enum};
 
 string_enum!(ViewFilter {
@@ -21,6 +23,25 @@ pub const VIEW_FILTERS: &[&str] = ViewFilter::ALL;
 pub struct ViewFormat {
     pub now: f64,
     pub locale: String,
+}
+
+pub type ViewScope = Map<String, Value>;
+
+pub trait ViewDates {
+    fn time(&self, ms: f64, locale: &str) -> String;
+    fn date(&self, ms: f64, locale: &str) -> String;
+}
+
+pub struct NoDates;
+
+impl ViewDates for NoDates {
+    fn time(&self, _ms: f64, _locale: &str) -> String {
+        String::new()
+    }
+
+    fn date(&self, _ms: f64, _locale: &str) -> String {
+        String::new()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -138,4 +159,196 @@ pub fn bindings_of(template: &str) -> Vec<Binding> {
             TemplatePart::Text(_) => None,
         })
         .collect()
+}
+
+const RELATIVE_STEPS: [RelativeStep; 4] = [
+    (RelativeUnit::Day, 86_400_000.0),
+    (RelativeUnit::Hour, 3_600_000.0),
+    (RelativeUnit::Minute, 60_000.0),
+    (RelativeUnit::Second, 1000.0),
+];
+
+fn step<'a>(value: &'a Value, segment: &str) -> Option<&'a Value> {
+    if is_dangerous_segment(segment) {
+        return None;
+    }
+    match value {
+        Value::Array(items) => {
+            if segment.is_empty() || !segment.bytes().all(|byte| byte.is_ascii_digit()) {
+                return None;
+            }
+            items.get(segment.parse::<usize>().ok()?)
+        }
+        Value::Object(map) => map.get(segment),
+        _ => None,
+    }
+}
+
+pub fn lookup<'a>(scope: &'a ViewScope, path: &[String]) -> Option<&'a Value> {
+    let (first, rest) = path.split_first()?;
+    if is_dangerous_segment(first) {
+        return None;
+    }
+    let mut value = scope.get(first)?;
+    for segment in rest {
+        value = step(value, segment)?;
+    }
+    Some(value)
+}
+
+pub fn truthy(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Bool(flag) => *flag,
+        Value::Number(number) => number.as_f64().is_some_and(|n| n != 0.0 && !n.is_nan()),
+        Value::String(text) => !text.is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        Value::Object(_) => true,
+    }
+}
+
+fn count(value: &Value) -> Value {
+    let size = match value {
+        Value::Array(items) => items.len(),
+        Value::String(text) => utf16_len(text),
+        Value::Object(map) => map.len(),
+        _ => 0,
+    };
+    Value::from(size)
+}
+
+fn finite(value: &Value) -> Option<f64> {
+    value.as_f64().filter(|n| n.is_finite())
+}
+
+fn relative(ms: f64, fmt: &ViewFormat) -> String {
+    format_relative(
+        ms - fmt.now,
+        &RELATIVE_STEPS,
+        &RelativeTimeFormat::new(&fmt.locale),
+    )
+    .unwrap_or_default()
+}
+
+fn apply_filter(
+    filter: ViewFilter,
+    value: Value,
+    fmt: &ViewFormat,
+    dates: &dyn ViewDates,
+) -> Value {
+    match filter {
+        ViewFilter::Upper => match value {
+            Value::String(text) => Value::String(text.to_uppercase()),
+            other => other,
+        },
+        ViewFilter::Lower => match value {
+            Value::String(text) => Value::String(text.to_lowercase()),
+            other => other,
+        },
+        ViewFilter::Count => count(&value),
+        ViewFilter::Not => Value::Bool(!truthy(&value)),
+        ViewFilter::Relative => {
+            Value::String(finite(&value).map_or_else(String::new, |ms| relative(ms, fmt)))
+        }
+        ViewFilter::Time => {
+            Value::String(finite(&value).map_or_else(String::new, |ms| dates.time(ms, &fmt.locale)))
+        }
+        ViewFilter::Date => {
+            Value::String(finite(&value).map_or_else(String::new, |ms| dates.date(ms, &fmt.locale)))
+        }
+    }
+}
+
+fn eval_binding(
+    binding: &Binding,
+    scope: &ViewScope,
+    fmt: &ViewFormat,
+    dates: &dyn ViewDates,
+) -> Value {
+    let mut value = lookup(scope, &binding.path).cloned().unwrap_or(Value::Null);
+    for filter in &binding.filters {
+        value = apply_filter(*filter, value, fmt, dates);
+    }
+    value
+}
+
+fn display_string(value: &Value) -> String {
+    match value {
+        Value::String(text) => text.clone(),
+        Value::Number(number) => number
+            .as_f64()
+            .filter(|n| n.is_finite())
+            .map_or_else(String::new, js_number_text),
+        Value::Bool(flag) => flag.to_string(),
+        _ => String::new(),
+    }
+}
+
+pub fn resolve_value_with(
+    template: &str,
+    scope: &ViewScope,
+    fmt: &ViewFormat,
+    dates: &dyn ViewDates,
+) -> Value {
+    let Ok(parts) = compile_template(template) else {
+        return Value::String(String::new());
+    };
+    if let [TemplatePart::Binding(binding)] = parts.as_slice() {
+        return eval_binding(binding, scope, fmt, dates);
+    }
+    Value::String(
+        parts
+            .iter()
+            .map(|part| match part {
+                TemplatePart::Text(text) => text.clone(),
+                TemplatePart::Binding(binding) => {
+                    display_string(&eval_binding(binding, scope, fmt, dates))
+                }
+            })
+            .collect(),
+    )
+}
+
+pub fn resolve_text_with(
+    template: &str,
+    scope: &ViewScope,
+    fmt: &ViewFormat,
+    dates: &dyn ViewDates,
+) -> String {
+    display_string(&resolve_value_with(template, scope, fmt, dates))
+}
+
+pub fn resolve_args_with(
+    value: &Value,
+    scope: &ViewScope,
+    fmt: &ViewFormat,
+    dates: &dyn ViewDates,
+) -> Value {
+    match value {
+        Value::String(template) => resolve_value_with(template, scope, fmt, dates),
+        Value::Array(items) => Value::Array(
+            items
+                .iter()
+                .map(|item| resolve_args_with(item, scope, fmt, dates))
+                .collect(),
+        ),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(key, item)| (key.clone(), resolve_args_with(item, scope, fmt, dates)))
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
+pub fn resolve_value(template: &str, scope: &ViewScope, fmt: &ViewFormat) -> Value {
+    resolve_value_with(template, scope, fmt, &NoDates)
+}
+
+pub fn resolve_text(template: &str, scope: &ViewScope, fmt: &ViewFormat) -> String {
+    resolve_text_with(template, scope, fmt, &NoDates)
+}
+
+pub fn resolve_args(value: &Value, scope: &ViewScope, fmt: &ViewFormat) -> Value {
+    resolve_args_with(value, scope, fmt, &NoDates)
 }
