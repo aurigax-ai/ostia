@@ -19,6 +19,7 @@ ostia-terminal.workspace = true
 ostia-workspaces.workspace = true
 parking_lot.workspace = true
 regex.workspace = true
+reqwest.workspace = true
 rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true

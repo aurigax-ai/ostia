@@ -22,6 +22,8 @@ pub mod mail_pending;
 pub mod mailers;
 pub mod manager;
 pub mod manager_session;
+mod mcp_client;
+pub mod mcp_host;
 pub mod origin_agents;
 pub mod playbook_enabled;
 pub mod playbook_files;
