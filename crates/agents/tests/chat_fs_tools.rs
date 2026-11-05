@@ -522,6 +522,39 @@ fn refuses_text_that_is_not_unique_unless_every_match_is_wanted() {
 }
 
 #[test]
+fn replaces_every_match_when_replace_all_is_any_truthy_value_as_ts_does() {
+    let fix = setup();
+    let truthy = [
+        json!(true),
+        json!(1),
+        json!(-1),
+        json!("yes"),
+        json!("false"),
+        json!([]),
+        json!({}),
+    ];
+    for flag in truthy {
+        fs::write(fix.project.join("a.txt"), "a b a b a").unwrap();
+        let res = fix.plan_a(json!([{"oldText": "a", "newText": "c", "replaceAll": flag}]));
+        assert_eq!(res["ok"], json!(true), "{flag}");
+        assert_eq!(res["after"], json!("c b c b c"), "{flag}");
+    }
+}
+
+#[test]
+fn keeps_an_ambiguous_edit_refused_when_replace_all_is_falsy() {
+    let fix = setup();
+    let falsy = [json!(false), json!(0), json!(""), json!(null)];
+    for flag in falsy {
+        fs::write(fix.project.join("a.txt"), "a b a b a").unwrap();
+        assert_has(
+            &fix.plan_a(json!([{"oldText": "a", "newText": "c", "replaceAll": flag}])),
+            json!({"ok": false, "error": "ambiguous", "edit": 0, "count": 3}),
+        );
+    }
+}
+
+#[test]
 fn refuses_an_edit_that_changes_nothing() {
     let fix = setup();
     assert_has(
