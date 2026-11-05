@@ -12,6 +12,7 @@ pub mod browser_pages;
 pub mod exclusive_transfer;
 pub mod external_editor;
 pub mod file_guard;
+pub mod file_sources;
 pub mod file_watch;
 pub mod fs_binary;
 pub mod fs_range;
