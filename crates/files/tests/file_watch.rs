@@ -21,6 +21,8 @@ use tempfile::TempDir;
 
 const POLL: Duration = Duration::from_secs(3);
 
+type Confine = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
+
 fn real(dir: &TempDir) -> String {
     dir.path()
         .canonicalize()
@@ -30,7 +32,7 @@ fn real(dir: &TempDir) -> String {
         .to_owned()
 }
 
-fn confine_in(roots: Vec<String>) -> Arc<dyn Fn(&str) -> Option<String> + Send + Sync> {
+fn confine_in(roots: Vec<String>) -> Confine {
     let host = Host::current();
     Arc::new(move |path: &str| {
         let refs: Vec<&str> = roots.iter().map(String::as_str).collect();

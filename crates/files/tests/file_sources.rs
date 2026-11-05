@@ -18,6 +18,8 @@ use serde_json::{Value, json};
 use tempfile::TempDir;
 use tokio_util::sync::CancellationToken;
 
+type Confine = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
+
 struct ZipOnly;
 
 fn is_zip(name: &str) -> bool {
@@ -111,7 +113,7 @@ fn zip_of(entries: &[(&str, &str)]) -> Vec<u8> {
 fn sources_in(dir: &TempDir) -> FileSources {
     let root = dir.path().canonicalize().unwrap();
     let prefix = format!("{}/", root.to_str().unwrap());
-    let confine: Arc<dyn Fn(&str) -> Option<String> + Send + Sync> =
+    let confine: Confine =
         Arc::new(move |path: &str| path.starts_with(&prefix).then(|| path.to_owned()));
     let providers = Arc::new(ZipOnly);
     let roots_list = vec![root.to_str().unwrap().to_owned()];
