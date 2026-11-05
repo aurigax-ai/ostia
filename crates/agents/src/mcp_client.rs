@@ -9,18 +9,28 @@ use parking_lot::Mutex;
 use reqwest::Url;
 use reqwest::header::{HeaderName, HeaderValue};
 use rmcp::model::{
-    CallToolRequestParams, CallToolResponse, ClientCapabilities, ClientConfig, Implementation,
+    CallToolRequest, CallToolRequestParams, CancelledNotificationParam, ClientCapabilities,
+    ClientConfig, ClientRequest, Implementation, ServerResult,
 };
+use rmcp::service::PeerRequestOptions;
 use rmcp::service::{QuitReason, RunningServiceCancellationToken};
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::transport::{IntoTransport, StreamableHttpClientTransport, TokioChildProcess};
-use rmcp::{Peer, RoleClient, ServiceExt};
+use rmcp::{Peer, RoleClient, ServiceError, ServiceExt};
 use serde_json::{Map, Value};
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
 const CLOSED: &str = "The connection closed";
+const ABANDONED: &str = "request abandoned by the caller";
 const TIMED_OUT: &str = "Request timed out";
+
+fn bare_message(err: ServiceError) -> String {
+    match err {
+        ServiceError::McpError(error) => error.message.to_string(),
+        other => other.to_string(),
+    }
+}
 
 pub(crate) type ExitCallback = Arc<dyn Fn() + Send + Sync>;
 
@@ -178,7 +188,7 @@ impl McpClient {
         let listed = tokio::time::timeout(timeout, self.peer.list_tools(None))
             .await
             .map_err(|_| TIMED_OUT.to_owned())?
-            .map_err(|err| err.to_string())?;
+            .map_err(bare_message)?;
         let value = serde_json::to_value(&listed).map_err(|err| err.to_string())?;
         Ok(value
             .get("tools")
@@ -195,19 +205,32 @@ impl McpClient {
         cancel: &CancellationToken,
     ) -> Result<Value, String> {
         let params = CallToolRequestParams::new(name.to_owned()).with_arguments(arguments);
-        let call = self.peer.call_tool_once(params);
-        tokio::select! {
+        let request = ClientRequest::CallToolRequest(CallToolRequest::new(params));
+        let handle = self
+            .peer
+            .send_request_with_option(request, PeerRequestOptions::no_options())
+            .await
+            .map_err(bare_message)?;
+        let id = handle.id.clone();
+        let peer = handle.peer.clone();
+        let abandoned = tokio::select! {
             biased;
-            answer = call => match answer {
-                Ok(CallToolResponse::Complete(result)) => {
-                    serde_json::to_value(&result).map_err(|err| err.to_string())
-                }
-                Ok(_) => Err("Unexpected response type".to_owned()),
-                Err(err) => Err(err.to_string()),
-            },
-            () = cancel.cancelled() => Err("cancelled".to_owned()),
-            () = self.shared.closed.cancelled() => Err(CLOSED.to_owned()),
-            () = tokio::time::sleep(timeout) => Err(TIMED_OUT.to_owned()),
-        }
+            answer = handle.await_response() => {
+                return match answer {
+                    Ok(ServerResult::CallToolResult(result)) => {
+                        serde_json::to_value(&result).map_err(|err| err.to_string())
+                    }
+                    Ok(ServerResult::CustomResult(result)) => Ok(result.0),
+                    Ok(_) => Err("Unexpected response type".to_owned()),
+                    Err(err) => Err(bare_message(err)),
+                };
+            }
+            () = cancel.cancelled() => "cancelled",
+            () = self.shared.closed.cancelled() => CLOSED,
+            () = tokio::time::sleep(timeout) => TIMED_OUT,
+        };
+        let notice = CancelledNotificationParam::new(Some(id), Some(ABANDONED.to_owned()));
+        let _ = peer.notify_cancelled(notice).await;
+        Err(abandoned.to_owned())
     }
 }

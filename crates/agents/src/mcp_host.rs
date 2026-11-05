@@ -20,6 +20,7 @@ use parking_lot::Mutex;
 use regex::Regex;
 use reqwest::Url;
 use serde_json::{Map, Value, json};
+use sha2::{Digest, Sha256};
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
@@ -384,7 +385,11 @@ impl McpHost {
         let secrets: Vec<Value> = settings
             .secrets
             .iter()
-            .map(|key| json!([key, (self.deps().secret)(&settings.name, key).is_some()]))
+            .map(|key| {
+                let digest = (self.deps().secret)(&settings.name, key)
+                    .map(|value| hex::encode(Sha256::digest(value.as_bytes())));
+                json!([key, digest])
+            })
             .collect();
         let env: Vec<(&String, &String)> = settings.env.iter().collect();
         json!({
