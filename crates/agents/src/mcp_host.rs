@@ -27,6 +27,7 @@ use tokio_util::sync::CancellationToken;
 use crate::mcp_client::{HttpSpec, McpClient, StdioSpec};
 
 const MCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+const INHERITED_ENV: [&str; 6] = ["HOME", "LOGNAME", "PATH", "SHELL", "TERM", "USER"];
 const MCP_CALL_TIMEOUT: Duration = Duration::from_secs(120);
 const ERROR_MAX: usize = 240;
 const TOOL_NAME_MAX: usize = 128;
@@ -526,18 +527,28 @@ impl McpHost {
         let [command, args @ ..] = settings.command.as_deref().unwrap_or_default() else {
             return Err("The server has no command".to_owned());
         };
-        let mut env: BTreeMap<String, String> = settings
-            .env
+        let host = Host::current();
+        let inherited = host.child_env();
+        let mut env: BTreeMap<String, String> = INHERITED_ENV
             .iter()
-            .map(|(key, value)| (key.clone(), value.clone()))
+            .filter_map(|name| {
+                let value = inherited.get(*name)?;
+                (!value.starts_with("()")).then(|| ((*name).to_owned(), value.clone()))
+            })
             .collect();
+        env.extend(
+            settings
+                .env
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone())),
+        );
         env.extend(secrets);
         McpClient::connect_stdio(
             &StdioSpec {
                 command: command.clone(),
                 args: args.to_vec(),
                 env,
-                cwd: Host::current().home,
+                cwd: host.home,
             },
             timeout,
         )

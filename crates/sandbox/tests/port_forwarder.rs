@@ -8,12 +8,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    FakePane, HeldPort, Reply, named_reply, port_free, read_to_end, supervise, tcp_conn, wait_for,
-    wait_until,
+    FakePane, HeldPort, Reply, asked_ports, named_reply, open_bridge, port_free, read_to_end,
+    supervise, tcp_conn, unix_conn, wait_for, wait_until,
 };
 use ostia_base::WorkspaceId;
+use ostia_sandbox::port_bridge::data_socket_name;
 use ostia_sandbox::port_forwarder::{
     ExposeError, ExposeRefusal, PortForwarder, PortForwarderDeps, SandboxListener, SandboxPane,
+    listening_inodes,
 };
 use parking_lot::Mutex;
 use tempfile::TempDir;
@@ -71,9 +73,11 @@ fn setup_with(
         }),
         unix_sockets_off: Arc::new(move |_| unix_sockets_off),
         listeners_of: Some(Arc::new(move |pids: &[u32]| {
-            pids.iter()
-                .map(|pid| listening.get(pid).cloned().unwrap_or_default())
-                .collect()
+            Some(
+                pids.iter()
+                    .map(|pid| listening.get(pid).cloned().unwrap_or_default())
+                    .collect(),
+            )
         })),
     })
 }
@@ -213,11 +217,11 @@ fn lists_the_servers_of_every_terminal_once_by_port() {
     );
     assert_eq!(
         forwarder.listeners(&ws()),
-        vec![
+        Some(vec![
             listener(3000, "bun"),
             listener(5173, "node"),
             listener(8000, "python"),
-        ]
+        ])
     );
 }
 
@@ -225,10 +229,13 @@ fn lists_the_servers_of_every_terminal_once_by_port() {
 async fn drops_live_connections_and_frees_the_host_port_when_the_port_is_unexposed() {
     let dir = temp();
     let held = HeldPort::new();
-    let fake = FakePane::start(dir.path(), 11, named_reply("a")).await;
-    let _supervisor = supervise(dir.path(), &fake.bridge).await;
+    let bridge = open_bridge(dir.path()).await;
+    let _supervisor = supervise(dir.path(), &bridge).await;
     let forwarder = setup(
-        vec![pane_of(&fake)],
+        vec![SandboxPane {
+            pid: 11,
+            bridge: Some(bridge.clone()),
+        }],
         listening_on(vec![(11, vec![listener(held.port, "node")])]),
         false,
     );
@@ -237,6 +244,28 @@ async fn drops_live_connections_and_frees_the_host_port_when_the_port_is_unexpos
     forwarder.unexpose(&ws(), held.port).await;
     wait_for(|| live.ended()).await;
     wait_until(|| std::future::ready(port_free(held.port))).await;
+}
+
+#[tokio::test]
+async fn ends_both_sides_of_a_joined_connection_when_the_port_is_unexposed() {
+    let dir = temp();
+    let held = HeldPort::new();
+    let bridge = open_bridge(dir.path()).await;
+    let supervisor = supervise(dir.path(), &bridge).await;
+    let forwarder = setup(
+        vec![SandboxPane {
+            pid: 11,
+            bridge: Some(bridge.clone()),
+        }],
+        listening_on(vec![(11, vec![listener(held.port, "node")])]),
+        false,
+    );
+    forwarder.expose(&ws(), held.port).await.unwrap();
+    let host = tcp_conn(held.port).await;
+    wait_for(|| asked_ports(&supervisor) == vec![held.port]).await;
+    let inside = unix_conn(&dir.path().join(data_socket_name(bridge.id(), held.port))).await;
+    forwarder.unexpose(&ws(), held.port).await;
+    wait_for(|| host.ended() && inside.ended()).await;
 }
 
 fn large_reply(bytes: usize) -> Reply {
@@ -296,7 +325,12 @@ async fn reaches_a_server_in_another_terminal_of_the_workspace_which_has_a_netwo
         ]),
         false,
     );
-    let ports_listened: Vec<u16> = forwarder.listeners(&ws()).iter().map(|l| l.port).collect();
+    let ports_listened: Vec<u16> = forwarder
+        .listeners(&ws())
+        .unwrap()
+        .iter()
+        .map(|l| l.port)
+        .collect();
     assert_eq!(ports_listened, vec![inner_port, other_port]);
     forwarder.expose(&ws(), inner_port).await.unwrap();
     assert_eq!(forwarder.expose(&ws(), other_port).await, Ok(other_port));
@@ -455,9 +489,42 @@ async fn stop_all_releases_the_ports_of_every_workspace() {
 #[test]
 fn lists_nothing_for_a_workspace_with_no_terminals() {
     let forwarder = setup(Vec::new(), HashMap::new(), false);
-    assert_eq!(forwarder.listeners(&WorkspaceId::new("other")), Vec::new());
+    assert_eq!(
+        forwarder.listeners(&WorkspaceId::new("other")),
+        Some(Vec::new())
+    );
     assert_eq!(
         forwarder.exposed(&WorkspaceId::new("other")),
         Vec::<u16>::new()
+    );
+}
+
+const TCP_TABLE: &str = "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+   0: 0100007F:1F90 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 111 1 0 100 0 0 10 0
+   1: 0100007F:1F91 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 222 1 0 100 0 0 10 0
+   2: 0A00A8C0:0050 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 333 1 0 100 0 0 10 0
+   3: 00000000:0BB8 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 444 1 0 100 0 0 10 0
+   4: 0100007F:1F92 0100007F:C350 01 00000000:00000000 00:00000000 00000000  1000        0 555 1 0 100 0 0 10 0
+";
+
+const TCP6_TABLE: &str = "  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+   0: 00000000000000000000000000000000:1F40 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 666 1 0 100 0 0 10 0
+   1: 00000000000000000000000001000000:1F41 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 777 1 0 100 0 0 10 0
+   2: 0000000000000000FFFF00000100007F:1F42 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 888 1 0 100 0 0 10 0
+   3: 00000000000000000000000000000000:0BB8 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 444 1 0 100 0 0 10 0
+";
+
+#[test]
+fn reads_the_loopback_and_any_address_listeners_of_a_proc_net_table() {
+    let rows = listening_inodes(TCP_TABLE, TCP6_TABLE);
+    assert_eq!(
+        rows,
+        vec![
+            ("111".to_owned(), 8080),
+            ("222".to_owned(), 8081),
+            ("444".to_owned(), 3000),
+            ("666".to_owned(), 8000),
+            ("777".to_owned(), 8001),
+        ]
     );
 }

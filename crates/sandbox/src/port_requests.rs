@@ -26,7 +26,7 @@ pub struct PortAsk {
 }
 
 pub trait PortForwarding: Send + Sync + 'static {
-    fn listeners(&self, workspace_id: &WorkspaceId) -> Vec<SandboxListener>;
+    fn listeners(&self, workspace_id: &WorkspaceId) -> Option<Vec<SandboxListener>>;
     fn exposed(&self, workspace_id: &WorkspaceId) -> Vec<u16>;
     fn refusal(&self, workspace_id: &WorkspaceId) -> Option<ExposeRefusal>;
     fn expose(
@@ -38,7 +38,7 @@ pub trait PortForwarding: Send + Sync + 'static {
 }
 
 impl PortForwarding for crate::port_forwarder::PortForwarder {
-    fn listeners(&self, workspace_id: &WorkspaceId) -> Vec<SandboxListener> {
+    fn listeners(&self, workspace_id: &WorkspaceId) -> Option<Vec<SandboxListener>> {
         Self::listeners(self, workspace_id)
     }
 
@@ -288,7 +288,10 @@ impl<F: PortForwarding> PortRequests<F> {
         if deps.platform != Platform::Linux || !(deps.is_sandboxed)(workspace_id) {
             return;
         }
-        let current = by_port(&deps.forwarder.listeners(workspace_id));
+        let Some(listeners) = deps.forwarder.listeners(workspace_id) else {
+            return;
+        };
+        let current = by_port(&listeners);
         let (previous, had_kept) = {
             let mut state = self.inner.state.lock();
             let previous = state

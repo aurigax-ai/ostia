@@ -230,7 +230,9 @@ impl McpClient {
             () = tokio::time::sleep(timeout) => TIMED_OUT,
         };
         let notice = CancelledNotificationParam::new(Some(id), Some(ABANDONED.to_owned()));
-        let _ = peer.notify_cancelled(notice).await;
+        tokio::spawn(async move {
+            let _ = peer.notify_cancelled(notice).await;
+        });
         Err(abandoned.to_owned())
     }
 }

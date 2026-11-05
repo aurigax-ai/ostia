@@ -18,6 +18,7 @@ use tokio::net::{TcpStream, UnixListener, UnixStream};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 
+const ACCEPT_RETRY: Duration = Duration::from_millis(100);
 const DIAL_TIMEOUT: Duration = Duration::from_millis(5000);
 
 pub fn bridges_ports(platform: Platform, unix_sockets: bool) -> bool {
@@ -193,7 +194,10 @@ async fn accept_control(shared: Arc<Shared>, listener: UnixListener) {
             () = shared.cancel.cancelled() => return,
             accepted = listener.accept() => match accepted {
                 Ok((stream, _)) => stream,
-                Err(_) => continue,
+                Err(_) => {
+                    tokio::time::sleep(ACCEPT_RETRY).await;
+                    continue;
+                }
             },
         };
         let (ports, requests) = mpsc::unbounded_channel();
@@ -290,7 +294,10 @@ async fn accept_data(cancel: CancellationToken, listener: UnixListener, waiting:
             () = cancel.cancelled() => return,
             accepted = listener.accept() => match accepted {
                 Ok((peer, _)) => peer,
-                Err(_) => continue,
+                Err(_) => {
+                    tokio::time::sleep(ACCEPT_RETRY).await;
+                    continue;
+                }
             },
         };
         let mut peer = Some(peer);

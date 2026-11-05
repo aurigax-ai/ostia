@@ -17,12 +17,16 @@ use parking_lot::Mutex;
 struct FakeForwarder {
     exposed: Arc<Mutex<Vec<u16>>>,
     listeners: Arc<Mutex<Vec<SandboxListener>>>,
+    unreadable: Arc<Mutex<bool>>,
     refusal: Arc<Mutex<Option<ExposeRefusal>>>,
 }
 
 impl PortForwarding for FakeForwarder {
-    fn listeners(&self, _workspace_id: &WorkspaceId) -> Vec<SandboxListener> {
-        self.listeners.lock().clone()
+    fn listeners(&self, _workspace_id: &WorkspaceId) -> Option<Vec<SandboxListener>> {
+        if *self.unreadable.lock() {
+            return None;
+        }
+        Some(self.listeners.lock().clone())
     }
 
     fn exposed(&self, _workspace_id: &WorkspaceId) -> Vec<u16> {
@@ -83,6 +87,10 @@ impl Setup {
 
     fn listen(&self, listeners: Vec<SandboxListener>) {
         *self.forwarder.listeners.lock() = listeners;
+    }
+
+    fn make_unreadable(&self, unreadable: bool) {
+        *self.forwarder.unreadable.lock() = unreadable;
     }
 
     fn set_refusal(&self, refusal: Option<ExposeRefusal>) {
@@ -238,6 +246,21 @@ async fn sbx_c66_drops_an_exposed_port_from_the_list_and_releases_it_when_its_pr
     s.requests.scan(&ws()).await;
     assert!(s.exposed().is_empty());
     assert_eq!(s.requests.ports(&ws()), Vec::new());
+}
+
+#[tokio::test]
+async fn changes_nothing_when_the_listeners_cannot_be_read() {
+    let s = with_policy(PortsPolicy::Allow);
+    s.listen(vec![node(5173)]);
+    s.requests.scan(&ws()).await;
+    assert_eq!(s.exposed(), vec![5173]);
+    s.make_unreadable(true);
+    s.requests.scan(&ws()).await;
+    assert_eq!(s.exposed(), vec![5173]);
+    assert_eq!(s.requests.ports(&ws()).len(), 1);
+    s.make_unreadable(false);
+    s.requests.scan(&ws()).await;
+    assert_eq!(s.exposed(), vec![5173]);
 }
 
 #[tokio::test]

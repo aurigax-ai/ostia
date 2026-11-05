@@ -193,9 +193,23 @@ async fn gives_the_server_only_its_env_and_secrets_not_the_parent_environment() 
     for (id, name, expected) in [
         ("e1", "PLAIN", "visible"),
         ("e2", "API_TOKEN", "s3cret"),
-        ("e3", "PATH", "(unset)"),
-        ("e4", "HOME", "(unset)"),
+        ("e3", "CARGO_PKG_NAME", "(unset)"),
     ] {
+        assert_eq!(
+            rig.host
+                .call(
+                    &json!(id),
+                    &json!("fake"),
+                    &json!("env"),
+                    &json!({"name": name})
+                )
+                .await,
+            Ok(expected.to_owned()),
+            "{name}"
+        );
+    }
+    let parent_path = std::env::var("PATH").unwrap();
+    for (id, name, expected) in [("e4", "PATH", parent_path.as_str())] {
         assert_eq!(
             rig.host
                 .call(
@@ -680,9 +694,26 @@ async fn ends_a_call_that_takes_longer_than_the_call_timeout() {
     let Err(error) = result else {
         panic!("expected a timeout")
     };
-    assert_ne!(error, "cancelled");
-    assert!(!error.is_empty());
-    assert!(error.len() <= 240);
+    assert_eq!(error, "Request timed out");
+    host.close_all();
+}
+
+#[tokio::test]
+async fn shows_an_error_for_a_server_that_never_answers_initialize() {
+    let servers: Servers = Arc::new(Mutex::new(vec![server(json!({
+        "command": [node(), "-e", "setInterval(() => {}, 1e9)"],
+    }))]));
+    let listed = Arc::clone(&servers);
+    let mut deps = McpHostDeps::new(move || listed.lock().clone(), |_, _| None, |_| {});
+    deps.connect_timeout = Duration::from_millis(300);
+    let host = McpHost::new(deps);
+    host.refresh();
+    wait_for(&host, "fake", McpServerState::Error).await;
+    assert_eq!(
+        host.call_for_extension(&json!("fake"), &json!("echo"), &json!({}), None)
+            .await,
+        Err("This MCP server is not connected.".to_owned())
+    );
     host.close_all();
 }
 

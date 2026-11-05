@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use ostia_base::WorkspaceId;
 use ostia_base::js::{is_js_space, js_trim};
@@ -13,6 +14,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::port_bridge::PortBridge;
 
+const ACCEPT_RETRY: Duration = Duration::from_millis(100);
 const LISTEN: &str = "0A";
 const RUNTIME_BRIDGE_PORTS: [u16; 2] = [1080, 3128];
 const RUNTIME_BRIDGE_PROCESS: &str = "socat";
@@ -63,7 +65,7 @@ pub struct SandboxPane {
 pub type ChangeHandler = Arc<dyn Fn(&WorkspaceId) + Send + Sync>;
 pub type PanesOf = Arc<dyn Fn(&WorkspaceId) -> Vec<SandboxPane> + Send + Sync>;
 pub type UnixSocketsOff = Arc<dyn Fn(&WorkspaceId) -> bool + Send + Sync>;
-pub type ListenersOf = Arc<dyn Fn(&[u32]) -> Vec<Vec<SandboxListener>> + Send + Sync>;
+pub type ListenersOf = Arc<dyn Fn(&[u32]) -> Option<Vec<Vec<SandboxListener>>> + Send + Sync>;
 
 #[derive(Clone)]
 pub struct PortForwarderDeps {
@@ -79,10 +81,8 @@ fn net_namespace(pid: &str) -> Option<String> {
         .map(|target| target.to_string_lossy().into_owned())
 }
 
-fn children_map() -> HashMap<i32, Vec<i32>> {
-    let Ok(entries) = fs::read_dir("/proc") else {
-        return HashMap::new();
-    };
+fn children_map() -> Option<HashMap<i32, Vec<i32>>> {
+    let entries = fs::read_dir("/proc").ok()?;
     let procs: Vec<ProcEntry> = entries
         .filter_map(|entry| {
             let name = entry.ok()?.file_name().into_string().ok()?;
@@ -93,7 +93,7 @@ fn children_map() -> HashMap<i32, Vec<i32>> {
             parse_proc_stat(&text)
         })
         .collect();
-    children_of(&procs)
+    Some(children_of(&procs))
 }
 
 fn namespace_pid(tree: &[i32]) -> Option<i32> {
@@ -104,12 +104,9 @@ fn namespace_pid(tree: &[i32]) -> Option<i32> {
     })
 }
 
-fn listening_inodes(pid: i32) -> Vec<(String, u16)> {
+pub fn listening_inodes(tcp: &str, tcp6: &str) -> Vec<(String, u16)> {
     let mut out: Vec<(String, u16)> = Vec::new();
-    for file in ["tcp", "tcp6"] {
-        let Ok(text) = fs::read_to_string(format!("/proc/{pid}/net/{file}")) else {
-            continue;
-        };
+    for text in [tcp, tcp6] {
         for line in text.split('\n').skip(1) {
             let columns: Vec<&str> = js_trim(line)
                 .split(is_js_space)
@@ -137,6 +134,10 @@ fn listening_inodes(pid: i32) -> Vec<(String, u16)> {
     out
 }
 
+fn read_net_table(pid: i32, file: &str) -> String {
+    fs::read_to_string(format!("/proc/{pid}/net/{file}")).unwrap_or_default()
+}
+
 fn owner_in(pid: i32, target: &str) -> Option<(i32, String)> {
     for fd in fs::read_dir(format!("/proc/{pid}/fd")).ok()? {
         let fd = fd.ok()?.file_name();
@@ -159,7 +160,8 @@ fn listeners_in(tree: &[i32]) -> Vec<SandboxListener> {
         return Vec::new();
     };
     let mut seen: Vec<SandboxListener> = Vec::new();
-    for (inode, port) in listening_inodes(pid) {
+    for (inode, port) in listening_inodes(&read_net_table(pid, "tcp"), &read_net_table(pid, "tcp6"))
+    {
         if seen.iter().any(|listener| listener.port == port) {
             continue;
         }
@@ -186,14 +188,16 @@ fn listeners_in(tree: &[i32]) -> Vec<SandboxListener> {
     seen
 }
 
-pub fn pane_listeners(pids: &[u32]) -> Vec<Vec<SandboxListener>> {
-    let children = children_map();
-    pids.iter()
-        .map(|pid| match i32::try_from(*pid) {
-            Ok(root) => listeners_in(&process_tree(root, &children)),
-            Err(_) => Vec::new(),
-        })
-        .collect()
+pub fn pane_listeners(pids: &[u32]) -> Option<Vec<Vec<SandboxListener>>> {
+    let children = children_map()?;
+    Some(
+        pids.iter()
+            .map(|pid| match i32::try_from(*pid) {
+                Ok(root) => listeners_in(&process_tree(root, &children)),
+                Err(_) => Vec::new(),
+            })
+            .collect(),
+    )
 }
 
 struct Exposure {
@@ -227,19 +231,19 @@ impl PortForwarder {
         }
     }
 
-    pub fn listeners(&self, workspace_id: &WorkspaceId) -> Vec<SandboxListener> {
+    pub fn listeners(&self, workspace_id: &WorkspaceId) -> Option<Vec<SandboxListener>> {
         let pids: Vec<u32> = (self.deps.panes_of)(workspace_id)
             .iter()
             .map(|pane| pane.pid)
             .collect();
         let mut seen: Vec<SandboxListener> = Vec::new();
-        for listener in (self.listeners_of)(&pids).into_iter().flatten() {
+        for listener in (self.listeners_of)(&pids)?.into_iter().flatten() {
             if !seen.iter().any(|known| known.port == listener.port) {
                 seen.push(listener);
             }
         }
         seen.sort_by_key(|listener| listener.port);
-        seen
+        Some(seen)
     }
 
     pub fn exposed(&self, workspace_id: &WorkspaceId) -> Vec<u16> {
@@ -354,7 +358,7 @@ impl PortForwarder {
             .filter(|pane| pane.bridge.as_ref().is_some_and(PortBridge::connected))
             .collect();
         let pids: Vec<u32> = panes.iter().map(|pane| pane.pid).collect();
-        let listening = (self.listeners_of)(&pids);
+        let listening = (self.listeners_of)(&pids)?;
         panes
             .into_iter()
             .zip(listening)
@@ -375,7 +379,10 @@ async fn accept_loop(
             () = cancel.cancelled() => return,
             accepted = listener.accept() => match accepted {
                 Ok((socket, _)) => socket,
-                Err(_) => continue,
+                Err(_) => {
+                    tokio::time::sleep(ACCEPT_RETRY).await;
+                    continue;
+                }
             },
         };
         tokio::spawn(bridge_connection(
