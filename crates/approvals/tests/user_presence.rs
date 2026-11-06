@@ -747,6 +747,7 @@ async fn stops_a_pkcheck_that_never_answers() {
 
 #[tokio::test]
 async fn reports_the_missing_paths_in_the_stderr_of_a_missing_pkcheck() {
+    let _scripts = ostia_testscript::lock();
     let dir = tempfile::tempdir().unwrap();
     let one = dir.path().join("one");
     let two = dir.path().join("two");
@@ -769,6 +770,7 @@ async fn reports_the_missing_paths_in_the_stderr_of_a_missing_pkcheck() {
 
 #[tokio::test]
 async fn reports_a_pkcheck_that_cannot_start_with_no_code_and_the_error_text() {
+    let _scripts = ostia_testscript::lock();
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("not-executable");
     fs::write(&file, "#!/bin/sh\nexit 0\n").unwrap();
