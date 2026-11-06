@@ -5,6 +5,7 @@ use std::sync::{Arc, Weak};
 use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use futures_util::FutureExt;
 use futures_util::future::{BoxFuture, Shared, join};
+use ostia_base::atomic_write::{AtomicWriteOptions, write_file_atomic};
 use ostia_base::clock::{Clock, system_clock};
 use ostia_base::json_store::{SaveOptions, load_json, save_json};
 use ostia_contract::script_tokens::{
@@ -331,7 +332,11 @@ impl Inner {
                 if *newest > sequence {
                     return Ok(());
                 }
-                let result = save_json(&target, &out, SaveOptions::SECURE);
+                let result = write_file_atomic(
+                    &target,
+                    out.to_string().as_bytes(),
+                    AtomicWriteOptions::SECURE,
+                );
                 if result.is_ok() {
                     *newest = sequence;
                 }
