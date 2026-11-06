@@ -14,6 +14,7 @@ use rmcp::model::{
 };
 use rmcp::service::PeerRequestOptions;
 use rmcp::service::{QuitReason, RunningServiceCancellationToken};
+use rmcp::transport::auth::AuthClient;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::transport::{IntoTransport, StreamableHttpClientTransport, TokioChildProcess};
 use rmcp::{Peer, RoleClient, ServiceError, ServiceExt};
@@ -24,6 +25,25 @@ use tokio_util::sync::CancellationToken;
 const CLOSED: &str = "The connection closed";
 const ABANDONED: &str = "request abandoned by the caller";
 const TIMED_OUT: &str = "Request timed out";
+const UNAUTHORIZED: &str = "HTTP 401: authorization required";
+
+pub type McpHttpAuth = AuthClient<reqwest_rmcp::Client>;
+
+pub(crate) struct ConnectFailure {
+    pub message: String,
+    pub challenge: Option<String>,
+    pub unauthorized: bool,
+}
+
+impl From<String> for ConnectFailure {
+    fn from(message: String) -> Self {
+        Self {
+            message,
+            challenge: None,
+            unauthorized: false,
+        }
+    }
+}
 
 fn bare_message(err: ServiceError) -> String {
     match err {
@@ -55,6 +75,7 @@ pub(crate) struct StdioSpec {
 pub(crate) struct HttpSpec {
     pub url: Url,
     pub headers: BTreeMap<String, String>,
+    pub auth: Option<McpHttpAuth>,
 }
 
 pub(crate) struct McpClient {
@@ -104,7 +125,10 @@ impl Shared {
 }
 
 impl McpClient {
-    pub(crate) async fn connect_stdio(spec: &StdioSpec, timeout: Duration) -> Result<Self, String> {
+    pub(crate) async fn connect_stdio(
+        spec: &StdioSpec,
+        timeout: Duration,
+    ) -> Result<Self, ConnectFailure> {
         let mut command = Command::new(&spec.command);
         command
             .args(&spec.args)
@@ -114,30 +138,60 @@ impl McpClient {
         let (transport, _) = TokioChildProcess::builder(command)
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|err| format!("{}: {err}", spec.command))?;
+            .map_err(|err| ConnectFailure::from(format!("{}: {err}", spec.command)))?;
         Self::serve(transport, timeout, true).await
     }
 
-    pub(crate) async fn connect_http(spec: HttpSpec, timeout: Duration) -> Result<Self, String> {
+    pub(crate) async fn connect_http(
+        spec: HttpSpec,
+        timeout: Duration,
+    ) -> Result<Self, ConnectFailure> {
         let config = StreamableHttpClientTransportConfig::with_uri(spec.url.as_str())
             .custom_headers(header_map(&spec.headers)?);
-        Self::serve(
-            StreamableHttpClientTransport::from_config(config),
-            timeout,
-            false,
-        )
-        .await
+        match spec.auth {
+            Some(auth) => {
+                Self::serve(
+                    StreamableHttpClientTransport::with_client(auth, config),
+                    timeout,
+                    false,
+                )
+                .await
+            }
+            None => {
+                Self::serve(
+                    StreamableHttpClientTransport::from_config(config),
+                    timeout,
+                    false,
+                )
+                .await
+            }
+        }
     }
 
-    async fn serve<T, E, A>(transport: T, timeout: Duration, stdio: bool) -> Result<Self, String>
+    async fn serve<T, E, A>(
+        transport: T,
+        timeout: Duration,
+        stdio: bool,
+    ) -> Result<Self, ConnectFailure>
     where
         T: IntoTransport<RoleClient, E, A>,
         E: std::error::Error + Send + Sync + 'static,
     {
         let service = tokio::time::timeout(timeout, client_config().serve(transport))
             .await
-            .map_err(|_| TIMED_OUT.to_owned())?
-            .map_err(|err| err.to_string())?;
+            .map_err(|_| ConnectFailure::from(TIMED_OUT.to_owned()))?
+            .map_err(|err| {
+                let unauthorized = err.is_authorization_required();
+                ConnectFailure {
+                    challenge: err.auth_challenge().map(str::to_owned),
+                    message: if unauthorized {
+                        UNAUTHORIZED.to_owned()
+                    } else {
+                        err.to_string()
+                    },
+                    unauthorized,
+                }
+            })?;
         let peer = service.peer().clone();
         let stop = service.cancellation_token();
         let shared = Arc::new(Shared {

@@ -11,9 +11,9 @@ use ostia_contract::assist::{
     CHAT_TOOL_DESCRIPTION_MAX, CHAT_TOOL_OUTPUT_MAX, CHAT_TOOL_SCHEMA_MAX,
 };
 use ostia_contract::chat_tools::{
-    ChatToolSettings, MCP_TOOLS_PER_SERVER_MAX, McpCallResult, McpSecretResult, McpServerSettings,
-    McpServerState, McpServerStatus, McpTestResult, McpToolInfo, McpTransportKind,
-    is_mcp_secret_key, mcp_transport_of,
+    ChatToolSettings, MCP_TOOLS_PER_SERVER_MAX, McpAuthState, McpCallResult, McpSecretResult,
+    McpServerSettings, McpServerState, McpServerStatus, McpTestResult, McpToolInfo,
+    McpTransportKind, is_mcp_secret_key, mcp_transport_of,
 };
 use ostia_contract::utf16_prefix::utf16_prefix;
 use parking_lot::Mutex;
@@ -24,7 +24,8 @@ use sha2::{Digest, Sha256};
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
-use crate::mcp_client::{HttpSpec, McpClient, StdioSpec};
+pub use crate::mcp_client::McpHttpAuth;
+use crate::mcp_client::{ConnectFailure, HttpSpec, McpClient, StdioSpec};
 
 const MCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 const INHERITED_ENV: [&str; 6] = ["HOME", "LOGNAME", "PATH", "SHELL", "TERM", "USER"];
@@ -45,12 +46,22 @@ type StatusFn = Arc<dyn Fn(Vec<McpServerStatus>) + Send + Sync>;
 type ErrorSink = Arc<dyn Fn(String) + Send + Sync>;
 type ClientSink = Box<dyn Fn(&Arc<McpClient>) + Send + Sync>;
 type LiveCheck = Box<dyn Fn() -> bool + Send + Sync>;
+type UnauthorizedSink = Box<dyn Fn() + Send + Sync>;
+pub type McpHttpAuthFuture =
+    Pin<Box<dyn Future<Output = Result<Option<McpHttpAuth>, String>> + Send>>;
+
+pub trait McpAuthSource: Send + Sync {
+    fn state(&self, server: &McpServerSettings, unauthorized: bool) -> Option<McpAuthState>;
+    fn prune(&self, servers: &[McpServerSettings]);
+    fn http_auth(&self, server: &McpServerSettings) -> McpHttpAuthFuture;
+}
 
 #[derive(Clone)]
 pub struct McpHostDeps {
     servers: ServersFn,
     secret: SecretFn,
     on_status: StatusFn,
+    auth: Option<Arc<dyn McpAuthSource>>,
     pub connect_timeout: Duration,
     pub call_timeout: Duration,
 }
@@ -65,9 +76,14 @@ impl McpHostDeps {
             servers: Arc::new(servers),
             secret: Arc::new(secret),
             on_status: Arc::new(on_status),
+            auth: None,
             connect_timeout: MCP_CONNECT_TIMEOUT,
             call_timeout: MCP_CALL_TIMEOUT,
         }
+    }
+
+    pub fn set_auth(&mut self, auth: impl McpAuthSource + 'static) {
+        self.auth = Some(Arc::new(auth));
     }
 }
 
@@ -91,6 +107,7 @@ struct Entry {
     state: McpServerState,
     error: Option<String>,
     tools: Vec<McpToolInfo>,
+    unauthorized: bool,
 }
 
 #[derive(Default)]
@@ -118,6 +135,7 @@ struct Connection {
 
 struct OpenHooks {
     on_error: ErrorSink,
+    on_unauthorized: UnauthorizedSink,
     on_client: ClientSink,
     live: LiveCheck,
 }
@@ -344,31 +362,44 @@ impl McpHost {
                 (server, set)
             })
             .collect();
-        let state = self.shared.state.lock();
+        let rows: Vec<(McpServerSettings, bool, McpServerStatus)> = {
+            let state = self.shared.state.lock();
+            rows.into_iter()
+                .map(|(server, secrets_set)| {
+                    let entry = state.entries.get(&server.name);
+                    let ready = entry.filter(|entry| entry.state == McpServerState::Ready);
+                    let unauthorized = server.enabled && entry.is_some_and(|e| e.unauthorized);
+                    let status = McpServerStatus {
+                        name: server.name.clone(),
+                        transport: mcp_transport_of(&server),
+                        state: if server.enabled {
+                            entry.map_or(McpServerState::Idle, |entry| entry.state)
+                        } else {
+                            McpServerState::Off
+                        },
+                        error: entry
+                            .filter(|_| server.enabled)
+                            .and_then(|entry| entry.error.clone())
+                            .filter(|error| !error.is_empty()),
+                        tools: if server.enabled {
+                            ready.map_or_else(Vec::new, |entry| entry.tools.clone())
+                        } else {
+                            Vec::new()
+                        },
+                        secrets_set,
+                        auth: None,
+                    };
+                    (server, unauthorized, status)
+                })
+                .collect()
+        };
         rows.into_iter()
-            .map(|(server, secrets_set)| {
-                let entry = state.entries.get(&server.name);
-                let ready = entry.filter(|entry| entry.state == McpServerState::Ready);
-                McpServerStatus {
-                    name: server.name.clone(),
-                    transport: mcp_transport_of(&server),
-                    state: if server.enabled {
-                        entry.map_or(McpServerState::Idle, |entry| entry.state)
-                    } else {
-                        McpServerState::Off
-                    },
-                    error: entry
-                        .filter(|_| server.enabled)
-                        .and_then(|entry| entry.error.clone())
-                        .filter(|error| !error.is_empty()),
-                    tools: if server.enabled {
-                        ready.map_or_else(Vec::new, |entry| entry.tools.clone())
-                    } else {
-                        Vec::new()
-                    },
-                    secrets_set,
-                    auth: None,
-                }
+            .map(|(server, unauthorized, mut status)| {
+                status.auth = deps
+                    .auth
+                    .as_ref()
+                    .and_then(|auth| auth.state(&server, unauthorized));
+                status
             })
             .collect()
     }
@@ -414,6 +445,7 @@ impl McpHost {
                 state: McpServerState::Connecting,
                 error: None,
                 tools: Vec::new(),
+                unauthorized: false,
             },
         );
         id
@@ -428,6 +460,11 @@ impl McpHost {
                     let host = host.clone();
                     let name = name.clone();
                     Arc::new(move |message: String| host.fail_with(&name, id, &message))
+                },
+                on_unauthorized: {
+                    let host = host.clone();
+                    let name = name.clone();
+                    Box::new(move || host.mark_unauthorized(&name, id))
                 },
                 on_client: {
                     let host = host.clone();
@@ -457,6 +494,15 @@ impl McpHost {
             .is_some_and(|entry| entry.id == id)
     }
 
+    fn mark_unauthorized(&self, name: &str, id: u64) {
+        let mut state = self.shared.state.lock();
+        if let Some(entry) = state.entries.get_mut(name)
+            && entry.id == id
+        {
+            entry.unauthorized = true;
+        }
+    }
+
     fn attach_client(&self, name: &str, id: u64, client: &Arc<McpClient>) {
         let mut state = self.shared.state.lock();
         if let Some(entry) = state.entries.get_mut(name)
@@ -480,6 +526,7 @@ impl McpHost {
                     entry.tools = connection.tools;
                     entry.state = McpServerState::Ready;
                     entry.error = None;
+                    entry.unauthorized = false;
                     true
                 }
                 _ => false,
@@ -509,23 +556,31 @@ impl McpHost {
         self.emit();
     }
 
-    async fn connect_client(&self, settings: &McpServerSettings) -> Result<McpClient, String> {
+    async fn connect_client(
+        &self,
+        settings: &McpServerSettings,
+    ) -> Result<McpClient, ConnectFailure> {
         let timeout = self.deps().connect_timeout;
         let secrets = server_secrets(settings, &*self.deps().secret);
         if mcp_transport_of(settings) == McpTransportKind::Http {
             let url = settings.url.as_deref().unwrap_or_default();
             let url = Url::parse(url).map_err(|err| format!("Invalid URL: {err}"))?;
+            let auth = match &self.deps().auth {
+                Some(source) => source.http_auth(settings).await?,
+                None => None,
+            };
             return McpClient::connect_http(
                 HttpSpec {
                     url,
                     headers: secrets,
+                    auth,
                 },
                 timeout,
             )
             .await;
         }
         let [command, args @ ..] = settings.command.as_deref().unwrap_or_default() else {
-            return Err("The server has no command".to_owned());
+            return Err("The server has no command".to_owned().into());
         };
         let host = Host::current();
         let inherited = host.child_env();
@@ -561,7 +616,15 @@ impl McpHost {
         hooks: &OpenHooks,
     ) -> Result<Option<Connection>, String> {
         let timeout = self.deps().connect_timeout;
-        let client = Arc::new(self.connect_client(settings).await?);
+        let client = match self.connect_client(settings).await {
+            Ok(client) => Arc::new(client),
+            Err(failure) => {
+                if failure.unauthorized {
+                    (hooks.on_unauthorized)();
+                }
+                return Err(failure.message);
+            }
+        };
         if !(hooks.live)() {
             client.close();
             return Ok(None);
@@ -587,8 +650,12 @@ impl McpHost {
     }
 
     pub fn refresh(&self) -> Vec<McpServerStatus> {
+        let servers = (self.deps().servers)();
+        if let Some(auth) = &self.deps().auth {
+            auth.prune(&servers);
+        }
         let mut wanted: Vec<(McpServerSettings, String)> = Vec::new();
-        for server in (self.deps().servers)() {
+        for server in servers {
             let fingerprint = if server.enabled {
                 self.fingerprint_of(&server)
             } else {
@@ -813,6 +880,7 @@ impl McpHost {
                     }
                 })
             },
+            on_unauthorized: Box::new(|| {}),
             on_client: Box::new(|_| {}),
             live: Box::new(|| true),
         };
@@ -857,7 +925,7 @@ impl McpHost {
         let settings = (self.deps().servers)()
             .into_iter()
             .find(|candidate| candidate.name == server);
-        let (client, token) = {
+        let (client, token, settings) = {
             let mut state = self.shared.state.lock();
             let client = state
                 .entries
@@ -876,7 +944,7 @@ impl McpHost {
             }
             let token = CancellationToken::new();
             state.calls.insert(call_id.to_owned(), token.clone());
-            (client, token)
+            (client, token, settings)
         };
         let _guard = CallGuard {
             host: self,
@@ -889,7 +957,15 @@ impl McpHost {
         {
             Ok(raw) => Ok(raw),
             Err(_) if token.is_cancelled() => Err("cancelled".to_owned()),
-            Err(message) => Err(error_text(&message)),
+            Err(message) => {
+                let expired = self.deps().auth.as_ref().is_some_and(|auth| {
+                    auth.state(&settings, false) == Some(McpAuthState::Expired)
+                });
+                if expired {
+                    self.reconnect(server);
+                }
+                Err(error_text(&message))
+            }
         }
     }
 

@@ -24,6 +24,7 @@ pub mod manager;
 pub mod manager_session;
 mod mcp_client;
 pub mod mcp_host;
+pub mod mcp_oauth;
 pub mod origin_agents;
 pub mod playbook_enabled;
 pub mod playbook_files;

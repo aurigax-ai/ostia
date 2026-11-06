@@ -7,8 +7,13 @@ license-file.workspace = true
 publish.workspace = true
 
 [dependencies]
+async-trait.workspace = true
+bytes.workspace = true
 futures-util.workspace = true
 hex.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
 libc.workspace = true
 ostia-base.workspace = true
 ostia-contract.workspace = true
@@ -20,6 +25,7 @@ ostia-workspaces.workspace = true
 parking_lot.workspace = true
 regex.workspace = true
 reqwest.workspace = true
+reqwest-rmcp.workspace = true
 rmcp.workspace = true
 rustix.workspace = true
 serde.workspace = true
@@ -36,6 +42,10 @@ unicode-normalization.workspace = true
 workspace = true
 
 [dev-dependencies]
+hex.workspace = true
+parking_lot.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
 ostia-panes.workspace = true
 ostia-privacy.workspace = true
 ostia-terminal.workspace = true
