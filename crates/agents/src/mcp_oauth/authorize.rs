@@ -9,7 +9,7 @@ use serde_json::Value;
 pub(super) struct Authorization {
     session: AuthorizationSession,
     credentials: InMemoryCredentialStore,
-    session_state: String,
+    pub state: String,
     pub url: Url,
 }
 
@@ -22,23 +22,21 @@ fn text_of(err: impl std::fmt::Display) -> String {
     err.to_string()
 }
 
-fn with_own_state(authorization_url: &str, state: &str) -> Result<(Url, String), String> {
-    let mut url = Url::parse(authorization_url).map_err(text_of)?;
-    let mut pairs: Vec<(String, String)> = url.query_pairs().into_owned().collect();
-    let slot = pairs
-        .iter_mut()
+fn state_of(authorization_url: &str) -> Result<(Url, String), String> {
+    let url = Url::parse(authorization_url).map_err(text_of)?;
+    let state = url
+        .query_pairs()
         .find(|(key, _)| key == "state")
+        .map(|(_, value)| value.into_owned())
+        .filter(|state| !state.is_empty())
         .ok_or_else(|| "The authorization URL has no state".to_owned())?;
-    let session_state = std::mem::replace(&mut slot.1, state.to_owned());
-    url.query_pairs_mut().clear().extend_pairs(pairs);
-    Ok((url, session_state))
+    Ok((url, state))
 }
 
 pub(super) async fn begin(
     server_url: &str,
     challenge: &str,
     redirect_url: &str,
-    state: &str,
 ) -> Result<Authorization, String> {
     let credentials = InMemoryCredentialStore::new();
     let mut manager = AuthorizationManager::new(server_url)
@@ -54,11 +52,11 @@ pub(super) async fn begin(
     let session = AuthorizationSession::new(manager, request)
         .await
         .map_err(|(_, err)| text_of(err))?;
-    let (url, session_state) = with_own_state(session.get_authorization_url(), state)?;
+    let (url, state) = state_of(session.get_authorization_url())?;
     Ok(Authorization {
         session,
         credentials,
-        session_state,
+        state,
         url,
     })
 }
@@ -71,7 +69,7 @@ impl Authorization {
     ) -> Result<Granted, String> {
         let token = self
             .session
-            .handle_callback_with_issuer(code, &self.session_state, issuer)
+            .handle_callback_with_issuer(code, &self.state, issuer)
             .await
             .map_err(text_of)?;
         let stored = self

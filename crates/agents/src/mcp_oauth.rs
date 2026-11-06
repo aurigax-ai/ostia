@@ -8,10 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
 
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use ostia_base::clock::{Clock, system_clock};
-use ostia_base::random::random_bytes;
 use ostia_contract::app_env::{EnvSource, read_env};
 use ostia_contract::chat_tools::{
     McpAuthState, McpServerSettings, McpSignInError, McpSignInFailure, McpSignInResult,
@@ -247,9 +244,8 @@ impl McpOAuth {
             name: &server.name,
             listener: None,
         };
-        let state = URL_SAFE_NO_PAD.encode(random_bytes::<32>());
         let opened = open_callback_listener(CallbackOptions {
-            state: state.clone(),
+            state: String::new(),
             timeout: self.deps().timeout,
             pages: (self.deps().pages)(),
             redirect_name: None,
@@ -258,8 +254,7 @@ impl McpOAuth {
         let outcome = match opened {
             Ok(listener) => {
                 let listener = guard.listener.insert(listener);
-                self.run(&flow, server, url, headers, listener, &state)
-                    .await
+                self.run(&flow, server, url, headers, listener).await
             }
             Err(err) => Err(failed(&err.to_string())),
         };
@@ -281,14 +276,14 @@ impl McpOAuth {
         url: &str,
         headers: &BTreeMap<String, String>,
         listener: &CallbackListener,
-        state: &str,
     ) -> Result<(), SignInFailure> {
         let redirect_url = listener.redirect_url.clone();
         let steps = async {
             let challenge = self.challenge(url, headers).await?;
-            let authorization = authorize::begin(url, &challenge, &redirect_url, state)
+            let authorization = authorize::begin(url, &challenge, &redirect_url)
                 .await
                 .map_err(|reason| failed(&reason))?;
+            listener.expect_state(&authorization.state);
             self.open_authorization(&authorization.url).await?;
             let callback = listener.result().await?;
             let granted = authorization

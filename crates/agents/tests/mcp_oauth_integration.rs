@@ -491,7 +491,7 @@ async fn opens_the_authorization_url_in_the_system_browser_and_accepts_only_the_
         &query(&authorization, "code_challenge").unwrap(),
         43
     ));
-    assert!(is_base64url(&query(&authorization, "state").unwrap(), 43));
+    assert!(is_base64url(&query(&authorization, "state").unwrap(), 22));
     let redirect = Url::parse(&query(&authorization, "redirect_uri").unwrap()).unwrap();
     assert_eq!(redirect.host_str(), Some("127.0.0.1"));
     assert_eq!(rig.host.status()[0].auth, Some(McpAuthState::SigningIn));

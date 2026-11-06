@@ -78,7 +78,7 @@ impl fmt::Debug for CallbackResult {
 type Outcome = Result<CallbackResult, SignInFailure>;
 
 struct Inner {
-    state: String,
+    state: Mutex<String>,
     hosts: [String; 2],
     pages: SignInPages,
     outcome: watch::Sender<Option<Outcome>>,
@@ -95,6 +95,11 @@ impl Inner {
             *slot = Some(outcome);
             true
         })
+    }
+
+    fn state_matches(&self, sent: &str) -> bool {
+        let expected = self.state.lock();
+        !expected.is_empty() && same_bytes(sent.as_bytes(), expected.as_bytes())
     }
 
     fn poll_accept(&self, cx: &mut Context<'_>) -> Poll<io::Result<(TcpStream, SocketAddr)>> {
@@ -121,6 +126,10 @@ impl CallbackListener {
         }
     }
 
+    pub fn expect_state(&self, state: &str) {
+        *self.inner.state.lock() = state.to_owned();
+    }
+
     pub fn close(&self) {
         self.inner
             .settle(Err(SignInFailure::new(McpSignInError::Cancelled)));
@@ -136,7 +145,7 @@ pub async fn open_callback_listener(options: CallbackOptions) -> io::Result<Call
     let name = options.redirect_name.as_deref().unwrap_or("127.0.0.1");
     let (outcome, _) = watch::channel(None);
     let inner = Arc::new(Inner {
-        state: options.state,
+        state: Mutex::new(options.state),
         hosts: [format!("127.0.0.1:{port}"), format!("{name}:{port}")],
         pages: options.pages,
         outcome,
@@ -233,7 +242,7 @@ fn answer<B>(inner: &Inner, port: u16, request: &Request<B>) -> Response<Full<By
     let sent_state = param("state");
     if !sent_state
         .as_deref()
-        .is_some_and(|sent| same_bytes(sent.as_bytes(), inner.state.as_bytes()))
+        .is_some_and(|sent| inner.state_matches(sent))
     {
         return failed(400);
     }
