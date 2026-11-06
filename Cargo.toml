@@ -35,6 +35,7 @@ ostia-testscript = { path = "crates/testscript" }
 
 aes-gcm = "0.10"
 anyhow = "1"
+async-trait = "0.1"
 base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
@@ -48,6 +49,9 @@ gethostname = "1"
 getrandom = "0.4"
 globset = "0.4"
 hex = "0.4"
+http-body-util = "0.1"
+hyper = { version = "1", default-features = false, features = ["http1", "server"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio"] }
 indexmap = "2"
 hmac = "0.13"
 icu_calendar = "2"
@@ -66,7 +70,7 @@ rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "
 regex = "1"
 regress = "0.12"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
-rmcp = { version = "3.9", default-features = false, features = ["client", "reqwest", "transport-child-process", "transport-streamable-http-client-reqwest"] }
+rmcp = { version = "3.9", default-features = false, features = ["auth", "client", "reqwest", "transport-child-process", "transport-streamable-http-client-reqwest"] }
 rustix = { version = "1", features = ["fs", "process", "system", "termios"] }
 rustls-pki-types = "1"
 serde = { version = "1", features = ["derive"] }
