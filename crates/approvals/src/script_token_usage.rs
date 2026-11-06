@@ -7,7 +7,7 @@ use futures_util::FutureExt;
 use futures_util::future::{BoxFuture, Shared, join};
 use ostia_base::atomic_write::{AtomicWriteOptions, write_file_atomic};
 use ostia_base::clock::{Clock, system_clock};
-use ostia_base::json_store::{SaveOptions, load_json, save_json};
+use ostia_base::json_store::load_json;
 use ostia_contract::script_tokens::{
     ScriptTokenCall, ScriptTokenCallOutcome, ScriptTokenCallTarget,
 };
@@ -273,6 +273,10 @@ fn load_rings(path: &std::path::Path) -> Vec<(String, Ring)> {
         .collect()
 }
 
+fn write_compact(path: &std::path::Path, out: &Value) -> ostia_base::Result<()> {
+    write_file_atomic(path, out.to_string().as_bytes(), AtomicWriteOptions::SECURE)
+}
+
 struct State {
     rings: Option<Vec<(String, Ring)>>,
     connections: HashMap<String, BTreeMap<u64, ConnectionSource>>,
@@ -332,11 +336,7 @@ impl Inner {
                 if *newest > sequence {
                     return Ok(());
                 }
-                let result = write_file_atomic(
-                    &target,
-                    out.to_string().as_bytes(),
-                    AtomicWriteOptions::SECURE,
-                );
+                let result = write_compact(&target, &out);
                 if result.is_ok() {
                     *newest = sequence;
                 }
@@ -562,7 +562,7 @@ impl ScriptTokenUsageLog {
         state.writes += 1;
         let sequence = state.writes;
         let mut newest = self.inner.landed.lock();
-        match save_json(&self.inner.path, &out, SaveOptions::SECURE) {
+        match write_compact(&self.inner.path, &out) {
             Ok(()) => *newest = sequence,
             Err(err) => tracing::error!("[script-token-usage] close write failed: {err}"),
         }
