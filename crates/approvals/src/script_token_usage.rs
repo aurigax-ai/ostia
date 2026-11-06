@@ -348,7 +348,7 @@ impl Inner {
             sleep.await;
             if let Some(inner) = weak.upgrade() {
                 inner.state.lock().timer = None;
-                let _ = inner.flush();
+                inner.flush().await;
             }
         }));
     }
