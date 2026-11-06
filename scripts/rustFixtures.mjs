@@ -26,6 +26,7 @@ export { parseSnapshot } from './src/main/workspaces/workspaceSnapshot'
 export { scrollbackToSave } from './src/main/workspaces/savedScrollback'
 export { USAGE_TABLE } from './src/cli/common/usageTable'
 export * as bus from './src/main/agents/busStore'
+export { createScriptTokenUsage } from './src/main/approvals/scriptTokenUsage'
 export { encodeViewerSelection } from './packages/extension-sdk/src/contract/viewerSelection'
 export { createHeadlessTerminal } from './src/shared/terminal/ghosttyHeadless'
 export { createTelemetry } from './src/main/diagnostics/telemetry'
@@ -129,6 +130,7 @@ const {
   agentSchema,
   chatMarkdown,
   normalizeChatSession,
+  createScriptTokenUsage,
 } = createRequire(import.meta.url)(bundle)
 
 const STORE_VALUE = {
@@ -849,6 +851,38 @@ saveJson(join(out, 'dict-zh-hant-merged.json'), mergeCatalog(zhHant))
 saveJson(join(out, 'release-check-dismissed.json'), { dismissedVersion: '0.3.0' })
 
 const figDir = mkdtempSync(join(tmpdir(), 'rust-fig-specs-'))
+const usageFile = join(work, 'script-token-usage.json')
+let usageClock = Date.parse('2026-10-11T12:00:00.000Z')
+const usageLog = () =>
+  createScriptTokenUsage(() => usageFile, { now: () => usageClock, flushMs: 60_000 })
+const usageFirst = usageLog()
+usageFirst.record('t1', {
+  method: 'pane.read',
+  target: { workspaceId: 'w1', paneId: 'p1' },
+  outcome: 'ok',
+})
+usageClock += 1_000
+usageFirst.record('t1', {
+  method: 'pane.close',
+  target: { paneId: 'p2' },
+  outcome: 'missing-permission',
+})
+usageClock += 1_000
+usageFirst.record('t1', { method: 'x', target: {}, outcome: 'error', code: 'bad-request' })
+usageFirst.record('t2', { method: 'notify', target: { workspaceId: 'w2' }, outcome: 'out-of-scope' })
+usageFirst.regenerated('t2')
+await usageFirst.flush()
+writeFileSync(join(out, 'script-token-usage-before.json'), readFileSync(usageFile))
+usageClock += 3_600_000
+const usageSecond = usageLog()
+usageSecond.record('t1', {
+  method: 'pane.input',
+  target: { workspaceId: 'w1', paneId: 'p1' },
+  outcome: 'ok',
+})
+await usageSecond.flush()
+writeFileSync(join(out, 'script-token-usage-after.json'), readFileSync(usageFile))
+
 const { writeFigSpecs } = await import('./completionSpecs.mjs')
 await writeFigSpecs(figDir)
 mkdirSync(join(out, 'completion-specs'), { recursive: true })
