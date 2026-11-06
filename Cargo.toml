@@ -70,6 +70,7 @@ rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "
 regex = "1"
 regress = "0.12"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest-rmcp = { package = "reqwest", version = "0.13", default-features = false }
 rmcp = { version = "3.9", default-features = false, features = ["auth", "client", "reqwest", "transport-child-process", "transport-streamable-http-client-reqwest"] }
 rustix = { version = "1", features = ["fs", "process", "system", "termios"] }
 rustls-pki-types = "1"

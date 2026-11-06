@@ -210,7 +210,7 @@ impl McpOAuth {
                 )
                 .map_err(|err| err.to_string())?;
         }
-        Ok(Some(AuthClient::new(reqwest::Client::new(), manager)))
+        Ok(Some(AuthClient::new(reqwest_rmcp::Client::new(), manager)))
     }
 
     pub async fn sign_in(

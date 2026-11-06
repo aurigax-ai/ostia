@@ -27,7 +27,7 @@ const ABANDONED: &str = "request abandoned by the caller";
 const TIMED_OUT: &str = "Request timed out";
 const UNAUTHORIZED: &str = "HTTP 401: authorization required";
 
-pub type McpHttpAuth = AuthClient<reqwest::Client>;
+pub type McpHttpAuth = AuthClient<reqwest_rmcp::Client>;
 
 pub(crate) struct ConnectFailure {
     pub message: String,
