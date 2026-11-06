@@ -48,7 +48,7 @@ gethostname = "1"
 getrandom = "0.4"
 globset = "0.4"
 hex = "0.4"
-indexmap = "2"
+indexmap = { version = "2", features = ["serde"] }
 hmac = "0.13"
 icu_calendar = "2"
 icu_collator = "2"
