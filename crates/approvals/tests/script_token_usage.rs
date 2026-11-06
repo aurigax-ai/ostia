@@ -388,7 +388,7 @@ async fn keeps_the_hours_of_the_last_24_hours_when_reading_a_file() {
         json!({"t1": {"calls": [], "hours": [
             [hour, 4, 1],
             [hour - 23, 2, 2],
-            [hour - 24, 9, 9]
+            [hour - 25, 9, 9]
         ]}})
         .to_string(),
     )
