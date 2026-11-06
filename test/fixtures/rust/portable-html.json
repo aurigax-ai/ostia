@@ -1,0 +1,179 @@
+{
+ "wrap": [
+  {
+   "document": "<!doctype html><p>plain</p>",
+   "manifest": {
+    "format": "ostia-artifact/1",
+    "type": "page",
+    "name": "Plain page",
+    "built": "2026-11-06T10:00:00.000Z",
+    "ostia": "0.6.0",
+    "libraries": [
+     "react",
+     "recharts"
+    ],
+    "theme": {
+     "dark": false,
+     "vars": {}
+    },
+    "hash": "sha256-abc",
+    "sources": {
+     "a.html": "<p>plain</p>"
+    }
+   },
+   "html": "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; worker-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'\">\n<meta name=\"referrer\" content=\"no-referrer\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Plain page</title>\n<style>html,body{margin:0;height:100%}iframe{display:block;border:0;width:100%;height:100%}</style>\n<script type=\"application/json\" id=\"ostia-artifact\">{\"format\":\"ostia-artifact/1\",\"type\":\"page\",\"name\":\"Plain page\",\"built\":\"2026-11-06T10:00:00.000Z\",\"ostia\":\"0.6.0\",\"libraries\":[\"react\",\"recharts\"],\"theme\":{\"dark\":false,\"vars\":{}},\"hash\":\"sha256-abc\",\"sources\":{\"a.html\":\"\\u003cp>plain\\u003c/p>\"}}</script>\n</head>\n<body>\n<iframe sandbox=\"allow-scripts\" allow=\"clipboard-write\" title=\"Plain page\" srcdoc=\"<!doctype html><p>plain</p>\"></iframe>\n</body>\n</html>\n"
+  },
+  {
+   "document": "<p class=\"x\">a & b \"q\" <script>1<2</script></p>",
+   "manifest": {
+    "format": "ostia-artifact/1",
+    "type": "component",
+    "name": "A <b>&</b> \"c\"",
+    "built": "2026-11-06T10:00:00.000Z",
+    "ostia": "0.6.0",
+    "libraries": [
+     "react",
+     "recharts"
+    ],
+    "theme": {
+     "dark": true,
+     "vars": {
+      "--ostia-bg": "#1d2022",
+      "--ostia-font": "Inter, \"Noto Sans\", sans-serif"
+     }
+    },
+    "hash": "sha256-abc",
+    "sources": {
+     "App.tsx": "const a = \"</script><x>\"",
+     "b.css": "a{}"
+    }
+   },
+   "html": "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; worker-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'\">\n<meta name=\"referrer\" content=\"no-referrer\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>A &lt;b&gt;&amp;&lt;/b&gt; \"c\"</title>\n<style>html,body{margin:0;height:100%}iframe{display:block;border:0;width:100%;height:100%}</style>\n<script type=\"application/json\" id=\"ostia-artifact\">{\"format\":\"ostia-artifact/1\",\"type\":\"component\",\"name\":\"A \\u003cb>&\\u003c/b> \\\"c\\\"\",\"built\":\"2026-11-06T10:00:00.000Z\",\"ostia\":\"0.6.0\",\"libraries\":[\"react\",\"recharts\"],\"theme\":{\"dark\":true,\"vars\":{\"--ostia-bg\":\"#1d2022\",\"--ostia-font\":\"Inter, \\\"Noto Sans\\\", sans-serif\"}},\"hash\":\"sha256-abc\",\"sources\":{\"App.tsx\":\"const a = \\\"\\u003c/script>\\u003cx>\\\"\",\"b.css\":\"a{}\"}}</script>\n</head>\n<body>\n<iframe sandbox=\"allow-scripts\" allow=\"clipboard-write\" title=\"A &lt;b&gt;&amp;&lt;/b&gt; &quot;c&quot;\" srcdoc=\"<p class=&quot;x&quot;>a &amp; b &quot;q&quot; <script>1<2</script></p>\"></iframe>\n</body>\n</html>\n"
+  },
+  {
+   "document": "",
+   "manifest": {
+    "format": "ostia-artifact/1",
+    "type": "markdown",
+    "name": "notes",
+    "built": "2026-11-06T10:00:00.000Z",
+    "ostia": "0.6.0",
+    "libraries": [
+     "react",
+     "recharts"
+    ],
+    "theme": {
+     "dark": false,
+     "vars": {}
+    },
+    "hash": "sha256-abc",
+    "sources": {}
+   },
+   "html": "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; worker-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'\">\n<meta name=\"referrer\" content=\"no-referrer\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>notes</title>\n<style>html,body{margin:0;height:100%}iframe{display:block;border:0;width:100%;height:100%}</style>\n<script type=\"application/json\" id=\"ostia-artifact\">{\"format\":\"ostia-artifact/1\",\"type\":\"markdown\",\"name\":\"notes\",\"built\":\"2026-11-06T10:00:00.000Z\",\"ostia\":\"0.6.0\",\"libraries\":[\"react\",\"recharts\"],\"theme\":{\"dark\":false,\"vars\":{}},\"hash\":\"sha256-abc\",\"sources\":{}}</script>\n</head>\n<body>\n<iframe sandbox=\"allow-popups allow-popups-to-escape-sandbox\" allow=\"clipboard-write\" title=\"notes\" srcdoc=\"\"></iframe>\n</body>\n</html>\n"
+  },
+  {
+   "document": "<svg/>",
+   "manifest": {
+    "format": "ostia-artifact/1",
+    "type": "svg",
+    "name": "日本語 🙂",
+    "built": "2026-11-06T10:00:00.000Z",
+    "ostia": "0.6.0",
+    "libraries": [
+     "react",
+     "recharts"
+    ],
+    "theme": {
+     "dark": true,
+     "vars": {
+      "--ostia-bg": "#1d2022",
+      "--ostia-font": "Inter, \"Noto Sans\", sans-serif"
+     }
+    },
+    "hash": "sha256-abc",
+    "sources": {
+     "p.svg": "<svg/>"
+    }
+   },
+   "html": "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; worker-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'\">\n<meta name=\"referrer\" content=\"no-referrer\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>日本語 🙂</title>\n<style>html,body{margin:0;height:100%}iframe{display:block;border:0;width:100%;height:100%}</style>\n<script type=\"application/json\" id=\"ostia-artifact\">{\"format\":\"ostia-artifact/1\",\"type\":\"svg\",\"name\":\"日本語 🙂\",\"built\":\"2026-11-06T10:00:00.000Z\",\"ostia\":\"0.6.0\",\"libraries\":[\"react\",\"recharts\"],\"theme\":{\"dark\":true,\"vars\":{\"--ostia-bg\":\"#1d2022\",\"--ostia-font\":\"Inter, \\\"Noto Sans\\\", sans-serif\"}},\"hash\":\"sha256-abc\",\"sources\":{\"p.svg\":\"\\u003csvg/>\"}}</script>\n</head>\n<body>\n<iframe sandbox=\"allow-popups allow-popups-to-escape-sandbox\" allow=\"clipboard-write\" title=\"日本語 🙂\" srcdoc=\"<svg/>\"></iframe>\n</body>\n</html>\n"
+  }
+ ],
+ "page": [
+  {
+   "title": "Plain",
+   "body": "<p>hi</p>",
+   "css": "",
+   "theme": {
+    "dark": false,
+    "vars": {}
+   },
+   "html": "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>Plain</title>\n<style>:root{color-scheme:light;}body{margin:0;background:var(--ostia-bg,Canvas);color:var(--ostia-fg,CanvasText);font-family:var(--ostia-font,system-ui,sans-serif)}</style>\n</head>\n<body><p>hi</p></body>\n</html>"
+  },
+  {
+   "title": "A <b> & \"c\"",
+   "body": "<h1>x</h1>",
+   "css": "h1{color:red}",
+   "theme": {
+    "dark": true,
+    "vars": {
+     "--ostia-bg": "#1d2022",
+     "--ostia-font": "Inter, \"Noto Sans\", sans-serif"
+    }
+   },
+   "html": "<!doctype html>\n<html class=\"dark\">\n<head>\n<meta charset=\"utf-8\">\n<title>A &lt;b&gt; &amp; \"c\"</title>\n<style>:root{color-scheme:dark;--ostia-bg:#1d2022;--ostia-font:Inter, \"Noto Sans\", sans-serif}body{margin:0;background:var(--ostia-bg,Canvas);color:var(--ostia-fg,CanvasText);font-family:var(--ostia-font,system-ui,sans-serif)}</style>\n<style>h1{color:red}</style>\n</head>\n<body><h1>x</h1></body>\n</html>"
+  },
+  {
+   "title": "Style",
+   "body": "",
+   "css": "a{}</style><script>1</STYLE >b{}",
+   "theme": {
+    "dark": true,
+    "vars": {
+     "--ostia-bg": "#1d2022",
+     "--ostia-font": "Inter, \"Noto Sans\", sans-serif"
+    }
+   },
+   "html": "<!doctype html>\n<html class=\"dark\">\n<head>\n<meta charset=\"utf-8\">\n<title>Style</title>\n<style>:root{color-scheme:dark;--ostia-bg:#1d2022;--ostia-font:Inter, \"Noto Sans\", sans-serif}body{margin:0;background:var(--ostia-bg,Canvas);color:var(--ostia-fg,CanvasText);font-family:var(--ostia-font,system-ui,sans-serif)}</style>\n<style>a{}<\\/style><script>1<\\/style >b{}</style>\n</head>\n<body></body>\n</html>"
+  },
+  {
+   "title": "",
+   "body": "<p>untitled</p>",
+   "css": "",
+   "theme": {
+    "dark": false,
+    "vars": {}
+   },
+   "html": "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title></title>\n<style>:root{color-scheme:light;}body{margin:0;background:var(--ostia-bg,Canvas);color:var(--ostia-fg,CanvasText);font-family:var(--ostia-font,system-ui,sans-serif)}</style>\n</head>\n<body><p>untitled</p></body>\n</html>"
+  }
+ ],
+ "fileNames": [
+  {
+   "path": "/a/b/report.v2.html",
+   "name": "report.v2.html"
+  },
+  {
+   "path": "C:\\a\\Chart.tsx",
+   "name": "Chart.html"
+  },
+  {
+   "path": "noext",
+   "name": "noext.html"
+  },
+  {
+   "path": ".hidden",
+   "name": "artifact.html"
+  },
+  {
+   "path": "dir/",
+   "name": "artifact.html"
+  },
+  {
+   "path": "/a/b/archive.tar.gz",
+   "name": "archive.tar.html"
+  },
+  {
+   "path": "",
+   "name": "artifact.html"
+  }
+ ]
+}

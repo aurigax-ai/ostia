@@ -50,6 +50,8 @@ export { BUILTIN_COLOR_SCHEMES } from './src/renderer/lib/colorSchemes/builtinCo
 export * as uiFonts from './src/renderer/lib/theme/uiFonts'
 export * as browserEditorSettings from './src/renderer/lib/settings/browserEditorSettings'
 export * as agentSchema from './src/renderer/lib/settings/agentSchema'
+export * as portable from './src/shared/artifacts/portable'
+export * as htmlPreview from './src/shared/artifacts/htmlPreview'
 `
 
 const rawPlugin = {
@@ -127,6 +129,8 @@ const {
   uiFonts,
   browserEditorSettings,
   agentSchema,
+  portable,
+  htmlPreview,
   chatMarkdown,
   normalizeChatSession,
 } = createRequire(import.meta.url)(bundle)
@@ -1394,6 +1398,68 @@ writeFileSync(
       input,
       markdown: chatMarkdown(normalizeChatSession(input)),
     })),
+    null,
+    1,
+  )}\n`,
+)
+
+const PORTABLE_THEMES = [
+  { dark: false, vars: {} },
+  { dark: true, vars: { '--ostia-bg': '#1d2022', '--ostia-font': 'Inter, "Noto Sans", sans-serif' } },
+].map((theme) => htmlPreview.normalizePreviewTheme(theme))
+const portableManifest = (type, name, theme, sources) => ({
+  format: portable.PORTABLE_FORMAT,
+  type,
+  name,
+  built: '2026-11-06T10:00:00.000Z',
+  ostia: '0.6.0',
+  libraries: ['react', 'recharts'],
+  theme,
+  hash: 'sha256-abc',
+  sources,
+})
+const PORTABLE_WRAP_INPUTS = [
+  {
+    document: '<!doctype html><p>plain</p>',
+    manifest: portableManifest('page', 'Plain page', PORTABLE_THEMES[0], { 'a.html': '<p>plain</p>' }),
+  },
+  {
+    document: '<p class="x">a & b "q" <script>1<2</script></p>',
+    manifest: portableManifest('component', 'A <b>&</b> "c"', PORTABLE_THEMES[1], {
+      'App.tsx': 'const a = "</script><x>"',
+      'b.css': 'a{}',
+    }),
+  },
+  {
+    document: '',
+    manifest: portableManifest('markdown', 'notes', PORTABLE_THEMES[0], {}),
+  },
+  {
+    document: '<svg/>',
+    manifest: portableManifest('svg', '日本語 🙂', PORTABLE_THEMES[1], { 'p.svg': '<svg/>' }),
+  },
+]
+const PORTABLE_PAGE_INPUTS = [
+  { title: 'Plain', body: '<p>hi</p>', css: '', theme: PORTABLE_THEMES[0] },
+  { title: 'A <b> & "c"', body: '<h1>x</h1>', css: 'h1{color:red}', theme: PORTABLE_THEMES[1] },
+  { title: 'Style', body: '', css: 'a{}</style><script>1</STYLE >b{}', theme: PORTABLE_THEMES[1] },
+  { title: '', body: '<p>untitled</p>', css: '', theme: PORTABLE_THEMES[0] },
+]
+const PORTABLE_NAMES = ['/a/b/report.v2.html', 'C:\\a\\Chart.tsx', 'noext', '.hidden', 'dir/', '/a/b/archive.tar.gz', '']
+writeFileSync(
+  join(out, 'portable-html.json'),
+  `${JSON.stringify(
+    {
+      wrap: PORTABLE_WRAP_INPUTS.map((input) => ({
+        ...input,
+        html: portable.wrapPortable(input.document, input.manifest),
+      })),
+      page: PORTABLE_PAGE_INPUTS.map((input) => ({
+        ...input,
+        html: portable.documentPage(input.title, input.body, input.css, input.theme),
+      })),
+      fileNames: PORTABLE_NAMES.map((path) => ({ path, name: portable.portableFileName(path) })),
+    },
     null,
     1,
   )}\n`,
