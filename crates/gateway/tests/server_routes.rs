@@ -236,7 +236,8 @@ async fn answers_a_pending_poll_as_it_is_and_marks_a_registered_device_with_its_
         Reply::json(
             200,
             &json!({"accountId": "a", "deviceId": "d", "provider": "github"}),
-        ),
+        )
+        .header("Date", "Wed, 21 Oct 2026 07:29:05 GMT"),
     ])
     .await;
     let harness = harness(&server.origin);

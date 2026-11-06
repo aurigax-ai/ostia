@@ -5749,6 +5749,7 @@ dependencies = [
 name = "ostia-gateway"
 version = "0.0.0"
 dependencies = [
+ "aws-lc-rs",
  "base64 0.22.1",
  "chrono",
  "gethostname",
@@ -5757,8 +5758,10 @@ dependencies = [
  "ostia-base",
  "ostia-contract",
  "parking_lot",
+ "percent-encoding",
  "rcgen",
  "regex",
+ "reqwest 0.12.28",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -5767,6 +5770,7 @@ dependencies = [
  "time",
  "tokio",
  "unicode-segmentation",
+ "url",
  "uuid",
  "x509-parser",
 ]
