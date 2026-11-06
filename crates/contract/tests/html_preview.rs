@@ -346,7 +346,7 @@ fn keeps_at_most_16_variables_in_the_order_given() {
     let kept = result["vars"].as_object().unwrap();
     assert_eq!(kept.len(), 16);
     assert_eq!(kept.keys().next().unwrap(), "--ostia-a");
-    assert_eq!(kept.keys().last().unwrap(), "--ostia-p");
+    assert_eq!(kept.keys().next_back().unwrap(), "--ostia-p");
 }
 
 #[test]
