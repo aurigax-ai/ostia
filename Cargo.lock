@@ -5529,6 +5529,7 @@ dependencies = [
 name = "ostia-approvals"
 version = "0.0.0"
 dependencies = [
+ "chrono",
  "futures-util",
  "ostia-base",
  "ostia-contract",
@@ -5544,6 +5545,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-util",
+ "tracing",
 ]
 
 [[package]]
