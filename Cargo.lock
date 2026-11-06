@@ -5498,7 +5498,6 @@ name = "ostia-agents"
 version = "0.0.0"
 dependencies = [
  "async-trait",
- "base64 0.22.1",
  "bytes",
  "futures-util",
  "hex",
