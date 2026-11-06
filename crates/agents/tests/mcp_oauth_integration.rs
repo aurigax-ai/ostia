@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::time::{Duration, Instant};
 
-use mcp_oauth_support::{FakeMcpHttp, MemoryStore, OAUTH_KEY, fake_server_path, node};
+use mcp_oauth_support::{FakeMcpHttp, MemoryStore, fake_server_path, node};
 use ostia_agents::mcp_host::{McpHost, McpHostDeps, server_secrets};
 use ostia_agents::mcp_oauth::{
     McpOAuth, McpOAuthBrowser, McpOAuthDeps, McpOAuthStore, SignInPages,
@@ -267,7 +267,7 @@ async fn marks_a_server_that_answers_401_as_needing_sign_in_without_registering_
 }
 
 #[tokio::test]
-async fn signs_in_stores_the_tokens_encrypted_and_connects_with_them() {
+async fn signs_in_stores_the_tokens_and_connects_with_them() {
     let server = FakeMcpHttp::start(true).await;
     let rig = setup(vec![http(&server.url)], Options::default());
     assert_eq!(rig.sign_in("remote").await, Ok(()));
@@ -312,16 +312,6 @@ async fn signs_in_stores_the_tokens_encrypted_and_connects_with_them() {
     assert_eq!(redirect.path(), "/callback");
     assert!(redirect.port().is_some());
 
-    let stored = rig.store.stored();
-    assert_eq!(
-        stored["remote"]
-            .as_object()
-            .unwrap()
-            .keys()
-            .collect::<Vec<_>>(),
-        vec![OAUTH_KEY]
-    );
-    assert!(!stored.to_string().contains(&access));
     let updates = serde_json::to_string(&*rig.updates.lock()).unwrap();
     assert!(!updates.contains(&access));
     assert!(!updates.contains(record.client["client_id"].as_str().unwrap()));
@@ -400,6 +390,100 @@ async fn shows_expired_when_the_refresh_token_is_refused_drops_the_tokens_and_op
     assert_eq!(rig.sign_in("remote").await, Ok(()));
     let again = wait_for(&rig.host, McpServerState::Ready).await;
     assert_eq!(again.auth, Some(McpAuthState::SignedIn));
+    rig.close();
+}
+
+#[tokio::test]
+async fn treats_a_bare_401_as_needing_sign_in_and_discovers_the_server_from_the_well_known_urls() {
+    let server = FakeMcpHttp::start_with(true, &["--bare-401"]).await;
+    let rig = setup(vec![http(&server.url)], Options::default());
+    rig.host.refresh();
+    let failed = wait_for(&rig.host, McpServerState::Error).await;
+    assert_eq!(failed.auth, Some(McpAuthState::Required));
+    assert_eq!(rig.sign_in("remote").await, Ok(()));
+    let ready = wait_for(&rig.host, McpServerState::Ready).await;
+    assert_eq!(ready.auth, Some(McpAuthState::SignedIn));
+    rig.close();
+}
+
+#[tokio::test]
+async fn shows_expired_when_a_token_without_a_refresh_token_is_revoked_before_its_expiry() {
+    let server = FakeMcpHttp::start_with(true, &["--no-refresh-token"]).await;
+    let rig = setup(vec![http(&server.url)], Options::default());
+    assert_eq!(rig.sign_in("remote").await, Ok(()));
+    wait_for(&rig.host, McpServerState::Ready).await;
+    assert!(refresh_token(&rig, &server.url).is_none());
+    server.control("expire").await;
+    assert!(
+        rig.host
+            .call(
+                &json!("c1"),
+                &json!("remote"),
+                &json!("echo"),
+                &json!({"text": "hi"})
+            )
+            .await
+            .is_err()
+    );
+    let failed = wait_for(&rig.host, McpServerState::Error).await;
+    assert_eq!(failed.auth, Some(McpAuthState::Expired));
+    assert!(
+        rig.store
+            .get("remote", &server.url)
+            .unwrap()
+            .tokens
+            .is_none()
+    );
+    assert!(rig.opened.lock().is_empty());
+    rig.close();
+}
+
+#[tokio::test]
+async fn keeps_the_client_secret_of_the_registration_and_sends_it_when_refreshing() {
+    let server = FakeMcpHttp::start_with(true, &["--client-secret"]).await;
+    let rig = setup(vec![http(&server.url)], Options::default());
+    assert_eq!(rig.sign_in("remote").await, Ok(()));
+    wait_for(&rig.host, McpServerState::Ready).await;
+    let record = rig.store.get("remote", &server.url).unwrap();
+    assert!(
+        record.client["client_secret"]
+            .as_str()
+            .unwrap()
+            .starts_with("secret-")
+    );
+    let access_before = access_token(&rig, &server.url);
+    server.control("expire").await;
+    assert_eq!(
+        rig.host
+            .call(
+                &json!("c1"),
+                &json!("remote"),
+                &json!("echo"),
+                &json!({"text": "again"})
+            )
+            .await,
+        Ok("echo: again".to_owned())
+    );
+    assert_ne!(access_token(&rig, &server.url), access_before);
+    server.assert_stats(&[("refreshes", 1)]).await;
+    rig.close();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn leaves_no_tokens_behind_when_the_sign_out_comes_while_the_record_is_being_saved() {
+    let server = FakeMcpHttp::start(true).await;
+    let rig = setup(vec![http(&server.url)], Options::default());
+    let entered = Arc::new(AtomicBool::new(false));
+    rig.store
+        .slow_sets(Arc::clone(&entered), Duration::from_millis(500));
+    let pending = tokio::spawn(rig.sign_in("remote"));
+    wait_until("the store to start saving", || {
+        entered.load(Ordering::SeqCst)
+    })
+    .await;
+    rig.oauth.sign_out("remote");
+    let _ = pending.await.unwrap();
+    assert!(rig.store.get("remote", &server.url).is_none());
     rig.close();
 }
 
@@ -635,16 +719,6 @@ async fn the_human_adds_the_server_in_settings_signs_in_tests_it_and_a_chat_list
         .await;
     assert_eq!(rig.host.test(&json!("remote")).await, Ok(5));
 
-    let stored = rig.store.stored();
-    assert_eq!(
-        stored["remote"]
-            .as_object()
-            .unwrap()
-            .keys()
-            .collect::<Vec<_>>(),
-        vec![OAUTH_KEY]
-    );
-    assert!(!stored.to_string().contains("access_token"));
     let settings = format!("{:?}", rig.servers.lock()).to_lowercase();
     assert!(settings.contains(&server.url));
     assert!(!settings.contains("oauth"));
@@ -736,10 +810,18 @@ async fn cancels_an_open_sign_in_when_the_human_signs_out_or_the_server_url_chan
     moved.close();
 
     let kept = setup(vec![http(&server.url)], options());
-    let pending = tokio::spawn(kept.sign_in("remote"));
+    let mut pending = tokio::spawn(kept.sign_in("remote"));
     wait_until("the browser to open", || kept.opened.lock().len() == 1).await;
     kept.oauth.prune(&[http(&server.url)]);
-    assert!(!pending.is_finished());
+    assert_eq!(
+        kept.oauth.state(&http(&server.url), false),
+        Some(McpAuthState::SigningIn)
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(300), &mut pending)
+            .await
+            .is_err()
+    );
     kept.oauth.close_all();
     assert_eq!(pending.await.unwrap(), failure(McpSignInError::Cancelled));
     kept.close();

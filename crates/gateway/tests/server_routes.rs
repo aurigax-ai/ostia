@@ -8,7 +8,8 @@ use std::future::Future;
 use ostia_gateway::device_keys::Registration;
 use ostia_gateway::server_client::ServerError;
 use ostia_gateway::server_routes::{
-    CreateShareBody, DeleteShareAuth, GithubPolled, ServerRoutes, ShareMode, WrapSlot,
+    CreateShareBody, DeleteShareAuth, GithubFlow, GithubPolled, ServerRoutes, ShareMode, WrapBlob,
+    WrapSlot,
 };
 use serde_json::json;
 use support::{Harness, MockServer, Recorded, Reply, harness, headers_of};
@@ -497,4 +498,42 @@ async fn reports_a_failure_of_a_route_as_the_server_error_of_the_client() {
         .await
         .unwrap_err();
     assert_eq!((error.status, error.code.as_str()), (403, "invalid-invite"));
+}
+
+#[tokio::test]
+async fn names_a_reply_of_the_wrong_shape_bad_response_with_the_status_it_came_with() {
+    let server = MockServer::start(vec![
+        Reply::json(201, &json!({"unexpected": true})),
+        Reply::json(202, &json!({"status": "pending"})),
+    ])
+    .await;
+    let harness = harness(&server.origin);
+    let routes = ServerRoutes::new(harness.client.clone());
+    let device = routes.github_device().await.unwrap_err();
+    assert_eq!((device.status, device.code.as_str()), (201, "bad-response"));
+    let polled = routes
+        .github_poll("flow", "My laptop", &registration())
+        .await
+        .unwrap_err();
+    assert_eq!((polled.status, polled.code.as_str()), (202, "bad-response"));
+}
+
+#[test]
+fn keeps_the_flow_id_and_the_wrap_blob_out_of_their_debug_text() {
+    let flow: GithubFlow = serde_json::from_value(json!({
+        "flowId": "flow-id-secret",
+        "userCode": "ABCD-1234",
+        "verificationUri": "https://example.test/device",
+        "interval": 5,
+        "expiresIn": 900,
+    }))
+    .unwrap();
+    let shown = format!("{flow:?}");
+    assert!(!shown.contains("flow-id-secret"), "{shown}");
+    assert!(shown.contains("ABCD-1234"), "{shown}");
+    let wrap: WrapBlob =
+        serde_json::from_value(json!({"slot": "passphrase", "blob": "blob-secret"})).unwrap();
+    let shown = format!("{wrap:?}");
+    assert!(!shown.contains("blob-secret"), "{shown}");
+    assert!(shown.contains("passphrase"), "{shown}");
 }

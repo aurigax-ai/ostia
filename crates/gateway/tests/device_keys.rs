@@ -230,7 +230,7 @@ fn hashes_a_body_as_unpadded_url_safe_sha256_of_its_utf8_bytes() {
     assert_eq!(digest_of(""), "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU");
     assert_eq!(
         digest_of("é"),
-        URL_SAFE_NO_PAD.encode(<sha2::Sha256 as sha2::Digest>::digest("é".as_bytes()))
+        "SplVfkAzw1Od4utlRyAXytX5VX96BiWgnxw_biumnEw"
     );
 }
 
@@ -242,6 +242,7 @@ fn keeps_the_private_keys_out_of_its_debug_text() {
     let sign_seed = text(&vectors, "signSeed");
     assert!(!shown.contains(&sign_seed), "{shown}");
     let seeds = seeds_of(&keys);
+    assert!(!shown.contains(&format!("{:?}", seeds.sign)), "{shown}");
     let shown_seeds = format!("{seeds:?}");
     assert!(!shown_seeds.contains(&sign_seed), "{shown_seeds}");
     assert!(

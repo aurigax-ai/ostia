@@ -285,7 +285,18 @@ async fn writes_nothing_on_close_or_flush_when_nothing_was_loaded() {
 #[tokio::test(start_paused = true)]
 async fn writes_by_itself_after_the_flush_delay_and_only_once_for_many_calls() {
     let env = Env::new();
-    let usage = env.log();
+    let writes = Arc::new(AtomicUsize::new(0));
+    let counted = Arc::clone(&writes);
+    let usage = ScriptTokenUsageLog::new(
+        env.file.clone(),
+        UsageLogOptions {
+            known: Some(Arc::new(move || {
+                counted.fetch_add(1, Ordering::SeqCst);
+                HashSet::from(["t1".to_owned()])
+            })),
+            ..env.options()
+        },
+    );
     usage.record("t1", call("a", Outcome::Ok));
     tokio::time::sleep(Duration::from_millis(59_000)).await;
     usage.record("t1", call("b", Outcome::Ok));
@@ -296,6 +307,47 @@ async fn writes_by_itself_after_the_flush_delay_and_only_once_for_many_calls() {
     }
     assert!(env.file.exists());
     assert_eq!(env.stored()["t1"]["calls"].as_array().unwrap().len(), 2);
+    assert_eq!(writes.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn keeps_what_close_wrote_when_an_earlier_write_comes_late() {
+    let env = Env::new();
+    let usage = env.log();
+    usage.record("t1", call("a", Outcome::Ok));
+    let late = usage.flush();
+    usage.record("t1", call("b", Outcome::Ok));
+    usage.close();
+    late.await;
+    assert_eq!(env.stored()["t1"]["calls"].as_array().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn releases_a_connection_when_its_handle_is_dropped() {
+    let env = Env::new();
+    let usage = env.log();
+    {
+        let _held = usage.connected("t1", pid(5));
+        assert_eq!(usage.usage("t1").connections, [pid(5)]);
+    }
+    assert!(usage.usage("t1").connections.is_empty());
+}
+
+#[tokio::test]
+async fn lets_the_later_row_win_when_two_stored_hours_share_a_slot() {
+    let env = Env::new();
+    let hour = START / HOUR;
+    fs::write(
+        &env.file,
+        json!({"t1": {"calls": [], "hours": [
+            [hour, 4, 1],
+            [hour - 23, 2, 2],
+            [hour - 24, 9, 9]
+        ]}})
+        .to_string(),
+    )
+    .unwrap();
+    assert_eq!(env.log().usage("t1").last24h, last24h(2, 2));
 }
 
 #[tokio::test]

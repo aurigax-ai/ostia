@@ -6,7 +6,7 @@ use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use futures_util::FutureExt;
 use futures_util::future::{BoxFuture, Shared, join};
 use ostia_base::clock::{Clock, system_clock};
-use ostia_base::json_store::{SaveOptions, load_json, save_json, save_json_async};
+use ostia_base::json_store::{SaveOptions, load_json, save_json};
 use ostia_contract::script_tokens::{
     ScriptTokenCall, ScriptTokenCallOutcome, ScriptTokenCallTarget,
 };
@@ -279,12 +279,14 @@ struct State {
     timer: Option<JoinHandle<()>>,
     writing: Writing,
     next_key: u64,
+    writes: u64,
 }
 
 struct Inner {
     path: PathBuf,
     options: UsageLogOptions,
     state: Mutex<State>,
+    landed: Arc<Mutex<u64>>,
 }
 
 impl Inner {
@@ -319,10 +321,27 @@ impl Inner {
         };
         let target = self.path.clone();
         let previous = state.writing.clone();
+        state.writes += 1;
+        let sequence = state.writes;
+        let landed = Arc::clone(&self.landed);
         let next: Writing = async move {
             previous.await;
-            if let Err(err) = save_json_async(&target, &out, SaveOptions::SECURE).await {
-                tracing::error!("[script-token-usage] write failed: {err}");
+            let written = tokio::task::spawn_blocking(move || {
+                let mut newest = landed.lock();
+                if *newest > sequence {
+                    return Ok(());
+                }
+                let result = save_json(&target, &out, SaveOptions::SECURE);
+                if result.is_ok() {
+                    *newest = sequence;
+                }
+                result
+            })
+            .await;
+            match written {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => tracing::error!("[script-token-usage] write failed: {err}"),
+                Err(err) => tracing::error!("[script-token-usage] write failed: {err}"),
             }
         }
         .boxed()
@@ -385,6 +404,12 @@ pub struct ConnectionRelease {
     key: u64,
 }
 
+impl Drop for ConnectionRelease {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
 impl ConnectionRelease {
     pub fn release(&self) {
         let mut state = self.inner.state.lock();
@@ -412,7 +437,9 @@ impl ScriptTokenUsageLog {
                     timer: None,
                     writing: idle.shared(),
                     next_key: 0,
+                    writes: 0,
                 }),
+                landed: Arc::new(Mutex::new(0)),
             }),
         }
     }
@@ -524,10 +551,15 @@ impl ScriptTokenUsageLog {
     pub fn close(&self) {
         let mut state = self.inner.state.lock();
         Inner::cancel(&mut state);
-        if let Some(out) = self.inner.snapshot(&state)
-            && let Err(err) = save_json(&self.inner.path, &out, SaveOptions::SECURE)
-        {
-            tracing::error!("[script-token-usage] close write failed: {err}");
+        let Some(out) = self.inner.snapshot(&state) else {
+            return;
+        };
+        state.writes += 1;
+        let sequence = state.writes;
+        let mut newest = self.inner.landed.lock();
+        match save_json(&self.inner.path, &out, SaveOptions::SECURE) {
+            Ok(()) => *newest = sequence,
+            Err(err) => tracing::error!("[script-token-usage] close write failed: {err}"),
         }
     }
 }

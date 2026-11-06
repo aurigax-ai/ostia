@@ -177,6 +177,14 @@ fn counts_message_length_in_characters_of_the_basic_plane() {
 }
 
 #[test]
+fn stops_before_a_character_outside_the_basic_plane_that_does_not_fit() {
+    let kept = keep_errors(&[], error("a😀"), 2);
+    assert_eq!(kept[0].message, "a");
+    let fits = keep_errors(&[], error("a😀"), 3);
+    assert_eq!(fits[0].message, "a😀");
+}
+
+#[test]
 fn keeps_the_other_fields_of_a_cut_error() {
     let long = PreviewError {
         kind: PreviewErrorKind::Blocked,
@@ -347,6 +355,29 @@ fn keeps_at_most_16_variables_in_the_order_given() {
     assert_eq!(kept.len(), 16);
     assert_eq!(kept.keys().next().unwrap(), "--ostia-a");
     assert_eq!(kept.keys().next_back().unwrap(), "--ostia-p");
+}
+
+#[test]
+fn keeps_the_first_16_variables_given_even_when_they_are_not_in_sorted_order() {
+    let mut vars = serde_json::Map::new();
+    for i in (0..20).rev() {
+        vars.insert(
+            format!("--ostia-{}", (b'a' + i) as char),
+            json!(i.to_string()),
+        );
+    }
+    let result = theme(json!({"dark": false, "vars": vars}));
+    let kept: Vec<&str> = result["vars"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    let expected: Vec<String> = (4..20)
+        .rev()
+        .map(|i| format!("--ostia-{}", (b'a' + i) as char))
+        .collect();
+    assert_eq!(kept, expected);
 }
 
 #[test]

@@ -1439,7 +1439,7 @@ writeFileSync(
 
 const PORTABLE_THEMES = [
   { dark: false, vars: {} },
-  { dark: true, vars: { '--ostia-bg': '#1d2022', '--ostia-font': 'Inter, "Noto Sans", sans-serif' } },
+  { dark: true, vars: { '--ostia-font': 'Inter, "Noto Sans", sans-serif', '--ostia-bg': '#1d2022' } },
 ].map((theme) => htmlPreview.normalizePreviewTheme(theme))
 const portableManifest = (type, name, theme, sources) => ({
   format: portable.PORTABLE_FORMAT,
@@ -1460,8 +1460,8 @@ const PORTABLE_WRAP_INPUTS = [
   {
     document: '<p class="x">a & b "q" <script>1<2</script></p>',
     manifest: portableManifest('component', 'A <b>&</b> "c"', PORTABLE_THEMES[1], {
-      'App.tsx': 'const a = "</script><x>"',
       'b.css': 'a{}',
+      'App.tsx': 'const a = "</script><x>"',
     }),
   },
   {

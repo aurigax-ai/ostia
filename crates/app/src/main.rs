@@ -1,12 +1,12 @@
 use ostia_app::App;
+use ostia_app::logging::log_filter;
 use ostia_base::host::Host;
 use tokio::signal::unix::{SignalKind, signal};
-use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(log_filter())
         .with_writer(std::io::stderr)
         .init();
     let app = App::start(&Host::current())?;

@@ -4,6 +4,8 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use ostia_agents::mcp_oauth::{McpOAuthRecord, McpOAuthStore};
 use ostia_contract::chat_tools::McpServerSettings;
@@ -13,8 +15,6 @@ use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::process::{Child, ChildStdin, Command};
-
-pub const OAUTH_KEY: &str = "oauth:session";
 
 pub fn node() -> String {
     let path = std::env::var_os("PATH").unwrap();
@@ -33,6 +33,12 @@ pub fn fake_server_path() -> PathBuf {
 pub struct MemoryStore {
     records: Mutex<BTreeMap<String, McpOAuthRecord>>,
     encrypts: bool,
+    slow_set: Mutex<Option<SlowSet>>,
+}
+
+struct SlowSet {
+    entered: Arc<AtomicBool>,
+    delay: Duration,
 }
 
 impl MemoryStore {
@@ -40,6 +46,7 @@ impl MemoryStore {
         Arc::new(Self {
             records: Mutex::new(BTreeMap::new()),
             encrypts: true,
+            slow_set: Mutex::new(None),
         })
     }
 
@@ -47,23 +54,29 @@ impl MemoryStore {
         Arc::new(Self {
             records: Mutex::new(BTreeMap::new()),
             encrypts: false,
+            slow_set: Mutex::new(None),
         })
     }
 
     pub fn stored(&self) -> Value {
         let mut file = serde_json::Map::new();
         for (server, record) in self.records.lock().iter() {
-            let plain = json!({
-                "url": record.url,
-                "redirectUrl": record.redirect_url,
-                "client": record.client,
-                "tokens": record.tokens,
-                "expiresAt": record.expires_at,
-            });
-            let sealed = format!("enc:{}", hex::encode(plain.to_string()));
-            file.insert(server.clone(), json!({ OAUTH_KEY: sealed }));
+            file.insert(
+                server.clone(),
+                json!({
+                    "url": record.url,
+                    "redirectUrl": record.redirect_url,
+                    "client": record.client,
+                    "tokens": record.tokens,
+                    "expiresAt": record.expires_at,
+                }),
+            );
         }
         Value::Object(file)
+    }
+
+    pub fn slow_sets(&self, entered: Arc<AtomicBool>, delay: Duration) {
+        *self.slow_set.lock() = Some(SlowSet { entered, delay });
     }
 
     pub fn raw(&self, server: &str) -> Option<McpOAuthRecord> {
@@ -85,6 +98,15 @@ impl McpOAuthStore for MemoryStore {
     fn set(&self, server: &str, record: McpOAuthRecord) -> Result<(), String> {
         if !self.encrypts {
             return Err("encryption-unavailable".to_owned());
+        }
+        let slow = self
+            .slow_set
+            .lock()
+            .as_ref()
+            .map(|slow| (Arc::clone(&slow.entered), slow.delay));
+        if let Some((entered, delay)) = slow {
+            entered.store(true, Ordering::SeqCst);
+            std::thread::sleep(delay);
         }
         self.records.lock().insert(server.to_owned(), record);
         Ok(())
@@ -117,11 +139,16 @@ pub struct FakeMcpHttp {
 
 impl FakeMcpHttp {
     pub async fn start(oauth: bool) -> Self {
+        Self::start_with(oauth, &[]).await
+    }
+
+    pub async fn start_with(oauth: bool, flags: &[&str]) -> Self {
         let mut command = Command::new(node());
         command.arg(fake_server_path()).arg("--http");
         if oauth {
             command.arg("--oauth");
         }
+        command.args(flags);
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

@@ -92,6 +92,53 @@ async fn sva_c12_refuses_to_follow_a_redirect() {
 }
 
 #[tokio::test]
+async fn treats_every_redirect_as_unreachable_with_or_without_a_location() {
+    let server = MockServer::start(vec![
+        Reply::empty(301),
+        Reply::empty(302),
+        Reply::empty(303),
+        Reply::empty(307),
+        Reply::empty(308),
+    ])
+    .await;
+    let harness = harness(&server.origin);
+    for _ in 0..5 {
+        let error = failure(&harness.client, "/v1/x", &RequestOptions::default()).await;
+        assert_eq!((error.status, error.code.as_str()), (0, "unreachable"));
+    }
+}
+
+const PROXY_CHILD: &str = "OSTIA_TEST_PROXY_CHILD";
+const PROXY_TEST: &str = "ignores_the_proxy_variables_of_the_environment";
+
+#[tokio::test]
+async fn ignores_the_proxy_variables_of_the_environment() {
+    if std::env::var_os(PROXY_CHILD).is_none() {
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", PROXY_TEST, "--test-threads=1"])
+            .env(PROXY_CHILD, "1")
+            .env("HTTP_PROXY", "http://127.0.0.1:9")
+            .env("http_proxy", "http://127.0.0.1:9")
+            .env("ALL_PROXY", "http://127.0.0.1:9")
+            .env("all_proxy", "http://127.0.0.1:9")
+            .env_remove("NO_PROXY")
+            .env_remove("no_proxy")
+            .status()
+            .unwrap();
+        assert!(status.success());
+        return;
+    }
+    let server = MockServer::start(vec![Reply::json(200, &json!({"ok": 1}))]).await;
+    let harness = harness(&server.origin);
+    let answer = harness
+        .client
+        .request("GET", "/v1/x", &RequestOptions::default())
+        .await
+        .unwrap();
+    assert_eq!(answer, Some(json!({"ok": 1})));
+}
+
+#[tokio::test]
 async fn sva_c13_answers_nothing_for_204() {
     let server = MockServer::start(vec![Reply::empty(204)]).await;
     let harness = harness(&server.origin);

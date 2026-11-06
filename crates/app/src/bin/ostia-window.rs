@@ -1,8 +1,8 @@
+use ostia_app::logging::log_filter;
 use ostia_app::shell::bridge::Bridge;
 use ostia_app::shell::{Screen, ShellOptions, Terminals, run_window};
 use ostia_base::host::Host;
 use ostia_model::ids::IdNamespace;
-use tracing_subscriber::EnvFilter;
 
 fn value_of(args: &[String], flag: &str) -> Option<String> {
     args.iter()
@@ -13,7 +13,7 @@ fn value_of(args: &[String], flag: &str) -> Option<String> {
 
 fn main() {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(log_filter())
         .with_writer(std::io::stderr)
         .init();
     let args: Vec<String> = std::env::args().skip(1).collect();

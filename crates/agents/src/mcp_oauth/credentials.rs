@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use ostia_base::clock::Clock;
-use rmcp::transport::auth::{AuthError, CredentialStore, OAuthTokenResponse, StoredCredentials};
+use rmcp::transport::auth::{
+    AuthError, CredentialRefreshGuard, CredentialStore, OAuthTokenResponse, StoredCredentials,
+};
 use serde_json::Value;
 
 use super::record::{McpOAuthRecord, McpOAuthStore};
@@ -125,6 +127,18 @@ impl CredentialStore for RecordCredentials {
     async fn clear(&self) -> Result<(), AuthError> {
         self.lapse();
         Ok(())
+    }
+
+    async fn acquire_refresh_guard(&self) -> Result<Option<CredentialRefreshGuard>, AuthError> {
+        let unrefreshable = self
+            .store
+            .get(&self.name, &self.url)
+            .and_then(|record| record.tokens)
+            .is_some_and(|tokens| !has_refresh_token(&tokens));
+        if unrefreshable {
+            self.lapse();
+        }
+        Ok(None)
     }
 
     async fn on_refresh_token_rejected(

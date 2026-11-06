@@ -20,8 +20,9 @@ fn start(signed_in: bool, fails: bool) -> Account {
     let stop = start_server_heartbeat(
         move || signed_in,
         move || {
-            counted.fetch_add(1, Ordering::SeqCst);
+            let counted = counted.clone();
             async move {
+                counted.fetch_add(1, Ordering::SeqCst);
                 if fails {
                     Err(ServerError::new(429, "rate-limited"))
                 } else {
@@ -47,9 +48,8 @@ fn count(account: &Account) -> usize {
 #[tokio::test(start_paused = true)]
 async fn sya_c200_checks_in_at_start_and_then_every_24_hours_while_signed_in() {
     let account = start(true, false);
-    assert_eq!(count(&account), 1, "the first check starts at the call");
     advance(Duration::ZERO).await;
-    assert_eq!(count(&account), 1);
+    assert_eq!(count(&account), 1, "the first check starts at the call");
     advance(DAY - Duration::from_secs(1)).await;
     assert_eq!(count(&account), 1);
     advance(Duration::from_secs(2)).await;
@@ -85,8 +85,11 @@ async fn asks_the_account_again_each_day_so_a_sign_out_stops_the_next_check() {
     let stop = start_server_heartbeat(
         move || flag.load(Ordering::SeqCst),
         move || {
-            counted.fetch_add(1, Ordering::SeqCst);
-            async { Ok(()) }
+            let counted = counted.clone();
+            async move {
+                counted.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
         },
     );
     advance(Duration::ZERO).await;

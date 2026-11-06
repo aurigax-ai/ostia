@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::device_keys::Registration;
-use crate::server_client::{RequestOptions, ServerClient, ServerError};
+use crate::server_client::{Answered, RequestOptions, ServerClient, ServerError};
 
 const URI_COMPONENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
@@ -139,7 +139,7 @@ pub struct DeviceRegistered {
     pub provider: String,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GithubFlow {
     pub flow_id: String,
@@ -147,6 +147,18 @@ pub struct GithubFlow {
     pub verification_uri: String,
     pub interval: i64,
     pub expires_in: i64,
+}
+
+impl fmt::Debug for GithubFlow {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("GithubFlow")
+            .field("user_code", &self.user_code)
+            .field("verification_uri", &self.verification_uri)
+            .field("interval", &self.interval)
+            .field("expires_in", &self.expires_in)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -223,10 +235,19 @@ pub struct Collected {
     pub deleted: i64,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct WrapBlob {
     pub slot: String,
     pub blob: String,
+}
+
+impl fmt::Debug for WrapBlob {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("WrapBlob")
+            .field("slot", &self.slot)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -257,16 +278,17 @@ struct PollBody<'a> {
     registration: &'a Registration,
 }
 
-fn bad_response() -> ServerError {
-    ServerError::new(200, "bad-response")
+fn bad_response(status: u16) -> ServerError {
+    ServerError::new(status, "bad-response")
 }
 
 fn body_of(body: &impl Serialize) -> Result<Value, ServerError> {
-    serde_json::to_value(body).map_err(|_| bad_response())
+    serde_json::to_value(body).map_err(|_| bad_response(0))
 }
 
-fn decode<T: DeserializeOwned>(answer: Option<Value>) -> Result<T, ServerError> {
-    serde_json::from_value(answer.unwrap_or(Value::Null)).map_err(|_| bad_response())
+fn decode<T: DeserializeOwned>(answered: Answered) -> Result<T, ServerError> {
+    serde_json::from_value(answered.body.unwrap_or(Value::Null))
+        .map_err(|_| bad_response(answered.status))
 }
 
 fn signed_headers(if_match: &str, signed: &BTreeMap<String, String>) -> BTreeMap<String, String> {
@@ -295,7 +317,7 @@ impl ServerRoutes {
         path: &str,
         options: RequestOptions,
     ) -> Result<T, ServerError> {
-        decode(self.client.request(method, path, &options).await?)
+        decode(self.client.exchange(method, path, &options).await?)
     }
 
     async fn send(
@@ -351,17 +373,20 @@ impl ServerRoutes {
             name,
             registration,
         })?;
-        let answer: Value = self
-            .fetch(
+        let answered = self
+            .client
+            .exchange(
                 "POST",
                 "/v1/auth/github/poll",
-                RequestOptions {
+                &RequestOptions {
                     body: Some(body),
                     reports_time: true,
                     ..Default::default()
                 },
             )
             .await?;
+        let status = answered.status;
+        let answer = answered.body.unwrap_or(Value::Null);
         let pending = answer
             .as_object()
             .filter(|fields| fields.get("status").and_then(Value::as_str) == Some("pending"));
@@ -370,10 +395,14 @@ impl ServerRoutes {
                 let interval = fields
                     .get("interval")
                     .and_then(Value::as_i64)
-                    .ok_or_else(bad_response)?;
+                    .ok_or_else(|| bad_response(status))?;
                 Ok(GithubPolled::Pending { interval })
             }
-            None => decode(Some(answer)).map(GithubPolled::Registered),
+            None => decode(Answered {
+                status,
+                body: Some(answer),
+            })
+            .map(GithubPolled::Registered),
         }
     }
 

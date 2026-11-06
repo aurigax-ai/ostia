@@ -128,6 +128,13 @@ fn failed(reason: &str) -> SignInFailure {
     SignInFailure::with_detail(McpSignInError::Failed, clip(reason))
 }
 
+fn client_of(granted: &authorize::Granted) -> Value {
+    match &granted.client_secret {
+        Some(secret) => json!({ "client_id": granted.client_id, "client_secret": secret }),
+        None => json!({ "client_id": granted.client_id }),
+    }
+}
+
 fn url_of(server: &McpServerSettings) -> Option<&str> {
     server.url.as_deref().filter(|url| !url.is_empty())
 }
@@ -260,7 +267,7 @@ impl McpOAuth {
         };
         let cancelled = flow.stop.is_cancelled();
         drop(guard);
-        if cancelled {
+        if cancelled && outcome.is_err() {
             return refused(McpSignInError::Cancelled);
         }
         outcome.map_err(|failure| McpSignInFailure {
@@ -280,7 +287,7 @@ impl McpOAuth {
         let redirect_url = listener.redirect_url.clone();
         let steps = async {
             let challenge = self.challenge(url, headers).await?;
-            let authorization = authorize::begin(url, &challenge, &redirect_url)
+            let authorization = authorize::begin(url, challenge.as_deref(), &redirect_url)
                 .await
                 .map_err(|reason| failed(&reason))?;
             listener.expect_state(&authorization.state);
@@ -290,23 +297,22 @@ impl McpOAuth {
                 .complete(&callback.code, callback.issuer.as_deref())
                 .await
                 .map_err(|reason| failed(&reason))?;
+            let expires_at =
+                expires_in_of(&granted.tokens).map(|ttl| expiry_after(&self.deps().clock, ttl));
+            let record = McpOAuthRecord {
+                url: url.to_owned(),
+                redirect_url: redirect_url.clone(),
+                client: client_of(&granted),
+                tokens: Some(granted.tokens),
+                expires_at,
+            };
+            let _flows = self.shared.flows.lock();
             if flow.stop.is_cancelled() {
                 return Err(SignInFailure::new(McpSignInError::Cancelled));
             }
-            let expires_at =
-                expires_in_of(&granted.tokens).map(|ttl| expiry_after(&self.deps().clock, ttl));
             self.deps()
                 .store
-                .set(
-                    &server.name,
-                    McpOAuthRecord {
-                        url: url.to_owned(),
-                        redirect_url: redirect_url.clone(),
-                        client: json!({ "client_id": granted.client_id }),
-                        tokens: Some(granted.tokens),
-                        expires_at,
-                    },
-                )
+                .set(&server.name, record)
                 .map_err(|reason| SignInFailure::with_detail(McpSignInError::Failed, reason))
         };
         tokio::select! {
@@ -320,7 +326,7 @@ impl McpOAuth {
         &self,
         url: &str,
         headers: &BTreeMap<String, String>,
-    ) -> Result<String, SignInFailure> {
+    ) -> Result<Option<String>, SignInFailure> {
         let target = Url::parse(url).map_err(|err| failed(&format!("Invalid URL: {err}")))?;
         let spec = HttpSpec {
             url: target,
@@ -332,7 +338,10 @@ impl McpOAuth {
                 client.close();
                 Err(SignInFailure::new(McpSignInError::NotNeeded))
             }
-            Err(failure) => failure.challenge.ok_or_else(|| failed(&failure.message)),
+            Err(failure) if failure.unauthorized || failure.challenge.is_some() => {
+                Ok(failure.challenge)
+            }
+            Err(failure) => Err(failed(&failure.message)),
         }
     }
 
@@ -366,11 +375,13 @@ impl McpOAuth {
     }
 
     pub fn sign_out(&self, name: &str) {
-        let flow = self.shared.flows.lock().get(name).cloned();
-        if let Some(flow) = flow {
-            flow.stop.cancel();
+        {
+            let flows = self.shared.flows.lock();
+            if let Some(flow) = flows.get(name) {
+                flow.stop.cancel();
+            }
+            self.deps().store.clear(name);
         }
-        self.deps().store.clear(name);
         (self.deps().on_change)();
     }
 

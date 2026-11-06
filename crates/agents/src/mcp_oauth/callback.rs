@@ -266,13 +266,9 @@ fn answer<B>(inner: &Inner, port: u16, request: &Request<B>) -> Response<Full<By
         )));
         return failed(400);
     };
-    let settled = inner.settle(Ok(CallbackResult {
+    inner.settle(Ok(CallbackResult {
         code,
         issuer: param("iss"),
     }));
-    if settled {
-        page(200, &inner.pages.done)
-    } else {
-        failed(404)
-    }
+    page(200, &inner.pages.done)
 }

@@ -111,7 +111,11 @@ function token() {
 function serveHttp() {
   const oauth = process.argv.includes('--oauth')
   const ttl = Number(option('--token-ttl') ?? 3600)
+  const bare401 = process.argv.includes('--bare-401')
+  const withoutRefreshToken = process.argv.includes('--no-refresh-token')
+  const issuesSecret = process.argv.includes('--client-secret')
   const clients = new Map()
+  const secrets = new Map()
   const codes = new Map()
   const accessTokens = new Set()
   const refreshTokens = new Map()
@@ -121,8 +125,9 @@ function serveHttp() {
 
   const issue = (clientId) => {
     const access = token()
-    const refresh = token()
     accessTokens.add(access)
+    if (withoutRefreshToken) return { access_token: access, token_type: 'Bearer', expires_in: ttl }
+    const refresh = token()
     refreshTokens.set(refresh, clientId)
     return { access_token: access, token_type: 'Bearer', expires_in: ttl, refresh_token: refresh }
   }
@@ -140,9 +145,11 @@ function serveHttp() {
         res,
         401,
         { error: 'unauthorized' },
-        {
-          'www-authenticate': `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp"`,
-        },
+        bare401
+          ? {}
+          : {
+              'www-authenticate': `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp"`,
+            },
       )
     }
     stats.calls += 1
@@ -163,7 +170,12 @@ function serveHttp() {
     const clientId = `client-${token()}`
     clients.set(clientId, body.redirect_uris)
     stats.registrations += 1
-    json(res, 201, { ...body, client_id: clientId, client_id_issued_at: 1 })
+    const reply = { ...body, client_id: clientId, client_id_issued_at: 1 }
+    if (issuesSecret) {
+      reply.client_secret = `secret-${token()}`
+      secrets.set(clientId, reply.client_secret)
+    }
+    json(res, 201, reply)
   }
 
   const authorize = (url, res) => {
@@ -195,9 +207,22 @@ function serveHttp() {
     res.end()
   }
 
+  const basicCredentials = (req) => {
+    const basic = /^Basic (.+)$/.exec(req.headers.authorization ?? '')
+    if (!basic) return null
+    const decoded = Buffer.from(basic[1], 'base64').toString()
+    const split = decoded.indexOf(':')
+    return [decodeURIComponent(decoded.slice(0, split)), decodeURIComponent(decoded.slice(split + 1))]
+  }
+
   const exchange = async (req, res) => {
     const form = new URLSearchParams(await readBody(req))
-    const clientId = form.get('client_id')
+    const basic = basicCredentials(req)
+    const clientId = form.get('client_id') ?? basic?.[0]
+    const clientSecret = form.get('client_secret') ?? basic?.[1]
+    if (secrets.has(clientId) && clientSecret !== secrets.get(clientId)) {
+      return json(res, 401, { error: 'invalid_client' })
+    }
     if (form.get('grant_type') === 'authorization_code') {
       const pending = codes.get(form.get('code'))
       codes.delete(form.get('code'))

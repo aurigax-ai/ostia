@@ -9,12 +9,14 @@ use serde_json::Value;
 pub(super) struct Authorization {
     session: AuthorizationSession,
     credentials: InMemoryCredentialStore,
+    client_secret: Option<String>,
     pub state: String,
     pub url: Url,
 }
 
 pub(super) struct Granted {
     pub client_id: String,
+    pub client_secret: Option<String>,
     pub tokens: Value,
 }
 
@@ -35,7 +37,7 @@ fn state_of(authorization_url: &str) -> Result<(Url, String), String> {
 
 pub(super) async fn begin(
     server_url: &str,
-    challenge: &str,
+    challenge: Option<&str>,
     redirect_url: &str,
 ) -> Result<Authorization, String> {
     let credentials = InMemoryCredentialStore::new();
@@ -44,11 +46,24 @@ pub(super) async fn begin(
         .map_err(text_of)?;
     manager.set_credential_store(credentials.clone());
     let resolution = manager
-        .resolve_metadata_from_challenge(Some(challenge))
+        .resolve_metadata_from_challenge(challenge)
         .await
         .map_err(text_of)?;
     manager.set_metadata(resolution.metadata);
-    let request = AuthorizationRequest::new(redirect_url).with_client_name(PRODUCT_DISPLAY_NAME);
+    let scopes = manager.select_scopes(None, &[]);
+    let scope_refs: Vec<&str> = scopes.iter().map(String::as_str).collect();
+    let registered = manager
+        .register_client(PRODUCT_DISPLAY_NAME, redirect_url, &scope_refs)
+        .await
+        .map_err(|err| format!("Dynamic registration failed: {err}"))?;
+    let client_secret = registered.client_secret.clone();
+    let mut request = AuthorizationRequest::new(redirect_url)
+        .with_client_name(PRODUCT_DISPLAY_NAME)
+        .with_scopes(scopes)
+        .with_preregistered_client(registered.client_id);
+    if let Some(secret) = &client_secret {
+        request = request.with_client_secret(secret);
+    }
     let session = AuthorizationSession::new(manager, request)
         .await
         .map_err(|(_, err)| text_of(err))?;
@@ -56,6 +71,7 @@ pub(super) async fn begin(
     Ok(Authorization {
         session,
         credentials,
+        client_secret,
         state,
         url,
     })
@@ -81,6 +97,7 @@ impl Authorization {
         let tokens = serde_json::to_value(&token).map_err(text_of)?;
         Ok(Granted {
             client_id: stored.client_id,
+            client_secret: self.client_secret.clone(),
             tokens,
         })
     }

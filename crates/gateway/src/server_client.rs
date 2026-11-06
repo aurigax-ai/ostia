@@ -47,6 +47,12 @@ impl fmt::Display for ServerError {
 
 impl std::error::Error for ServerError {}
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Answered {
+    pub status: u16,
+    pub body: Option<Value>,
+}
+
 #[derive(Clone, Default)]
 pub struct RequestOptions {
     pub body: Option<Value>,
@@ -153,7 +159,7 @@ async fn failure_of(response: Response) -> ServerError {
     }
 }
 
-fn is_followable_redirect(response: &Response) -> bool {
+fn is_redirect(response: &Response) -> bool {
     matches!(
         response.status(),
         StatusCode::MOVED_PERMANENTLY
@@ -161,7 +167,7 @@ fn is_followable_redirect(response: &Response) -> bool {
             | StatusCode::SEE_OTHER
             | StatusCode::TEMPORARY_REDIRECT
             | StatusCode::PERMANENT_REDIRECT
-    ) && response.headers().contains_key("location")
+    )
 }
 
 fn header_pair(name: &str, value: &str) -> Option<(HeaderName, HeaderValue)> {
@@ -209,6 +215,7 @@ impl ServerClient {
     pub fn new(deps: ServerClientDeps) -> Self {
         let http = reqwest::Client::builder()
             .redirect(redirect::Policy::none())
+            .no_proxy()
             .build()
             .ok();
         Self {
@@ -245,7 +252,7 @@ impl ServerClient {
             request = request.body(body);
         }
         let response = request.send().await.map_err(|_| unreachable_error())?;
-        if is_followable_redirect(&response) {
+        if is_redirect(&response) {
             return Err(unreachable_error());
         }
         Ok(response)
@@ -286,19 +293,38 @@ impl ServerClient {
         path: &str,
         options: &RequestOptions,
     ) -> Result<Option<Value>, ServerError> {
+        self.exchange(method, path, options)
+            .await
+            .map(|answered| answered.body)
+    }
+
+    pub async fn exchange(
+        &self,
+        method: &str,
+        path: &str,
+        options: &RequestOptions,
+    ) -> Result<Answered, ServerError> {
         let response = self.answer(method, path, options).await?;
         let status = response.status();
         if status == StatusCode::NO_CONTENT {
-            return Ok(None);
+            return Ok(Answered {
+                status: 204,
+                body: None,
+            });
         }
         let bad_response = || ServerError::new(status.as_u16(), "bad-response");
         let text = response.text().await.map_err(|_| bad_response())?;
         if text.is_empty() {
-            return Ok(None);
+            return Ok(Answered {
+                status: status.as_u16(),
+                body: None,
+            });
         }
-        serde_json::from_str(&text)
-            .map(Some)
-            .map_err(|_| bad_response())
+        let body = serde_json::from_str(&text).map_err(|_| bad_response())?;
+        Ok(Answered {
+            status: status.as_u16(),
+            body: Some(body),
+        })
     }
 
     pub async fn request_bytes(

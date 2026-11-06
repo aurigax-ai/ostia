@@ -380,14 +380,38 @@ async fn ignores_a_later_callback_once_the_first_one_settled() {
         .await,
         200
     );
-    let _ = client()
-        .get(callback(
+    assert_eq!(
+        status(callback(
             &url,
             &[("code", "second"), ("state", "expected-state")],
         ))
-        .send()
-        .await;
+        .await,
+        200
+    );
     assert_eq!(listener.result().await.unwrap().code, "first".to_owned());
+    listener.close();
+}
+
+#[tokio::test]
+async fn refuses_every_callback_while_no_state_is_expected_yet() {
+    let listener = open_callback_listener(CallbackOptions {
+        state: String::new(),
+        timeout: Duration::from_secs(5),
+        pages: pages(),
+        redirect_name: None,
+    })
+    .await
+    .unwrap();
+    let url = listener.redirect_url.clone();
+    assert_eq!(
+        status(callback(&url, &[("code", "stolen"), ("state", "")])).await,
+        400
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(200), listener.result())
+            .await
+            .is_err()
+    );
     listener.close();
 }
 

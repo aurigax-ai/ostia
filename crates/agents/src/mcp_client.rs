@@ -13,7 +13,7 @@ use rmcp::model::{
     ClientConfig, ClientRequest, Implementation, ServerResult,
 };
 use rmcp::service::PeerRequestOptions;
-use rmcp::service::{QuitReason, RunningServiceCancellationToken};
+use rmcp::service::{ClientInitializeError, QuitReason, RunningServiceCancellationToken};
 use rmcp::transport::auth::AuthClient;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::transport::{IntoTransport, StreamableHttpClientTransport, TokioChildProcess};
@@ -26,6 +26,7 @@ const CLOSED: &str = "The connection closed";
 const ABANDONED: &str = "request abandoned by the caller";
 const TIMED_OUT: &str = "Request timed out";
 const UNAUTHORIZED: &str = "HTTP 401: authorization required";
+const BARE_UNAUTHORIZED: &str = "HTTP 401 Unauthorized";
 
 pub type McpHttpAuth = AuthClient<reqwest_rmcp::Client>;
 
@@ -42,6 +43,13 @@ impl From<String> for ConnectFailure {
             challenge: None,
             unauthorized: false,
         }
+    }
+}
+
+fn is_unauthorized(err: &ClientInitializeError) -> bool {
+    match err {
+        ClientInitializeError::LegacyFallbackFailed { fallback, .. } => is_unauthorized(fallback),
+        other => other.is_authorization_required() || other.to_string().contains(BARE_UNAUTHORIZED),
     }
 }
 
@@ -181,7 +189,7 @@ impl McpClient {
             .await
             .map_err(|_| ConnectFailure::from(TIMED_OUT.to_owned()))?
             .map_err(|err| {
-                let unauthorized = err.is_authorization_required();
+                let unauthorized = is_unauthorized(&err);
                 ConnectFailure {
                     challenge: err.auth_challenge().map(str::to_owned),
                     message: if unauthorized {

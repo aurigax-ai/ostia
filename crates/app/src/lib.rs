@@ -1,6 +1,7 @@
 #[cfg(feature = "window")]
 extern crate gpui_kit as gpui;
 
+pub mod logging;
 #[cfg(feature = "window")]
 pub mod shell;
 
